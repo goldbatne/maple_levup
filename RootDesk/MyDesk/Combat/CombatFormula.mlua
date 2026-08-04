@@ -1,0 +1,78 @@
+-- @서버 (전투 수치 계산의 유일한 창구. 클라이언트는 절대 이 값을 만들지 않는다)
+--
+-- 작업지시서 T3 ⚠️함정: "데미지 계산을 클라에서 하면 이후 전부 재작업".
+-- 그래서 공식을 여기 한 곳에 모으고, 호출은 서버 스크립트만 한다.
+-- 클라이언트는 서버가 만든 결과(HitEvent)를 받아 숫자를 띄우기만 한다.
+--
+-- 수치는 전부 GameBalance / SkillTable에서 읽는다 (하드코딩 금지 — 개발 규칙 3).
+-- 이 모듈은 상태를 갖지 않는다. 순수 계산만 한다.
+
+@Logic
+script CombatFormula extends Logic
+
+    ---------------------------------------------------------------
+    -- 데미지
+    ---------------------------------------------------------------
+
+    method integer CalcDamage(number atk, number def, number coefficient)
+        -- 기획서 4.5 / 밸런스시트: 데미지 = 계수 × ATK² / (ATK + DEF)
+        --
+        -- ATK²/(ATK+DEF) 꼴이라 DEF가 0이면 그냥 ATK가 된다.
+        -- 즉 방어력은 "데미지를 빼는" 게 아니라 "성장을 늦추는" 축이다.
+        if atk <= 0 then return 1 end
+
+        local denom = atk + def
+        if denom <= 0 then return 1 end
+
+        local raw = coefficient * (atk * atk) / denom
+
+        -- 표시는 정수다(DamageSkin이 정수 목록을 받는다). 반올림하되 최소 1은 보장한다 —
+        -- 0이 뜨면 "안 맞았다"로 보여서 고레벨 몬스터 앞에서 버그처럼 읽힌다.
+        local rounded = math.floor(raw + 0.5)
+        if rounded < 1 then return 1 end
+        return rounded
+    end
+
+    method number GetSkillCoefficient(string skillId)
+        -- 스킬 계수. 스킬을 지정하지 않으면(기본 공격) 시트의 기준 계수를 쓴다.
+        if skillId ~= nil and skillId ~= "" then
+            local skill = _GameData:GetSkill(skillId)
+            if skill ~= nil and skill.coefficient > 0 then
+                return skill.coefficient
+            end
+            log_warning("[CombatFormula] 스킬 계수를 찾지 못해 기준 계수로 대체: " .. tostring(skillId))
+        end
+        return _GameData:GetBalance("skill_coefficient_base")
+    end
+
+    method integer CalcSkillDamage(number atk, number def, string skillId)
+        -- 실제 호출부가 쓰는 진입점. 계수 조회와 계산을 한 번에 한다.
+        return self:CalcDamage(atk, def, self:GetSkillCoefficient(skillId))
+    end
+
+    ---------------------------------------------------------------
+    -- 몬스터 수치
+    ---------------------------------------------------------------
+
+    method number MonsterStatAtLevel(string baseKey, string ratioKey, number level)
+        -- 시트 공식: base × ratio^(level-1).
+        -- MonsterTable에 없는 레벨의 몬스터를 즉석에서 만들 때 쓴다.
+        -- 테이블에 있는 몬스터는 GetMonster를 쓸 것 — 확정값이 우선이다.
+        if level < 1 then level = 1 end
+        -- math.pow가 아니라 ^ 를 쓴다 — GameDataVerify에서 동작을 확인한 쪽이다.
+        return _GameData:GetBalance(baseKey) * (_GameData:GetBalance(ratioKey) ^ (level - 1))
+    end
+
+    ---------------------------------------------------------------
+    -- 검증·튜닝 보조
+    ---------------------------------------------------------------
+
+    method integer HitsToKill(number atk, number def, number hp, string skillId)
+        -- 몇 대에 죽는가. T3 완료 조건("Lv1 몬스터를 기준 빌드로 3~4타")과
+        -- 이후 밸런스 튜닝에서 시트 예측과 대조하는 데 쓴다.
+        local damage = self:CalcSkillDamage(atk, def, skillId)
+        if damage <= 0 then return 0 end
+        return math.ceil(hp / damage)
+    end
+
+end
