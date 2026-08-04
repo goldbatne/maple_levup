@@ -1,0 +1,136 @@
+-- @클라이언트 (UI는 클라이언트 전용. 모든 메서드에 개별로 @ExecSpace를 붙인다)
+--
+-- 스탯 표시 + 분배 버튼.
+--
+-- 왜 @Logic인가: UI 엔티티에 붙은 @Component는 Server/ServerOnly 메서드를 가질 수 없다
+-- (RPC가 조용히 죽고 @Sync도 동기화되지 않는다 — runtime-patterns "Runtime UI Caveats" 1).
+-- 그래서 컨트롤러를 UI 밖의 Logic으로 두고, UI 엔티티는 UUID 주입으로 참조한다.
+--
+-- ⚠ script 선언 위에 @ExecSpace를 붙이면 무효다. 라이프사이클이 서버에서도 돌아
+--    UI 참조가 nil이 되어 [LEA-2007]이 난다. 반드시 메서드마다 붙인다.
+--
+-- 분배는 서버 권한이다. 버튼은 PlayerStats의 Server RPC를 부르기만 한다.
+
+@Logic
+script StatPanel extends Logic
+
+    -- ── UI 참조 (UUID는 UIBuilder가 자동 주입한다) ──
+    property TextGUIRendererComponent levelValue = "61923e7c-fa95-45a6-accc-e22e044bdbd3"
+    property TextGUIRendererComponent pointsValue = "a723d6c5-9327-44ba-b144-4d1c4aae920d"
+    property TextGUIRendererComponent atkValue = "3a2e3bbb-00a3-4a9a-9795-1158c9531684"
+    property TextGUIRendererComponent intValue = "a912252f-b691-4c77-b112-5082f82361a7"
+    property TextGUIRendererComponent defValue = "5a29f249-ec99-42dd-b9d7-2fa64802641b"
+    property TextGUIRendererComponent lukValue = "2645729c-ff3f-459e-8c18-df7d8d5b00b6"
+
+    property ButtonComponent btnAtk = "effde891-8a7d-4089-bf5b-b7b6ff118100"
+    property ButtonComponent btnInt = "875e0789-179c-4c79-ad9a-4e670443efa8"
+    property ButtonComponent btnDef = "9efc1100-bde9-4c7c-8dfc-4356d3c8e894"
+    property ButtonComponent btnLuk = "86a0de9e-14d8-4bcc-899a-b2ba32c78dd3"
+
+    -- 여닫기. 창을 닫으면 다시 열 수단이 필요한데 모바일에는 키보드가 없다.
+    -- 그래서 키 토글이 아니라 화면에 남는 열기 버튼을 쓴다. 둘은 항상 반대 상태다.
+    property SpriteGUIRendererComponent windowRoot = "7e26cae7-9e82-48ac-90da-f627f9b4a481"
+    property ButtonComponent btnClose = "6a4f1b92-c890-478b-a61d-78099a7d8b02"
+    property ButtonComponent btnOpen = "74e5ec67-a422-4809-8f9f-24038244a161"
+
+    -- ── 이벤트 핸들러 (OnEndPlay에서 반드시 해제) ──
+    property any handlerAtk = nil
+    property any handlerInt = nil
+    property any handlerDef = nil
+    property any handlerLuk = nil
+    property any handlerClose = nil
+    property any handlerOpen = nil
+    property any refreshTimer = nil
+
+    -- 기본은 닫힘. 창이 닫혀 있으면 갱신을 건너뛴다.
+    property boolean isOpen = false
+
+    -- 표시 갱신 주기(초). @TargetUserSync 값 7개를 읽는 것뿐이라 비용은 무시할 만하다.
+    property number refreshInterval = 0.2
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        log("[StatPanel] OnBeginPlay")
+
+        self.handlerAtk = self.btnAtk.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:Allocate("ATK")
+        end)
+        self.handlerInt = self.btnInt.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:Allocate("INT")
+        end)
+        self.handlerDef = self.btnDef.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:Allocate("DEF")
+        end)
+        self.handlerLuk = self.btnLuk.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:Allocate("LUK")
+        end)
+
+        self.handlerClose = self.btnClose.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:SetOpen(false)
+        end)
+        self.handlerOpen = self.btnOpen.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:SetOpen(true)
+        end)
+
+        self.refreshTimer = _TimerService:SetTimerRepeat(function()
+            self:Refresh()
+        end, self.refreshInterval)
+
+        -- 기본은 닫힘. 열 때 SetOpen이 Refresh를 부르므로 여기서 따로 부르지 않는다.
+        self:SetOpen(false)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetOpen(boolean open)
+        -- 창과 열기 버튼은 항상 반대 상태여야 한다. 둘 다 보이면 겹치고,
+        -- 둘 다 숨으면 다시 열 방법이 없어진다.
+        self.isOpen = open
+        self.windowRoot.Entity:SetVisible(open)
+        self.btnOpen.Entity:SetVisible(not open)
+        if open then self:Refresh() end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- 연결한 것은 전부 해제한다 (스크립트 리로드 시 누수 방지).
+        if self.handlerAtk ~= nil then self.btnAtk.Entity:DisconnectEvent(ButtonClickEvent, self.handlerAtk) end
+        if self.handlerInt ~= nil then self.btnInt.Entity:DisconnectEvent(ButtonClickEvent, self.handlerInt) end
+        if self.handlerDef ~= nil then self.btnDef.Entity:DisconnectEvent(ButtonClickEvent, self.handlerDef) end
+        if self.handlerLuk ~= nil then self.btnLuk.Entity:DisconnectEvent(ButtonClickEvent, self.handlerLuk) end
+        if self.handlerClose ~= nil then self.btnClose.Entity:DisconnectEvent(ButtonClickEvent, self.handlerClose) end
+        if self.handlerOpen ~= nil then self.btnOpen.Entity:DisconnectEvent(ButtonClickEvent, self.handlerOpen) end
+        if self.refreshTimer ~= nil then _TimerService:ClearTimer(self.refreshTimer) end
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetStats()
+        -- 내 플레이어의 PlayerStats. 접속 직후엔 아직 없을 수 있다.
+        local me = _UserService.LocalPlayer
+        if me == nil then return nil end
+        return me:GetComponent("script.PlayerStats")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Allocate(string statName)
+        -- 검증은 서버가 한다. 여기서는 요청만 보낸다 (개발 규칙 2).
+        local stats = self:GetStats()
+        if stats == nil then return end
+        stats:RequestAllocate(statName, 1)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Refresh()
+        -- @TargetUserSync 값이라 내 클라에서 바로 읽힌다.
+        if not self.isOpen then return end
+        local stats = self:GetStats()
+        if stats == nil then return end
+
+        self.levelValue.Text = tostring(stats.Level)
+        self.pointsValue.Text = tostring(stats.UnspentPoints)
+        self.atkValue.Text = tostring(stats.StatAtk) .. "  (" .. tostring(stats:GetTotalAtk()) .. ")"
+        self.intValue.Text = tostring(stats.StatInt)
+        self.defValue.Text = tostring(stats.StatDef)
+        self.lukValue.Text = tostring(stats.StatLuk)
+    end
+
+end
