@@ -3843,7 +3843,7 @@
       {
         "id": "cdc4edc9-012a-4452-83c7-3541a993c5ec",
         "path": "/maps/map04/Portal_W",
-        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.PortalComponent,MOD.Core.TagComponent",
+        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.RoomPortal",
         "jsonString": {
           "name": "Portal_W",
           "path": "/maps/map04/Portal_W",
@@ -3895,23 +3895,27 @@
               "Enable": true
             },
             {
-              "@type": "MOD.Core.PortalComponent",
+              "@type": "MOD.Core.TagComponent",
+              "Enable": true
+            },
+            {
               "Enable": true,
               "BoxSize": {
                 "$type": "MOD.Core.MODVector2, MOD.Core",
                 "x": 3,
                 "y": 3
               },
-              "BoxOffset": {
+              "ColliderOffset": {
                 "$type": "MOD.Core.MODVector2, MOD.Core",
                 "x": 0,
                 "y": 0
               },
-              "PortalEntityRef": "1fba2e0e-a6d4-44c8-b5d7-1791e8b43706"
+              "@type": "MOD.Core.TriggerComponent"
             },
             {
-              "@type": "MOD.Core.TagComponent",
-              "Enable": true
+              "Enable": true,
+              "direction": "west",
+              "@type": "script.RoomPortal"
             }
           ],
           "@version": 1,
@@ -3927,7 +3931,7 @@
       {
         "id": "1e66d814-1f23-4d30-bfbd-9258eac8ec85",
         "path": "/maps/map04/Portal_E",
-        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.PortalComponent,MOD.Core.TagComponent",
+        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.RoomPortal",
         "jsonString": {
           "name": "Portal_E",
           "path": "/maps/map04/Portal_E",
@@ -3979,23 +3983,27 @@
               "Enable": true
             },
             {
-              "@type": "MOD.Core.PortalComponent",
+              "@type": "MOD.Core.TagComponent",
+              "Enable": true
+            },
+            {
               "Enable": true,
               "BoxSize": {
                 "$type": "MOD.Core.MODVector2, MOD.Core",
                 "x": 3,
                 "y": 3
               },
-              "BoxOffset": {
+              "ColliderOffset": {
                 "$type": "MOD.Core.MODVector2, MOD.Core",
                 "x": 0,
                 "y": 0
               },
-              "PortalEntityRef": "0ecb42a8-e23a-43ee-a3d1-a02b0febf15a"
+              "@type": "MOD.Core.TriggerComponent"
             },
             {
-              "@type": "MOD.Core.TagComponent",
-              "Enable": true
+              "Enable": true,
+              "direction": "east",
+              "@type": "script.RoomPortal"
             }
           ],
           "@version": 1,

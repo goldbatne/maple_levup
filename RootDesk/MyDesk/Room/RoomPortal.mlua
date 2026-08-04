@@ -1,0 +1,126 @@
+-- @서버 (이동 판정과 실행은 서버 권한. 클라는 아무 것도 하지 않는다)
+--
+-- 포탈에 닿으면 다음 방(맵)으로 보낸다.
+--
+-- 왜 PortalComponent.PortalEntityRef를 안 쓰는가:
+--   맵을 넘는 EntityRef는 런타임에 해석되지 않는다 (LWA-3019 경고 + 값이 nil).
+--   Maker에 저장을 맡겨도 참조가 null로 정리된다. 실측으로 확인.
+--   그래서 목적지는 RoomTable이 소유하고, 이동은 _TeleportService가 수행한다.
+--   기획서 6.2 "방/게이트는 데이터로 정의"에 부합하며,
+--   T6 게이트 3종(수치/열쇠/환생) 판정을 CanPass()에 끼워 넣을 자리가 된다.
+--
+-- 이 컴포넌트는 각 포탈 엔티티에 붙고, direction만 인스턴스별로 다르게 준다.
+
+@Component
+script RoomPortal extends Component
+
+    -- 이 포탈이 향하는 방향. RoomTable.conn_{north|south|east|west} 를 고르는 키.
+    property string direction = ""
+
+    -- 도착 지점 계산용. 반대편 포탈보다 안쪽에 내려놓아 즉시 재발동하는 것을 막는다.
+    property number portalX = 13        -- 좌우 포탈의 x 절대값
+    property number portalYNorth = 8    -- 위 포탈의 y
+    property number portalYSouth = -6   -- 아래 포탈의 y
+    property number portalYSide = 1     -- 좌우 포탈의 y
+    property number arriveInset = 2     -- 포탈에서 안쪽으로 물러나는 거리
+
+    property any enterHandler = nil
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- 트리거 진입 감지. ConnectEvent는 Component가 아니라 Entity에 건다.
+        if self.direction == "" then
+            log_warning("[RoomPortal] direction이 비어 있다: " .. self.Entity.Name)
+        end
+        self.enterHandler = self.Entity:ConnectEvent(TriggerEnterEvent, self.OnTriggerEnter)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnEndPlay()
+        -- OnBeginPlay에서 연결한 것은 반드시 해제한다.
+        if self.enterHandler ~= nil then
+            self.Entity:DisconnectEvent(TriggerEnterEvent, self.enterHandler)
+            self.enterHandler = nil
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnTriggerEnter(TriggerEnterEvent event)
+        -- 플레이어만 통과시킨다.
+        local other = event.TriggerBodyEntity
+        if other == nil then return end
+        if other.PlayerComponent == nil then return end
+        self:TryPass(other)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TryPass(Entity player)
+        -- 현재 방 → 이 방향의 다음 방을 RoomTable에서 찾아 이동시킨다.
+        local currentMap = self.Entity.CurrentMap
+        if currentMap == nil then
+            log_error("[RoomPortal] CurrentMap이 nil")
+            return
+        end
+
+        local room = _GameData:GetRoomByMapName(currentMap.Name)
+        if room == nil then
+            log_error("[RoomPortal] RoomTable에 없는 맵: " .. currentMap.Name)
+            return
+        end
+
+        local targetRoomId = self:ToText(room.connections[self.direction])
+        if targetRoomId == "" then
+            log_warning("[RoomPortal] " .. room.id .. " 의 " .. self.direction .. " 연결이 비어 있다")
+            return
+        end
+
+        local targetRoom = _GameData:GetRoom(targetRoomId)
+        if targetRoom == nil then
+            log_error("[RoomPortal] 없는 방을 가리킨다: " .. targetRoomId)
+            return
+        end
+        if targetRoom.map_name == "" then
+            log_error("[RoomPortal] " .. targetRoomId .. " 에 map_name이 없다")
+            return
+        end
+
+        -- T6에서 여기에 게이트 판정이 들어간다 (수치 / 열쇠 / 환생).
+        if not self:CanPass(player, targetRoom) then return end
+
+        local arrive = self:ArrivePosition()
+        log("[RoomPortal] " .. room.id .. "(" .. currentMap.Name .. ") --" .. self.direction
+            .. "--> " .. targetRoomId .. "(" .. targetRoom.map_name .. ")  도착=("
+            .. string.format("%.1f", arrive.x) .. ", " .. string.format("%.1f", arrive.y) .. ")")
+
+        _TeleportService:TeleportToMapPosition(player, arrive, targetRoom.map_name)
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean CanPass(Entity player, table targetRoom)
+        -- T1에서는 항상 통과. T6에서 gate_type(stat/key/rebirth)별 판정을 여기 구현한다.
+        -- 지금 막아버리면 방 이동 자체를 검증할 수 없으므로 의도적으로 열어둔다.
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method Vector3 ArrivePosition()
+        -- 반대편 포탈 바로 안쪽. 도착 즉시 그 포탈에 다시 닿으면 무한 왕복이 된다.
+        if self.direction == "east" then
+            return Vector3(-self.portalX + self.arriveInset, self.portalYSide, 0)
+        elseif self.direction == "west" then
+            return Vector3(self.portalX - self.arriveInset, self.portalYSide, 0)
+        elseif self.direction == "north" then
+            return Vector3(0, self.portalYSouth + self.arriveInset, 0)
+        elseif self.direction == "south" then
+            return Vector3(0, self.portalYNorth - self.arriveInset, 0)
+        end
+        return Vector3(0, 0, 0)
+    end
+
+    method string ToText(string raw)
+        -- 빈 칸이 nil이든 ""이든 ""로 통일한다.
+        if raw == nil then return "" end
+        return raw
+    end
+
+end

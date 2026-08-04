@@ -3843,7 +3843,7 @@
       {
         "id": "56882829-8d32-4290-a813-9eee90cc25a4",
         "path": "/maps/map03/Portal_S",
-        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.PortalComponent,MOD.Core.TagComponent",
+        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.RoomPortal",
         "jsonString": {
           "name": "Portal_S",
           "path": "/maps/map03/Portal_S",
@@ -3895,23 +3895,27 @@
               "Enable": true
             },
             {
-              "@type": "MOD.Core.PortalComponent",
+              "@type": "MOD.Core.TagComponent",
+              "Enable": true
+            },
+            {
               "Enable": true,
               "BoxSize": {
                 "$type": "MOD.Core.MODVector2, MOD.Core",
                 "x": 3,
                 "y": 3
               },
-              "BoxOffset": {
+              "ColliderOffset": {
                 "$type": "MOD.Core.MODVector2, MOD.Core",
                 "x": 0,
                 "y": 0
               },
-              "PortalEntityRef": "67e6b474-c87a-42c8-89e9-c8eaf905afa4"
+              "@type": "MOD.Core.TriggerComponent"
             },
             {
-              "@type": "MOD.Core.TagComponent",
-              "Enable": true
+              "Enable": true,
+              "direction": "south",
+              "@type": "script.RoomPortal"
             }
           ],
           "@version": 1,
