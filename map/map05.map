@@ -16,7 +16,7 @@
       {
         "id": "278ad742-2ee1-416c-a0f3-714dc316ee34",
         "path": "/maps/map05",
-        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent",
+        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera",
         "jsonString": {
           "name": "map05",
           "path": "/maps/map05",
@@ -46,6 +46,10 @@
               "@type": "MOD.Core.FootholdComponent",
               "FootholdsByLayer": {},
               "Enable": true
+            },
+            {
+              "Enable": true,
+              "@type": "script.RoomCamera"
             }
           ],
           "@version": 1
