@@ -1,0 +1,20 @@
+{
+  "_comment": "실제 파일명은 .mcp.json (깃 제외 대상). 이 파일을 복사한 뒤 토큰을 채울 것.",
+  "mcpServers": {
+    "msw-maker-mcp": {
+      "command": "cmd.exe",
+      "args": [
+        "/c",
+        "call",
+        "<메이플스토리 월드 설치경로>\\MakerMCP\\msw-maker-mcp.bat"
+      ]
+    },
+    "msw-mcp": {
+      "type": "http",
+      "url": "https://msw-mcp.nexon.com/mcp",
+      "headers": {
+        "Authorization": "Bearer <발급받은_토큰>"
+      }
+    }
+  }
+}
