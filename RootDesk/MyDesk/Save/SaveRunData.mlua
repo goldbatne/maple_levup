@@ -1,0 +1,70 @@
+-- @서버 (저장/로드는 서버 전용)
+--
+-- 회차 데이터 = 환생하면 초기화되는 것.
+-- 영구 데이터(SavePermanentData)와 저장 키를 물리적으로 분리한다 (개발 규칙 5).
+-- T7 환생은 이 구조체만 Init()으로 되돌리면 되고, 영구 쪽은 건드리지 않는다.
+
+@Struct
+script SaveRunData
+
+    property integer schema_version = 1
+
+    property integer level = 1
+    property number exp = 0
+
+    -- 스탯 4종. CSV의 stat_points_per_level 만큼 레벨당 지급된다.
+    property integer stat_atk = 0
+    property integer stat_int = 0
+    property integer stat_def = 0
+    property integer stat_luk = 0
+    property integer unspent_points = 0
+
+    property string current_job = ""
+
+    method void Init()
+        -- 새 회차 시작값. 환생 시에도 이 값으로 되돌린다.
+        self.schema_version = 1
+        self.level = 1
+        self.exp = 0
+        self.stat_atk = 0
+        self.stat_int = 0
+        self.stat_def = 0
+        self.stat_luk = 0
+        self.unspent_points = 0
+        self.current_job = ""
+    end
+
+    method boolean Serialize(table out)
+        -- 저장 페이로드로 직렬화. "Run" 네임스페이스 아래에 넣어 버전 확장 여지를 남긴다.
+        local body = {}
+        out["Run"] = body
+        body["schema_version"] = self.schema_version
+        body["level"] = self.level
+        body["exp"] = self.exp
+        body["stat_atk"] = self.stat_atk
+        body["stat_int"] = self.stat_int
+        body["stat_def"] = self.stat_def
+        body["stat_luk"] = self.stat_luk
+        body["unspent_points"] = self.unspent_points
+        body["current_job"] = self.current_job
+        return true
+    end
+
+    method boolean Deserialize(table src)
+        -- 역직렬화. 없는 필드는 Init() 기본값을 유지한다 (구버전 세이브 호환).
+        local body = src["Run"]
+        if body == nil then return true end
+
+        self.schema_version = body["schema_version"] or 1
+        self.level = body["level"] or 1
+        self.exp = body["exp"] or 0
+        self.stat_atk = body["stat_atk"] or 0
+        self.stat_int = body["stat_int"] or 0
+        self.stat_def = body["stat_def"] or 0
+        self.stat_luk = body["stat_luk"] or 0
+        self.unspent_points = body["unspent_points"] or 0
+        self.current_job = body["current_job"] or ""
+        return true
+    end
+
+end

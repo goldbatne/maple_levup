@@ -1,0 +1,71 @@
+-- @서버 (저장/로드는 서버 전용)
+--
+-- 영구 데이터 = 환생해도 살아남는 것.
+-- 회차 데이터(SaveRunData)와 저장 키를 물리적으로 분리한다 (개발 규칙 5).
+-- T7 환생 트랜잭션은 회차 키만 갈아끼우고 이 키는 손대지 않는다.
+
+@Struct
+script SavePermanentData
+
+    property integer schema_version = 1
+
+    -- 스킬 컬렉션. id -> 보유 개수. 중복 포획은 강화 카운트로 쌓인다 (기획서 4.8).
+    property table owned_skills = {}
+
+    property integer rebirth_count = 0
+    property integer highest_level = 1
+
+    -- 랜드마크는 "그 레벨에서 환생해야" 지급되므로 수령 여부를 따로 기록한다 (기획서 4.5).
+    property table landmark_claimed = {}   -- level -> true
+    property table unlocked_areas = {}     -- areaId -> true
+
+    -- 슬롯 확장 2축. 보스 클리어(T6, 공간 축)와 환생 횟수(T7, 회차 축)가
+    -- 같은 값을 중복으로 올리지 않도록 슬롯 수 자체를 영구 데이터로 들고 간다 (기획서 4.3).
+    property integer monster_slot_count = 0
+    property table bosses_cleared = {}     -- bossRoomId -> true
+
+    method void Init(number startingSlotCount)
+        -- 신규 계정 기본값. startingSlotCount는 호출자가 GameBalance의
+        -- monster_slot_start에서 읽어 넘긴다 (구조체가 데이터 소스에 의존하지 않도록).
+        self.schema_version = 1
+        self.owned_skills = {}
+        self.rebirth_count = 0
+        self.highest_level = 1
+        self.landmark_claimed = {}
+        self.unlocked_areas = {}
+        self.monster_slot_count = startingSlotCount
+        self.bosses_cleared = {}
+    end
+
+    method boolean Serialize(table out)
+        -- 저장 페이로드로 직렬화. "Perm" 네임스페이스 아래로 넣는다.
+        local body = {}
+        out["Perm"] = body
+        body["schema_version"] = self.schema_version
+        body["owned_skills"] = self.owned_skills
+        body["rebirth_count"] = self.rebirth_count
+        body["highest_level"] = self.highest_level
+        body["landmark_claimed"] = self.landmark_claimed
+        body["unlocked_areas"] = self.unlocked_areas
+        body["monster_slot_count"] = self.monster_slot_count
+        body["bosses_cleared"] = self.bosses_cleared
+        return true
+    end
+
+    method boolean Deserialize(table src)
+        -- 역직렬화. 없는 필드는 Init() 기본값 유지 (구버전 세이브 호환).
+        local body = src["Perm"]
+        if body == nil then return true end
+
+        self.schema_version = body["schema_version"] or 1
+        self.owned_skills = body["owned_skills"] or {}
+        self.rebirth_count = body["rebirth_count"] or 0
+        self.highest_level = body["highest_level"] or 1
+        self.landmark_claimed = body["landmark_claimed"] or {}
+        self.unlocked_areas = body["unlocked_areas"] or {}
+        self.monster_slot_count = body["monster_slot_count"] or self.monster_slot_count
+        self.bosses_cleared = body["bosses_cleared"] or {}
+        return true
+    end
+
+end

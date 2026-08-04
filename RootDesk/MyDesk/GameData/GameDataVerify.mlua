@@ -1,0 +1,195 @@
+-- @서버 (검증 로그는 서버 한쪽에서만 찍는다)
+--
+-- T0 완료 조건 검증용 개발 스크립트.
+--   1) 테이블 데이터가 로그로 출력되는가
+--   2) 방 5개의 연결 관계가 데이터에 있는가 (양방향 무결성까지 확인)
+--   3) 몬스터 테이블 값이 밸런스시트 공식과 일치하는가
+-- T1 착수 후에는 삭제하거나 비활성화해도 된다.
+
+@Logic
+script GameDataVerify extends Logic
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- Logic 간 OnBeginPlay 순서는 보장되지 않으므로 한 박자 늦춰 실행한다.
+        _TimerService:SetTimerOnce(function()
+            self:RunAll()
+        end, 1.0)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RunAll()
+        -- 검증 전체를 순서대로 돌린다.
+        if not _GameData.IsLoaded then
+            log_error("[검증] GameData가 로드되지 않았다. 데이터셋 등록을 확인할 것.")
+            return
+        end
+
+        log("========== T0 데이터 검증 시작 ==========")
+        self:VerifyBalance()
+        self:VerifySkills()
+        self:VerifyMonsters()
+        self:VerifyRooms()
+        self:VerifyJobs()
+        self:VerifyLandmarks()
+        self:VerifySaveSchema()
+        log("========== T0 데이터 검증 끝 ==========")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void VerifyBalance()
+        -- 밸런스시트 '가정' 탭 핵심값이 그대로 들어왔는지 본다.
+        log("[밸런스] 데미지 계수=" .. tostring(_GameData:GetBalance("skill_coefficient_base"))
+            .. " / Lv1 필요EXP=" .. tostring(_GameData:GetBalance("exp_base"))
+            .. " / EXP공비=" .. tostring(_GameData:GetBalance("exp_ratio"))
+            .. " / 레벨캡=" .. tostring(_GameData:GetBalance("initial_level_cap")))
+        log("[밸런스] 포획 기본=" .. tostring(_GameData:GetBalance("capture_base_rate"))
+            .. " / LUK보정=" .. tostring(_GameData:GetBalance("capture_luk_bonus"))
+            .. " / 천장=" .. tostring(_GameData:GetBalance("capture_pity_kills"))
+            .. " / 슬롯 시작=" .. tostring(_GameData:GetBalance("monster_slot_start"))
+            .. " / 슬롯 상한=" .. tostring(_GameData:GetBalance("monster_slot_max")))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void VerifySkills()
+        -- 스킬 7개(직업4+몬스터3)와 열쇠 스킬 표시를 확인한다.
+        local total = 0
+        local jobCount = 0
+        local monsterCount = 0
+        local keyCount = 0
+        for id, skill in pairs(_GameData.skills) do
+            total += 1
+            if skill.source == "job" then jobCount += 1 end
+            if skill.source == "monster" then monsterCount += 1 end
+            if skill.is_key_skill then
+                keyCount += 1
+                log("  [열쇠스킬] " .. id .. " " .. skill.name .. " (" .. skill.effect_type .. ")")
+            end
+        end
+        log("[스킬] 총 " .. tostring(total) .. "개 (직업 " .. tostring(jobCount)
+            .. " / 몬스터 " .. tostring(monsterCount) .. " / 열쇠 " .. tostring(keyCount) .. ")")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void VerifyMonsters()
+        -- 테이블 값 vs 밸런스시트 공식. 어긋나면 시트와 코드가 갈라진 것이므로 즉시 드러내야 한다.
+        local hpBase = _GameData:GetBalance("monster_hp_base")
+        local hpRatio = _GameData:GetBalance("monster_hp_ratio")
+        local defBase = _GameData:GetBalance("monster_def_base")
+        local defRatio = _GameData:GetBalance("monster_def_ratio")
+        local expBase = _GameData:GetBalance("monster_exp_base")
+        local expRatio = _GameData:GetBalance("monster_exp_ratio")
+
+        for id, monster in pairs(_GameData.monsters) do
+            local step = monster.level - 1
+            local hpExpected = math.floor(hpBase * hpRatio ^ step + 0.5)
+            local defExpected = math.floor(defBase * defRatio ^ step * 10 + 0.5) / 10
+            local expExpected = math.floor(expBase * expRatio ^ step + 0.5)
+
+            local mark = "일치"
+            if monster.hp ~= hpExpected or monster.def ~= defExpected or monster.exp ~= expExpected then
+                mark = "불일치!"
+                log_warning("  [몬스터] " .. id .. " 시트 공식과 어긋남 → 기대 HP=" .. tostring(hpExpected)
+                    .. " DEF=" .. tostring(defExpected) .. " EXP=" .. tostring(expExpected))
+            end
+            log("  [몬스터] " .. id .. " " .. monster.name .. " Lv" .. tostring(monster.level)
+                .. " HP=" .. tostring(monster.hp) .. " DEF=" .. tostring(monster.def)
+                .. " EXP=" .. tostring(monster.exp) .. " 드랍=" .. monster.drop_skill_id
+                .. " [공식 " .. mark .. "]")
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void VerifyRooms()
+        -- 방 목록 + 연결 무결성(가리키는 방이 실존하는가, 역방향이 되돌아오는가).
+        local opposite = { north = "south", south = "north", east = "west", west = "east" }
+        local roomCount = 0
+        local linkCount = 0
+        local brokenCount = 0
+
+        for id, room in pairs(_GameData.rooms) do
+            roomCount += 1
+            local gateText = "게이트 없음"
+            if room.gate_type ~= "none" and room.gate_type ~= "" then
+                gateText = "게이트 " .. room.gate_type .. " " .. room.gate_key .. " " .. tostring(room.gate_value)
+            end
+            log("  [방] " .. id .. " " .. room.name .. " (" .. room.room_type .. ") " .. gateText)
+
+            for dir, back in pairs(opposite) do
+                local target = room.connections[dir]
+                if target ~= "" then
+                    linkCount += 1
+                    local targetRoom = _GameData:GetRoom(target)
+                    if targetRoom == nil then
+                        brokenCount += 1
+                        log_error("    " .. dir .. " -> " .. target .. " : 그런 방이 없다")
+                    elseif targetRoom.connections[back] ~= id then
+                        brokenCount += 1
+                        log_error("    " .. dir .. " -> " .. target .. " : 역방향(" .. back .. ")이 되돌아오지 않는다")
+                    else
+                        log("    " .. dir .. " -> " .. target .. " (양방향 OK)")
+                    end
+                end
+            end
+        end
+
+        log("[방] 총 " .. tostring(roomCount) .. "개 / 연결 " .. tostring(linkCount)
+            .. "개 / 깨진 연결 " .. tostring(brokenCount) .. "개")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void VerifyJobs()
+        -- 직업별 전용 슬롯 자동 장착 스킬 목록을 확인한다.
+        for id, job in pairs(_GameData.jobs) do
+            local names = ""
+            for i = 1, #job.skill_ids do
+                local skill = _GameData:GetSkill(job.skill_ids[i])
+                if skill == nil then
+                    log_error("  [직업] " .. id .. " 가 없는 스킬을 참조: " .. job.skill_ids[i])
+                else
+                    if names ~= "" then names = names .. ", " end
+                    names = names .. skill.name
+                end
+            end
+            log("  [직업] " .. id .. " " .. job.name .. " 시작직업=" .. tostring(job.is_starter)
+                .. " 전용스킬=[" .. names .. "] 계승=" .. job.inherit_skill_id)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void VerifyLandmarks()
+        -- 슬라이스 사다리(Lv30 3축)가 들어왔는지 본다.
+        local cap = _GameData:GetBalance("initial_level_cap")
+        local rewards = _GameData:GetLandmarksAtLevel(cap)
+        log("[랜드마크] Lv" .. tostring(cap) .. " 보상 " .. tostring(#rewards) .. "건")
+        for i = 1, #rewards do
+            log("  [랜드마크] " .. rewards[i].reward_type .. " = " .. rewards[i].reward_value)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void VerifySaveSchema()
+        -- 세이브 구조체가 실제로 생성/직렬화되는지, 영구/회차가 다른 키로 갈라지는지 확인한다.
+        local run = SaveRunData()
+        run:Init()
+
+        local perm = SavePermanentData()
+        perm:Init(_GameData:GetBalance("monster_slot_start"))
+
+        local payload = {}
+        run:Serialize(payload)
+        perm:Serialize(payload)
+
+        local keys = ""
+        for key, value in pairs(payload) do
+            if keys ~= "" then keys = keys .. ", " end
+            keys = keys .. key
+        end
+        log("[세이브] 분리된 최상위 키 = [" .. keys .. "]")
+        log("[세이브] 회차: level=" .. tostring(run.level) .. " job='" .. run.current_job .. "'")
+        log("[세이브] 영구: 슬롯=" .. tostring(perm.monster_slot_count)
+            .. " 환생=" .. tostring(perm.rebirth_count)
+            .. " 최고레벨=" .. tostring(perm.highest_level))
+    end
+
+end

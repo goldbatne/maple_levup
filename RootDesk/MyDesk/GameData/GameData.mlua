@@ -1,0 +1,259 @@
+-- @서버 + @클라이언트 (양쪽에서 각자 캐시)
+--
+-- 정적 게임 데이터의 유일한 창구. 다른 스크립트는 _DataService를 직접 부르지 말고
+-- 반드시 _GameData를 경유한다. 저장 방식(UserDataSet)을 바꿔도 이 파일만 고치면 된다.
+--
+-- 읽기 전용 조회만 제공한다. 데미지 계산/스탯 분배/포획 판정 등 모든 판정은
+-- 이 데이터를 읽어가는 서버 스크립트 쪽 책임이다 (기획서 개발 규칙 2).
+
+@Logic
+script GameData extends Logic
+
+    property boolean IsLoaded = false
+
+    -- 캐시. CSV의 string 셀을 로드 시 1회만 변환해 담아둔다.
+    property table balance = {}     -- key(string)   -> number
+    property table skills = {}      -- id(string)    -> 스킬 레코드
+    property table monsters = {}    -- id(string)    -> 몬스터 레코드
+    property table rooms = {}       -- id(string)    -> 방 레코드
+    property table jobs = {}        -- id(string)    -> 직업 레코드
+    property table landmarks = {}   -- level(number) -> 보상 레코드 배열
+
+    method void OnBeginPlay()
+        -- 월드 세션 시작 시 6개 데이터셋을 한 번만 읽어 캐시한다.
+        self:LoadAll()
+    end
+
+    ---------------------------------------------------------------
+    -- 변환 헬퍼 : CSV 셀은 전부 string이고 빈 칸은 "" 또는 nil로 온다
+    ---------------------------------------------------------------
+
+    method number ToNumber(string raw, number fallback)
+        -- 숫자 변환. 빈 칸이거나 변환 실패면 fallback.
+        if raw == nil or raw == "" then return fallback end
+        local parsed = tonumber(raw)
+        if parsed == nil then return fallback end
+        return parsed
+    end
+
+    method boolean ToBoolean(string raw)
+        -- "true"만 참으로 본다. 빈 칸은 거짓.
+        return raw == "true"
+    end
+
+    method string ToText(string raw)
+        -- 빈 칸이 nil로 오든 ""로 오든 ""로 통일한다.
+        if raw == nil then return "" end
+        return raw
+    end
+
+    method table SplitIds(string raw)
+        -- "a|b|c" 파이프 구분 문자열을 배열로 나눈다 (CSV가 중첩을 못 담기 때문).
+        local out = {}
+        if raw == nil or raw == "" then return out end
+        for token in string.gmatch(raw, "([^|]+)") do
+            table.insert(out, token)
+        end
+        return out
+    end
+
+    method any GetDataSet(string setName)
+        -- 데이터셋을 이름으로 가져온다. 없으면 에러 로그 후 nil.
+        -- 반환 타입이 any인 이유: UserDataSet은 메서드 시그니처에 쓸 수 없다 (LSP 확인).
+        local dataSet = _DataService:GetTable(setName)
+        if dataSet == nil then
+            log_error("[GameData] 데이터셋을 찾을 수 없음: " .. setName)
+        end
+        return dataSet
+    end
+
+    ---------------------------------------------------------------
+    -- 로더
+    ---------------------------------------------------------------
+
+    method void LoadAll()
+        -- 6개 데이터셋을 캐시한다. 하나가 없어도 나머지는 계속 로드한다.
+        self:LoadBalance()
+        self:LoadSkills()
+        self:LoadMonsters()
+        self:LoadRooms()
+        self:LoadJobs()
+        self:LoadLandmarks()
+        self.IsLoaded = true
+    end
+
+    method void LoadBalance()
+        -- key/value 2컬럼을 key -> number 맵으로.
+        local dataSet = self:GetDataSet("GameBalance")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local key = self:ToText(rows[i]:GetItem("key"))
+            if key ~= "" then
+                self.balance[key] = self:ToNumber(rows[i]:GetItem("value"), 0)
+            end
+        end
+    end
+
+    method void LoadSkills()
+        -- 직업/몬스터 스킬 공통 테이블 (source로 구분).
+        local dataSet = self:GetDataSet("SkillTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local id = self:ToText(row:GetItem("id"))
+            if id ~= "" then
+                self.skills[id] = {
+                    id = id,
+                    name = self:ToText(row:GetItem("name")),
+                    source = self:ToText(row:GetItem("source")),
+                    scaling_stat = self:ToText(row:GetItem("scaling_stat")),
+                    coefficient = self:ToNumber(row:GetItem("coefficient"), 0),
+                    slot_type = self:ToText(row:GetItem("slot_type")),
+                    effect_type = self:ToText(row:GetItem("effect_type")),
+                    is_key_skill = self:ToBoolean(row:GetItem("is_key_skill")),
+                }
+            end
+        end
+    end
+
+    method void LoadMonsters()
+        -- 몬스터 레코드. hp/def/exp는 밸런스시트 공식으로 산출된 확정값이다.
+        local dataSet = self:GetDataSet("MonsterTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local id = self:ToText(row:GetItem("id"))
+            if id ~= "" then
+                self.monsters[id] = {
+                    id = id,
+                    name = self:ToText(row:GetItem("name")),
+                    level = self:ToNumber(row:GetItem("level"), 1),
+                    hp = self:ToNumber(row:GetItem("hp"), 0),
+                    def = self:ToNumber(row:GetItem("def"), 0),
+                    exp = self:ToNumber(row:GetItem("exp"), 0),
+                    drop_skill_id = self:ToText(row:GetItem("drop_skill_id")),
+                }
+            end
+        end
+    end
+
+    method void LoadRooms()
+        -- conn_* 4컬럼을 connections 테이블로 접고, 게이트 조건을 묶는다.
+        local dataSet = self:GetDataSet("RoomTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local id = self:ToText(row:GetItem("id"))
+            if id ~= "" then
+                self.rooms[id] = {
+                    id = id,
+                    name = self:ToText(row:GetItem("name")),
+                    room_type = self:ToText(row:GetItem("room_type")),
+                    connections = {
+                        north = self:ToText(row:GetItem("conn_north")),
+                        south = self:ToText(row:GetItem("conn_south")),
+                        east = self:ToText(row:GetItem("conn_east")),
+                        west = self:ToText(row:GetItem("conn_west")),
+                    },
+                    gate_type = self:ToText(row:GetItem("gate_type")),
+                    gate_key = self:ToText(row:GetItem("gate_key")),
+                    gate_value = self:ToNumber(row:GetItem("gate_value"), 0),
+                }
+            end
+        end
+    end
+
+    method void LoadJobs()
+        -- skill_ids는 파이프 구분 → 배열. 직업 전용 슬롯에 자동 장착될 스킬 목록이다.
+        local dataSet = self:GetDataSet("JobTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local id = self:ToText(row:GetItem("id"))
+            if id ~= "" then
+                self.jobs[id] = {
+                    id = id,
+                    name = self:ToText(row:GetItem("name")),
+                    skill_ids = self:SplitIds(row:GetItem("skill_ids")),
+                    inherit_skill_id = self:ToText(row:GetItem("inherit_skill_id")),
+                    is_starter = self:ToBoolean(row:GetItem("is_starter")),
+                }
+            end
+        end
+    end
+
+    method void LoadLandmarks()
+        -- 같은 레벨에 여러 행이 올 수 있다 (슬라이스 Lv30은 3축 동시 지급).
+        local dataSet = self:GetDataSet("LandmarkTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local level = self:ToNumber(row:GetItem("level"), 0)
+            if level > 0 then
+                if self.landmarks[level] == nil then
+                    self.landmarks[level] = {}
+                end
+                table.insert(self.landmarks[level], {
+                    level = level,
+                    reward_type = self:ToText(row:GetItem("reward_type")),
+                    reward_value = self:ToText(row:GetItem("reward_value")),
+                })
+            end
+        end
+    end
+
+    ---------------------------------------------------------------
+    -- 조회 API : 다른 스크립트는 여기만 쓴다
+    ---------------------------------------------------------------
+
+    method number GetBalance(string key)
+        -- 밸런스 상수 조회. 키가 없으면 0 + 경고 — 조용히 넘어가면 하드코딩과 같아진다.
+        local value = self.balance[key]
+        if value == nil then
+            log_warning("[GameData] 밸런스 키 없음: " .. key)
+            return 0
+        end
+        return value
+    end
+
+    method table GetSkill(string id)
+        -- 스킬 레코드. 없으면 nil.
+        return self.skills[id]
+    end
+
+    method table GetMonster(string id)
+        -- 몬스터 레코드. 없으면 nil.
+        return self.monsters[id]
+    end
+
+    method table GetRoom(string id)
+        -- 방 레코드. 없으면 nil.
+        return self.rooms[id]
+    end
+
+    method table GetJob(string id)
+        -- 직업 레코드. 없으면 nil.
+        return self.jobs[id]
+    end
+
+    method table GetLandmarksAtLevel(number level)
+        -- 해당 도달 레벨의 보상 목록. 없으면 빈 배열.
+        local list = self.landmarks[level]
+        if list == nil then return {} end
+        return list
+    end
+
+    method string GetRoomConnection(string roomId, string direction)
+        -- 방에서 특정 방향으로 이어지는 방 id. 연결이 없으면 "".
+        local room = self.rooms[roomId]
+        if room == nil then return "" end
+        return self:ToText(room.connections[direction])
+    end
+
+end
