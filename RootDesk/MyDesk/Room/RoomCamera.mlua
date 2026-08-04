@@ -18,8 +18,12 @@ script RoomCamera extends Component
     property number viewWidth = 12.8
     property number viewHeight = 7.2
 
-    -- 플레이어를 가둘 때 타일 외곽선에서 얼마나 안쪽으로 둘지 (캐릭터 몸 폭 여유).
-    property number playerMargin = 0.5
+    -- 플레이어를 가둘 때 타일 외곽선에서 얼마나 안쪽으로 둘지.
+    -- MSW 스프라이트 원점은 **발밑**이라 위쪽만 여백이 크게 필요하다.
+    -- 위 여백이 캐릭터 키보다 작으면 머리와 이름표가 화면 위로 잘려 사라진다.
+    property number marginSide = 0.6     -- 좌/우 (몸 폭 절반)
+    property number marginBottom = 0.4   -- 아래 (발밑 여유)
+    property number marginTop = 1.8      -- 위 (캐릭터 키 + 이름표)
 
     -- 계산된 방 외곽선 (월드 좌표)
     property number roomLeft = 0
@@ -152,10 +156,10 @@ script RoomCamera extends Component
         if body == nil then return end
 
         local pos = player.TransformComponent.WorldPosition
-        local left = self.roomLeft + self.playerMargin
-        local right = self.roomRight - self.playerMargin
-        local bottom = self.roomBottom + self.playerMargin
-        local top = self.roomTop - self.playerMargin
+        local left = self.roomLeft + self.marginSide
+        local right = self.roomRight - self.marginSide
+        local bottom = self.roomBottom + self.marginBottom
+        local top = self.roomTop - self.marginTop
 
         local x = pos.x
         local y = pos.y
@@ -193,24 +197,26 @@ script RoomCamera extends Component
             return
         end
 
-        -- 타일 외곽선에서 화면 절반만큼 안쪽으로 좁혀 카메라 중심 범위로 바꾼다.
-        local insetX = self.viewWidth * 0.5
-        local insetY = self.viewHeight * 0.5
-        local left = self.roomLeft + insetX
-        local right = self.roomRight - insetX
-        local bottom = self.roomBottom + insetY
-        local top = self.roomTop - insetY
+        -- LeftBottom/RightTop은 **보이는 영역의 한계**다 (카메라 중심 범위가 아니다 — 실측).
+        -- 따라서 타일 외곽선을 그대로 넣으면 엔진이 알아서 화면을 그 안에 가둔다.
+        -- 여기서 화면 절반만큼 좁히면 카메라가 너무 일찍 멈춰 캐릭터가 화면 밖으로 나간다.
+        local left = self.roomLeft
+        local right = self.roomRight
+        local bottom = self.roomBottom
+        local top = self.roomTop
 
-        -- 방이 화면보다 작으면 범위가 뒤집힌다. 그 축은 방 중심에 고정한다.
-        if left > right then
-            local centerX = (self.roomLeft + self.roomRight) * 0.5
-            left = centerX
-            right = centerX
+        -- 방이 화면보다 작으면 화면을 다 못 채운다. 최소한 화면 크기는 확보해 준다.
+        local minWidth = self.viewWidth
+        local minHeight = self.viewHeight
+        if (right - left) < minWidth then
+            local centerX = (left + right) * 0.5
+            left = centerX - minWidth * 0.5
+            right = centerX + minWidth * 0.5
         end
-        if bottom > top then
-            local centerY = (self.roomBottom + self.roomTop) * 0.5
-            bottom = centerY
-            top = centerY
+        if (top - bottom) < minHeight then
+            local centerY = (bottom + top) * 0.5
+            bottom = centerY - minHeight * 0.5
+            top = centerY + minHeight * 0.5
         end
 
         camera.ConfineCameraArea = true
@@ -218,7 +224,7 @@ script RoomCamera extends Component
         camera.LeftBottom = Vector2(left, bottom)
         camera.RightTop = Vector2(right, top)
 
-        log("[RoomBounds] 카메라 중심범위=(" .. string.format("%.2f", left) .. "," .. string.format("%.2f", bottom)
+        log("[RoomBounds] 카메라 가시영역 한계=(" .. string.format("%.2f", left) .. "," .. string.format("%.2f", bottom)
             .. ")~(" .. string.format("%.2f", right) .. "," .. string.format("%.2f", top)
             .. ")  UseCustomBound=" .. tostring(camera.UseCustomBound)
             .. "  Confine=" .. tostring(camera.ConfineCameraArea))
