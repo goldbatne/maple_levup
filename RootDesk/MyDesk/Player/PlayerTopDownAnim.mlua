@@ -1,0 +1,74 @@
+-- @클라이언트 (아바타의 상태 권한은 각 플레이어의 클라이언트에 있다.
+--               서버에서 ChangeState를 부르면 [LEA-3022] InvalidExecSpace)
+--
+-- 상하 이동 중에도 걷기 애니메이션이 나오게 한다.
+--
+-- 원인: PlayerControllerComponent는 **좌우 입력만** MOVE 상태로 본다.
+--       탑다운에서 위/아래로만 걸으면 상태가 IDLE에 머물러 서 있는 자세로 미끄러진다.
+--       (animation-state.md 7번 함정표: "Entity moves but stand clip keeps playing")
+--
+-- MOVE / IDLE 은 PlayerControllerComponent가 이미 등록하므로 AddState는 필요 없다.
+-- 입력 API 대신 실제 위치 변화를 보므로 키보드/터치/패드 어느 쪽이든 동작한다.
+
+@Component
+script PlayerTopDownAnim extends Component
+
+    -- 이 속도(월드 유닛/초) 이상 움직이면 '이동 중'으로 본다.
+    -- 프레임 시간으로 나눠 쓰므로 프레임률에 영향받지 않는다.
+    property number moveThreshold = 0.2
+
+    property number lastX = 0
+    property number lastY = 0
+    property boolean primed = false
+
+    @ExecSpace("ClientOnly")
+    method void OnUpdate(number delta)
+        -- 내 아바타만 건드린다. 다른 플레이어의 상태는 그 클라이언트가 소유한다.
+        if self.Entity ~= _UserService.LocalPlayer then return end
+        if delta <= 0 then return end
+
+        local pos = self.Entity.TransformComponent.WorldPosition
+
+        -- 첫 프레임은 기준점만 잡는다 (직전 위치가 없으면 속도를 못 낸다).
+        if not self.primed then
+            self.lastX = pos.x
+            self.lastY = pos.y
+            self.primed = true
+            return
+        end
+
+        local speedX = (pos.x - self.lastX) / delta
+        local speedY = (pos.y - self.lastY) / delta
+        self.lastX = pos.x
+        self.lastY = pos.y
+
+        if speedX < 0 then speedX = -speedX end
+        if speedY < 0 then speedY = -speedY end
+
+        local movingX = speedX > self.moveThreshold
+        local movingY = speedY > self.moveThreshold
+
+        -- 네이티브 컴포넌트는 점 접근이 정석이다.
+        -- GetComponent("StateComponent")는 추상 Component를 돌려줘 정적 타입이 풀린다(LIA-1114/1115).
+        local state = self.Entity.StateComponent
+        if state == nil then return end
+
+        local current = state.CurrentStateName
+
+        -- DEAD 상태에서는 IDLE 외 전이가 막혀 있다 (DEAD 락). 손대지 않는다.
+        if current == "DEAD" then return end
+
+        if movingY and not movingX then
+            -- 상하 전용 이동 — 컨트롤러가 놓치는 구간이라 우리가 MOVE를 유지한다.
+            if current == "IDLE" then
+                state:ChangeState("MOVE")
+            end
+        elseif not movingY and not movingX then
+            -- 멈췄다. 위에서 우리가 MOVE로 올려놨으면 컨트롤러가 되돌리지 않으므로 직접 내린다.
+            if current == "MOVE" then
+                state:ChangeState("IDLE")
+            end
+        end
+    end
+
+end
