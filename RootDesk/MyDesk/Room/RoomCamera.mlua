@@ -21,9 +21,11 @@ script RoomCamera extends Component
     -- 플레이어를 가둘 때 타일 외곽선에서 얼마나 안쪽으로 둘지.
     -- MSW 스프라이트 원점은 **발밑**이라 위쪽만 여백이 크게 필요하다.
     -- 위 여백이 캐릭터 키보다 작으면 머리와 이름표가 화면 위로 잘려 사라진다.
-    property number marginSide = 0.6     -- 좌/우 (몸 폭 절반)
-    property number marginBottom = 0.4   -- 아래 (발밑 여유)
-    property number marginTop = 1.8      -- 위 (캐릭터 키 + 이름표)
+    -- 여백이 스프라이트 크기보다 크면 그만큼 맵 끝에 빈 공간이 남는다.
+    -- 스프라이트가 화면에서 잘리지 않는 최소값으로 맞춘다 (실측 기준 키 약 0.7).
+    property number marginSide = 0.35    -- 좌/우 (몸 폭 절반)
+    property number marginBottom = 0.25  -- 아래 (이름표가 발밑에 붙는다)
+    property number marginTop = 0.8      -- 위 (머리 끝이 화면 위에 딱 걸리게)
 
     -- 계산된 방 외곽선 (월드 좌표)
     property number roomLeft = 0
@@ -133,21 +135,33 @@ script RoomCamera extends Component
     -- 1) 플레이어 가두기 (서버 권한)
     ---------------------------------------------------------------
 
-    @ExecSpace("ServerOnly")
     method void OnUpdate(number delta)
-        -- 타일 밖으로 나간 플레이어를 경계 안으로 되돌린다.
-        -- 타일이 없는 바깥은 충돌 대상이 없어서 그냥 걸어 나가진다.
+        -- 타일 밖은 충돌 대상이 없어서 그냥 걸어 나가진다. 그래서 위치를 직접 가둔다.
+        --
+        -- 가두기는 **클라이언트**가 한다. 서버에서 매 프레임 되돌리면 클라의 예측 이동과
+        -- 싸워서 캐릭터가 튀어 보인다(버퍼링처럼 끊김). 클라가 자기 예측을 직접 잡으면
+        -- 왕복 지연이 없어 매끄럽다.
+        -- 서버는 타일 외곽선 기준의 느슨한 안전망만 둔다 — 정상 플레이에선 발동하지 않는다.
         if not self.roomReady then return end
 
-        local users = _UserService:GetUsersByMapName(self.Entity.Name)
-        if users == nil then return end
-        for i = 1, #users do
-            self:ClampInside(users[i])
+        if self:IsClient() then
+            local me = _UserService.LocalPlayer
+            if me ~= nil then
+                self:ClampInside(me, self.marginSide, self.marginBottom, self.marginTop)
+            end
+        end
+
+        if self:IsServer() then
+            local users = _UserService:GetUsersByMapName(self.Entity.Name)
+            if users ~= nil then
+                for i = 1, #users do
+                    self:ClampInside(users[i], 0, 0, 0)
+                end
+            end
         end
     end
 
-    @ExecSpace("ServerOnly")
-    method void ClampInside(Entity player)
+    method void ClampInside(Entity player, number side, number below, number above)
         -- 방 외곽선 안으로 위치를 강제한다. Kinematicbody는 Transform 직접 대입이
         -- 다음 프레임에 덮이므로 SetWorldPosition을 쓴다.
         if not isvalid(player) then return end
@@ -156,10 +170,10 @@ script RoomCamera extends Component
         if body == nil then return end
 
         local pos = player.TransformComponent.WorldPosition
-        local left = self.roomLeft + self.marginSide
-        local right = self.roomRight - self.marginSide
-        local bottom = self.roomBottom + self.marginBottom
-        local top = self.roomTop - self.marginTop
+        local left = self.roomLeft + side
+        local right = self.roomRight - side
+        local bottom = self.roomBottom + below
+        local top = self.roomTop - above
 
         local x = pos.x
         local y = pos.y
