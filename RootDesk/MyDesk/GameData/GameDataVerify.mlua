@@ -113,7 +113,11 @@ script GameDataVerify extends Logic
             if room.gate_type ~= "none" and room.gate_type ~= "" then
                 gateText = "게이트 " .. room.gate_type .. " " .. room.gate_key .. " " .. tostring(room.gate_value)
             end
-            log("  [방] " .. id .. " " .. room.name .. " (" .. room.room_type .. ") " .. gateText)
+            log("  [방] " .. id .. " " .. room.name .. " (" .. room.room_type .. ") 맵="
+                .. room.map_name .. " " .. gateText)
+            if room.map_name == "" then
+                log_error("    " .. id .. " 에 map_name이 비어 있다 — 포탈 연결 불가")
+            end
 
             for dir, back in pairs(opposite) do
                 local target = room.connections[dir]

@@ -18,6 +18,7 @@ script GameData extends Logic
     property table rooms = {}       -- id(string)    -> 방 레코드
     property table jobs = {}        -- id(string)    -> 직업 레코드
     property table landmarks = {}   -- level(number) -> 보상 레코드 배열
+    property table roomsByMap = {}  -- mapName(string) -> roomId(string) 역인덱스
 
     method void OnBeginPlay()
         -- 월드 세션 시작 시 6개 데이터셋을 한 번만 읽어 캐시한다.
@@ -162,7 +163,13 @@ script GameData extends Logic
                     gate_type = self:ToText(row:GetItem("gate_type")),
                     gate_key = self:ToText(row:GetItem("gate_key")),
                     gate_value = self:ToNumber(row:GetItem("gate_value"), 0),
+                    map_name = self:ToText(row:GetItem("map_name")),
                 }
+                -- 맵 이름 → 방 역인덱스. 플레이어가 어느 맵에 있는지로 방을 찾을 때 쓴다.
+                local mapName = self:ToText(row:GetItem("map_name"))
+                if mapName ~= "" then
+                    self.roomsByMap[mapName] = id
+                end
             end
         end
     end
@@ -247,6 +254,13 @@ script GameData extends Logic
         local list = self.landmarks[level]
         if list == nil then return {} end
         return list
+    end
+
+    method table GetRoomByMapName(string mapName)
+        -- 맵 이름으로 방 레코드를 찾는다. 플레이어가 어느 맵에 있는지로 방 정보를 얻을 때 쓴다.
+        local roomId = self.roomsByMap[mapName]
+        if roomId == nil then return nil end
+        return self.rooms[roomId]
     end
 
     method string GetRoomConnection(string roomId, string direction)
