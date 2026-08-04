@@ -1,65 +1,78 @@
--- @서버 (UseCustomBound / LeftBottom / RightTop 이 전부 @Sync라 서버에서 세팅하면 클라로 전파된다)
+-- @서버 + @클라이언트 (아래 각 메서드 주석에 실행공간 명시)
 --
--- 방(맵)에 들어온 플레이어의 카메라를 그 맵의 타일 영역 안으로 가둔다.
--- "화면 하나 = 하나의 방"(기획서 3.1)을 만족시키고, 타일 밖 빈 공간이 보이지 않게 한다.
+-- 방(맵)의 경계를 책임진다. 두 가지를 한다:
+--   1) 플레이어가 타일 영역 밖으로 못 나가게 가둔다  (서버 = 권한)
+--   2) 카메라가 타일 영역 밖을 비추지 않게 가둔다    (클라이언트 = 카메라는 로컬 소유)
 --
--- 타일 경계를 런타임에 읽어 계산하므로 맵 크기가 달라도 값을 고칠 필요가 없다
--- (수치 하드코딩 금지 규칙). 이 컴포넌트는 각 맵 루트 엔티티에 붙는다.
---
--- 진입 경로가 3가지라 전부 받는다:
---   OnBeginPlay   — 월드 시작 시 이미 이 맵에 있는 플레이어 (첫 접속은 '전환'이 아니라 OnMapEnter가 안 온다)
---   UserEnterEvent— 월드에 새로 접속한 플레이어
---   OnMapEnter    — 다른 맵에서 이 맵으로 넘어온 플레이어 (T1-2 포탈 이동)
+-- 두 값 모두 맵의 RectTileMapComponent 타일 경계에서 런타임에 계산한다.
+-- 맵 크기를 바꿔도 코드를 고칠 필요가 없다 (수치 하드코딩 금지 규칙).
+-- 이 컴포넌트는 각 맵 루트 엔티티에 붙는다.
 
 @Component
 script RoomCamera extends Component
 
+    -- 카메라가 한 번에 보는 월드 크기 (PC 기준 12.8 x 7.2).
+    -- LeftBottom/RightTop은 '보이는 영역'이 아니라 카메라 중심점의 이동 범위이므로
+    -- 타일 외곽선에서 이 값의 절반만큼 안쪽으로 좁혀야 방 밖이 안 보인다.
+    -- 모바일(9.6 x 5.4)은 더 좁게 보므로 PC 기준으로 좁혀두면 양쪽 다 안전하다.
+    property number viewWidth = 12.8
+    property number viewHeight = 7.2
+
+    -- 플레이어를 가둘 때 타일 외곽선에서 얼마나 안쪽으로 둘지 (캐릭터 몸 폭 여유).
+    property number playerMargin = 0.5
+
+    -- 계산된 방 외곽선 (월드 좌표)
+    property number roomLeft = 0
+    property number roomRight = 0
+    property number roomBottom = 0
+    property number roomTop = 0
+    property boolean roomReady = false
+
     property any userEnterHandler = nil
 
-    @ExecSpace("ServerOnly")
     method void OnBeginPlay()
-        -- 이미 이 맵에 있는 플레이어를 훑고, 이후 접속자는 이벤트로 받는다.
-        log("[RoomCamera] OnBeginPlay: " .. self.Entity.Name)
+        -- 서버/클라 양쪽에서 방 외곽선을 먼저 계산해 둔다.
+        self:ComputeRoomRect()
 
-        self.userEnterHandler = _UserService:ConnectEvent(UserEnterEvent, self.OnUserEnter)
+        if self:IsServer() then
+            self.userEnterHandler = _UserService:ConnectEvent(UserEnterEvent, self.OnUserEnter)
+        end
 
-        local users = _UserService:GetUsersByMapName(self.Entity.Name)
-        if users ~= nil then
-            for i = 1, #users do
-                self:ApplyBound(users[i])
-            end
+        if self:IsClient() then
+            -- 접속 직후엔 LocalPlayer가 아직 없을 수 있어 한 박자 늦춘다.
+            _TimerService:SetTimerOnce(function()
+                self:ApplyCameraToLocalPlayer()
+            end, 1.0)
         end
     end
 
-    @ExecSpace("ServerOnly")
     method void OnEndPlay()
-        -- OnBeginPlay에서 연결한 것은 반드시 여기서 해제한다.
+        -- OnBeginPlay에서 연결한 것은 반드시 해제한다.
         if self.userEnterHandler ~= nil then
             _UserService:DisconnectEvent(UserEnterEvent, self.userEnterHandler)
             self.userEnterHandler = nil
         end
     end
 
+    method void OnMapEnter(Entity enterEntity)
+        -- 다른 맵에서 넘어왔을 때 클라이언트 카메라를 다시 맞춘다.
+        if self:IsClient() then
+            self:ApplyCameraToLocalPlayer()
+        end
+    end
+
     @ExecSpace("ServerOnly")
     method void OnUserEnter(UserEnterEvent event)
-        -- 새로 접속한 유저가 이 맵에 있으면 카메라를 맞춘다.
-        local player = _UserService:GetUserEntityByUserId(event.UserId)
-        if player == nil then return end
-        self:ApplyBound(player)
+        -- 서버는 가두기만 담당한다. 카메라는 클라가 스스로 건다.
+        log("[RoomBounds] " .. self.Entity.Name .. " 유저 입장: " .. event.UserId)
     end
 
-    @ExecSpace("ServerOnly")
-    method void OnMapEnter(Entity enterEntity)
-        -- 다른 맵에서 넘어왔을 때. 플레이어일 때만 조정한다.
-        if enterEntity == nil then return end
-        if enterEntity.PlayerComponent == nil then return end
-        self:ApplyBound(enterEntity)
-    end
+    ---------------------------------------------------------------
+    -- 방 외곽선 계산
+    ---------------------------------------------------------------
 
-    @ExecSpace("ServerOnly")
     method any FindTileMap()
-        -- 이 맵의 RectTileMapComponent를 찾는다. 타입명 탐색이 실패하면
-        -- 템플릿의 자식 이름("RectTileMap")으로 한 번 더 시도한다.
+        -- 이 맵의 RectTileMapComponent를 찾는다.
         local byType = self.Entity:GetFirstChildComponentByTypeName("RectTileMapComponent", true)
         if byType ~= nil then return byType end
 
@@ -68,27 +81,17 @@ script RoomCamera extends Component
         return nil
     end
 
-    @ExecSpace("ServerOnly")
-    method void ApplyBound(Entity target)
-        -- 이 맵의 타일 영역을 월드 좌표로 환산해 카메라 이동 범위로 지정한다.
-        if target == nil then return end
-        if target.PlayerComponent == nil then return end
-
-        local camera = target.CameraComponent
-        if camera == nil then
-            log_warning("[RoomCamera] CameraComponent 없음: " .. target.Name)
-            return
-        end
-
+    method void ComputeRoomRect()
+        -- 타일 셀 경계를 월드 좌표 외곽선으로 환산해 저장한다.
         local tileMap = self:FindTileMap()
         if tileMap == nil then
-            log_warning("[RoomCamera] RectTileMapComponent를 찾지 못함: " .. self.Entity.Name)
+            log_warning("[RoomBounds] RectTileMapComponent를 찾지 못함: " .. self.Entity.Name)
             return
         end
 
         local positions = tileMap:GetAllTilePositions():ToTable()
         if #positions == 0 then
-            log_warning("[RoomCamera] 타일이 없어 바운드를 계산할 수 없다: " .. self.Entity.Name)
+            log_warning("[RoomBounds] 타일이 없다: " .. self.Entity.Name)
             return
         end
 
@@ -104,28 +107,121 @@ script RoomCamera extends Component
             if cell.y > maxY then maxY = cell.y end
         end
 
-        -- 셀 좌표 → 월드 좌표. ToWorldPosition은 셀 기준점을 돌려주므로
-        -- 그리드 절반만큼 바깥으로 넓혀 타일의 실제 외곽선을 만든다.
+        -- ToWorldPosition은 셀 중심을 돌려주므로 그리드 절반만큼 넓혀 외곽선을 만든다.
         local minWorld = tileMap:ToWorldPosition(minX, minY)
         local maxWorld = tileMap:ToWorldPosition(maxX, maxY)
         local halfX = tileMap.GridSize.x * 0.5
         local halfY = tileMap.GridSize.y * 0.5
 
-        local left = minWorld.x - halfX
-        local bottom = minWorld.y - halfY
-        local right = maxWorld.x + halfX
-        local top = maxWorld.y + halfY
+        self.roomLeft = minWorld.x - halfX
+        self.roomBottom = minWorld.y - halfY
+        self.roomRight = maxWorld.x + halfX
+        self.roomTop = maxWorld.y + halfY
+        self.roomReady = true
 
+        log("[RoomBounds] " .. self.Entity.Name .. " 외곽=("
+            .. string.format("%.1f", self.roomLeft) .. "," .. string.format("%.1f", self.roomBottom)
+            .. ")~(" .. string.format("%.1f", self.roomRight) .. "," .. string.format("%.1f", self.roomTop)
+            .. ")  타일 " .. tostring(#positions) .. "칸  서버=" .. tostring(self:IsServer()))
+    end
+
+    ---------------------------------------------------------------
+    -- 1) 플레이어 가두기 (서버 권한)
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method void OnUpdate(number delta)
+        -- 타일 밖으로 나간 플레이어를 경계 안으로 되돌린다.
+        -- 타일이 없는 바깥은 충돌 대상이 없어서 그냥 걸어 나가진다.
+        if not self.roomReady then return end
+
+        local users = _UserService:GetUsersByMapName(self.Entity.Name)
+        if users == nil then return end
+        for i = 1, #users do
+            self:ClampInside(users[i])
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ClampInside(Entity player)
+        -- 방 외곽선 안으로 위치를 강제한다. Kinematicbody는 Transform 직접 대입이
+        -- 다음 프레임에 덮이므로 SetWorldPosition을 쓴다.
+        if not isvalid(player) then return end
+
+        local body = player.KinematicbodyComponent
+        if body == nil then return end
+
+        local pos = player.TransformComponent.WorldPosition
+        local left = self.roomLeft + self.playerMargin
+        local right = self.roomRight - self.playerMargin
+        local bottom = self.roomBottom + self.playerMargin
+        local top = self.roomTop - self.playerMargin
+
+        local x = pos.x
+        local y = pos.y
+        if x < left then x = left end
+        if x > right then x = right end
+        if y < bottom then y = bottom end
+        if y > top then y = top end
+
+        if x ~= pos.x or y ~= pos.y then
+            body:SetWorldPosition(Vector2(x, y))
+        end
+    end
+
+    ---------------------------------------------------------------
+    -- 2) 카메라 가두기 (클라이언트 = 카메라 소유자)
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method void ApplyCameraToLocalPlayer()
+        -- 내 플레이어의 카메라를 이 방 안으로 가둔다.
+        if not self.roomReady then
+            self:ComputeRoomRect()
+            if not self.roomReady then return end
+        end
+
+        local player = _UserService.LocalPlayer
+        if player == nil then
+            log_warning("[RoomBounds] LocalPlayer 없음 — 카메라 설정 보류")
+            return
+        end
+
+        local camera = player.CameraComponent
+        if camera == nil then
+            log_warning("[RoomBounds] CameraComponent 없음")
+            return
+        end
+
+        -- 타일 외곽선에서 화면 절반만큼 안쪽으로 좁혀 카메라 중심 범위로 바꾼다.
+        local insetX = self.viewWidth * 0.5
+        local insetY = self.viewHeight * 0.5
+        local left = self.roomLeft + insetX
+        local right = self.roomRight - insetX
+        local bottom = self.roomBottom + insetY
+        local top = self.roomTop - insetY
+
+        -- 방이 화면보다 작으면 범위가 뒤집힌다. 그 축은 방 중심에 고정한다.
+        if left > right then
+            local centerX = (self.roomLeft + self.roomRight) * 0.5
+            left = centerX
+            right = centerX
+        end
+        if bottom > top then
+            local centerY = (self.roomBottom + self.roomTop) * 0.5
+            bottom = centerY
+            top = centerY
+        end
+
+        camera.ConfineCameraArea = true
         camera.UseCustomBound = true
         camera.LeftBottom = Vector2(left, bottom)
         camera.RightTop = Vector2(right, top)
 
-        log("[RoomCamera] " .. self.Entity.Name .. " → " .. target.Name
-            .. " 바운드=(" .. string.format("%.2f", left) .. ", " .. string.format("%.2f", bottom)
-            .. ")~(" .. string.format("%.2f", right) .. ", " .. string.format("%.2f", top)
-            .. ")  타일 " .. tostring(#positions) .. "칸"
-            .. "  셀범위 X[" .. tostring(minX) .. ".." .. tostring(maxX)
-            .. "] Y[" .. tostring(minY) .. ".." .. tostring(maxY) .. "]")
+        log("[RoomBounds] 카메라 중심범위=(" .. string.format("%.2f", left) .. "," .. string.format("%.2f", bottom)
+            .. ")~(" .. string.format("%.2f", right) .. "," .. string.format("%.2f", top)
+            .. ")  UseCustomBound=" .. tostring(camera.UseCustomBound)
+            .. "  Confine=" .. tostring(camera.ConfineCameraArea))
     end
 
 end
