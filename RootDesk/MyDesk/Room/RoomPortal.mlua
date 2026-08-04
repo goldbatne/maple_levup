@@ -17,6 +17,14 @@ script RoomPortal extends Component
     -- 이 포탈이 향하는 방향. RoomTable.conn_{north|south|east|west} 를 고르는 키.
     property string direction = ""
 
+    -- 잠금 여부. T1에서는 전부 false(개방). T6에서 게이트 판정 결과로 서버가 바꾼다.
+    -- 값이 바뀌면 RefreshVisual()이 스프라이트를 갈아끼운다.
+    @Sync property boolean locked = false
+
+    -- 개방/잠김 스프라이트. RUID를 코드에 박지 않고 모델 Values에서 주입받는다.
+    property string openRUID = ""
+    property string lockedRUID = ""
+
     -- 도착 지점 계산용. 반대편 포탈보다 안쪽에 내려놓아 즉시 재발동하는 것을 막는다.
     property number portalX = 13        -- 좌우 포탈의 x 절대값
     property number portalYNorth = 8    -- 위 포탈의 y
@@ -26,13 +34,39 @@ script RoomPortal extends Component
 
     property any enterHandler = nil
 
-    @ExecSpace("ServerOnly")
     method void OnBeginPlay()
-        -- 트리거 진입 감지. ConnectEvent는 Component가 아니라 Entity에 건다.
-        if self.direction == "" then
-            log_warning("[RoomPortal] direction이 비어 있다: " .. self.Entity.Name)
+        -- 스프라이트는 양쪽에서 각자 세팅한다 (렌더러는 클라 소유).
+        self:RefreshVisual()
+
+        -- 진입 감지와 이동은 서버 권한.
+        if self:IsServer() then
+            if self.direction == "" then
+                log_warning("[RoomPortal] direction이 비어 있다: " .. self.Entity.Name)
+            end
+            self.enterHandler = self.Entity:ConnectEvent(TriggerEnterEvent, self.OnTriggerEnter)
         end
-        self.enterHandler = self.Entity:ConnectEvent(TriggerEnterEvent, self.OnTriggerEnter)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSyncProperty(string name, any value)
+        -- 서버가 locked를 바꾸면 클라 스프라이트도 따라 바뀐다 (T6에서 쓰인다).
+        if name == "locked" then
+            self:RefreshVisual()
+        end
+    end
+
+    method void RefreshVisual()
+        -- 잠금 여부에 맞는 스프라이트를 적용한다. RUID는 모델 Values에서 온다.
+        local renderer = self.Entity.SpriteRendererComponent
+        if renderer == nil then return end
+
+        local ruid = self.openRUID
+        if self.locked and self.lockedRUID ~= "" then
+            ruid = self.lockedRUID
+        end
+        if ruid ~= "" then
+            renderer.SpriteRUID = ruid
+        end
     end
 
     @ExecSpace("ServerOnly")
@@ -97,8 +131,14 @@ script RoomPortal extends Component
 
     @ExecSpace("ServerOnly")
     method boolean CanPass(Entity player, table targetRoom)
-        -- T1에서는 항상 통과. T6에서 gate_type(stat/key/rebirth)별 판정을 여기 구현한다.
-        -- 지금 막아버리면 방 이동 자체를 검증할 수 없으므로 의도적으로 열어둔다.
+        -- 잠긴 포탈은 통과 불가.
+        if self.locked then
+            log("[RoomPortal] " .. self.Entity.Name .. " 은 잠겨 있다 (" .. targetRoom.id .. ")")
+            return false
+        end
+
+        -- T6에서 gate_type(stat/key/rebirth)별 판정을 여기 구현하고 self.locked를 갱신한다.
+        -- T1에서는 전부 개방 — 방 이동 자체를 검증해야 하므로 의도적으로 열어둔다.
         return true
     end
 
