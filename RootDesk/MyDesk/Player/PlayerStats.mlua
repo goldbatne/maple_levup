@@ -1,0 +1,138 @@
+-- @서버 (스탯 분배·검증은 반드시 서버. 클라는 요청과 표시만 — 개발 규칙 2)
+--
+-- 회차 데이터의 소유자. 필드는 SaveRunData 스키마와 1:1 대응하며, T8에서 저장에 연결한다.
+-- 수치는 전부 GameBalance에서 읽는다 (하드코딩 금지 — 개발 규칙 3).
+--
+-- @TargetUserSync를 쓰는 이유: 스탯은 본인만 봐야 하는 개인 데이터다.
+-- @Sync는 전체 클라에 뿌려지므로 남의 스탯까지 새어 나간다.
+
+@Component
+script PlayerStats extends Component
+
+    -- ── 회차 데이터 (환생 시 초기화. SaveRunData와 대응) ──
+    @TargetUserSync property integer Level = 1
+    @TargetUserSync property number Exp = 0
+
+    @TargetUserSync property integer StatAtk = 0
+    @TargetUserSync property integer StatInt = 0
+    @TargetUserSync property integer StatDef = 0
+    @TargetUserSync property integer StatLuk = 0
+    @TargetUserSync property integer UnspentPoints = 0
+
+    @TargetUserSync property string CurrentJob = ""
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- 시트 공식: 분배 가능 P 누적 = (Lv - 1) x stat_points_per_level.
+        -- 따라서 Lv1의 시작 포인트는 0이다.
+        self:ResetRun()
+        log("[PlayerStats] 초기화  Lv=" .. tostring(self.Level)
+            .. "  미분배P=" .. tostring(self.UnspentPoints)
+            .. "  ATK총합=" .. tostring(self:GetTotalAtk()))
+    end
+
+    ---------------------------------------------------------------
+    -- 분배 (서버 권한)
+    ---------------------------------------------------------------
+
+    @ExecSpace("Server")
+    method void RequestAllocate(string statName, integer amount)
+        -- 클라이언트 → 서버 요청. 여기서만 분배가 일어난다.
+        -- senderUserId는 서버가 채우는 값이라 클라가 위조할 수 없다.
+        if senderUserId ~= self.Entity.PlayerComponent.UserId then
+            log_warning("[PlayerStats] 남의 스탯 분배 시도 차단: " .. tostring(senderUserId))
+            return
+        end
+        self:Allocate(statName, amount)
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean Allocate(string statName, integer amount)
+        -- 실제 분배. 검증에 실패하면 아무것도 바꾸지 않고 false.
+        if amount <= 0 then
+            log_warning("[PlayerStats] 분배량이 0 이하: " .. tostring(amount))
+            return false
+        end
+        if amount > self.UnspentPoints then
+            log_warning("[PlayerStats] 포인트 부족  요청=" .. tostring(amount)
+                .. "  보유=" .. tostring(self.UnspentPoints))
+            return false
+        end
+
+        if statName == "ATK" then
+            self.StatAtk = self.StatAtk + amount
+        elseif statName == "INT" then
+            self.StatInt = self.StatInt + amount
+        elseif statName == "DEF" then
+            self.StatDef = self.StatDef + amount
+        elseif statName == "LUK" then
+            self.StatLuk = self.StatLuk + amount
+        else
+            log_warning("[PlayerStats] 알 수 없는 스탯: " .. tostring(statName))
+            return false
+        end
+
+        self.UnspentPoints = self.UnspentPoints - amount
+
+        log("[PlayerStats] 분배 " .. statName .. " +" .. tostring(amount)
+            .. "  → ATK=" .. tostring(self.StatAtk) .. " INT=" .. tostring(self.StatInt)
+            .. " DEF=" .. tostring(self.StatDef) .. " LUK=" .. tostring(self.StatLuk)
+            .. "  남은P=" .. tostring(self.UnspentPoints)
+            .. "  ATK총합=" .. tostring(self:GetTotalAtk()))
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantLevelPoints(integer levels)
+        -- 레벨업 시 포인트 지급 (T4에서 호출한다).
+        if levels <= 0 then return end
+        local perLevel = _GameData:GetBalance("stat_points_per_level")
+        self.UnspentPoints = self.UnspentPoints + math.floor(levels * perLevel)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ResetRun()
+        -- 회차 초기화. 환생(T7)이 이걸 부른다. 영구 데이터는 건드리지 않는다.
+        self.Level = 1
+        self.Exp = 0
+        self.StatAtk = 0
+        self.StatInt = 0
+        self.StatDef = 0
+        self.StatLuk = 0
+        self.UnspentPoints = 0
+        self.CurrentJob = ""
+    end
+
+    ---------------------------------------------------------------
+    -- 파생 스탯 (양쪽에서 계산 가능 — 표시용)
+    ---------------------------------------------------------------
+
+    method number GetTotalAtk()
+        -- 데미지 공식(T3)이 쓰는 값. 기본 ATK + 분배 P x P당 상승분.
+        local base = _GameData:GetBalance("player_base_atk")
+        local perPoint = _GameData:GetBalance("atk_per_stat_point")
+        return base + self.StatAtk * perPoint
+    end
+
+    method number GetTotalInt()
+        -- INT/DEF/LUK은 밸런스시트에 플레이어 기본값이 없어 base 0으로 둔다.
+        -- 시트 v0.2에서 정해지면 GameBalance에 키를 추가하고 여기만 고친다.
+        return self.StatInt * _GameData:GetBalance("atk_per_stat_point")
+    end
+
+    method number GetTotalDef()
+        return self.StatDef * _GameData:GetBalance("atk_per_stat_point")
+    end
+
+    method number GetTotalLuk()
+        return self.StatLuk * _GameData:GetBalance("atk_per_stat_point")
+    end
+
+    method number GetCaptureRate()
+        -- 포획 확률 = 기본 + LUK x LUK당 보정 (기획서 4.8).
+        local base = _GameData:GetBalance("capture_base_rate")
+        local perLuk = _GameData:GetBalance("capture_luk_bonus")
+        return base + self:GetTotalLuk() * perLuk
+    end
+
+end
