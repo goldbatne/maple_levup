@@ -41,6 +41,48 @@ script PlayerAttack extends AttackComponent
 		self:AttackFast(self.Shape, nil, CollisionGroups.Monster)
 	end
 
+	@ExecSpace("Server")
+	method void RequestUseSkill(integer activeIndex)
+		-- 클라 버튼 → 서버. senderUserId는 서버가 채우므로 위조할 수 없다.
+		if senderUserId ~= self.Entity.PlayerComponent.UserId then
+			log_warning("[PlayerAttack] 남의 스킬 사용 시도 차단: " .. tostring(senderUserId))
+			return
+		end
+		self:UseSkill(activeIndex)
+	end
+
+	@ExecSpace("ServerOnly")
+	method boolean UseSkill(integer activeIndex)
+		-- GetActiveSkills()의 순번으로 쏜다. 호출부는 직업/몬스터 슬롯을 구분하지 않는다
+		-- (작업지시서 T5 요청 3: 사용 인터페이스는 통일).
+		---@type PlayerSkillSlots
+		local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
+		if slots == nil then return false end
+
+		local active = slots:GetActiveSkills()
+		local skillId = active[activeIndex]
+		if skillId == nil then
+			log_warning("[PlayerAttack] 그 자리에 장착된 스킬이 없다: " .. tostring(activeIndex)
+				.. " (보유 액티브 " .. tostring(#active) .. "개)")
+			return false
+		end
+
+		local skill = _GameData:GetSkill(skillId)
+		if skill == nil then return false end
+
+		-- 판정 모양은 기본 공격과 같다. 스킬별 사거리는 시트에 없어서 만들지 않았다.
+		local transform = self.Entity.TransformComponent
+		if not isvalid(transform) then return false end
+		local worldPosition = transform.WorldPosition
+		self.Shape.Position = Vector2(worldPosition.x, worldPosition.y + 0.5)
+
+		-- 스킬 id를 attackInfo로 태운다. CalcDamage가 이걸로 계수와 scaling_stat을 고른다.
+		log("[PlayerAttack] 스킬 사용 " .. tostring(activeIndex) .. "번 [" .. skill.name
+			.. "]  계수=" .. tostring(skill.coefficient) .. " 스탯=" .. skill.scaling_stat)
+		self:AttackFast(self.Shape, skillId, CollisionGroups.Monster)
+		return true
+	end
+
 	method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
 		-- 데미지 공식은 CombatFormula 한 곳에만 둔다.
 		-- 작업지시서 T3 함정: 계산을 클라로 옮기면 이후 전부 재작업이다.
@@ -48,11 +90,26 @@ script PlayerAttack extends AttackComponent
 		--
 		-- ⚠ 부모 AttackComponent.CalcDamage에는 @ExecSpace가 없다.
 		--   여기에 붙이면 LEA-3014 SignatureMismatch가 난다.
-		local atk = _GameData:GetBalance("player_base_atk")
+		-- attackInfo에 스킬 id가 실려 온다. 기본 공격은 nil이라 시트 기준 계수가 쓰인다.
+		-- 스킬마다 scaling_stat이 다르므로(SkillTable: ATK / INT) 어느 스탯을 쓸지도
+		-- 여기서 갈린다. 마법사 스킬을 ATK로 계산하면 조용히 틀린 숫자가 나온다.
+		local statName = "ATK"
+		if attackInfo ~= nil and attackInfo ~= "" then
+			local skill = _GameData:GetSkill(attackInfo)
+			if skill ~= nil and skill.scaling_stat ~= "" then
+				statName = skill.scaling_stat
+			end
+		end
+
+		local power = _GameData:GetBalance("player_base_atk")
 		---@type PlayerStats
 		local stats = attacker:GetComponent("script.PlayerStats")
 		if stats ~= nil then
-			atk = stats:GetTotalAtk()
+			if statName == "INT" then
+				power = stats:GetTotalInt()
+			else
+				power = stats:GetTotalAtk()
+			end
 		end
 
 		local def = 0
@@ -62,8 +119,9 @@ script PlayerAttack extends AttackComponent
 			def = monster.Def
 		end
 
-		local damage = _CombatFormula:CalcSkillDamage(atk, def, attackInfo)
-		log("[PlayerAttack] ATK=" .. tostring(atk) .. " vs DEF=" .. tostring(def)
+		local damage = _CombatFormula:CalcSkillDamage(power, def, attackInfo)
+		log("[PlayerAttack] " .. statName .. "=" .. tostring(power) .. " vs DEF=" .. tostring(def)
+			.. "  스킬=" .. tostring(attackInfo == nil and "기본공격" or attackInfo)
 			.. " → 데미지 " .. tostring(damage))
 		return damage
 	end
