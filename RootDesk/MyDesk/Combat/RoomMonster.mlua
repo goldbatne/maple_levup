@@ -83,8 +83,20 @@ script RoomMonster extends Component
         local stateComp = self.Entity.StateComponent
         if isvalid(stateComp) then stateComp:ChangeState("DEAD") end
 
-        log("[RoomMonster] 사망 " .. self.DisplayName .. "  EXP " .. tostring(self.ExpReward) .. " 지급 대상 대기")
-        -- EXP 지급은 T3-3에서 이 지점에 붙인다. killer를 여기서 이미 들고 있다.
+        -- EXP는 막타를 넣은 쪽에 준다. killer는 HitEvent.AttackerEntity라 nil일 수 있고
+        -- (환경 피해 등) 이미 파괴된 엔티티일 수도 있어 isvalid로 먼저 거른다.
+        if isvalid(killer) then
+            ---@type PlayerStats
+            local stats = killer:GetComponent("script.PlayerStats")
+            if stats ~= nil then
+                stats:AddExp(self.ExpReward)
+                log("[RoomMonster] 사망 " .. self.DisplayName .. "  EXP " .. tostring(self.ExpReward) .. " 지급")
+            else
+                log_warning("[RoomMonster] 막타 엔티티에 PlayerStats가 없어 EXP 미지급: " .. tostring(killer.Name))
+            end
+        else
+            log_warning("[RoomMonster] 막타 주체가 없어 EXP 미지급: " .. self.DisplayName)
+        end
 
         local delayHide = function()
             self.Entity:SetVisible(false)
