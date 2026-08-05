@@ -1,0 +1,56 @@
+-- @서버 (레벨/EXP 판정은 반드시 서버. 클라는 동기화된 값을 표시만 한다)
+--
+-- 성장 곡선 계산의 유일한 창구. CombatFormula가 전투 수치를 맡는 것과 같은 역할이다.
+-- 수치는 전부 GameBalance에서 읽는다 (하드코딩 금지 — 개발 규칙 3).
+-- 이 모듈은 상태를 갖지 않는다. 순수 계산만 한다.
+--
+-- 곡선을 여기 모아두는 이유: T4 완료 조건이 "시트의 레벨별 필요 처치 수와
+-- 실측이 ±20% 이내"라, 시트와 대조할 수 있는 형태로 한곳에 있어야 한다.
+
+@Logic
+script LevelCurve extends Logic
+
+    ---------------------------------------------------------------
+    -- 필요 EXP
+    ---------------------------------------------------------------
+
+    method integer RequiredExp(integer level)
+        -- 시트: Lv1 필요 EXP 20, 레벨당 공비 1.12.
+        -- level에서 level+1로 가는 데 필요한 양이다.
+        if level < 1 then level = 1 end
+        local base = _GameData:GetBalance("exp_base")
+        local ratio = _GameData:GetBalance("exp_ratio")
+        -- math.pow가 아니라 ^ 를 쓴다 — 이 워크스페이스에서 동작을 확인한 쪽이다.
+        return math.floor(base * (ratio ^ (level - 1)) + 0.5)
+    end
+
+    method integer LevelCap()
+        return math.floor(_GameData:GetBalance("initial_level_cap"))
+    end
+
+    method boolean IsAtCap(integer level)
+        return level >= self:LevelCap()
+    end
+
+    ---------------------------------------------------------------
+    -- 시트 대조 보조 (T4 완료 조건: 레벨별 필요 처치 수 ±20%)
+    ---------------------------------------------------------------
+
+    method integer MonsterExpAtLevel(integer level)
+        -- 시트 공식: 몬스터 EXP = base x ratio^(lv-1).
+        -- MonsterTable에 있는 몬스터는 확정값(GetMonster)이 우선이고,
+        -- 이건 "그 레벨대 몬스터를 잡는다면" 가정으로 곡선을 그릴 때 쓴다.
+        if level < 1 then level = 1 end
+        local base = _GameData:GetBalance("monster_exp_base")
+        local ratio = _GameData:GetBalance("monster_exp_ratio")
+        return math.floor(base * (ratio ^ (level - 1)) + 0.5)
+    end
+
+    method integer KillsToLevel(integer level)
+        -- 그 레벨에서 다음 레벨까지 동레벨 몬스터를 몇 마리 잡아야 하는가.
+        local monsterExp = self:MonsterExpAtLevel(level)
+        if monsterExp <= 0 then return 0 end
+        return math.ceil(self:RequiredExp(level) / monsterExp)
+    end
+
+end
