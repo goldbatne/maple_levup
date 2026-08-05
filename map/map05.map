@@ -16,7 +16,7 @@
       {
         "id": "278ad742-2ee1-416c-a0f3-714dc316ee34",
         "path": "/maps/map05",
-        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera",
+        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner",
         "jsonString": {
           "name": "map05",
           "path": "/maps/map05",
@@ -50,6 +50,10 @@
             {
               "Enable": true,
               "@type": "script.RoomCamera"
+            },
+            {
+              "@type": "script.RoomSpawner",
+              "Enable": true
             }
           ],
           "@version": 1

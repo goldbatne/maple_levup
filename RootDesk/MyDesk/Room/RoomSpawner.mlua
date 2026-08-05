@@ -1,0 +1,132 @@
+-- @서버 (스폰은 서버 권한. 클라가 몬스터를 만들 수 있으면 안 된다)
+--
+-- 방 하나의 몬스터를 책임진다. 어떤 몬스터가 몇 마리 사는지는 RoomTable이 소유한다
+-- (작업지시서 T3: "몬스터는 방(RoomTable)에 속하며, 방 진입 시 스폰").
+--
+-- 왜 @Logic이 아니라 맵 엔티티의 @Component인가:
+-- 이 상태(스폰 목록·리필 타이머)는 그 맵에서만 의미가 있다. @Logic으로 두면
+-- 맵을 옮겨도 살아남아 다른 방의 몬스터를 채우려 든다.
+--
+-- 리스폰은 개체가 아니라 방 단위로 센다. RoomMonster는 죽으면 파괴되고(RespawnOn=false),
+-- 여기서 살아있는 수를 세어 모자란 만큼 다시 채운다. 개체별 리스폰을 쓰면
+-- 방 정원이 데이터가 아니라 개체 설정에 흩어진다.
+
+@Component
+script RoomSpawner extends Component
+
+    -- 리필 검사 주기(초). 죽은 자리를 이 간격으로 메운다.
+    property number RespawnCheckInterval = 3.0
+
+    -- 스폰 분포 영역(월드 유닛). 슬라이스의 맵 5개는 전부 28x16이고
+    -- 외곽이 (-14,-7)~(14,9)라, 가장자리에 붙지 않도록 안쪽으로 여유를 뒀다.
+    -- 맵마다 다르게 하려면 인스펙터에서 이 값만 바꾸면 된다.
+    property number SpawnMinX = -10
+    property number SpawnMaxX = 10
+    property number SpawnMinY = -4
+    property number SpawnMaxY = 6
+
+    @HideFromInspector property string monsterId = ""
+    @HideFromInspector property string modelId = ""
+    @HideFromInspector property integer monsterCount = 0
+    @HideFromInspector property integer spawnIndex = 0
+    @HideFromInspector property integer checkTimer = 0
+    -- 이 방이 스폰한 엔티티들. 파괴되면 isvalid가 false가 된다.
+    @HideFromInspector property table spawned = {}
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- 맵 이름으로 방을 역인덱스한다 (RoomCamera와 같은 방식).
+        local room = _GameData:GetRoomByMapName(self.Entity.Name)
+        if room == nil then
+            log_warning("[RoomSpawner] RoomTable에 없는 맵: " .. self.Entity.Name)
+            return
+        end
+
+        self.monsterId = room.monster_id
+        self.monsterCount = math.floor(room.monster_count)
+
+        if self.monsterId == "" or self.monsterCount <= 0 then
+            log("[RoomSpawner] " .. self.Entity.Name .. "(" .. room.name .. ") 몬스터 없음")
+            return
+        end
+
+        local record = _GameData:GetMonster(self.monsterId)
+        if record == nil then
+            log_error("[RoomSpawner] MonsterTable에 없는 몬스터: " .. self.monsterId
+                .. " (방 " .. room.id .. ")")
+            return
+        end
+
+        -- 모델을 아직 안 만든 몬스터는 건너뛴다. 그냥 스폰하면 SpawnByModelId가
+        -- 조용히 nil을 주고 "왜 안 나오지"로 끝난다.
+        self.modelId = record.model_id
+        if self.modelId == "" then
+            log_warning("[RoomSpawner] " .. self.Entity.Name .. " 스폰 생략 — "
+                .. self.monsterId .. "(" .. record.name .. ")의 model_id가 비어 있다")
+            return
+        end
+
+        log("[RoomSpawner] " .. self.Entity.Name .. "(" .. room.name .. ") "
+            .. self.monsterId .. " x" .. tostring(self.monsterCount)
+            .. " 배치 시작 (모델 " .. self.modelId .. ")")
+
+        self:Refill()
+        self.checkTimer = _TimerService:SetTimerRepeat(function()
+            self:Refill()
+        end, self.RespawnCheckInterval)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnEndPlay()
+        -- 맵이 내려갈 때 타이머를 놓으면 파괴된 엔티티를 계속 채우려 든다.
+        if self.checkTimer ~= 0 then
+            _TimerService:ClearTimer(self.checkTimer)
+            self.checkTimer = 0
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method integer CountAlive()
+        -- 살아있는 수를 세면서 죽은 참조는 목록에서 걷어낸다.
+        local alive = {}
+        for i = 1, #self.spawned do
+            local e = self.spawned[i]
+            if isvalid(e) then
+                table.insert(alive, e)
+            end
+        end
+        self.spawned = alive
+        return #alive
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Refill()
+        -- 정원에서 모자란 만큼만 채운다.
+        local missing = self.monsterCount - self:CountAlive()
+        if missing <= 0 then return end
+
+        for i = 1, missing do
+            self:SpawnOne()
+        end
+        log("[RoomSpawner] " .. self.Entity.Name .. " 리필 +" .. tostring(missing)
+            .. "  (현재 " .. tostring(#self.spawned) .. "/" .. tostring(self.monsterCount) .. ")")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SpawnOne()
+        -- parent는 nil이면 안 된다. 맵 엔티티 자신을 넘긴다.
+        self.spawnIndex = self.spawnIndex + 1
+        local x = self.SpawnMinX + _UtilLogic:RandomDouble() * (self.SpawnMaxX - self.SpawnMinX)
+        local y = self.SpawnMinY + _UtilLogic:RandomDouble() * (self.SpawnMaxY - self.SpawnMinY)
+
+        local name = self.monsterId .. "_" .. self.Entity.Name .. "_" .. tostring(self.spawnIndex)
+        local e = _SpawnService:SpawnByModelId(self.modelId, name, Vector3(x, y, 0), self.Entity)
+        if e == nil then
+            log_error("[RoomSpawner] 스폰 실패 modelId=" .. self.modelId
+                .. " — 같은 id의 .model이 등록돼 있는지 확인할 것")
+            return
+        end
+        table.insert(self.spawned, e)
+    end
+
+end

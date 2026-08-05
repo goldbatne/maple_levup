@@ -3,25 +3,42 @@ script PlayerAttack extends AttackComponent
 
 	@HideFromInspector
 	property any Shape = nil
+	@HideFromInspector
+	property integer autoAttackTimer = 0
 
 	@ExecSpace("ServerOnly")
 	method void OnBeginPlay()
-		-- Reusable shape; AttackNormal repositions it each swing.
-		self.Shape = BoxShape(Vector2.zero, Vector2.one, 0)
+		-- 판정을 원형으로 둔다. 우리 맵은 RectTile 탑다운이라 사방에서 몬스터가 붙는데,
+		-- LookDirectionX 방향 박스는 좌우만 커버해서 위/아래 몬스터를 못 때린다.
+		-- 반경은 시트가 아니라 GameBalance의 구현 상수에서 읽는다 (하드코딩 금지 — 개발 규칙 3).
+		self.Shape = CircleShape(Vector2.zero, _GameData:GetBalance("player_attack_range"))
+
+		-- 기본 공격은 자동이다 (작업지시서 T3: "기본 공격은 자동(근접 범위 판정)").
+		-- 버튼 탭은 T5의 액티브 스킬 몫이라 여기서 입력을 받지 않는다.
+		self.autoAttackTimer = _TimerService:SetTimerRepeat(function()
+			self:AttackNormal()
+		end, _GameData:GetBalance("player_attack_interval"))
+	end
+
+	@ExecSpace("ServerOnly")
+	method void OnEndPlay()
+		-- 타이머를 남기면 맵을 옮기거나 스크립트를 리로드할 때 유령 공격이 계속 돈다.
+		if self.autoAttackTimer ~= 0 then
+			_TimerService:ClearTimer(self.autoAttackTimer)
+			self.autoAttackTimer = 0
+		end
 	end
 
 	@ExecSpace("ServerOnly")
 	method void AttackNormal()
-		-- Offset the box in front of the player before firing AttackFast.
-		local playerController = self.Entity.PlayerControllerComponent
+		-- 플레이어를 중심으로 한 원형 판정. 방향에 상관없이 닿는 몬스터를 전부 친다.
 		local transform = self.Entity.TransformComponent
-		if playerController and transform then
-			local worldPosition = transform.WorldPosition
-			local attackOffset = Vector2(worldPosition.x + 0.5 * playerController.LookDirectionX, worldPosition.y + 0.5)
-			self.Shape.Position = attackOffset
-		
-			self:AttackFast(self.Shape, nil, CollisionGroups.Monster)
-		end
+		if not isvalid(transform) then return end
+
+		local worldPosition = transform.WorldPosition
+		-- 발밑이 원점이라 반 칸 올려야 몸통 높이에서 판정된다.
+		self.Shape.Position = Vector2(worldPosition.x, worldPosition.y + 0.5)
+		self:AttackFast(self.Shape, nil, CollisionGroups.Monster)
 	end
 
 	method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
@@ -62,9 +79,11 @@ script PlayerAttack extends AttackComponent
 	@ExecSpace("ServerOnly")
 	@EventSender("Self")
 	handler HandlePlayerActionEvent(PlayerActionEvent event)
-		-- Route the "Attack" action to AttackNormal.
+		-- 자동 공격으로 바뀌었으니 여기서 AttackNormal을 또 부르지 않는다.
+		-- 부르면 버튼을 누를 때마다 주기와 무관하게 한 대가 더 들어가 DPS가 튄다.
+		-- 이 핸들러는 T5에서 액티브 스킬 입력을 받을 자리로 남겨둔다.
 		if event.ActionName == "Attack" then
-			self:AttackNormal()
+			-- T5: 장착된 액티브 스킬 발동
 		end
 	end
 
