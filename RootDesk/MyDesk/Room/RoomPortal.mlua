@@ -30,7 +30,12 @@ script RoomPortal extends Component
     property number portalYNorth = 8    -- 위 포탈의 y
     property number portalYSouth = -6   -- 아래 포탈의 y
     property number portalYSide = 1     -- 좌우 포탈의 y
-    property number arriveInset = 2     -- 포탈에서 안쪽으로 물러나는 거리
+    -- 포탈에서 안쪽으로 물러나는 거리.
+    -- 3인 이유: 트리거가 3x3이라 반 크기가 1.5이고, 플레이어 몸통이 발밑 원점에서
+    -- 위로 약 1 뻗는다. 2로 두면 북쪽 포탈에서 아래로 내려놓을 때
+    -- (도착 y=6 vs 트리거 하단 6.5) 몸통이 트리거에 파고들어 즉시 왕복한다 — 실측.
+    -- 좌우는 몸통이 옆으로 뻗지 않아 2에서도 우연히 멀쩡했다.
+    property number arriveInset = 3
 
     property any enterHandler = nil
 
@@ -118,9 +123,15 @@ script RoomPortal extends Component
             return
         end
 
+        -- 방금 포탈을 탄 플레이어는 잠시 무시한다. 도착 지점이 상대 포탈에
+        -- 조금이라도 겹치면 왕복이 나기 때문이다 (PortalGuard 주석 참고).
+        local userId = player.PlayerComponent.UserId
+        if not _PortalGuard:CanPass(userId) then return end
+
         -- T6에서 여기에 게이트 판정이 들어간다 (수치 / 열쇠 / 환생).
         if not self:CanPass(player, targetRoom) then return end
 
+        _PortalGuard:Mark(userId)
         local arrive = self:ArrivePosition()
         log("[RoomPortal] " .. room.id .. "(" .. currentMap.Name .. ") --" .. self.direction
             .. "--> " .. targetRoomId .. "(" .. targetRoom.map_name .. ")  도착=("
