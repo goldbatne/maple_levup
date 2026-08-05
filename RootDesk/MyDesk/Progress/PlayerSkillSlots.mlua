@@ -77,7 +77,10 @@ script PlayerSkillSlots extends Component
     -- 직업 슬롯 (고정, 자동)
     ---------------------------------------------------------------
 
-    @ExecSpace("ServerOnly")
+    -- ⚠ @ExecSpace를 일부러 붙이지 않았다(= 부르는 쪽에서 실행).
+    --   HUD가 같은 목록을 그려야 하는데, 클라에서 따로 조립하면 순서 규칙이
+    --   두 곳에 생겨 언젠가 어긋난다. 읽는 값이 전부 @TargetUserSync + GameData라
+    --   양쪽에서 같은 결과가 나온다.
     method table GetJobSkills()
         -- 직업 스킬은 저장하지 않고 current_job에서 매번 유도한다.
         -- 저장해두면 JobTable을 고쳤을 때 옛 값이 남아 어긋난다.
@@ -162,7 +165,7 @@ script PlayerSkillSlots extends Component
     -- 통합 인터페이스 (작업지시서 T5 요청 3: 사용 인터페이스는 통일)
     ---------------------------------------------------------------
 
-    @ExecSpace("ServerOnly")
+    -- GetJobSkills와 같은 이유로 실행공간을 열어둔다. 서버는 판정에, 클라는 HUD에 쓴다.
     method table GetActiveSkills()
         -- 지금 쓸 수 있는 액티브 전부. 직업 스킬이 앞, 몬스터 스킬이 뒤.
         -- 호출부는 이 목록만 보면 되고 어느 슬롯 출신인지 몰라도 된다.
