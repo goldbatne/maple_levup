@@ -43,6 +43,10 @@ script RoomPortal extends Component
     property number arriveInset = 2.5
 
     property any enterHandler = nil
+    property any visualTimer = nil
+
+    -- 잠금 표시를 다시 계산하는 주기(초). 스탯이 오르면 이 간격 안에 문이 열린다.
+    property number visualInterval = 0.5
 
     method void OnBeginPlay()
         -- 스프라이트는 양쪽에서 각자 세팅한다 (렌더러는 클라 소유).
@@ -55,6 +59,14 @@ script RoomPortal extends Component
             end
             self.enterHandler = self.Entity:ConnectEvent(TriggerEnterEvent, self.OnTriggerEnter)
         end
+
+        if self:IsClient() then
+            -- 게이트 잠금 표시는 **사람마다 다르다**. locked(@Sync)로는 표현할 수 없어서
+            -- 클라가 자기 플레이어 기준으로 직접 판정해 스프라이트를 고른다.
+            self.visualTimer = _TimerService:SetTimerRepeat(function()
+                self:RefreshGateVisual()
+            end, self.visualInterval)
+        end
     end
 
     @ExecSpace("ClientOnly")
@@ -66,25 +78,72 @@ script RoomPortal extends Component
     end
 
     method void RefreshVisual()
-        -- 잠금 여부에 맞는 스프라이트를 적용한다. RUID는 모델 Values에서 온다.
+        -- 작가가 건 잠금(locked, 모두에게 동일)에 맞는 스프라이트. 시작 시 한 번 쓴다.
+        self:ApplySprite(self.locked)
+    end
+
+    method void ApplySprite(boolean showLocked)
+        -- 잠금 여부에 맞는 스프라이트를 적용한다. RUID는 맵 Values에서 온다.
+        -- 같은 값이면 쓰지 않는다 — 0.5초마다 도는 경로라 불필요한 대입을 줄인다.
         local renderer = self.Entity.SpriteRendererComponent
         if renderer == nil then return end
 
         local ruid = self.openRUID
-        if self.locked and self.lockedRUID ~= "" then
+        if showLocked and self.lockedRUID ~= "" then
             ruid = self.lockedRUID
         end
-        if ruid ~= "" then
+        if ruid ~= "" and renderer.SpriteRUID ~= ruid then
             renderer.SpriteRUID = ruid
         end
     end
 
-    @ExecSpace("ServerOnly")
+    @ExecSpace("ClientOnly")
+    method void RefreshGateVisual()
+        -- 내 플레이어 기준으로 이 문이 잠겼는지 보고 스프라이트를 고른다.
+        --
+        -- 왜 서버가 안 하고 클라가 하는가: 게이트 조건은 사람마다 다른데
+        -- locked는 @Sync라 모두에게 같은 값이 방송된다. 서버가 한 사람의 판정으로
+        -- locked를 바꾸면 다른 사람 화면의 문까지 바뀐다 (CanPass 주석 참고).
+        local me = _UserService.LocalPlayer
+        if me == nil then return end
+
+        local map = self.Entity.CurrentMap
+        if map == nil then return end
+
+        -- 내가 있는 방의 문만 건드린다.
+        local myMap = me.CurrentMap
+        if myMap == nil or myMap.Name ~= map.Name then return end
+
+        -- 작가가 건 잠금이 우선이다. 그 경우 게이트를 볼 것도 없이 잠긴 그림.
+        if self.locked then
+            self:ApplySprite(true)
+            return
+        end
+
+        local room = _GameData:GetRoomByMapName(map.Name)
+        if room == nil then return end
+
+        local targetRoomId = self:ToText(room.connections[self.direction])
+        if targetRoomId == "" then return end
+
+        local targetRoom = _GameData:GetRoom(targetRoomId)
+        if targetRoom == nil then return end
+
+        local gate = _RoomGate:Evaluate(me, targetRoom)
+        self:ApplySprite(not gate.passed)
+    end
+
     method void OnEndPlay()
         -- OnBeginPlay에서 연결한 것은 반드시 해제한다.
+        -- 실행공간을 비워둔 이유: 서버는 이벤트를, 클라는 타이머를 정리해야 한다.
+        -- ServerOnly로 두면 클라 타이머가 남아 맵을 옮길 때마다 쌓인다.
         if self.enterHandler ~= nil then
             self.Entity:DisconnectEvent(TriggerEnterEvent, self.enterHandler)
             self.enterHandler = nil
+        end
+        if self.visualTimer ~= nil then
+            _TimerService:ClearTimer(self.visualTimer)
+            self.visualTimer = nil
         end
     end
 
