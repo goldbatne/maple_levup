@@ -15,23 +15,24 @@
 script StatPanel extends Logic
 
     -- ── UI 참조 (UUID는 UIBuilder가 자동 주입한다) ──
-    property TextGUIRendererComponent levelValue = "61923e7c-fa95-45a6-accc-e22e044bdbd3"
-    property TextGUIRendererComponent pointsValue = "a723d6c5-9327-44ba-b144-4d1c4aae920d"
-    property TextGUIRendererComponent atkValue = "3a2e3bbb-00a3-4a9a-9795-1158c9531684"
-    property TextGUIRendererComponent intValue = "a912252f-b691-4c77-b112-5082f82361a7"
-    property TextGUIRendererComponent defValue = "5a29f249-ec99-42dd-b9d7-2fa64802641b"
-    property TextGUIRendererComponent lukValue = "2645729c-ff3f-459e-8c18-df7d8d5b00b6"
+    property TextGUIRendererComponent levelValue = "1a693159-0075-40ec-b3e7-c826e5b70bce"
+    property TextGUIRendererComponent expValue = "8e7e9ddd-4b9c-4f43-9e0e-e97be8eff308"
+    property TextGUIRendererComponent pointsValue = "1207d1b0-3c67-4d43-83a1-7484603bae17"
+    property TextGUIRendererComponent atkValue = "d89964d9-86bb-4b94-9429-afaa852ffcf3"
+    property TextGUIRendererComponent intValue = "9a3ad85c-00d9-47aa-932c-4e241f240aa3"
+    property TextGUIRendererComponent defValue = "8fc70e58-9a62-4ba2-8530-81bb0749f3b3"
+    property TextGUIRendererComponent lukValue = "ff737980-48e9-4e66-af5b-bb9345a41120"
 
-    property ButtonComponent btnAtk = "effde891-8a7d-4089-bf5b-b7b6ff118100"
-    property ButtonComponent btnInt = "875e0789-179c-4c79-ad9a-4e670443efa8"
-    property ButtonComponent btnDef = "9efc1100-bde9-4c7c-8dfc-4356d3c8e894"
-    property ButtonComponent btnLuk = "86a0de9e-14d8-4bcc-899a-b2ba32c78dd3"
+    property ButtonComponent btnAtk = "7165efe6-9663-494f-82b4-94eb19f674bc"
+    property ButtonComponent btnInt = "60be35ac-85ca-48b1-91be-22d0c9ef694e"
+    property ButtonComponent btnDef = "cd8feafc-5091-4000-8358-d4dd8dd38074"
+    property ButtonComponent btnLuk = "1bcce54f-3d59-41c2-90fb-1677c664ce82"
 
     -- 여닫기. 창을 닫으면 다시 열 수단이 필요한데 모바일에는 키보드가 없다.
     -- 그래서 키 토글이 아니라 화면에 남는 열기 버튼을 쓴다. 둘은 항상 반대 상태다.
-    property SpriteGUIRendererComponent windowRoot = "7e26cae7-9e82-48ac-90da-f627f9b4a481"
-    property ButtonComponent btnClose = "6a4f1b92-c890-478b-a61d-78099a7d8b02"
-    property ButtonComponent btnOpen = "74e5ec67-a422-4809-8f9f-24038244a161"
+    property SpriteGUIRendererComponent windowRoot = "5300d646-ce61-435b-9ef5-6ffafcc65e44"
+    property ButtonComponent btnClose = "1d51da2c-929f-41f6-89c7-c1527331dc70"
+    property ButtonComponent btnOpen = "544b05c4-c955-4531-b06c-1a61a6c876ee"
 
     -- ── 이벤트 핸들러 (OnEndPlay에서 반드시 해제) ──
     property any handlerAtk = nil
@@ -125,7 +126,19 @@ script StatPanel extends Logic
         local stats = self:GetStats()
         if stats == nil then return end
 
-        self.levelValue.Text = tostring(stats.Level)
+        -- 캡에 닿으면 레벨 옆에 MAX를 붙이고, EXP 자리에 다음 행동을 알려준다.
+        -- 숫자만 멈춰 있으면 "버그로 EXP가 안 오른다"로 읽힌다.
+        if stats.CanRebirth then
+            self.levelValue.Text = tostring(stats.Level) .. "  MAX"
+            self.expValue.Text = "환생 가능"
+        else
+            self.levelValue.Text = tostring(stats.Level)
+            -- 필요 EXP는 서버가 쓰는 곡선을 그대로 읽는다. 클라에서 따로 계산하면
+            -- 공식이 두 곳이 되어 언젠가 어긋난다.
+            self.expValue.Text = tostring(math.floor(stats.Exp))
+                .. " / " .. tostring(_LevelCurve:RequiredExp(stats.Level))
+        end
+
         self.pointsValue.Text = tostring(stats.UnspentPoints)
         self.atkValue.Text = tostring(stats.StatAtk) .. "  (" .. tostring(stats:GetTotalAtk()) .. ")"
         self.intValue.Text = tostring(stats.StatInt)
