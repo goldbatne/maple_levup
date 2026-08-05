@@ -136,6 +136,10 @@ script GameData extends Logic
                     def = self:ToNumber(row:GetItem("def"), 0),
                     exp = self:ToNumber(row:GetItem("exp"), 0),
                     drop_skill_id = self:ToText(row:GetItem("drop_skill_id")),
+                    -- 스폰에 쓸 .model의 id. 데이터 id(m_slime)와 모델 id(slime)를
+                    -- 이름 규칙으로 엮지 않고 여기서 명시한다.
+                    -- 아직 모델을 안 만든 몬스터는 비어 있고, 스포너가 건너뛴다.
+                    model_id = self:ToText(row:GetItem("model_id")),
                 }
             end
         end
@@ -164,6 +168,10 @@ script GameData extends Logic
                     gate_key = self:ToText(row:GetItem("gate_key")),
                     gate_value = self:ToNumber(row:GetItem("gate_value"), 0),
                     map_name = self:ToText(row:GetItem("map_name")),
+                    -- 방에 어떤 몬스터가 몇 마리 사는지. 방 진입 시 스포너가 읽는다.
+                    -- 몬스터가 없는 방은 monster_id를 비워두면 된다.
+                    monster_id = self:ToText(row:GetItem("monster_id")),
+                    monster_count = self:ToNumber(row:GetItem("monster_count"), 0),
                 }
                 -- 맵 이름 → 방 역인덱스. 플레이어가 어느 맵에 있는지로 방을 찾을 때 쓴다.
                 local mapName = self:ToText(row:GetItem("map_name"))
