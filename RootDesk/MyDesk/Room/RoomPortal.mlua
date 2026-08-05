@@ -136,8 +136,10 @@ script RoomPortal extends Component
         -- T6에서 여기에 게이트 판정이 들어간다 (수치 / 열쇠 / 환생).
         if not self:CanPass(player, targetRoom) then return end
 
-        _PortalGuard:Mark(userId)
         local arrive = self:ArrivePosition()
+        if arrive == nil then return end   -- 방향이 잘못됐다. 이미 로그를 남겼다.
+
+        _PortalGuard:Mark(userId)
         log("[RoomPortal] " .. room.id .. "(" .. currentMap.Name .. ") --" .. self.direction
             .. "--> " .. targetRoomId .. "(" .. targetRoom.map_name .. ")  도착=("
             .. string.format("%.1f", arrive.x) .. ", " .. string.format("%.1f", arrive.y) .. ")")
@@ -159,8 +161,9 @@ script RoomPortal extends Component
     end
 
     @ExecSpace("ServerOnly")
-    method Vector3 ArrivePosition()
+    method any ArrivePosition()
         -- 반대편 포탈 바로 안쪽. 도착 즉시 그 포탈에 다시 닿으면 무한 왕복이 된다.
+        -- 방향이 잘못됐으면 nil (Vector3가 아니라 any인 이유).
         if self.direction == "east" then
             return Vector3(-self.portalX + self.arriveInset, self.portalYSide, 0)
         elseif self.direction == "west" then
@@ -170,7 +173,14 @@ script RoomPortal extends Component
         elseif self.direction == "south" then
             return Vector3(0, self.portalYNorth - self.arriveInset, 0)
         end
-        return Vector3(0, 0, 0)
+
+        -- 여기 오면 direction이 4방향 중 하나가 아니다.
+        -- 예전엔 조용히 Vector3(0,0,0)을 돌려줬는데, 그건 **맵 정중앙**이라
+        -- "이동했더니 갑자기 가운데로 간다"로 나타난다 — 에러 없이.
+        -- 소리 없이 이상한 곳에 떨어뜨리느니 시끄럽게 실패하는 편이 낫다.
+        log_error("[RoomPortal] direction이 4방향(east/west/north/south)이 아니다: '"
+            .. self.direction .. "' (" .. self.Entity.Name .. ") — 이동을 취소한다")
+        return nil
     end
 
     method string ToText(string raw)
