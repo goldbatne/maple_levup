@@ -1,0 +1,127 @@
+-- @서버 (HP 차감·사망 판정은 전부 서버. 클라는 동기화된 값을 읽기만 한다)
+--
+-- 방에 배치되는 몬스터의 데이터 소유자.
+-- 수치는 MonsterTable에서 읽는다 — .model에 HP를 박아두면 시트와 어긋난다 (개발 규칙 3).
+--
+-- 샘플 Monster.mlua를 쓰지 않고 따로 만든 이유:
+--   샘플은 HP를 인스펙터 값으로 받고, 사망 전이를 .model의 StateSet(ConditionIsDead)에
+--   맡긴다. 우리는 HP를 데이터 테이블에서 가져와야 하고 StateSet도 두지 않아서
+--   ChangeState("DEAD")를 직접 호출한다 (monster.md §7a 정본과 같은 방식).
+--
+-- 슬라이스 범위(작업지시서 T3): 몬스터 AI는 '제자리 + 피격 반응'까지만.
+-- 그래서 이동·추격 로직이 없고 AIChase/AIWander도 붙이지 않는다.
+
+@Component
+script RoomMonster extends Component
+
+    -- MonsterTable의 id. 같은 모델로 여러 몬스터를 만들 때 이 값만 바꾼다.
+    property string MonsterId = "m_slime"
+
+    -- 죽은 뒤 다시 살아날지. 방 단위 리스폰은 T3-2b에서 스포너가 관리한다.
+    property boolean RespawnOn = false
+    property number RespawnDelay = 5
+    -- 사망 연출(die 클립)이 보일 시간. 이 뒤에 숨기거나 파괴한다.
+    property number DestroyDelay = 0.8
+
+    -- 테이블에서 읽어온 확정 수치. 클라 표시(HP바 등)를 위해 동기화한다.
+    @Sync property number MaxHp = 0
+    @Sync property number Hp = 0
+    @Sync property number Def = 0
+    @Sync property number ExpReward = 0
+    @Sync property string DisplayName = ""
+    @Sync @HideFromInspector property boolean IsDead = false
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        local record = _GameData:GetMonster(self.MonsterId)
+        if record == nil then
+            -- 조용히 HP 0으로 두면 스폰하자마자 죽는 유령이 된다. 크게 남긴다.
+            log_error("[RoomMonster] MonsterTable에 없는 id: " .. tostring(self.MonsterId))
+            return
+        end
+
+        self.DisplayName = record.name
+        self.MaxHp = record.hp
+        self.Def = record.def
+        self.ExpReward = record.exp
+        self.Hp = self.MaxHp
+        self.IsDead = false
+
+        log("[RoomMonster] 스폰 " .. record.name .. "(" .. self.MonsterId .. ")"
+            .. " Lv" .. tostring(record.level)
+            .. " HP=" .. tostring(self.MaxHp)
+            .. " DEF=" .. tostring(self.Def)
+            .. " EXP=" .. tostring(self.ExpReward))
+    end
+
+    ---------------------------------------------------------------
+    -- 피격 → 사망
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    @EventSender("Self")
+    handler HandleHitEvent(HitEvent event)
+        -- 데미지는 공격자(PlayerAttack)가 서버에서 이미 계산해 넣은 값이다.
+        -- 여기서 다시 계산하지 않는다 — 계산 지점이 둘이면 반드시 어긋난다.
+        local originalHp = self.Hp
+        self.Hp = self.Hp - event.TotalDamage
+
+        log("[RoomMonster] 피격 " .. self.DisplayName
+            .. "  -" .. tostring(event.TotalDamage)
+            .. "  HP " .. tostring(originalHp) .. " → " .. tostring(math.max(self.Hp, 0)))
+
+        -- 이미 죽은 몬스터에 늦게 도착한 타격으로 Dead가 두 번 돌지 않게 막는다.
+        if self.Hp > 0 or originalHp <= 0 then return end
+        self:Dead(event.AttackerEntity)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Dead(Entity killer)
+        self.IsDead = true
+        self.Hp = 0
+
+        local stateComp = self.Entity.StateComponent
+        if isvalid(stateComp) then stateComp:ChangeState("DEAD") end
+
+        -- EXP는 막타를 넣은 쪽에 준다. killer는 HitEvent.AttackerEntity라 nil일 수 있고
+        -- (환경 피해 등) 이미 파괴된 엔티티일 수도 있어 isvalid로 먼저 거른다.
+        if isvalid(killer) then
+            ---@type PlayerStats
+            local stats = killer:GetComponent("script.PlayerStats")
+            if stats ~= nil then
+                stats:AddExp(self.ExpReward)
+                log("[RoomMonster] 사망 " .. self.DisplayName .. "  EXP " .. tostring(self.ExpReward) .. " 지급")
+            else
+                log_warning("[RoomMonster] 막타 엔티티에 PlayerStats가 없어 EXP 미지급: " .. tostring(killer.Name))
+            end
+        else
+            log_warning("[RoomMonster] 막타 주체가 없어 EXP 미지급: " .. self.DisplayName)
+        end
+
+        local delayHide = function()
+            self.Entity:SetVisible(false)
+            self.Entity:SetEnable(false)
+            if self.RespawnOn == false then self.Entity:Destroy() end
+        end
+        _TimerService:SetTimerOnce(delayHide, self.DestroyDelay)
+
+        if self.RespawnOn then
+            _TimerService:SetTimerOnce(function() self:Respawn() end, self.RespawnDelay)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Respawn()
+        self.IsDead = false
+        self.Entity:SetVisible(true)
+        self.Entity:SetEnable(true)
+        self.Hp = self.MaxHp
+
+        local stateComp = self.Entity.StateComponent
+        -- DEAD에서는 IDLE로만 나올 수 있다 (DEAD 락 — animation-state.md §4.5).
+        if isvalid(stateComp) then stateComp:ChangeState("IDLE") end
+
+        log("[RoomMonster] 리스폰 " .. self.DisplayName .. "  HP=" .. tostring(self.Hp))
+    end
+
+end

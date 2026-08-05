@@ -83,6 +83,15 @@ script PlayerStats extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void AddExp(number amount)
+        -- 몬스터 처치 EXP. 누적만 하고 레벨업 판정은 하지 않는다 —
+        -- 레벨업/필요EXP 곡선/레벨 캡은 T4의 몫이다.
+        if amount <= 0 then return end
+        self.Exp = self.Exp + amount
+        log("[PlayerStats] EXP +" .. tostring(amount) .. "  → 누적 " .. tostring(self.Exp))
+    end
+
+    @ExecSpace("ServerOnly")
     method void GrantLevelPoints(integer levels)
         -- 레벨업 시 포인트 지급 (T4에서 호출한다).
         if levels <= 0 then return end
