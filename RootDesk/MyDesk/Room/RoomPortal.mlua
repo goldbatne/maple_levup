@@ -43,6 +43,10 @@ script RoomPortal extends Component
     property number arriveInset = 2.5
 
     property any enterHandler = nil
+    property any visualTimer = nil
+
+    -- 잠금 표시를 다시 계산하는 주기(초). 스탯이 오르면 이 간격 안에 문이 열린다.
+    property number visualInterval = 0.5
 
     method void OnBeginPlay()
         -- 스프라이트는 양쪽에서 각자 세팅한다 (렌더러는 클라 소유).
@@ -55,6 +59,14 @@ script RoomPortal extends Component
             end
             self.enterHandler = self.Entity:ConnectEvent(TriggerEnterEvent, self.OnTriggerEnter)
         end
+
+        if self:IsClient() then
+            -- 게이트 잠금 표시는 **사람마다 다르다**. locked(@Sync)로는 표현할 수 없어서
+            -- 클라가 자기 플레이어 기준으로 직접 판정해 스프라이트를 고른다.
+            self.visualTimer = _TimerService:SetTimerRepeat(function()
+                self:RefreshGateVisual()
+            end, self.visualInterval)
+        end
     end
 
     @ExecSpace("ClientOnly")
@@ -66,25 +78,72 @@ script RoomPortal extends Component
     end
 
     method void RefreshVisual()
-        -- 잠금 여부에 맞는 스프라이트를 적용한다. RUID는 모델 Values에서 온다.
+        -- 작가가 건 잠금(locked, 모두에게 동일)에 맞는 스프라이트. 시작 시 한 번 쓴다.
+        self:ApplySprite(self.locked)
+    end
+
+    method void ApplySprite(boolean showLocked)
+        -- 잠금 여부에 맞는 스프라이트를 적용한다. RUID는 맵 Values에서 온다.
+        -- 같은 값이면 쓰지 않는다 — 0.5초마다 도는 경로라 불필요한 대입을 줄인다.
         local renderer = self.Entity.SpriteRendererComponent
         if renderer == nil then return end
 
         local ruid = self.openRUID
-        if self.locked and self.lockedRUID ~= "" then
+        if showLocked and self.lockedRUID ~= "" then
             ruid = self.lockedRUID
         end
-        if ruid ~= "" then
+        if ruid ~= "" and renderer.SpriteRUID ~= ruid then
             renderer.SpriteRUID = ruid
         end
     end
 
-    @ExecSpace("ServerOnly")
+    @ExecSpace("ClientOnly")
+    method void RefreshGateVisual()
+        -- 내 플레이어 기준으로 이 문이 잠겼는지 보고 스프라이트를 고른다.
+        --
+        -- 왜 서버가 안 하고 클라가 하는가: 게이트 조건은 사람마다 다른데
+        -- locked는 @Sync라 모두에게 같은 값이 방송된다. 서버가 한 사람의 판정으로
+        -- locked를 바꾸면 다른 사람 화면의 문까지 바뀐다 (CanPass 주석 참고).
+        local me = _UserService.LocalPlayer
+        if me == nil then return end
+
+        local map = self.Entity.CurrentMap
+        if map == nil then return end
+
+        -- 내가 있는 방의 문만 건드린다.
+        local myMap = me.CurrentMap
+        if myMap == nil or myMap.Name ~= map.Name then return end
+
+        -- 작가가 건 잠금이 우선이다. 그 경우 게이트를 볼 것도 없이 잠긴 그림.
+        if self.locked then
+            self:ApplySprite(true)
+            return
+        end
+
+        local room = _GameData:GetRoomByMapName(map.Name)
+        if room == nil then return end
+
+        local targetRoomId = self:ToText(room.connections[self.direction])
+        if targetRoomId == "" then return end
+
+        local targetRoom = _GameData:GetRoom(targetRoomId)
+        if targetRoom == nil then return end
+
+        local gate = _RoomGate:Evaluate(me, targetRoom)
+        self:ApplySprite(not gate.passed)
+    end
+
     method void OnEndPlay()
         -- OnBeginPlay에서 연결한 것은 반드시 해제한다.
+        -- 실행공간을 비워둔 이유: 서버는 이벤트를, 클라는 타이머를 정리해야 한다.
+        -- ServerOnly로 두면 클라 타이머가 남아 맵을 옮길 때마다 쌓인다.
         if self.enterHandler ~= nil then
             self.Entity:DisconnectEvent(TriggerEnterEvent, self.enterHandler)
             self.enterHandler = nil
+        end
+        if self.visualTimer ~= nil then
+            _TimerService:ClearTimer(self.visualTimer)
+            self.visualTimer = nil
         end
     end
 
@@ -169,15 +228,37 @@ script RoomPortal extends Component
 
     @ExecSpace("ServerOnly")
     method boolean CanPass(Entity player, table targetRoom)
-        -- 잠긴 포탈은 통과 불가.
+        -- locked는 작가가 걸어둔 잠금(모두에게 동일)이다. 게이트와 별개로 먼저 막는다.
         if self.locked then
             log("[RoomPortal] " .. self.Entity.Name .. " 은 잠겨 있다 (" .. targetRoom.id .. ")")
             return false
         end
 
-        -- T6에서 gate_type(stat/key/rebirth)별 판정을 여기 구현하고 self.locked를 갱신한다.
-        -- T1에서는 전부 개방 — 방 이동 자체를 검증해야 하므로 의도적으로 열어둔다.
-        return true
+        -- 게이트는 **가려는 방**에 걸린다. 포탈이 아니라 목적지가 조건을 갖는다.
+        -- 그래서 어느 방향에서 오든 같은 조건이 적용된다 (r_02는 세 방향에서 온다).
+        local gate = _RoomGate:Evaluate(player, targetRoom)
+        if gate.passed then return true end
+
+        -- self.locked를 여기서 바꾸지 않는 이유: locked는 @Sync라 **모든 클라**에
+        -- 방송되는데, 게이트 조건은 플레이어마다 다르다. 한 사람의 판정 결과로
+        -- 바꾸면 다른 사람 화면의 문 상태까지 덮어쓴다.
+        -- 사람마다 다른 잠금 표시는 T6-2에서 클라가 스스로 Evaluate해 처리한다.
+
+        log("[RoomPortal] " .. targetRoom.id .. " 잠김 — " .. gate.reason)
+
+        -- 대상 userId는 **마지막** 인자로 붙인다. 선언부에는 넣지 않는다.
+        -- 첫 인자로 넘겼다가 엔진이 reason을 userId로 읽고 실패했다 (실측):
+        --   [LEA-3032] TargetUserId '공격력 20 필요 — 현재 10'은 유효하지 않습니다
+        self:ShowGateBlocked(targetRoom.id, gate.reason, player.PlayerComponent.UserId)
+        return false
+    end
+
+    @ExecSpace("Client")
+    method void ShowGateBlocked(string roomId, string reason)
+        -- 왜 못 지나가는지 당사자에게만 알린다.
+        -- 문구는 RoomGate가 만든 것을 그대로 넘긴다 (해석을 두 곳에 두지 않는다).
+        log("[RoomGate] 통과 불가 (" .. roomId .. "): " .. reason)
+        _GateNotice:Show(reason)
     end
 
     @ExecSpace("ServerOnly")

@@ -114,6 +114,9 @@ script GameData extends Logic
                     slot_type = self:ToText(row:GetItem("slot_type")),
                     effect_type = self:ToText(row:GetItem("effect_type")),
                     is_key_skill = self:ToBoolean(row:GetItem("is_key_skill")),
+                    -- 재사용 대기시간(초). 밸런스시트에 없는 값이라 계수에 비례해
+                    -- 시작값을 정했다(계수 x 4 반올림, 3~5초). CSV에서 바로 조정 가능.
+                    cooldown = self:ToNumber(row:GetItem("cooldown"), 0),
                 }
             end
         end

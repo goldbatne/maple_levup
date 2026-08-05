@@ -1,0 +1,172 @@
+-- @서버 + @클라이언트 (판정은 서버가 쓰고, 표시는 클라가 같은 함수를 쓴다)
+--
+-- 게이트 3종 판정. 기획서가 "코어 재미의 심장"으로 꼽은 부분이다.
+--
+--   수치(stat)   : gate_key가 가리키는 값이 gate_value 이상이어야 통과
+--   열쇠(key)    : gate_key 스킬을 보유해야 통과
+--   환생(rebirth): gate_key 구역이 개방돼 있어야 통과
+--
+-- 판정 결과를 boolean이 아니라 표로 돌려주는 이유:
+-- 기획서 UX 요구가 "무엇이 부족한지 명확히 표시"다 (예: "공격력 50 필요 — 현재 32").
+-- 통과 여부만 돌려주면 UI가 조건을 **다시 해석**해야 하고, 그 순간 판정 규칙이
+-- 두 곳에 생겨 언젠가 어긋난다. 사유 문장까지 여기서 만들어 한 곳에 둔다.
+--
+-- 실행공간을 비워둔 이유도 같다. 서버는 통과 판정에, 클라는 잠금 표시에 쓴다.
+-- 읽는 값이 전부 @TargetUserSync + GameData라 양쪽에서 같은 결과가 나온다.
+-- (T5-4 GetActiveSkills, T5-5 GetOwnedCount에서 같은 판단을 했다)
+
+@Logic
+script RoomGate extends Logic
+
+    method table Evaluate(Entity player, table room)
+        -- 이 방에 들어갈 수 있는가. { passed, reason } 를 돌려준다.
+        -- reason은 막혔을 때만 채운다.
+        if room == nil then
+            return { passed = false, reason = "방 정보가 없다" }
+        end
+
+        local gateType = room.gate_type
+        if gateType == nil or gateType == "" or gateType == "none" then
+            return { passed = true, reason = "" }
+        end
+
+        if player == nil then
+            return { passed = false, reason = "플레이어를 찾을 수 없다" }
+        end
+
+        if gateType == "stat" then
+            return self:EvaluateStat(player, room)
+        elseif gateType == "key" then
+            return self:EvaluateKey(player, room)
+        elseif gateType == "rebirth" then
+            return self:EvaluateRebirth(player, room)
+        end
+
+        -- 모르는 게이트 종류. 열어두면 조용히 뚫리므로 막고 시끄럽게 알린다.
+        log_error("[RoomGate] 모르는 게이트 종류: '" .. tostring(gateType)
+            .. "' (방 " .. tostring(room.id) .. ")")
+        return { passed = false, reason = "알 수 없는 잠금" }
+    end
+
+    method string StatLabel(string key)
+        -- 화면에 보일 이름. 여기 없는 키는 그대로 보여준다.
+        if key == "ATK" then return "공격력" end
+        if key == "INT" then return "지능" end
+        if key == "DEF" then return "방어력" end
+        if key == "LUK" then return "행운" end
+        if key == "LEVEL" then return "레벨" end
+        return key
+    end
+
+    method number ReadStat(Entity player, string key)
+        -- gate_key가 가리키는 현재 수치. 모르는 키는 -1.
+        --
+        -- 여기서 키를 분기로 받는 덕에, 새 수치 게이트를 다는 일은
+        -- RoomTable에 한 줄 쓰는 것으로 끝난다 (작업지시서 T6 요청 1).
+        ---@type PlayerStats
+        local stats = player:GetComponent("script.PlayerStats")
+        if stats == nil then return -1 end
+
+        if key == "ATK" then return stats:GetTotalAtk() end
+        if key == "INT" then return stats:GetTotalInt() end
+        if key == "DEF" then return stats:GetTotalDef() end
+        if key == "LUK" then return stats:GetTotalLuk() end
+        if key == "LEVEL" then return stats.Level end
+        return -1
+    end
+
+    method table EvaluateStat(Entity player, table room)
+        -- 수치 게이트. 현재 값이 gate_value 이상이면 통과.
+        local key = room.gate_key
+        local need = room.gate_value
+        local have = self:ReadStat(player, key)
+
+        if have < 0 then
+            log_error("[RoomGate] 모르는 수치 키: '" .. tostring(key)
+                .. "' (방 " .. tostring(room.id) .. ")")
+            return { passed = false, reason = "알 수 없는 조건" }
+        end
+
+        if have >= need then
+            return { passed = true, reason = "" }
+        end
+
+        -- 기획서 예시 문구 그대로: "공격력 50 필요 — 현재 32"
+        return {
+            passed = false,
+            reason = self:StatLabel(key) .. " " .. tostring(math.floor(need))
+                .. " 필요 — 현재 " .. tostring(math.floor(have)),
+        }
+    end
+
+    method boolean HasSkill(Entity player, string skillId)
+        -- 이 스킬을 지금 쓸 수 있는가.
+        --
+        -- 직업 스킬과 몬스터 스킬을 **둘 다** 본다. 열쇠 스킬이 직업 스킬일 수 있기
+        -- 때문이다 — r_03의 열쇠가 실제로 s_job_war_02(돌진, 전사 직업 스킬)이다.
+        -- 컬렉션(OwnedSkills)에는 몬스터 스킬만 쌓이므로 컬렉션만 보면
+        -- 전사가 돌진을 들고도 문을 못 여는 일이 생긴다.
+        ---@type PlayerSkillSlots
+        local slots = player:GetComponent("script.PlayerSkillSlots")
+        if slots ~= nil then
+            local jobSkills = slots:GetJobSkills()
+            if jobSkills ~= nil then
+                for i = 1, #jobSkills do
+                    if jobSkills[i] == skillId then return true end
+                end
+            end
+        end
+
+        ---@type PlayerCollection
+        local collection = player:GetComponent("script.PlayerCollection")
+        if collection ~= nil and collection:GetOwnedCount(skillId) > 0 then
+            return true
+        end
+
+        return false
+    end
+
+    method table EvaluateKey(Entity player, table room)
+        -- 열쇠 게이트. gate_key 스킬을 보유하면 통과.
+        local skillId = room.gate_key
+        local skill = _GameData:GetSkill(skillId)
+
+        if skill == nil then
+            log_error("[RoomGate] SkillTable에 없는 열쇠 스킬: '" .. tostring(skillId)
+                .. "' (방 " .. tostring(room.id) .. ")")
+            return { passed = false, reason = "알 수 없는 열쇠" }
+        end
+
+        -- 열쇠로 지정됐는데 is_key_skill이 아니면 데이터가 어긋난 것이다.
+        -- 통과는 시키되(잠그면 진행이 막힌다) 눈에 띄게 남긴다.
+        if not skill.is_key_skill then
+            log_warning("[RoomGate] is_key_skill이 아닌 스킬이 열쇠로 지정됨: "
+                .. skillId .. " (방 " .. tostring(room.id) .. ")")
+        end
+
+        if self:HasSkill(player, skillId) then
+            return { passed = true, reason = "" }
+        end
+
+        return { passed = false, reason = "[" .. skill.name .. "] 스킬 필요" }
+    end
+
+    method table EvaluateRebirth(Entity player, table room)
+        -- 환생 게이트. gate_key 구역이 개방돼 있어야 통과.
+        -- 구역 개방은 T7(환생 + 랜드마크)에서 채워진다.
+        local areaId = room.gate_key
+
+        ---@type PlayerSkillSlots
+        local slots = player:GetComponent("script.PlayerSkillSlots")
+        if slots == nil then
+            return { passed = false, reason = "진행 정보를 찾을 수 없다" }
+        end
+
+        if slots.UnlockedAreas[areaId] ~= nil then
+            return { passed = true, reason = "" }
+        end
+
+        return { passed = false, reason = "환생으로 열리는 구역이다" }
+    end
+
+end

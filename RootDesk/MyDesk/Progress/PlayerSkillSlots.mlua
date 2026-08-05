@@ -27,6 +27,15 @@ script PlayerSkillSlots extends Component
     @TargetUserSync property integer BossesCleared = 0
     @TargetUserSync property integer RebirthCount = 0
 
+    -- 개방된 구역. areaId -> 1. 환생 게이트가 이 값을 본다 (RoomGate.EvaluateRebirth).
+    --
+    -- 슬롯과 무관한 값이 왜 여기 있는가: 이 컴포넌트가 이미 **영구 진행 원장**
+    -- 노릇을 하고 있다(BossesCleared / RebirthCount). T7의 환생은 세 값을 한꺼번에
+    -- 갱신하므로 한곳에 두는 편이 어긋날 여지가 적다. 플레이어에 네 번째 컴포넌트를
+    -- 붙이려면 Global/DefaultPlayer.model을 건드려야 하는 것도 이유다.
+    -- 영구 진행이 더 커지면 그때 별도 컴포넌트로 떼는 게 맞다.
+    @TargetUserSync property SyncTable<string, integer> UnlockedAreas
+
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
         self.MonsterSlotCount = math.floor(_GameData:GetBalance("monster_slot_start"))

@@ -6,6 +6,12 @@ script PlayerAttack extends AttackComponent
 	@HideFromInspector
 	property integer autoAttackTimer = 0
 
+	-- skillId -> 다시 쓸 수 있게 되는 시각(월드 경과초). 비어 있으면 즉시 사용 가능.
+	--
+	-- @TargetUserSync인 이유: 판정은 서버가 하지만 HUD도 남은 시간을 그려야 한다.
+	-- 서버만 들고 있으면 클라가 매번 물어봐야 하고, 클라만 들고 있으면 위조된다.
+	@TargetUserSync property SyncTable<string, number> SkillReadyAt
+
 	@ExecSpace("ServerOnly")
 	method void OnBeginPlay()
 		-- 판정을 원형으로 둔다. 우리 맵은 RectTile 탑다운이라 사방에서 몬스터가 붙는데,
@@ -70,6 +76,15 @@ script PlayerAttack extends AttackComponent
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then return false end
 
+		-- 쿨다운 판정은 서버가 한다. 클라 HUD도 같은 값을 보고 버튼을 흐리지만,
+		-- 그건 안내일 뿐이고 실제로 막는 건 여기다 (개발 규칙 2).
+		local remain = self:GetCooldownRemain(skillId)
+		if remain > 0 then
+			log("[PlayerAttack] 쿨다운 중 [" .. skill.name .. "] "
+				.. string.format("%.1f", remain) .. "초 남음")
+			return false
+		end
+
 		-- 판정 모양은 기본 공격과 같다. 스킬별 사거리는 시트에 없어서 만들지 않았다.
 		local transform = self.Entity.TransformComponent
 		if not isvalid(transform) then return false end
@@ -80,7 +95,25 @@ script PlayerAttack extends AttackComponent
 		log("[PlayerAttack] 스킬 사용 " .. tostring(activeIndex) .. "번 [" .. skill.name
 			.. "]  계수=" .. tostring(skill.coefficient) .. " 스탯=" .. skill.scaling_stat)
 		self:AttackFast(self.Shape, skillId, CollisionGroups.Monster)
+
+		-- 쐈으면 쿨다운을 건다. cooldown이 0이면 걸지 않는다 (데이터로 끌 수 있게).
+		if skill.cooldown > 0 then
+			self.SkillReadyAt[skillId] = _UtilLogic.ElapsedSeconds + skill.cooldown
+		end
 		return true
+	end
+
+	-- 실행공간을 일부러 비워둔다. 서버는 사용 판정에, 클라는 HUD 표시에 쓴다.
+	-- 읽는 값이 @TargetUserSync + GameData라 양쪽에서 같은 결과가 나온다.
+	-- (T5-4 GetActiveSkills, T5-5 GetOwnedCount와 같은 판단)
+	method number GetCooldownRemain(string skillId)
+		-- 남은 재사용 대기시간(초). 지금 쓸 수 있으면 0.
+		local readyAt = self.SkillReadyAt[skillId]
+		if readyAt == nil then return 0 end
+
+		local remain = readyAt - _UtilLogic.ElapsedSeconds
+		if remain <= 0 then return 0 end
+		return remain
 	end
 
 	method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)

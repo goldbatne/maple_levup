@@ -76,6 +76,18 @@ script SkillBar extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method number GetCooldownRemain(string skillId)
+        -- 남은 쿨다운. PlayerAttack이 들고 있는 값을 그대로 읽는다 —
+        -- 여기서 따로 세면 서버 판정과 어긋난다.
+        local me = _UserService.LocalPlayer
+        if me == nil then return 0 end
+        ---@type PlayerAttack
+        local atk = me:GetComponent("script.PlayerAttack")
+        if atk == nil then return 0 end
+        return atk:GetCooldownRemain(skillId)
+    end
+
+    @ExecSpace("ClientOnly")
     method void Use(integer activeIndex)
         -- 검증은 서버가 한다. 여기서는 요청만 보낸다 (개발 규칙 2).
         local me = _UserService.LocalPlayer
@@ -104,7 +116,16 @@ script SkillBar extends Logic
                 else
                     btn.Entity:SetVisible(true)
                     local skill = _GameData:GetSkill(skillId)
-                    btn.Entity.TextGUIRendererComponent.Text = (skill ~= nil and skill.name or skillId)
+                    local label = skillId
+                    if skill ~= nil then label = skill.name end
+
+                    -- 쿨다운 중이면 남은 초를 함께 보여준다. 판정은 서버가 하고
+                    -- 여기서는 "왜 안 나가는지"만 알린다 (개발 규칙 2).
+                    local remain = self:GetCooldownRemain(skillId)
+                    if remain > 0 then
+                        label = label .. "\n" .. tostring(math.ceil(remain)) .. "초"
+                    end
+                    btn.Entity.TextGUIRendererComponent.Text = label
                 end
             end
         end
