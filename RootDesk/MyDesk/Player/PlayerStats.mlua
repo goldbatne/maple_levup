@@ -21,6 +21,10 @@ script PlayerStats extends Component
 
     @TargetUserSync property string CurrentJob = ""
 
+    -- 레벨 캡에 닿았는가. 캡에서는 EXP를 더 받지 않고 "환생 가능"으로 표시한다.
+    -- 클라가 표시에 쓰므로 동기화한다.
+    @TargetUserSync property boolean CanRebirth = false
+
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
         -- 시트 공식: 분배 가능 P 누적 = (Lv - 1) x stat_points_per_level.
@@ -84,11 +88,66 @@ script PlayerStats extends Component
 
     @ExecSpace("ServerOnly")
     method void AddExp(number amount)
-        -- 몬스터 처치 EXP. 누적만 하고 레벨업 판정은 하지 않는다 —
-        -- 레벨업/필요EXP 곡선/레벨 캡은 T4의 몫이다.
+        -- 몬스터 처치 EXP. 누적 → 레벨업 판정까지 여기서 끝낸다.
         if amount <= 0 then return end
+
+        -- 캡 도달 시 EXP 획득 정지 (작업지시서 T4).
+        -- 판정 위치를 여기로 둔 이유: EXP가 들어오는 문이 하나뿐이라,
+        -- 나중에 퀘스트·이벤트로 EXP를 주더라도 전부 이 문을 지난다.
+        if self.CanRebirth then
+            log("[PlayerStats] 레벨 캡(" .. tostring(_LevelCurve:LevelCap())
+                .. ") 도달 상태라 EXP를 받지 않는다: +" .. tostring(amount))
+            return
+        end
+
         self.Exp = self.Exp + amount
         log("[PlayerStats] EXP +" .. tostring(amount) .. "  → 누적 " .. tostring(self.Exp))
+        self:CheckLevelUp()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void CheckLevelUp()
+        -- 한 번에 여러 레벨이 오를 수 있다(보스 EXP가 큰 경우). while로 소진한다.
+        while true do
+            if _LevelCurve:IsAtCap(self.Level) then
+                -- 캡에서는 남은 EXP를 버리고 정지한다. 이월하면 환생 후
+                -- 시작하자마자 레벨이 튀어 회차 설계가 깨진다.
+                self.Exp = 0
+                if self.CanRebirth == false then
+                    self.CanRebirth = true
+                    log("[PlayerStats] 레벨 캡 도달 Lv" .. tostring(self.Level) .. " — 환생 가능")
+                    self:OnReachedCap(self.Entity.PlayerComponent.UserId)
+                end
+                return
+            end
+
+            local need = _LevelCurve:RequiredExp(self.Level)
+            if self.Exp < need then return end
+
+            self.Exp = self.Exp - need
+            self.Level = self.Level + 1
+            self:GrantLevelPoints(1)
+
+            log("[PlayerStats] 레벨업 → Lv" .. tostring(self.Level)
+                .. "  (필요EXP " .. tostring(need) .. " 소모, 잔여 " .. tostring(self.Exp) .. ")"
+                .. "  미분배P=" .. tostring(self.UnspentPoints))
+
+            self:OnLevelUp(self.Level, self.Entity.PlayerComponent.UserId)
+        end
+    end
+
+    @ExecSpace("Client")
+    method void OnLevelUp(integer newLevel)
+        -- 레벨업 연출 트리거 (작업지시서 T4 요청 2).
+        -- 연출은 클라 몫이라 여기서 서버 판정과 갈라진다.
+        -- 실제 이펙트/사운드는 T4-2에서 이 지점에 붙인다.
+        log("[PlayerStats] (클라) 레벨업 연출 Lv" .. tostring(newLevel))
+    end
+
+    @ExecSpace("Client")
+    method void OnReachedCap()
+        -- 캡 도달 연출/안내. 환생(T7) 진입점이 붙을 자리다.
+        log("[PlayerStats] (클라) 레벨 캡 도달 — 환생 가능 표시")
     end
 
     @ExecSpace("ServerOnly")
@@ -110,6 +169,9 @@ script PlayerStats extends Component
         self.StatLuk = 0
         self.UnspentPoints = 0
         self.CurrentJob = ""
+        -- 환생하면 다시 Lv1이므로 캡 플래그도 내린다. 안 내리면 새 회차에서
+        -- EXP가 한 톨도 안 들어온다.
+        self.CanRebirth = false
     end
 
     ---------------------------------------------------------------
