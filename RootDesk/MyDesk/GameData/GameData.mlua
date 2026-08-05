@@ -242,6 +242,21 @@ script GameData extends Logic
         return self.skills[id]
     end
 
+    method table GetMonsterSkillIds()
+        -- 몬스터 슬롯에 끼울 수 있는 스킬 id 목록. 장착 UI가 후보를 훑을 때 쓴다.
+        --
+        -- id로 정렬하는 이유: pairs 순회는 순서를 보장하지 않아, 정렬하지 않으면
+        -- 목록을 새로고침할 때마다 줄 순서가 뒤바뀌어 누르려던 항목이 움직인다.
+        local ids = {}
+        for id, skill in pairs(self.skills) do
+            if skill.slot_type == "monster" then
+                ids[#ids + 1] = id
+            end
+        end
+        table.sort(ids)
+        return ids
+    end
+
     method table GetMonster(string id)
         -- 몬스터 레코드. 없으면 nil.
         return self.monsters[id]

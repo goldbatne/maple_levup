@@ -31,7 +31,14 @@ script PlayerCollection extends Component
         return stats:GetCaptureRate()
     end
 
-    @ExecSpace("ServerOnly")
+    -- 실행공간을 일부러 비워둔다. 서버는 장착 검증에, 클라는 장착 UI 목록에 쓴다.
+    --
+    -- ServerOnly였을 때 클라 호출이 **에러 없이** 0을 돌려줬다 (실측):
+    --   [DBG] 보유수 s_mon_slime = 0     <- GetOwnedCount()
+    --   [DBG] OwnedSkills 직접 = 2       <- 동기화된 실제 값
+    -- 그래서 장착 UI의 보유 목록이 통째로 비어 보였다.
+    -- 읽는 값이 @TargetUserSync라 주인 클라에도 그대로 있어서 양쪽 결과가 같다.
+    -- (T5-4에서 GetActiveSkills/GetJobSkills에 같은 판단을 적용했다)
     method integer GetOwnedCount(string skillId)
         -- 보유 개수(=강화 카운트). 없으면 0.
         local n = self.OwnedSkills[skillId]
