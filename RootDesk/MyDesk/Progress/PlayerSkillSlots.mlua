@@ -1,0 +1,180 @@
+-- @서버 (장착 판정은 서버. 클라는 표시와 요청만 — 개발 규칙 2)
+--
+-- 슬롯 구조. 기획서에서 "직업을 선택하는 이유"로 못박은 부분이라 경계를 정확히 지킨다.
+--
+--   직업 스킬 슬롯 : 고정. 직업 선택 시 자동 장착되고 항상 사용 가능.
+--                    몬스터 슬롯을 잠식하지 않는다. 플레이어가 끄고 켤 수 없다.
+--   몬스터 스킬 슬롯: 시작 1개, 상한 3. 플레이어가 컬렉션에서 골라 끼운다.
+--
+-- 두 슬롯은 저장 위치부터 다르다:
+--   직업 슬롯 = current_job에서 JobTable로 매번 유도한다 (별도 저장 없음).
+--   몬스터 슬롯 = SaveRunData.equipped_monster_skills (회차 데이터).
+-- 이렇게 두면 "직업 스킬이 몬스터 슬롯을 차지하는" 실수가 구조적으로 불가능하다.
+--
+-- 슬롯 수는 영구 데이터다. 확장 2축(보스 클리어=공간, 환생=회차)이 같은 값을
+-- 중복으로 올리지 않도록 축별 카운터를 따로 두고 슬롯 수는 매번 다시 계산한다 (기획서 4.3).
+
+@Component
+script PlayerSkillSlots extends Component
+
+    -- 몬스터 슬롯 장착 상태. slotIndex(1~) -> skillId. 빈 슬롯은 키가 없다.
+    @TargetUserSync property SyncTable<integer, string> MonsterSlots
+
+    -- 슬롯 수(영구). 확장 2축의 계산 결과를 담는다.
+    @TargetUserSync property integer MonsterSlotCount = 1
+
+    -- 확장 2축의 원장. 슬롯 수를 직접 올리지 않고 이 둘을 올린 뒤 재계산한다.
+    @TargetUserSync property integer BossesCleared = 0
+    @TargetUserSync property integer RebirthCount = 0
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        self.MonsterSlotCount = math.floor(_GameData:GetBalance("monster_slot_start"))
+        log("[SkillSlots] 초기화  몬스터 슬롯 " .. tostring(self.MonsterSlotCount)
+            .. "/" .. tostring(math.floor(_GameData:GetBalance("monster_slot_max"))))
+    end
+
+    ---------------------------------------------------------------
+    -- 슬롯 수 (확장 2축)
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method void RecomputeSlotCount()
+        -- 시작값 + 보스 축 + 환생 축, 상한에서 자른다.
+        -- 슬라이스 사다리: 시작 1 → 첫 보스 2 → 첫 환생 3 (기획서 4.3).
+        --
+        -- 누적값이 아니라 "매번 다시 계산"하는 이유: 축마다 +1씩 더하는 방식이면
+        -- 같은 보스를 두 번 클리어하거나 로드가 두 번 돌 때 슬롯이 계속 늘어난다.
+        local start = math.floor(_GameData:GetBalance("monster_slot_start"))
+        local maxSlot = math.floor(_GameData:GetBalance("monster_slot_max"))
+
+        local computed = start + self.BossesCleared + self.RebirthCount
+        if computed > maxSlot then computed = maxSlot end
+
+        if computed ~= self.MonsterSlotCount then
+            log("[SkillSlots] 슬롯 " .. tostring(self.MonsterSlotCount) .. " → " .. tostring(computed)
+                .. "  (시작 " .. tostring(start) .. " + 보스 " .. tostring(self.BossesCleared)
+                .. " + 환생 " .. tostring(self.RebirthCount) .. ", 상한 " .. tostring(maxSlot) .. ")")
+            self.MonsterSlotCount = computed
+            self:TrimOverflow()
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TrimOverflow()
+        -- 슬롯이 줄어드는 경우(환생 초기화 등)에 범위 밖 장착을 비운다.
+        -- 안 비우면 못 쓰는 스킬이 장착된 채로 남아 UI와 실제가 어긋난다.
+        local maxSlot = math.floor(_GameData:GetBalance("monster_slot_max"))
+        for i = self.MonsterSlotCount + 1, maxSlot do
+            if self.MonsterSlots[i] ~= nil then
+                log("[SkillSlots] 슬롯 " .. tostring(i) .. " 범위 밖 → 장착 해제")
+                self.MonsterSlots[i] = nil
+            end
+        end
+    end
+
+    ---------------------------------------------------------------
+    -- 직업 슬롯 (고정, 자동)
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method table GetJobSkills()
+        -- 직업 스킬은 저장하지 않고 current_job에서 매번 유도한다.
+        -- 저장해두면 JobTable을 고쳤을 때 옛 값이 남아 어긋난다.
+        ---@type PlayerStats
+        local stats = self.Entity:GetComponent("script.PlayerStats")
+        if stats == nil or stats.CurrentJob == "" then return {} end
+
+        local job = _GameData:GetJob(stats.CurrentJob)
+        if job == nil then
+            log_warning("[SkillSlots] JobTable에 없는 직업: " .. tostring(stats.CurrentJob))
+            return {}
+        end
+        return job.skill_ids
+    end
+
+    ---------------------------------------------------------------
+    -- 몬스터 슬롯 (플레이어가 고른다)
+    ---------------------------------------------------------------
+
+    @ExecSpace("Server")
+    method void RequestEquip(integer slotIndex, string skillId)
+        -- 클라 요청 진입점. senderUserId는 서버가 채우므로 위조할 수 없다.
+        if senderUserId ~= self.Entity.PlayerComponent.UserId then
+            log_warning("[SkillSlots] 남의 슬롯 장착 시도 차단: " .. tostring(senderUserId))
+            return
+        end
+        self:EquipMonsterSkill(slotIndex, skillId)
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean EquipMonsterSkill(integer slotIndex, string skillId)
+        -- 검증에 실패하면 아무것도 바꾸지 않고 false.
+        if slotIndex < 1 or slotIndex > self.MonsterSlotCount then
+            log_warning("[SkillSlots] 슬롯 범위 밖: " .. tostring(slotIndex)
+                .. " (보유 슬롯 " .. tostring(self.MonsterSlotCount) .. ")")
+            return false
+        end
+
+        local skill = _GameData:GetSkill(skillId)
+        if skill == nil then
+            log_warning("[SkillSlots] SkillTable에 없는 스킬: " .. tostring(skillId))
+            return false
+        end
+
+        -- 직업 스킬은 몬스터 슬롯에 끼울 수 없다. 이게 허용되면
+        -- "직업 슬롯이 몬스터 슬롯을 잠식하지 않는다"는 설계가 무너진다.
+        if skill.slot_type ~= "monster" then
+            log_warning("[SkillSlots] 몬스터 슬롯에는 몬스터 스킬만 끼울 수 있다: "
+                .. skillId .. " (slot_type=" .. tostring(skill.slot_type) .. ")")
+            return false
+        end
+
+        -- 보유하지 않은 스킬은 끼울 수 없다.
+        ---@type PlayerCollection
+        local collection = self.Entity:GetComponent("script.PlayerCollection")
+        if collection == nil or collection:GetOwnedCount(skillId) <= 0 then
+            log_warning("[SkillSlots] 보유하지 않은 스킬: " .. skillId)
+            return false
+        end
+
+        -- 같은 스킬을 두 슬롯에 중복 장착하지 않는다.
+        for i = 1, self.MonsterSlotCount do
+            if i ~= slotIndex and self.MonsterSlots[i] == skillId then
+                log_warning("[SkillSlots] 이미 " .. tostring(i) .. "번 슬롯에 장착됨: " .. skillId)
+                return false
+            end
+        end
+
+        self.MonsterSlots[slotIndex] = skillId
+        log("[SkillSlots] 장착 " .. tostring(slotIndex) .. "번 ← [" .. skill.name .. "]")
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void UnequipMonsterSkill(integer slotIndex)
+        if self.MonsterSlots[slotIndex] == nil then return end
+        self.MonsterSlots[slotIndex] = nil
+        log("[SkillSlots] 해제 " .. tostring(slotIndex) .. "번")
+    end
+
+    ---------------------------------------------------------------
+    -- 통합 인터페이스 (작업지시서 T5 요청 3: 사용 인터페이스는 통일)
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method table GetActiveSkills()
+        -- 지금 쓸 수 있는 액티브 전부. 직업 스킬이 앞, 몬스터 스킬이 뒤.
+        -- 호출부는 이 목록만 보면 되고 어느 슬롯 출신인지 몰라도 된다.
+        local out = {}
+        for _, id in ipairs(self:GetJobSkills()) do
+            table.insert(out, id)
+        end
+        for i = 1, self.MonsterSlotCount do
+            local id = self.MonsterSlots[i]
+            if id ~= nil then table.insert(out, id) end
+        end
+        return out
+    end
+
+end
