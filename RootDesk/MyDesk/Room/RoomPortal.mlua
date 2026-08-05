@@ -145,6 +145,26 @@ script RoomPortal extends Component
             .. string.format("%.1f", arrive.x) .. ", " .. string.format("%.1f", arrive.y) .. ")")
 
         _TeleportService:TeleportToMapPosition(player, arrive, targetRoom.map_name)
+        self:StopAfterArrive(player, userId)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void StopAfterArrive(Entity player, string userId)
+        -- 이동 명령이 맵 전환을 넘어 살아남는다. 실측:
+        --   도착 -10.50 -> 혼자 걸어서 -0.44 에서 정지 (10.06 유닛, 약 6.5초)
+        --   도착 +10.50 -> 혼자 걸어서  +0.63 에서 정지 ( 9.87 유닛)
+        -- 방향키를 누른 채 포탈에 들어가면 도착 후에도 그 방향으로 계속 걸어가
+        -- 방 한복판까지 밀려난다. 포탈이 ±10.5에 내려놓으니 결과가 늘 중앙 근처였다.
+        --
+        -- 서버와 클라 양쪽에서 멈춘다. 플레이어 이동은 클라 입력이 주도하므로
+        -- 서버만으로는 부족하고, 서버 쪽도 남은 이동을 정리해 준다.
+        local movement = player.MovementComponent
+        if movement ~= nil then movement:Stop() end
+
+        -- 클라 쪽은 MoveInputGuard(@Logic)에 맡긴다.
+        -- 이 컴포넌트에서 직접 클라를 부르면 [LEA-3032] FailedSendToClient로 실패한다
+        -- (떠난 맵의 엔티티라서). 근거는 MoveInputGuard.Begin 주석에 있다.
+        _MoveInputGuard:Begin(userId)
     end
 
     @ExecSpace("ServerOnly")
