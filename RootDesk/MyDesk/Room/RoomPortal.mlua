@@ -197,8 +197,9 @@ script RoomPortal extends Component
     @ExecSpace("Client")
     method void ShowGateBlocked(string roomId, string reason)
         -- 왜 못 지나가는지 당사자에게만 알린다.
-        -- T6-2에서 화면 표시로 바꾼다. 지금은 로그로 흐름만 확인한다.
+        -- 문구는 RoomGate가 만든 것을 그대로 넘긴다 (해석을 두 곳에 두지 않는다).
         log("[RoomGate] 통과 불가 (" .. roomId .. "): " .. reason)
+        _GateNotice:Show(reason)
     end
 
     @ExecSpace("ServerOnly")

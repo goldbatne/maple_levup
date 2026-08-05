@@ -1,0 +1,63 @@
+-- @클라이언트 (UI는 클라 전용. 모든 메서드에 개별로 @ExecSpace를 붙인다)
+--
+-- 잠긴 문에 부딪혔을 때 "무엇이 부족한지"를 화면에 띄운다.
+-- 기획서 T6 UX 요구: 조건 미달 시 명확히 표시 (예: "공격력 50 필요 — 현재 32").
+--
+-- 문구는 만들지 않고 RoomGate가 준 것을 그대로 보여준다.
+-- 여기서 조건을 다시 해석하면 판정 규칙이 두 곳에 생겨 언젠가 어긋난다.
+--
+-- StatPanel / SkillBar / EquipPanel과 같은 이유로 @Logic이다 —
+-- UI 엔티티에 붙은 @Component는 Server 메서드를 가질 수 없어 RPC가 조용히 죽는다.
+
+@Logic
+script GateNotice extends Logic
+
+    property Entity banner = "d9ee8e50-183d-414d-8518-681bb0b7e2fb"
+    property TextGUIRendererComponent reasonText = "ddfba646-e264-4bc9-80d5-1ec072692b8e"
+
+    -- 배너가 떠 있는 시간(초). 읽고 사라질 만큼만.
+    property number showSeconds = 2.5
+
+    property any hideTimer = nil
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- 처음엔 숨긴다. 루트 그룹은 항상 표시여야 스크립트가 도는 대신,
+        -- 배너 자식을 껐다 켠다 (builder-protocol-ui §3.9 default_show 주의).
+        log("[GateNotice] OnBeginPlay")
+        self.banner:SetVisible(false)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- 걸어둔 타이머는 반드시 해제한다.
+        self:ClearHideTimer()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ClearHideTimer()
+        -- 돌고 있는 숨김 타이머를 정리한다.
+        if self.hideTimer ~= nil then
+            _TimerService:ClearTimer(self.hideTimer)
+            self.hideTimer = nil
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Show(string reason)
+        -- 사유를 띄우고 잠시 뒤 스스로 사라진다.
+        -- 연달아 부딪히면 타이머를 다시 건다 — 먼저 걸린 타이머가 남아 있으면
+        -- 새로 띄운 배너를 예전 타이머가 지워버린다.
+        if reason == nil or reason == "" then return end
+
+        self.reasonText.Text = reason
+        self.banner:SetVisible(true)
+
+        self:ClearHideTimer()
+        self.hideTimer = _TimerService:SetTimerOnce(function()
+            self.banner:SetVisible(false)
+            self.hideTimer = nil
+        end, self.showSeconds)
+    end
+
+end
