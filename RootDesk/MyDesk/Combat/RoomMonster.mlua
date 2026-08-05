@@ -91,6 +91,13 @@ script RoomMonster extends Component
             if stats ~= nil then
                 stats:AddExp(self.ExpReward)
                 log("[RoomMonster] 사망 " .. self.DisplayName .. "  EXP " .. tostring(self.ExpReward) .. " 지급")
+
+                -- 포획은 처치 시 자동 판정이다 (기획서 4.8). EXP와 같은 막타 주체에게 준다.
+                ---@type PlayerCollection
+                local collection = killer:GetComponent("script.PlayerCollection")
+                if collection ~= nil then
+                    collection:TryCapture(self.MonsterId)
+                end
             else
                 log_warning("[RoomMonster] 막타 엔티티에 PlayerStats가 없어 EXP 미지급: " .. tostring(killer.Name))
             end

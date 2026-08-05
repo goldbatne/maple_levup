@@ -12,6 +12,11 @@ script SavePermanentData
     -- 스킬 컬렉션. id -> 보유 개수. 중복 포획은 강화 카운트로 쌓인다 (기획서 4.8).
     property table owned_skills = {}
 
+    -- 종별 천장 카운터. monsterId -> 마지막 포획 이후 누적 킬.
+    -- 영구에 두는 이유: 천장의 목적이 "빈손 방지"인데 회차마다 0으로 돌아가면
+    -- 운 나쁜 플레이어가 환생을 반복해도 계속 빈손일 수 있다.
+    property table species_kills = {}
+
     property integer rebirth_count = 0
     property integer highest_level = 1
 
@@ -29,6 +34,7 @@ script SavePermanentData
         -- monster_slot_start에서 읽어 넘긴다 (구조체가 데이터 소스에 의존하지 않도록).
         self.schema_version = 1
         self.owned_skills = {}
+        self.species_kills = {}
         self.rebirth_count = 0
         self.highest_level = 1
         self.landmark_claimed = {}
@@ -43,6 +49,7 @@ script SavePermanentData
         out["Perm"] = body
         body["schema_version"] = self.schema_version
         body["owned_skills"] = self.owned_skills
+        body["species_kills"] = self.species_kills
         body["rebirth_count"] = self.rebirth_count
         body["highest_level"] = self.highest_level
         body["landmark_claimed"] = self.landmark_claimed
@@ -59,6 +66,7 @@ script SavePermanentData
 
         self.schema_version = body["schema_version"] or 1
         self.owned_skills = body["owned_skills"] or {}
+        self.species_kills = body["species_kills"] or {}
         self.rebirth_count = body["rebirth_count"] or 0
         self.highest_level = body["highest_level"] or 1
         self.landmark_claimed = body["landmark_claimed"] or {}
