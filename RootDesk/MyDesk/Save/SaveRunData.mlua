@@ -21,6 +21,13 @@ script SaveRunData
 
     property string current_job = ""
 
+    -- 몬스터 슬롯에 장착한 스킬. index -> skillId.
+    -- 회차에 두는 이유: 컬렉션(보유)은 영구지만 "이번 회차에 뭘 끼고 갈지"는
+    -- 회차마다 다시 고르는 선택이다. 영구에 두면 환생해도 같은 빌드로 시작하게 되어
+    -- 회차를 바꿔 노는 맛이 사라진다.
+    -- 직업 슬롯은 여기 없다 — current_job에서 JobTable로 매번 유도한다.
+    property table equipped_monster_skills = {}
+
     method void Init()
         -- 새 회차 시작값. 환생 시에도 이 값으로 되돌린다.
         self.schema_version = 1
@@ -32,6 +39,7 @@ script SaveRunData
         self.stat_luk = 0
         self.unspent_points = 0
         self.current_job = ""
+        self.equipped_monster_skills = {}
     end
 
     method boolean Serialize(table out)
@@ -47,6 +55,7 @@ script SaveRunData
         body["stat_luk"] = self.stat_luk
         body["unspent_points"] = self.unspent_points
         body["current_job"] = self.current_job
+        body["equipped_monster_skills"] = self.equipped_monster_skills
         return true
     end
 
@@ -64,6 +73,7 @@ script SaveRunData
         self.stat_luk = body["stat_luk"] or 0
         self.unspent_points = body["unspent_points"] or 0
         self.current_job = body["current_job"] or ""
+        self.equipped_monster_skills = body["equipped_monster_skills"] or {}
         return true
     end
 

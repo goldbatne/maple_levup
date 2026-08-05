@@ -1,0 +1,151 @@
+-- @클라이언트 (입력 상태는 클라만 알 수 있다)
+--
+-- 맵 전환 직후 "키를 뗐는데도 혼자 계속 걸어가는" 현상을 막는다.
+--
+-- ## 무슨 일이 일어나는가 (실측)
+--
+-- PlayerControllerComponent.IsUpdateBlocked 설명 그대로, 엔진은 맵 이동 중
+-- 플레이어 입력 처리를 일시 차단한다. 이때 KeyUp이 통째로 사라진다.
+-- 차단이 풀린 뒤에도 컨트롤러는 키가 눌린 줄 알고 캐릭터를 계속 밀어붙인다.
+--
+-- 대조 실험 (같은 2.5초 오른쪽 키):
+--   맵 전환 없음 : -5.00 -> -1.14  (3.86 유닛). 키 뗀 즉시 정지. 정상.
+--   포탈 통과    : -10.50 -> -0.44 (10.06 유닛, 약 6.5초) 혼자 걸어감
+--   반대 방향    : +10.50 -> +0.63 ( 9.87 유닛)
+-- 포탈이 ±10.5에 내려놓으니 결과가 늘 방 한복판이었다.
+-- "갑자기 가운데로 간다"의 정체다.
+--
+-- ## 왜 이렇게까지 하는가 (실패한 방법들, 전부 실측)
+--
+-- 1. MovementComponent:Stop()  -> 실패.
+--    지금 움직임만 멈춘다. 눌린 것으로 남은 입력이 다음 프레임에 다시 밀어붙여
+--    오히려 11.9 유닛까지 갔다.
+-- 2. _InputService:IsKeyPressed로 진짜 눌림만 골라내기 -> 실패.
+--    전환 뒤 IsKeyPressed(RightArrow)가 미끄러지는 내내 true를 돌려준다.
+--    엔진의 키 상태 자체가 고착돼 있다.
+-- 3. KeyDown/KeyUp 이벤트로 우리 장부를 따로 만들기 -> 실패.
+--    KeyUp이 스크립트 이벤트로도 오지 않는다. 장부도 눌림으로 남는다.
+--
+-- 결국 "지금 키를 쥐고 있는가"를 알 방법이 없다. 그래서 방향을 바꿨다:
+-- **도착 후 다음 키 입력이 올 때까지 이동을 중립화한다.**
+--
+-- ## 대가 (알고 받아들인 것)
+--
+-- 방향키를 누른 채 포탈을 지나면 도착해서 멈춰 선다. 계속 가려면 키를 다시
+-- 눌러야 한다. 방을 넘을 때마다 한 번 끊기는 셈이다.
+-- 그 대신 통제 불능으로 10 유닛을 달려 방 한복판에 서는 일이 없어진다.
+-- 방 단위로 끊어 도는 게임이라 방 입구에서 한 박자 서는 편이 자연스럽다고 봤다.
+--
+-- ## 모바일 안전장치
+--
+-- 모바일엔 키보드가 없다. 키보드 입력을 한 번이라도 본 적이 있을 때만 동작한다.
+-- 터치로만 노는 사용자에겐 아무 일도 하지 않는다.
+--
+-- @Component이 아니라 @Logic인 이유: 포탈 엔티티는 떠난 맵과 함께 사라져
+-- 거기 건 타이머가 같이 죽는다. 이 가드는 도착한 뒤에도 살아 있어야 한다.
+
+@Logic
+script MoveInputGuard extends Logic
+
+    -- 이 세션에서 키보드를 한 번이라도 눌렀는가. 모바일 안전장치의 근거.
+    property boolean sawKeyboard = false
+
+    -- 도착 후 "다음 키 입력이 올 때까지" 이동을 끊는 중인가.
+    property boolean blocking = false
+
+    -- 안전망. 키를 영영 안 누르면 이 시간 뒤 스스로 풀린다.
+    -- 고착이 실측 약 6.5초라 그보다 넉넉히 잡는다.
+    property number maxBlockSeconds = 10.0
+    property number tickInterval = 0.05
+
+    property any keyDownHandler = nil
+    property any keyUpHandler = nil
+    property any guardTimer = nil
+    property number blockEndsAt = 0
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- 키 입력이 다시 들어오는 순간을 알아야 차단을 풀 수 있다.
+        self.keyDownHandler = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
+        self.keyUpHandler = _InputService:ConnectEvent(KeyUpEvent, self.OnKeyUp)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- 연결한 것은 반드시 해제한다.
+        if self.keyDownHandler ~= nil then
+            _InputService:DisconnectEvent(KeyDownEvent, self.keyDownHandler)
+            self.keyDownHandler = nil
+        end
+        if self.keyUpHandler ~= nil then
+            _InputService:DisconnectEvent(KeyUpEvent, self.keyUpHandler)
+            self.keyUpHandler = nil
+        end
+        self:StopGuard()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnKeyDown(KeyDownEvent event)
+        -- 키보드 사용자로 확정. 그리고 새 입력이 왔으니 차단을 푼다.
+        self.sawKeyboard = true
+        self:Release()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnKeyUp(KeyUpEvent event)
+        -- 전환 중이 아니라면 KeyUp도 정상적으로 온다. 그때도 차단을 푼다.
+        self:Release()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Release()
+        -- 차단 해제. 이후로는 평소대로 움직인다.
+        if not self.blocking then return end
+        self.blocking = false
+        self:StopGuard()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void StopGuard()
+        -- 돌고 있는 타이머를 정리한다.
+        if self.guardTimer ~= nil then
+            _TimerService:ClearTimer(self.guardTimer)
+            self.guardTimer = nil
+        end
+    end
+
+    @ExecSpace("Client")
+    method void Begin()
+        -- 맵 전환 직후 서버가 부른다.
+        --
+        -- 왜 포탈 컴포넌트가 아니라 여기서 클라를 부르는가 (실측):
+        --   RoomPortal은 **떠난 맵**의 엔티티에 붙어 있어서, 이미 다른 맵으로 간
+        --   클라에게 RPC를 보내면 [LEA-3032] FailedSendToClient
+        --   "TargetUserId ...은 유효하지 않습니다"로 실패한다. 0.2초 뒤 재시도도 같다.
+        --   @Logic은 맵에 매이지 않아 전환 후에도 대상 클라를 찾을 수 있다.
+        if not self.sawKeyboard then return end
+
+        self:StopGuard()
+        self.blocking = true
+        self.blockEndsAt = _UtilLogic.ElapsedSeconds + self.maxBlockSeconds
+
+        self.guardTimer = _TimerService:SetTimerRepeat(function()
+            if not self.blocking then
+                self:StopGuard()
+                return
+            end
+            if _UtilLogic.ElapsedSeconds >= self.blockEndsAt then
+                self.blocking = false
+                self:StopGuard()
+                return
+            end
+
+            local player = _UserService.LocalPlayer
+            if player == nil then return end
+            local movement = player.MovementComponent
+            if movement == nil then return end
+            movement:Stop()
+        end, self.tickInterval)
+    end
+
+end

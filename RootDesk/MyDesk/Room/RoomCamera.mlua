@@ -36,6 +36,12 @@ script RoomCamera extends Component
 
     property any userEnterHandler = nil
 
+    -- 카메라 적용 재시도용. 맵 진입 시점엔 타일맵/LocalPlayer가 아직 없을 수 있다.
+    property any cameraRetryTimer = nil
+    property integer cameraRetryLeft = 0
+    property number cameraRetryInterval = 0.1
+    property integer cameraRetryMax = 40   -- 0.1초 x 40 = 4초까지 기다린다
+
     method void OnBeginPlay()
         -- 서버/클라 양쪽에서 방 외곽선을 먼저 계산해 둔다.
         self:ComputeRoomRect()
@@ -45,10 +51,7 @@ script RoomCamera extends Component
         end
 
         if self:IsClient() then
-            -- 접속 직후엔 LocalPlayer가 아직 없을 수 있어 한 박자 늦춘다.
-            _TimerService:SetTimerOnce(function()
-                self:ApplyCameraToLocalPlayer()
-            end, 1.0)
+            self:RequestCameraApply()
         end
     end
 
@@ -58,13 +61,48 @@ script RoomCamera extends Component
             _UserService:DisconnectEvent(UserEnterEvent, self.userEnterHandler)
             self.userEnterHandler = nil
         end
+        if self.cameraRetryTimer ~= nil then
+            _TimerService:ClearTimer(self.cameraRetryTimer)
+            self.cameraRetryTimer = nil
+        end
     end
 
     method void OnMapEnter(Entity enterEntity)
         -- 다른 맵에서 넘어왔을 때 클라이언트 카메라를 다시 맞춘다.
         if self:IsClient() then
-            self:ApplyCameraToLocalPlayer()
+            self:RequestCameraApply()
         end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RequestCameraApply()
+        -- 성공할 때까지 짧게 재시도한다.
+        --
+        -- 왜 재시도가 필요한가 (실측): 맵 전환 시 OnMapEnter가 타일맵이 준비되기
+        -- 전에 불려 ComputeRoomRect가 "RectTileMapComponent를 찾지 못함"으로 실패한다.
+        -- 예전에는 OnBeginPlay의 1회성 1초 타이머에만 기대고 있어서
+        --   - 진입 후 약 1초 동안 카메라가 새 방에 갇히지 않았고
+        --   - 이미 로드된 맵으로 되돌아갈 때는 OnBeginPlay가 다시 돌지 않아
+        --     카메라가 **이전 방의 경계를 그대로** 들고 있었다.
+        -- 방 크기가 전부 같은 지금은 티가 덜 나지만, 크기가 달라지면 바로 드러난다.
+        if self.cameraRetryTimer ~= nil then
+            _TimerService:ClearTimer(self.cameraRetryTimer)
+            self.cameraRetryTimer = nil
+        end
+
+        if self:ApplyCameraToLocalPlayer() then return end
+
+        self.cameraRetryLeft = self.cameraRetryMax
+        self.cameraRetryTimer = _TimerService:SetTimerRepeat(function()
+            self.cameraRetryLeft = self.cameraRetryLeft - 1
+            if self:ApplyCameraToLocalPlayer() or self.cameraRetryLeft <= 0 then
+                if self.cameraRetryLeft <= 0 then
+                    log_warning("[RoomBounds] 카메라 적용 재시도 실패: " .. self.Entity.Name)
+                end
+                _TimerService:ClearTimer(self.cameraRetryTimer)
+                self.cameraRetryTimer = nil
+            end
+        end, self.cameraRetryInterval)
     end
 
     @ExecSpace("ServerOnly")
@@ -146,7 +184,10 @@ script RoomCamera extends Component
 
         if self:IsClient() then
             local me = _UserService.LocalPlayer
-            if me ~= nil then
+            -- 이 방에 있는 플레이어만 가둔다. 전환 중에는 두 맵의 컴포넌트가 함께
+            -- 살아 있어서, 확인이 없으면 떠난 방이 남의 방 좌표로 끌어당긴다.
+            -- 지금은 방 크기가 전부 같아 증상이 안 보이지만 크기가 달라지면 드러난다.
+            if me ~= nil and self:IsMyRoom(me) then
                 self:ClampInside(me, self.marginSide, self.marginBottom, self.marginTop)
             end
         end
@@ -159,6 +200,15 @@ script RoomCamera extends Component
                 end
             end
         end
+    end
+
+    method boolean IsMyRoom(Entity player)
+        -- 이 플레이어가 지금 이 방에 있는가.
+        -- 이름으로 비교하는 이유는 ApplyCameraToLocalPlayer 주석 참고.
+        if not isvalid(player) then return false end
+        local map = player.CurrentMap
+        if map == nil then return false end
+        return map.Name == self.Entity.Name
     end
 
     method void ClampInside(Entity player, number side, number below, number above)
@@ -192,24 +242,28 @@ script RoomCamera extends Component
     ---------------------------------------------------------------
 
     @ExecSpace("ClientOnly")
-    method void ApplyCameraToLocalPlayer()
+    method boolean ApplyCameraToLocalPlayer()
         -- 내 플레이어의 카메라를 이 방 안으로 가둔다.
+        -- 적용했으면 true, 아직 준비가 안 됐으면 false (호출자가 재시도한다).
         if not self.roomReady then
             self:ComputeRoomRect()
-            if not self.roomReady then return end
+            if not self.roomReady then return false end
         end
 
         local player = _UserService.LocalPlayer
-        if player == nil then
-            log_warning("[RoomBounds] LocalPlayer 없음 — 카메라 설정 보류")
-            return
-        end
+        if player == nil then return false end
+
+        -- 내 플레이어가 이 방에 있을 때만 건드린다.
+        -- 전환 중에는 이전 맵과 새 맵의 컴포넌트가 잠깐 함께 살아 있어서,
+        -- 이 확인이 없으면 떠난 방이 카메라를 자기 경계로 되돌려 놓는다.
+        --
+        -- 엔티티 동일성(==)이 아니라 **이름**으로 비교한다. 클라는 재방문 시
+        -- 맵 엔티티를 새로 만들어서, 같은 map02라도 인스턴스가 달라 == 가 한동안
+        -- 거짓이었다 — 실측으로 카메라 적용이 4초까지 밀렸다.
+        if not self:IsMyRoom(player) then return false end
 
         local camera = player.CameraComponent
-        if camera == nil then
-            log_warning("[RoomBounds] CameraComponent 없음")
-            return
-        end
+        if camera == nil then return false end
 
         -- LeftBottom/RightTop은 **보이는 영역의 한계**다 (카메라 중심 범위가 아니다 — 실측).
         -- 따라서 타일 외곽선을 그대로 넣으면 엔진이 알아서 화면을 그 안에 가둔다.
@@ -238,10 +292,12 @@ script RoomCamera extends Component
         camera.LeftBottom = Vector2(left, bottom)
         camera.RightTop = Vector2(right, top)
 
-        log("[RoomBounds] 카메라 가시영역 한계=(" .. string.format("%.2f", left) .. "," .. string.format("%.2f", bottom)
+        log("[RoomBounds] " .. self.Entity.Name .. " 카메라 가시영역 한계=("
+            .. string.format("%.2f", left) .. "," .. string.format("%.2f", bottom)
             .. ")~(" .. string.format("%.2f", right) .. "," .. string.format("%.2f", top)
             .. ")  UseCustomBound=" .. tostring(camera.UseCustomBound)
             .. "  Confine=" .. tostring(camera.ConfineCameraArea))
+        return true
     end
 
 end

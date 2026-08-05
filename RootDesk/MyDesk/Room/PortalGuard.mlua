@@ -1,0 +1,40 @@
+-- @서버 (포탈 판정 보조. 클라는 쓰지 않는다)
+--
+-- 포탈 통과 직후 짧은 시간 동안 그 플레이어의 포탈 발동을 무시한다.
+--
+-- 왜 필요한가 (실측):
+--   도착 지점이 상대 포탈 트리거 안으로 조금이라도 파고들면 즉시 재발동해
+--   두 방 사이를 왕복한다. map03 --south--> map02 에서 실제로 재현했다.
+--   도착 좌표를 넉넉히 잡는 것으로도 막히지만, 그건 포탈을 옮기거나
+--   트리거 크기를 바꾸면 다시 깨지는 종류의 수정이다.
+--   여기서 한 번 더 막아두면 기하가 틀어져도 왕복은 나지 않는다.
+--
+-- 포탈마다 두지 않고 @Logic으로 두는 이유: 왕복은 서로 다른 두 포탈 사이에서
+-- 일어난다. 포탈별 쿨다운은 상대편 포탈의 발동을 막지 못한다.
+
+@Logic
+script PortalGuard extends Logic
+
+    -- userId -> 마지막 통과 시각(초). 월드 시계를 쓴다.
+    property table lastPassAt = {}
+
+    @ExecSpace("ServerOnly")
+    method boolean CanPass(string userId)
+        -- 가드 시간이 지나지 않았으면 false.
+        if userId == nil or userId == "" then return true end
+
+        local last = self.lastPassAt[userId]
+        if last == nil then return true end
+
+        local guard = _GameData:GetBalance("portal_reenter_guard")
+        -- os.clock이 아니라 월드 시계를 쓴다 (msw-scripting 9-5).
+        return (_UtilLogic.ElapsedSeconds - last) >= guard
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Mark(string userId)
+        if userId == nil or userId == "" then return end
+        self.lastPassAt[userId] = _UtilLogic.ElapsedSeconds
+    end
+
+end

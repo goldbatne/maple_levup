@@ -1,0 +1,113 @@
+-- @클라이언트 (UI는 클라 전용. 모든 메서드에 개별로 @ExecSpace를 붙인다)
+--
+-- 액티브 스킬 사용 버튼. 기획서: "액티브 스킬은 버튼 탭(2~3개 상한)".
+-- 직업 슬롯과 몬스터 슬롯을 구분하지 않고 한 줄로 보여준다
+-- (작업지시서 T5 요청 3: 사용 인터페이스는 통일).
+--
+-- StatPanel과 같은 이유로 @Logic이다 — UI 엔티티에 붙은 @Component는
+-- Server 메서드를 가질 수 없어 RPC가 조용히 죽는다.
+--
+-- 판정은 서버가 한다. 버튼은 PlayerAttack의 Server RPC를 부르기만 한다.
+
+@Logic
+script SkillBar extends Logic
+
+    -- 버튼 5개 = 직업 최대 2 + 몬스터 상한 3. 남는 칸은 숨긴다.
+    property ButtonComponent btn1 = "0a63288a-f25e-4500-84e1-c0536f0f1a4c"
+    property ButtonComponent btn2 = "23d5cbc8-509f-4c29-a48f-1dba39bc5fc6"
+    property ButtonComponent btn3 = "5812a82b-6c76-49b2-a525-4c7c8b072d5a"
+    property ButtonComponent btn4 = "859b8d35-9ca4-4021-8fee-b811c2f070f7"
+    property ButtonComponent btn5 = "40a98c07-d9f0-4eea-9c79-f2201613b0da"
+
+    property any handler1 = nil
+    property any handler2 = nil
+    property any handler3 = nil
+    property any handler4 = nil
+    property any handler5 = nil
+    property any refreshTimer = nil
+
+    property number refreshInterval = 0.3
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        log("[SkillBar] OnBeginPlay")
+
+        -- 클로저로 순번을 잡아둔다. 버튼마다 다른 index를 넘겨야 한다.
+        self.handler1 = self.btn1.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(1) end)
+        self.handler2 = self.btn2.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(2) end)
+        self.handler3 = self.btn3.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(3) end)
+        self.handler4 = self.btn4.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(4) end)
+        self.handler5 = self.btn5.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(5) end)
+
+        self.refreshTimer = _TimerService:SetTimerRepeat(function()
+            self:Refresh()
+        end, self.refreshInterval)
+
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- 연결한 것은 전부 해제한다 (스크립트 리로드 시 누수 방지).
+        if self.handler1 ~= nil then self.btn1.Entity:DisconnectEvent(ButtonClickEvent, self.handler1) end
+        if self.handler2 ~= nil then self.btn2.Entity:DisconnectEvent(ButtonClickEvent, self.handler2) end
+        if self.handler3 ~= nil then self.btn3.Entity:DisconnectEvent(ButtonClickEvent, self.handler3) end
+        if self.handler4 ~= nil then self.btn4.Entity:DisconnectEvent(ButtonClickEvent, self.handler4) end
+        if self.handler5 ~= nil then self.btn5.Entity:DisconnectEvent(ButtonClickEvent, self.handler5) end
+        if self.refreshTimer ~= nil then _TimerService:ClearTimer(self.refreshTimer) end
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetButton(integer index)
+        -- 프로퍼티를 배열처럼 쓰기 위한 창구. 5개뿐이라 분기로 충분하다.
+        if index == 1 then return self.btn1 end
+        if index == 2 then return self.btn2 end
+        if index == 3 then return self.btn3 end
+        if index == 4 then return self.btn4 end
+        if index == 5 then return self.btn5 end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetSlots()
+        local me = _UserService.LocalPlayer
+        if me == nil then return nil end
+        return me:GetComponent("script.PlayerSkillSlots")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Use(integer activeIndex)
+        -- 검증은 서버가 한다. 여기서는 요청만 보낸다 (개발 규칙 2).
+        local me = _UserService.LocalPlayer
+        if me == nil then return end
+        ---@type PlayerAttack
+        local atk = me:GetComponent("script.PlayerAttack")
+        if atk == nil then return end
+        atk:RequestUseSkill(activeIndex)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Refresh()
+        -- 서버와 같은 GetActiveSkills를 부른다. 목록 규칙이 한 곳에만 있게 하려는 것이다.
+        ---@type PlayerSkillSlots
+        local slots = self:GetSlots()
+        if slots == nil then return end
+
+        local active = slots:GetActiveSkills()
+        for i = 1, 5 do
+            local btn = self:GetButton(i)
+            if btn ~= nil then
+                local skillId = active[i]
+                if skillId == nil then
+                    -- 빈 칸은 숨긴다. 회색으로 남겨두면 "왜 안 눌리지"가 된다.
+                    btn.Entity:SetVisible(false)
+                else
+                    btn.Entity:SetVisible(true)
+                    local skill = _GameData:GetSkill(skillId)
+                    btn.Entity.TextGUIRendererComponent.Text = (skill ~= nil and skill.name or skillId)
+                end
+            end
+        end
+    end
+
+end

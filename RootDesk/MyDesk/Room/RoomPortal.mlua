@@ -30,7 +30,17 @@ script RoomPortal extends Component
     property number portalYNorth = 8    -- 위 포탈의 y
     property number portalYSouth = -6   -- 아래 포탈의 y
     property number portalYSide = 1     -- 좌우 포탈의 y
-    property number arriveInset = 2     -- 포탈에서 안쪽으로 물러나는 거리
+    -- 포탈에서 안쪽으로 물러나는 거리.
+    --
+    -- 트리거를 1.5x1.5(반 크기 0.75)로 좁혔으므로 필요한 거리도 같이 줄었다.
+    --   0.75(트리거 반) + 약 1(플레이어 몸통, 발밑 원점에서 위로) + 여유 0.75 = 2.5
+    -- 트리거가 3x3이던 시절엔 3이 필요했다. 좁힌 덕에 포탈에 더 가깝게 내려놓는다.
+    --
+    -- 왜 여유가 필요한가: 플레이어 원점은 발밑인데 몸통은 위로 뻗는다.
+    -- 그래서 "북쪽 포탈에서 아래로 내려놓는" 경우에만 몸통이 트리거를 침범해
+    -- 즉시 왕복이 났다 (map03 --south--> map02 에서 실측).
+    -- 좌우는 몸통이 옆으로 뻗지 않아 우연히 버티고 있었을 뿐이다.
+    property number arriveInset = 2.5
 
     property any enterHandler = nil
 
@@ -118,15 +128,43 @@ script RoomPortal extends Component
             return
         end
 
+        -- 방금 포탈을 탄 플레이어는 잠시 무시한다. 도착 지점이 상대 포탈에
+        -- 조금이라도 겹치면 왕복이 나기 때문이다 (PortalGuard 주석 참고).
+        local userId = player.PlayerComponent.UserId
+        if not _PortalGuard:CanPass(userId) then return end
+
         -- T6에서 여기에 게이트 판정이 들어간다 (수치 / 열쇠 / 환생).
         if not self:CanPass(player, targetRoom) then return end
 
         local arrive = self:ArrivePosition()
+        if arrive == nil then return end   -- 방향이 잘못됐다. 이미 로그를 남겼다.
+
+        _PortalGuard:Mark(userId)
         log("[RoomPortal] " .. room.id .. "(" .. currentMap.Name .. ") --" .. self.direction
             .. "--> " .. targetRoomId .. "(" .. targetRoom.map_name .. ")  도착=("
             .. string.format("%.1f", arrive.x) .. ", " .. string.format("%.1f", arrive.y) .. ")")
 
         _TeleportService:TeleportToMapPosition(player, arrive, targetRoom.map_name)
+        self:StopAfterArrive(player, userId)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void StopAfterArrive(Entity player, string userId)
+        -- 이동 명령이 맵 전환을 넘어 살아남는다. 실측:
+        --   도착 -10.50 -> 혼자 걸어서 -0.44 에서 정지 (10.06 유닛, 약 6.5초)
+        --   도착 +10.50 -> 혼자 걸어서  +0.63 에서 정지 ( 9.87 유닛)
+        -- 방향키를 누른 채 포탈에 들어가면 도착 후에도 그 방향으로 계속 걸어가
+        -- 방 한복판까지 밀려난다. 포탈이 ±10.5에 내려놓으니 결과가 늘 중앙 근처였다.
+        --
+        -- 서버와 클라 양쪽에서 멈춘다. 플레이어 이동은 클라 입력이 주도하므로
+        -- 서버만으로는 부족하고, 서버 쪽도 남은 이동을 정리해 준다.
+        local movement = player.MovementComponent
+        if movement ~= nil then movement:Stop() end
+
+        -- 클라 쪽은 MoveInputGuard(@Logic)에 맡긴다.
+        -- 이 컴포넌트에서 직접 클라를 부르면 [LEA-3032] FailedSendToClient로 실패한다
+        -- (떠난 맵의 엔티티라서). 근거는 MoveInputGuard.Begin 주석에 있다.
+        _MoveInputGuard:Begin(userId)
     end
 
     @ExecSpace("ServerOnly")
@@ -143,8 +181,9 @@ script RoomPortal extends Component
     end
 
     @ExecSpace("ServerOnly")
-    method Vector3 ArrivePosition()
+    method any ArrivePosition()
         -- 반대편 포탈 바로 안쪽. 도착 즉시 그 포탈에 다시 닿으면 무한 왕복이 된다.
+        -- 방향이 잘못됐으면 nil (Vector3가 아니라 any인 이유).
         if self.direction == "east" then
             return Vector3(-self.portalX + self.arriveInset, self.portalYSide, 0)
         elseif self.direction == "west" then
@@ -154,7 +193,14 @@ script RoomPortal extends Component
         elseif self.direction == "south" then
             return Vector3(0, self.portalYNorth - self.arriveInset, 0)
         end
-        return Vector3(0, 0, 0)
+
+        -- 여기 오면 direction이 4방향 중 하나가 아니다.
+        -- 예전엔 조용히 Vector3(0,0,0)을 돌려줬는데, 그건 **맵 정중앙**이라
+        -- "이동했더니 갑자기 가운데로 간다"로 나타난다 — 에러 없이.
+        -- 소리 없이 이상한 곳에 떨어뜨리느니 시끄럽게 실패하는 편이 낫다.
+        log_error("[RoomPortal] direction이 4방향(east/west/north/south)이 아니다: '"
+            .. self.direction .. "' (" .. self.Entity.Name .. ") — 이동을 취소한다")
+        return nil
     end
 
     method string ToText(string raw)

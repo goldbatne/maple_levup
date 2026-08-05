@@ -1,0 +1,242 @@
+-- @클라이언트 (UI는 클라 전용. 모든 메서드에 개별로 @ExecSpace를 붙인다)
+--
+-- 몬스터 스킬 장착 화면. 컬렉션에서 골라 몬스터 슬롯에 끼운다.
+--
+-- 조작:
+--   슬롯 3칸 중 하나를 눌러 대상 슬롯을 고르고, 아래 목록에서 스킬을 누르면 끼워진다.
+--   잠긴 슬롯(보유 슬롯 수 밖)은 눌러도 선택되지 않는다 — 사다리를 눈으로 보여주려고
+--   숨기지 않고 "잠김"으로 표시한다 (기획서 4.3 슬라이스 사다리).
+--
+-- StatPanel / SkillBar와 같은 이유로 @Logic이다 — UI 엔티티에 붙은 @Component는
+-- Server 메서드를 가질 수 없어 RPC가 조용히 죽는다.
+--
+-- 판정은 전부 서버가 한다. 여기서는 RequestEquip을 부르기만 하고,
+-- 성공/실패는 다음 Refresh에서 동기화된 값으로 드러난다 (개발 규칙 2).
+
+@Logic
+script EquipPanel extends Logic
+
+    property Entity windowRoot = "fb2a4219-c785-4fa0-b5a7-d17a026e3e6e"
+    property ButtonComponent btnOpen = "6d0ce3ae-bcc6-43d2-b059-8336dde0b286"
+    property ButtonComponent btnClose = "7b4070ca-a338-4ba6-b233-19ba986ea884"
+
+    property ButtonComponent slot1 = "109ed790-a0b5-4cb0-9222-c71224659efb"
+    property ButtonComponent slot2 = "08c46b96-72e4-4c2c-a320-6005940c746f"
+    property ButtonComponent slot3 = "409fe770-d1c2-4d95-a6ab-038468ae9f5d"
+
+    property ButtonComponent row1 = "df0d8a5f-b119-47a0-9794-917e2a3ebb8a"
+    property ButtonComponent row2 = "68632e0f-50ff-4b6b-b320-712774abaf4a"
+    property ButtonComponent row3 = "edbc4ef2-9a10-419a-babf-b04d2283607f"
+    property ButtonComponent row4 = "8193ad7d-ded0-47b9-8e01-b04bf58e3208"
+    property ButtonComponent row5 = "bd5d4a91-6994-4232-a221-c2754be55ada"
+
+    property any handlers = nil
+    property any refreshTimer = nil
+    property boolean isOpen = false
+
+    -- 지금 고른 대상 슬롯. 1부터 시작한다.
+    property integer selectedSlot = 1
+
+    -- 목록 줄 번호 -> skillId. Refresh가 매번 다시 만든다.
+    property any rowSkillIds = nil
+
+    property number refreshInterval = 0.3
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- 버튼을 연결하고 닫힌 상태로 시작한다.
+        log("[EquipPanel] OnBeginPlay")
+        self.handlers = {}
+        self.rowSkillIds = {}
+
+        self.handlers.open = self.btnOpen.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:SetOpen(true)
+        end)
+        self.handlers.close = self.btnClose.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:SetOpen(false)
+        end)
+
+        -- 클로저로 번호를 잡아둔다. 버튼마다 다른 index를 넘겨야 한다.
+        self.handlers.s1 = self.slot1.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(1) end)
+        self.handlers.s2 = self.slot2.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(2) end)
+        self.handlers.s3 = self.slot3.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(3) end)
+
+        self.handlers.r1 = self.row1.Entity:ConnectEvent(ButtonClickEvent, function() self:ClickRow(1) end)
+        self.handlers.r2 = self.row2.Entity:ConnectEvent(ButtonClickEvent, function() self:ClickRow(2) end)
+        self.handlers.r3 = self.row3.Entity:ConnectEvent(ButtonClickEvent, function() self:ClickRow(3) end)
+        self.handlers.r4 = self.row4.Entity:ConnectEvent(ButtonClickEvent, function() self:ClickRow(4) end)
+        self.handlers.r5 = self.row5.Entity:ConnectEvent(ButtonClickEvent, function() self:ClickRow(5) end)
+
+        self:SetOpen(false)
+
+        self.refreshTimer = _TimerService:SetTimerRepeat(function()
+            if self.isOpen then self:Refresh() end
+        end, self.refreshInterval)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- 연결한 것은 전부 해제한다 (스크립트 리로드 시 누수 방지).
+        if self.handlers ~= nil then
+            if self.handlers.open ~= nil then self.btnOpen.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.open) end
+            if self.handlers.close ~= nil then self.btnClose.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.close) end
+            if self.handlers.s1 ~= nil then self.slot1.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s1) end
+            if self.handlers.s2 ~= nil then self.slot2.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s2) end
+            if self.handlers.s3 ~= nil then self.slot3.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s3) end
+            if self.handlers.r1 ~= nil then self.row1.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.r1) end
+            if self.handlers.r2 ~= nil then self.row2.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.r2) end
+            if self.handlers.r3 ~= nil then self.row3.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.r3) end
+            if self.handlers.r4 ~= nil then self.row4.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.r4) end
+            if self.handlers.r5 ~= nil then self.row5.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.r5) end
+            self.handlers = nil
+        end
+        if self.refreshTimer ~= nil then
+            _TimerService:ClearTimer(self.refreshTimer)
+            self.refreshTimer = nil
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetOpen(boolean open)
+        -- 창과 열기 버튼은 항상 반대 상태여야 한다. 둘 다 보이면 겹치고,
+        -- 둘 다 숨으면 다시 열 방법이 없어진다 (StatPanel과 같은 규칙).
+        self.isOpen = open
+        self.windowRoot:SetVisible(open)
+        self.btnOpen.Entity:SetVisible(not open)
+        if open then self:Refresh() end
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetSlots()
+        -- 내 플레이어의 슬롯 컴포넌트. 아직 없으면 nil.
+        local me = _UserService.LocalPlayer
+        if me == nil then return nil end
+        return me:GetComponent("script.PlayerSkillSlots")
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetCollection()
+        -- 내 플레이어의 컬렉션 컴포넌트. 아직 없으면 nil.
+        local me = _UserService.LocalPlayer
+        if me == nil then return nil end
+        return me:GetComponent("script.PlayerCollection")
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetSlotButton(integer index)
+        -- 프로퍼티를 배열처럼 쓰기 위한 창구. 3개뿐이라 분기로 충분하다.
+        if index == 1 then return self.slot1 end
+        if index == 2 then return self.slot2 end
+        if index == 3 then return self.slot3 end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetRowButton(integer index)
+        -- 목록 줄 버튼. 5칸 고정이라 분기로 충분하다.
+        if index == 1 then return self.row1 end
+        if index == 2 then return self.row2 end
+        if index == 3 then return self.row3 end
+        if index == 4 then return self.row4 end
+        if index == 5 then return self.row5 end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SelectSlot(integer index)
+        -- 잠긴 슬롯은 고를 수 없다. 서버도 같은 판정을 하지만
+        -- 여기서 막아야 "눌렀는데 아무 일도 안 난다"가 되지 않는다.
+        ---@type PlayerSkillSlots
+        local slots = self:GetSlots()
+        if slots == nil then return end
+        if index > slots.MonsterSlotCount then
+            log("[EquipPanel] " .. tostring(index) .. "번 슬롯은 아직 잠겨 있다")
+            return
+        end
+        self.selectedSlot = index
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ClickRow(integer index)
+        -- 고른 슬롯에 이 줄의 스킬을 끼운다. 검증은 서버가 한다.
+        if self.rowSkillIds == nil then return end
+        local skillId = self.rowSkillIds[index]
+        if skillId == nil then return end
+
+        ---@type PlayerSkillSlots
+        local slots = self:GetSlots()
+        if slots == nil then return end
+        slots:RequestEquip(self.selectedSlot, skillId)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Refresh()
+        -- 슬롯 3칸과 보유 목록을 지금 상태로 다시 그린다.
+        ---@type PlayerSkillSlots
+        local slots = self:GetSlots()
+        if slots == nil then return end
+        ---@type PlayerCollection
+        local collection = self:GetCollection()
+        if collection == nil then return end
+
+        local count = slots.MonsterSlotCount
+
+        -- 슬롯이 줄어드는 경우(환생 등)에 선택이 범위 밖으로 남지 않게 되돌린다.
+        if self.selectedSlot > count then self.selectedSlot = 1 end
+
+        for i = 1, 3 do
+            local btn = self:GetSlotButton(i)
+            if btn ~= nil then
+                local label = ""
+                if i > count then
+                    label = tostring(i) .. "번\n잠김"
+                else
+                    local skillId = slots.MonsterSlots[i]
+                    local name = "비어 있음"
+                    if skillId ~= nil then
+                        local skill = _GameData:GetSkill(skillId)
+                        if skill ~= nil then name = skill.name else name = skillId end
+                    end
+                    if i == self.selectedSlot then
+                        label = "[선택] " .. tostring(i) .. "번\n" .. name
+                    else
+                        label = tostring(i) .. "번\n" .. name
+                    end
+                end
+                btn.Entity.TextGUIRendererComponent.Text = label
+            end
+        end
+
+        -- 보유한 몬스터 스킬만 줄로 만든다.
+        -- OwnedSkills(SyncTable)를 직접 순회하지 않고 후보를 훑는 이유는
+        -- GameData.GetMonsterSkillIds 주석 참고 (순서 안정성 + 확인된 API만 사용).
+        self.rowSkillIds = {}
+        local candidates = _GameData:GetMonsterSkillIds()
+        for i = 1, #candidates do
+            local id = candidates[i]
+            if collection:GetOwnedCount(id) > 0 then
+                self.rowSkillIds[#self.rowSkillIds + 1] = id
+            end
+        end
+
+        for i = 1, 5 do
+            local btn = self:GetRowButton(i)
+            if btn ~= nil then
+                local skillId = self.rowSkillIds[i]
+                if skillId == nil then
+                    -- 빈 줄은 숨긴다. 회색으로 남겨두면 "왜 안 눌리지"가 된다.
+                    btn.Entity:SetVisible(false)
+                else
+                    btn.Entity:SetVisible(true)
+                    local skill = _GameData:GetSkill(skillId)
+                    local name = skillId
+                    if skill ~= nil then name = skill.name end
+                    local owned = collection:GetOwnedCount(skillId)
+                    btn.Entity.TextGUIRendererComponent.Text = name .. "   x" .. tostring(owned)
+                end
+            end
+        end
+    end
+
+end
