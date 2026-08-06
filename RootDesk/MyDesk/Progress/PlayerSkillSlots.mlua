@@ -36,6 +36,13 @@ script PlayerSkillSlots extends Component
     -- 영구 진행이 더 커지면 그때 별도 컴포넌트로 떼는 게 맞다.
     @TargetUserSync property SyncTable<string, integer> UnlockedAreas
 
+    -- 클리어한 보스방. roomId -> 1. 영구 데이터이고 환생해도 유지된다.
+    --
+    -- BossesCleared(개수)와 따로 두는 이유: 개수만으로는 "이 보스를 이미 잡았는가"를
+    -- 알 수 없어 같은 보스를 두 번 잡으면 슬롯이 또 늘어난다.
+    -- 원장으로 막고, 개수는 원장에 새로 들어갈 때만 올린다.
+    @TargetUserSync property SyncTable<string, integer> BossRoomsCleared
+
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
         self.MonsterSlotCount = math.floor(_GameData:GetBalance("monster_slot_start"))
@@ -67,6 +74,47 @@ script PlayerSkillSlots extends Component
             self.MonsterSlotCount = computed
             self:TrimOverflow()
         end
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean ClearBoss(string roomId)
+        -- 보스방을 처음 클리어했을 때만 슬롯 축을 올린다.
+        -- 이미 잡은 보스면 아무것도 하지 않고 false (기획서 T6: 중복 지급 안 됨).
+        if roomId == nil or roomId == "" then return false end
+        if self.BossRoomsCleared[roomId] ~= nil then
+            log("[SkillSlots] 이미 클리어한 보스방: " .. roomId .. " — 슬롯 지급 없음")
+            return false
+        end
+
+        local before = self.MonsterSlotCount
+        self.BossRoomsCleared[roomId] = 1
+        self.BossesCleared = self.BossesCleared + 1
+        self:RecomputeSlotCount()
+
+        log("[SkillSlots] 보스 클리어 " .. roomId
+            .. "  슬롯 " .. tostring(before) .. " → " .. tostring(self.MonsterSlotCount))
+
+        -- 슬롯이 실제로 늘었을 때만 알린다. 상한(3)에 걸려 그대로면 축하할 게 없다.
+        if self.MonsterSlotCount > before then
+            self:OnSlotExpanded(self.MonsterSlotCount, self.Entity.PlayerComponent.UserId)
+        end
+        return true
+    end
+
+    @ExecSpace("Client")
+    method void OnSlotExpanded(integer newCount)
+        -- "슬롯이 늘었다"를 당사자에게 알린다 (기획서 T6: 성취가 보여야 한다).
+        -- 대상 userId는 선언부가 아니라 호출부 마지막 인자로 붙인다 —
+        -- 첫 인자로 넘겼다가 [LEA-3032]로 실패한 적이 있다 (RoomPortal 주석 참고).
+        log("[SkillSlots] 슬롯 확장 연출  몬스터 슬롯 " .. tostring(newCount) .. "개")
+
+        _GateNotice:ShowNotice("보스 격파!", "몬스터 스킬 슬롯 " .. tostring(newCount) .. "개")
+
+        -- 레벨 캡 도달과 같은 연출을 쓴다. RUID 없이 enum만으로 재생되고
+        -- isLoop=false라 알아서 사라진다 (PlayerStats.OnReachedCap과 동일한 근거).
+        _ParticleService:PlayBasicParticleAttached(
+            BasicParticleType.PillarBurst, self.Entity,
+            Vector3(0, 0, 0), 0, Vector3(1.5, 1.5, 1.5), false)
     end
 
     @ExecSpace("ServerOnly")

@@ -76,6 +76,26 @@ script RoomMonster extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void GrantBossReward(Entity killer)
+        -- 보스방에서 죽었으면 막타 주체의 몬스터 슬롯을 늘린다 (기획서 T6).
+        --
+        -- 어느 몬스터가 보스인지는 몬스터가 아니라 **방**이 정한다
+        -- (RoomTable.room_type == "boss"). 보스 전용 플래그를 몬스터에 두면
+        -- 같은 종을 다른 방에 배치할 때 데이터가 두 곳으로 갈라진다.
+        local map = self.Entity.CurrentMap
+        if map == nil then return end
+
+        local room = _GameData:GetRoomByMapName(map.Name)
+        if room == nil then return end
+        if room.room_type ~= "boss" then return end
+
+        ---@type PlayerSkillSlots
+        local slots = killer:GetComponent("script.PlayerSkillSlots")
+        if slots == nil then return end
+        slots:ClearBoss(room.id)
+    end
+
+    @ExecSpace("ServerOnly")
     method void Dead(Entity killer)
         self.IsDead = true
         self.Hp = 0
@@ -98,6 +118,8 @@ script RoomMonster extends Component
                 if collection ~= nil then
                     collection:TryCapture(self.MonsterId)
                 end
+
+                self:GrantBossReward(killer)
             else
                 log_warning("[RoomMonster] 막타 엔티티에 PlayerStats가 없어 EXP 미지급: " .. tostring(killer.Name))
             end
