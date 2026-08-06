@@ -1,10 +1,13 @@
 -- @클라이언트 (UI는 클라 전용. 모든 메서드에 개별로 @ExecSpace를 붙인다)
 --
--- 잠긴 문에 부딪혔을 때 "무엇이 부족한지"를 화면에 띄운다.
--- 기획서 T6 UX 요구: 조건 미달 시 명확히 표시 (예: "공격력 50 필요 — 현재 32").
+-- 화면 상단에 잠깐 떴다 사라지는 알림 배너.
 --
--- 문구는 만들지 않고 RoomGate가 준 것을 그대로 보여준다.
--- 여기서 조건을 다시 해석하면 판정 규칙이 두 곳에 생겨 언젠가 어긋난다.
+-- 처음에는 잠긴 문 전용이었는데(기획서 T6 UX: 조건 미달 시 무엇이 부족한지 표시),
+-- 보스 클리어 알림도 같은 자리·같은 수명이라 제목을 받도록 일반화했다.
+-- 배너를 하나 더 만들면 두 개가 겹칠 때 처리를 또 정해야 한다.
+--
+-- 문구는 여기서 만들지 않고 부르는 쪽이 준 것을 그대로 보여준다.
+-- 게이트 사유를 여기서 다시 해석하면 판정 규칙이 두 곳에 생겨 언젠가 어긋난다.
 --
 -- StatPanel / SkillBar / EquipPanel과 같은 이유로 @Logic이다 —
 -- UI 엔티티에 붙은 @Component는 Server 메서드를 가질 수 없어 RPC가 조용히 죽는다.
@@ -13,6 +16,7 @@
 script GateNotice extends Logic
 
     property Entity banner = "d9ee8e50-183d-414d-8518-681bb0b7e2fb"
+    property TextGUIRendererComponent titleText = "4d80359a-5d17-40ab-ac95-f99a45789880"
     property TextGUIRendererComponent reasonText = "ddfba646-e264-4bc9-80d5-1ec072692b8e"
 
     -- 배너가 떠 있는 시간(초). 읽고 사라질 만큼만.
@@ -45,12 +49,23 @@ script GateNotice extends Logic
 
     @ExecSpace("ClientOnly")
     method void Show(string reason)
-        -- 사유를 띄우고 잠시 뒤 스스로 사라진다.
-        -- 연달아 부딪히면 타이머를 다시 건다 — 먼저 걸린 타이머가 남아 있으면
-        -- 새로 띄운 배너를 예전 타이머가 지워버린다.
-        if reason == nil or reason == "" then return end
+        -- 잠긴 문 사유. 제목은 항상 "잠겨 있다"다.
+        self:ShowNotice("잠겨 있다", reason)
+    end
 
-        self.reasonText.Text = reason
+    @ExecSpace("ClientOnly")
+    method void ShowNotice(string title, string message)
+        -- 제목 + 본문을 띄우고 잠시 뒤 스스로 사라진다.
+        --
+        -- 연달아 부르면 타이머를 다시 건다 — 먼저 걸린 타이머가 남아 있으면
+        -- 새로 띄운 배너를 예전 타이머가 지워버린다.
+        --
+        -- 서버에서 직접 부르지 않는다. 서버발 알림은 각자의 Client RPC를 거쳐
+        -- 클라에 도착한 뒤 여기를 부른다 (예: PlayerSkillSlots.OnSlotExpanded).
+        if message == nil or message == "" then return end
+
+        self.titleText.Text = title
+        self.reasonText.Text = message
         self.banner:SetVisible(true)
 
         self:ClearHideTimer()
