@@ -18,8 +18,19 @@ script PlayerCollection extends Component
 
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
-        -- T8에서 여기가 DataStorage 로드로 바뀐다. 지금은 빈 컬렉션으로 시작한다.
+        -- 컬렉션 로드는 PlayerDBManager가 한다 (T8). 여기서는 아무것도 초기화하지
+        -- 않는다 — 컴포넌트 OnBeginPlay 순서가 정해져 있지 않아, 로드된 값을
+        -- 나중에 도는 초기화가 덮어쓸 수 있다.
         log("[PlayerCollection] 초기화  포획률=" .. string.format("%.4f", self:GetCaptureRate()))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void MarkSave(string reason)
+        -- 컬렉션과 천장 카운터는 영구 데이터다 (작업지시서 T8 저장 트리거: 포획).
+        ---@type PlayerDBManager
+        local db = self.Entity:GetComponent("script.PlayerDBManager")
+        if db == nil then return end
+        db:MarkPermDirty(reason)
     end
 
     @ExecSpace("ServerOnly")
@@ -86,6 +97,9 @@ script PlayerCollection extends Component
             log("[PlayerCollection] 포획 실패 " .. record.name
                 .. "  굴림=" .. string.format("%.3f", roll) .. " / 확률=" .. string.format("%.3f", rate)
                 .. "  천장 " .. tostring(kills) .. "/" .. tostring(pity))
+            -- 실패해도 저장한다. 천장 진행도를 잃으면 40마리를 다시 잡아야 한다.
+            -- 처치마다 쓰기가 나가는 건 아니고, 스로틀이 최소 간격으로 묶는다.
+            self:MarkSave("천장 누적")
             return false
         end
 
@@ -106,6 +120,7 @@ script PlayerCollection extends Component
                 .. tostring(owned) .. (byPity and "  (천장)" or "  (확률)"))
         end
 
+        self:MarkSave("포획")
         self:OnCaptured(skillName, owned, self.Entity.PlayerComponent.UserId)
         return true
     end

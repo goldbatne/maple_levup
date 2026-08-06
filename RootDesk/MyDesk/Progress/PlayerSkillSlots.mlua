@@ -45,9 +45,31 @@ script PlayerSkillSlots extends Component
 
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
-        self.MonsterSlotCount = math.floor(_GameData:GetBalance("monster_slot_start"))
+        -- 슬롯 수를 직접 대입하지 않고 두 축에서 다시 계산한다 (T8).
+        -- 대입하면 PlayerDBManager가 먼저 로드해 채워둔 보스/환생 축을 무시하고
+        -- 시작값으로 되돌려버린다 — 컴포넌트 OnBeginPlay 순서는 정해져 있지 않다.
+        -- RecomputeSlotCount는 축에서 유도하므로 언제 돌든 결과가 같다.
+        self:RecomputeSlotCount()
         log("[SkillSlots] 초기화  몬스터 슬롯 " .. tostring(self.MonsterSlotCount)
             .. "/" .. tostring(math.floor(_GameData:GetBalance("monster_slot_max"))))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void MarkSavePerm(string reason)
+        -- 슬롯 수·보스 원장·환생 횟수·개방 구역은 영구 데이터다.
+        ---@type PlayerDBManager
+        local db = self.Entity:GetComponent("script.PlayerDBManager")
+        if db == nil then return end
+        db:MarkPermDirty(reason)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void MarkSaveRun(string reason)
+        -- 무엇을 끼고 있는지는 회차 데이터다. 환생하면 다시 고른다.
+        ---@type PlayerDBManager
+        local db = self.Entity:GetComponent("script.PlayerDBManager")
+        if db == nil then return end
+        db:MarkRunDirty(reason)
     end
 
     ---------------------------------------------------------------
@@ -98,6 +120,8 @@ script PlayerSkillSlots extends Component
         if self.MonsterSlotCount > before then
             self:OnSlotExpanded(self.MonsterSlotCount, self.Entity.PlayerComponent.UserId)
         end
+
+        self:MarkSavePerm("보스 클리어")
         return true
     end
 
@@ -208,6 +232,7 @@ script PlayerSkillSlots extends Component
 
         self.MonsterSlots[slotIndex] = skillId
         log("[SkillSlots] 장착 " .. tostring(slotIndex) .. "번 ← [" .. skill.name .. "]")
+        self:MarkSaveRun("장착")
         return true
     end
 
@@ -216,6 +241,7 @@ script PlayerSkillSlots extends Component
         if self.MonsterSlots[slotIndex] == nil then return end
         self.MonsterSlots[slotIndex] = nil
         log("[SkillSlots] 해제 " .. tostring(slotIndex) .. "번")
+        self:MarkSaveRun("장착 해제")
     end
 
     ---------------------------------------------------------------
