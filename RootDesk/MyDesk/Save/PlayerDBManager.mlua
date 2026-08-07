@@ -255,6 +255,9 @@ script PlayerDBManager extends Component
             for areaId, _ in pairs(perm.unlocked_areas) do
                 slots.UnlockedAreas[areaId] = 1
             end
+            for jobId, _ in pairs(perm.unlocked_jobs) do
+                slots.UnlockedJobs[jobId] = 1
+            end
             -- 보스 개수는 원장에서 다시 센다. 개수를 따로 저장하면 원장과 어긋날 수 있고,
             -- 어긋나면 슬롯 수가 틀어진다 — 원장 하나만 진실로 둔다.
             local cleared = 0
@@ -390,6 +393,51 @@ script PlayerDBManager extends Component
         end, minInterval - since)
     end
 
+    @ExecSpace("ServerOnly")
+    method void NoteLevel(integer level)
+        -- 최고 도달 레벨을 **오를 때** 기록한다.
+        --
+        -- 왜 저장 시점에 유도하면 안 되는가 (T7 실측): GatherPerm에서
+        -- max(현재 레벨, 기록)으로 계산했더니 환생이 레벨을 1로 되돌린 뒤
+        -- 저장이 돌아 30이 기록될 창이 없었다 — 최고레벨이 13에 머물렀다.
+        -- 레벨업 구간 내내 Run만 더티라 Perm이 아예 모아지지 않은 것도 겹쳤다.
+        if level <= self.HighestLevel then return end
+        self.HighestLevel = level
+        self:MarkPermDirty("최고 레벨 갱신")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SaveNow(string reason)
+        -- 스로틀을 건너뛰고 지금 당장, 블로킹으로 쓴다. 환생이 이걸 부른다.
+        --
+        -- 왜 스로틀을 쓰지 않는가 (작업지시서 T7 요청 1 — 원자적 처리):
+        -- 환생은 Perm(환생 횟수·구역·직업)과 Run(레벨 초기화)을 **동시에** 바꾼다.
+        -- 스로틀에 맡기면 그 사이에 앱이 죽었을 때 회차만 초기화되고 영구는
+        -- 안 써진 반쪽 상태가 남는다.
+        --
+        -- 두 키를 다 더티로 올리는 이유: BatchSet은 payload에 담긴 키만 쓴다.
+        -- 한쪽이 깨끗하면 그 키는 이번 쓰기에서 빠져 같은 반쪽 문제가 생긴다.
+        -- 둘을 한 번의 BatchSetAndWait에 실어야 한쪽만 반영되는 창이 닫힌다.
+        if self.IsLoadSuccess == false then
+            log_error("[PlayerDB] 로드 실패 세션 — " .. reason .. " 저장을 건너뛴다")
+            return
+        end
+
+        if self.pendingTimer ~= nil then
+            _TimerService:ClearTimer(self.pendingTimer)
+            self.pendingTimer = nil
+            self.pendingReason = ""
+            self.pendingCount = 0
+        end
+
+        self.permDirty = true
+        self.permGen = self.permGen + 1
+        self.runDirty = true
+        self.runGen = self.runGen + 1
+
+        self:SaveToDB(true, reason)
+    end
+
     ---------------------------------------------------------------
     -- 저장
     ---------------------------------------------------------------
@@ -472,11 +520,8 @@ script PlayerDBManager extends Component
         local perm = SavePermanentData()
         perm:Init(math.floor(_GameData:GetBalance("monster_slot_start")))
 
-        ---@type PlayerStats
-        local stats = self.Entity:GetComponent("script.PlayerStats")
-        if stats ~= nil and stats.Level > self.HighestLevel then
-            self.HighestLevel = stats.Level
-        end
+        -- NoteLevel이 오를 때마다 갱신하므로 여기서는 들고 있는 값을 그대로 쓴다.
+        -- 현재 레벨에서 다시 유도하지 않는다 — 환생 직후에는 그 값이 1이다.
         perm.highest_level = self.HighestLevel
         perm.landmark_claimed = self.LandmarkClaimed
 
@@ -511,10 +556,16 @@ script PlayerDBManager extends Component
             perm.bosses_cleared = bosses
 
             local areas = {}
-            for _, areaId in ipairs(_GameData:GetRebirthAreaIds()) do
+            for _, areaId in ipairs(_GameData:GetAllAreaIds()) do
                 if slots.UnlockedAreas[areaId] ~= nil then areas[areaId] = 1 end
             end
             perm.unlocked_areas = areas
+
+            local jobs = {}
+            for _, jobId in ipairs(_GameData:GetAllJobIds()) do
+                if slots.UnlockedJobs[jobId] ~= nil then jobs[jobId] = 1 end
+            end
+            perm.unlocked_jobs = jobs
         end
 
         local out = {}

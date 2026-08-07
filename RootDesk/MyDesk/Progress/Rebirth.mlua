@@ -1,0 +1,229 @@
+-- @서버 (환생 실행은 반드시 서버. 클라는 조건을 읽어 표시만 한다 — 개발 규칙 2)
+--
+-- 환생 판정과 실행. 기획서 4.5 / 작업지시서 T7.
+--
+-- ## 진입 조건은 AND다 (승인 2026-08-07)
+--
+--     환생 가능 = 레벨 캡 도달  AND  영역 보스 격파
+--
+-- 성장 축과 공간 축을 동시에 요구한다. 둘은 보통 시간차로 채워진다 —
+-- 보스(Lv10대)를 먼저 잡고 레벨을 채우러 다시 나간다.
+--
+-- ## 판정 메서드에 @ExecSpace를 붙이지 않는 이유
+--
+-- "환생 가능" HUD(T7-3)가 같은 판정을 그려야 한다. 클라에서 따로 조립하면
+-- 조건이 두 곳에 생겨 언젠가 어긋난다. 읽는 값이 전부 @TargetUserSync라
+-- 주인 클라에도 그대로 있어서 양쪽 결과가 같다.
+-- (ServerOnly로 뒀다가 클라가 조용히 0/false를 받은 사고가 T5-4·T5-5에서 두 번 있었다)
+--
+-- ## RoomGate와 왜 따로인가
+--
+-- RoomGate는 "이 문을 지날 수 있나"를 본다. 환생은 문이 아니라 상태 전이다.
+-- 게이트에 끼워 넣으면 방 이동 판정이 회차 로직을 알게 되어 둘 다 지저분해진다.
+-- 반환 모양({passed, reason})만 맞춰서 UI가 같은 방식으로 다룰 수 있게 했다.
+
+@Logic
+script Rebirth extends Logic
+
+    ---------------------------------------------------------------
+    -- 판정 (서버·클라 공용)
+    ---------------------------------------------------------------
+
+    method table Evaluate(Entity player)
+        -- { passed, reason }. reason은 **무엇이 부족한지**를 담는다 (게이트 3종과 같은 어법).
+        if player == nil then
+            return { passed = false, reason = "플레이어를 찾을 수 없다" }
+        end
+
+        ---@type PlayerStats
+        local stats = player:GetComponent("script.PlayerStats")
+        ---@type PlayerSkillSlots
+        local slots = player:GetComponent("script.PlayerSkillSlots")
+        if stats == nil or slots == nil then
+            return { passed = false, reason = "진행 정보를 찾을 수 없다" }
+        end
+
+        -- 성장 축. CanRebirth는 캡에 닿을 때 서버가 올려두는 플래그다.
+        -- 레벨을 직접 비교하지 않는 이유: 캡 판정이 LevelCurve 한곳에만 있어야
+        -- 캡 수치를 바꿨을 때 두 곳이 어긋나지 않는다.
+        if stats.CanRebirth == false then
+            return { passed = false,
+                reason = "레벨 " .. tostring(_LevelCurve:LevelCap())
+                    .. " 필요 — 현재 " .. tostring(stats.Level) }
+        end
+
+        -- 공간 축.
+        --
+        -- ⚠ 지금은 "보스를 하나라도 잡았는가"로 본다. 영역이 하나뿐이라 그게 곧
+        -- 그 영역의 보스다. 영역이 늘어나면 방→영역 매핑이 필요하고,
+        -- "해당 영역의 보스"를 골라 물어야 한다. RoomTable에 area 컬럼이 생기는 시점이다.
+        if slots.BossesCleared < 1 then
+            return { passed = false, reason = "영역 보스를 잡아야 한다" }
+        end
+
+        return { passed = true, reason = "" }
+    end
+
+    method boolean CanRebirth(Entity player)
+        -- HUD가 쓰는 짧은 형태.
+        return self:Evaluate(player).passed
+    end
+
+    ---------------------------------------------------------------
+    -- 실행 (서버 전용)
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method boolean Execute(Entity player)
+        -- 조건을 다시 검사한다. 클라가 HUD로 먼저 걸렀더라도 여기서 또 본다 —
+        -- 클라 판정은 표시일 뿐이고 권한은 서버에 있다.
+        local gate = self:Evaluate(player)
+        if gate.passed == false then
+            log_warning("[Rebirth] 환생 거부 — " .. gate.reason)
+            return false
+        end
+
+        ---@type PlayerStats
+        local stats = player:GetComponent("script.PlayerStats")
+        ---@type PlayerSkillSlots
+        local slots = player:GetComponent("script.PlayerSkillSlots")
+        ---@type PlayerDBManager
+        local db = player:GetComponent("script.PlayerDBManager")
+
+        local fromLevel = stats.Level
+        local userId = player.PlayerComponent.UserId
+        log("[Rebirth] 환생 시작  Lv" .. tostring(fromLevel)
+            .. "  (환생 " .. tostring(slots.RebirthCount) .. "회차 → "
+            .. tostring(slots.RebirthCount + 1) .. "회차)")
+
+        -- 1. 랜드마크 먼저. "그 레벨에서 **환생해야** 지급"이므로 리셋 전에 도달 레벨로 준다.
+        self:GrantLandmarks(fromLevel, db, slots)
+
+        -- 2. 회차 축 +1 → 슬롯 재계산. 누적이 아니라 축에서 다시 계산하므로
+        --    두 번 불려도 슬롯이 계속 늘어나지 않는다 (기획서 4.3).
+        slots.RebirthCount = slots.RebirthCount + 1
+        slots:RecomputeSlotCount()
+
+        -- 3. 장착 비우기. 컬렉션(보유)은 영구지만 "이번 회차에 뭘 끼고 갈지"는
+        --    회차마다 다시 고르는 선택이다 (SaveRunData 주석).
+        local maxSlot = math.floor(_GameData:GetBalance("monster_slot_max"))
+        for i = 1, maxSlot do
+            slots.MonsterSlots[i] = nil
+        end
+
+        -- 4. 회차 초기화. 영구 데이터는 건드리지 않는다.
+        stats:ResetRun()
+
+        -- 5. 시작방으로. 스탯이 초기화된 채 깊은 방에 남지 않게 한다 (기획서 4.5).
+        self:ReturnToStart(player, db)
+
+        -- 6. 즉시 저장. 스로틀에 맡기면 그 사이에 앱이 죽었을 때
+        --    회차만 초기화되고 영구가 안 써진 반쪽 상태가 남는다.
+        if db ~= nil then db:SaveNow("환생") end
+
+        log("[Rebirth] 환생 완료  Lv" .. tostring(stats.Level)
+            .. "  환생 " .. tostring(slots.RebirthCount) .. "회"
+            .. "  몬스터 슬롯 " .. tostring(slots.MonsterSlotCount) .. "개")
+
+        _ProgressLog:Rebirth(userId, slots.RebirthCount, fromLevel)
+        return true
+    end
+
+    ---------------------------------------------------------------
+    -- 랜드마크
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method void GrantLandmarks(integer level, PlayerDBManager db, PlayerSkillSlots slots)
+        -- 도달 레벨의 보상을 지급한다. 같은 레벨을 두 번 받지 않도록 원장에 기록한다.
+        if db == nil then
+            log_error("[Rebirth] PlayerDBManager가 없어 랜드마크 원장을 쓸 수 없다")
+            return
+        end
+
+        -- 원장 키를 문자열로 쓰는 이유: 저장이 JSON을 거치는데 JSON 객체 키는
+        -- 문자열이라야 한다. 숫자 인덱스로 넣으면 디코드했을 때 키 타입이 달라져
+        -- 같은 랜드마크를 다시 받게 된다 (equipped_monster_skills와 같은 이유).
+        local key = tostring(level)
+        if db.LandmarkClaimed[key] ~= nil then
+            log("[Rebirth] Lv" .. key .. " 랜드마크는 이미 받았다 — 지급 없음")
+            return
+        end
+
+        local rewards = _GameData:GetLandmarksAtLevel(level)
+        if #rewards == 0 then
+            log("[Rebirth] Lv" .. key .. " 에 걸린 랜드마크 없음")
+            return
+        end
+
+        db.LandmarkClaimed[key] = 1
+
+        for i = 1, #rewards do
+            local r = rewards[i]
+
+            if r.reward_type == "job" then
+                if slots.UnlockedJobs[r.reward_value] == nil then
+                    slots.UnlockedJobs[r.reward_value] = 1
+                    local job = _GameData:GetJob(r.reward_value)
+                    local name = r.reward_value
+                    if job ~= nil then name = job.name end
+                    log("[Rebirth] 랜드마크 Lv" .. key .. " — 직업 해금 [" .. name .. "]")
+                end
+
+            elseif r.reward_type == "area" then
+                if slots.UnlockedAreas[r.reward_value] == nil then
+                    slots.UnlockedAreas[r.reward_value] = 1
+                    log("[Rebirth] 랜드마크 Lv" .. key .. " — 구역 개방 [" .. r.reward_value .. "]")
+                end
+
+            elseif r.reward_type == "slot" then
+                -- 일부러 아무것도 하지 않는다.
+                --
+                -- 기획서가 슬롯 확장을 두 군데로 적어 두었다:
+                --   4.3  슬롯 = 시작 + 보스 클리어 축 + 환생 횟수 축
+                --   4.5  Lv30 랜드마크가 슬롯 +1 (2→3)
+                -- 슬라이스에서는 **같은 사건**이다. 첫 환생이 곧 Lv30 랜드마크다.
+                -- RecomputeSlotCount가 이미 환생 축으로 이 +1을 계산하므로
+                -- 여기서 또 더하면 이중 계산이 된다
+                -- (작업지시서 T7 요청 4: "보스 축과 중복 계산되지 않도록").
+                log("[Rebirth] 랜드마크 Lv" .. key .. " — 슬롯 +" .. r.reward_value
+                    .. " 는 환생 축이 이미 반영한다 (중복 지급 안 함)")
+
+            else
+                log_warning("[Rebirth] 알 수 없는 랜드마크 보상 종류: " .. tostring(r.reward_type))
+            end
+        end
+    end
+
+    ---------------------------------------------------------------
+    -- 시작방 복귀
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method void ReturnToStart(Entity player, PlayerDBManager db)
+        -- 저장된 방까지 함께 바꾼다. 안 바꾸면 재접속했을 때 초기화된 스탯으로
+        -- 깊은 방에서 시작한다.
+        local startRoom = _GameData:GetStartRoom()
+        if startRoom == nil then
+            log_error("[Rebirth] RoomTable에 is_start 방이 없다 — 복귀하지 못했다")
+            return
+        end
+        if startRoom.map_name == "" then
+            log_error("[Rebirth] 시작방 " .. startRoom.id .. " 에 map_name이 없다")
+            return
+        end
+
+        if db ~= nil then db.CurrentRoom = startRoom.id end
+
+        local map = player.CurrentMap
+        if map ~= nil and map.Name == startRoom.map_name then
+            log("[Rebirth] 이미 시작방(" .. startRoom.id .. ")에 있다 — 이동 없음")
+            return
+        end
+
+        -- 도착점은 방 한가운데(0,0,0). 포탈은 가장자리에 있어 트리거에 걸리지 않는다.
+        log("[Rebirth] 시작방 복귀 → " .. startRoom.id .. "(" .. startRoom.map_name .. ")")
+        _TeleportService:TeleportToMapPosition(player, Vector3(0, 0, 0), startRoom.map_name)
+    end
+
+end

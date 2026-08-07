@@ -104,6 +104,19 @@ script PlayerStats extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void NoteHighestLevel()
+        -- 최고 도달 레벨(영구)을 갱신한다. 레벨이 실제로 오른 자리에서만 부른다.
+        --
+        -- MarkSave와 따로 두는 이유: MarkSave는 회차 데이터가 바뀌었다는 신호이고,
+        -- 최고 레벨은 영구 데이터다. 한 메서드에 섞으면 분배(레벨 불변)에서도
+        -- 영구 키가 더티가 되어 쓸데없는 저장이 나간다.
+        ---@type PlayerDBManager
+        local db = self.Entity:GetComponent("script.PlayerDBManager")
+        if db == nil then return end
+        db:NoteLevel(self.Level)
+    end
+
+    @ExecSpace("ServerOnly")
     method void AddExp(number amount)
         -- 몬스터 처치 EXP. 누적 → 레벨업 판정까지 여기서 끝낸다.
         if amount <= 0 then return end
@@ -152,6 +165,7 @@ script PlayerStats extends Component
 
             self:OnLevelUp(self.Level, self.Entity.PlayerComponent.UserId)
             self:MarkSave("레벨업")
+            self:NoteHighestLevel()
             _ProgressLog:LevelUp(self.Entity.PlayerComponent.UserId, self.Level)
         end
     end
