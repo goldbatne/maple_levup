@@ -249,8 +249,11 @@ script PlayerDBManager extends Component
         local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
         if slots ~= nil then
             slots.RebirthCount = perm.rebirth_count
-            for roomId, _ in pairs(perm.bosses_cleared) do
-                slots.BossRoomsCleared[roomId] = 1
+            for roomId, run in pairs(perm.bosses_cleared) do
+                -- 값은 플래그가 아니라 **마지막으로 깬 회차 번호**다. 그대로 복원해야
+                -- "이번 회차에 깼는가"가 맞는다 (안 그러면 보스가 영영 안 선다).
+                -- 옛 저장은 전부 1이라 1회차 클리어로 읽히고, 그게 실제로 맞다.
+                slots.BossRoomsCleared[roomId] = math.floor(run)
             end
             for areaId, _ in pairs(perm.unlocked_areas) do
                 slots.UnlockedAreas[areaId] = 1
@@ -551,7 +554,8 @@ script PlayerDBManager extends Component
 
             local bosses = {}
             for _, roomId in ipairs(_GameData:GetAllRoomIds()) do
-                if slots.BossRoomsCleared[roomId] ~= nil then bosses[roomId] = 1 end
+                local run = slots.BossRoomsCleared[roomId]
+                if run ~= nil then bosses[roomId] = run end
             end
             perm.bosses_cleared = bosses
 

@@ -30,6 +30,10 @@ script RoomSpawner extends Component
     @HideFromInspector property integer monsterCount = 0
     @HideFromInspector property integer spawnIndex = 0
     @HideFromInspector property integer checkTimer = 0
+    -- 보스방이면 리필 규칙이 다르다 (아래 ShouldSpawn 참고).
+    @HideFromInspector property string roomId = ""
+    @HideFromInspector property boolean isBossRoom = false
+    @HideFromInspector property any userEnterHandler = nil
     -- 이 방이 스폰한 엔티티들. 파괴되면 isvalid가 false가 된다.
     @HideFromInspector property table spawned = {}
 
@@ -44,6 +48,8 @@ script RoomSpawner extends Component
 
         self.monsterId = room.monster_id
         self.monsterCount = math.floor(room.monster_count)
+        self.roomId = room.id
+        self.isBossRoom = (room.room_type == "boss")
 
         if self.monsterId == "" or self.monsterCount <= 0 then
             log("[RoomSpawner] " .. self.Entity.Name .. "(" .. room.name .. ") 몬스터 없음")
@@ -74,6 +80,12 @@ script RoomSpawner extends Component
         self.checkTimer = _TimerService:SetTimerRepeat(function()
             self:Refill()
         end, self.RespawnCheckInterval)
+
+        -- 보스방만: 들어온 사람이 이번 회차에 아직 안 깼으면 리필 주기를 기다리지 않고
+        -- 바로 세운다. 빈 방에 들어섰다가 3초 뒤 보스가 튀어나오면 이상하다.
+        if self.isBossRoom then
+            self.userEnterHandler = _UserService:ConnectEvent(UserEnterEvent, self.OnUserEnter)
+        end
     end
 
     @ExecSpace("ServerOnly")
@@ -83,6 +95,42 @@ script RoomSpawner extends Component
             _TimerService:ClearTimer(self.checkTimer)
             self.checkTimer = 0
         end
+        if self.userEnterHandler ~= nil then
+            _UserService:DisconnectEvent(UserEnterEvent, self.userEnterHandler)
+            self.userEnterHandler = nil
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnUserEnter(UserEnterEvent event)
+        -- UserEnterEvent는 어느 맵으로 들어가든 전부 온다 (RoomCamera와 같다).
+        -- 내 맵에 들어온 경우만 본다.
+        local user = _UserService:GetUserEntityByUserId(event.UserId)
+        if user == nil or user.CurrentMap ~= self.Entity then return end
+        self:Refill()
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean ShouldSpawn()
+        -- 보스는 **회차당 한 번만** 선다 (T9-1 결정). 잡고 나면 그 회차 동안
+        -- 방이 비어 있고, 환생하면 다시 선다.
+        --
+        -- 왜 이 규칙이 필요한가: 예전에는 격파 직후 같은 보스가 바로 다시 서서
+        -- ①"이 방을 깼다"는 감각이 사라지고 ②리스폰 대기가 없는 보스방이
+        -- 그냥 최고 효율 사냥터가 됐다 (골렘 2.4 EXP/s > 슬라임 2.5, 버섯 2.33 —
+        -- 대기 시간을 넣으면 순위가 뒤집힌다).
+        if self.isBossRoom == false then return true end
+
+        -- 방에 있는 사람 중 이번 회차에 아직 안 깬 사람이 하나라도 있으면 세운다.
+        -- 아무도 없으면 세우지 않는다 — 볼 사람이 없고, 들어오면 OnUserEnter가 부른다.
+        for _, user in pairs(_UserService:GetUsersByMapName(self.Entity.Name)) do
+            ---@type PlayerSkillSlots
+            local slots = user:GetComponent("script.PlayerSkillSlots")
+            if slots ~= nil and slots:IsBossClearedThisRun(self.roomId) == false then
+                return true
+            end
+        end
+        return false
     end
 
     @ExecSpace("ServerOnly")
@@ -104,6 +152,7 @@ script RoomSpawner extends Component
         -- 정원에서 모자란 만큼만 채운다.
         local missing = self.monsterCount - self:CountAlive()
         if missing <= 0 then return end
+        if self:ShouldSpawn() == false then return end
 
         for i = 1, missing do
             self:SpawnOne()

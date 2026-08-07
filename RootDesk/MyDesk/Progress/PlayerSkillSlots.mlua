@@ -43,11 +43,16 @@ script PlayerSkillSlots extends Component
     -- 옛 값이 남아 어긋난다. 해금은 **추가로 열린 것**만 담는다.
     @TargetUserSync property SyncTable<string, integer> UnlockedJobs
 
-    -- 클리어한 보스방. roomId -> 1. 영구 데이터이고 환생해도 유지된다.
+    -- 클리어한 보스방. roomId -> **마지막으로 깬 회차 번호**(1부터). 영구 데이터다.
     --
     -- BossesCleared(개수)와 따로 두는 이유: 개수만으로는 "이 보스를 이미 잡았는가"를
     -- 알 수 없어 같은 보스를 두 번 잡으면 슬롯이 또 늘어난다.
-    -- 원장으로 막고, 개수는 원장에 새로 들어갈 때만 올린다.
+    -- 원장으로 막고, 개수는 원장에 **처음** 들어갈 때만 올린다.
+    --
+    -- 값이 1/0 플래그가 아니라 회차 번호인 이유 (T9-1): 보스는 회차당 한 번만 선다.
+    -- "언젠가 깼다"(nil 아님)와 "이번 회차에 깼다"(== 지금 회차)를 구분해야 하는데,
+    -- 플래그로는 환생 뒤에도 깬 것으로 남아 보스가 영영 안 나온다.
+    -- 1회차 클리어가 곧 1이라 예전 저장값과도 그대로 맞는다.
     @TargetUserSync property SyncTable<string, integer> BossRoomsCleared
 
     @ExecSpace("ServerOnly")
@@ -110,13 +115,28 @@ script PlayerSkillSlots extends Component
         -- 보스방을 처음 클리어했을 때만 슬롯 축을 올린다.
         -- 이미 잡은 보스면 아무것도 하지 않고 false (기획서 T6: 중복 지급 안 됨).
         if roomId == nil or roomId == "" then return false end
-        if self.BossRoomsCleared[roomId] ~= nil then
-            log("[SkillSlots] 이미 클리어한 보스방: " .. roomId .. " — 슬롯 지급 없음")
+
+        local run = self.RebirthCount + 1
+        local prev = self.BossRoomsCleared[roomId]
+        if prev == run then
+            log("[SkillSlots] 이번 회차에 이미 클리어한 보스방: " .. roomId)
             return false
         end
 
+        -- 원장은 회차와 무관하게 갱신한다. 보스가 회차마다 다시 서므로
+        -- "이번 회차에 깼는가"를 여기서 기록해야 스포너가 안 세운다.
+        self.BossRoomsCleared[roomId] = run
+
+        if prev ~= nil then
+            -- 지난 회차에 깬 보스를 또 깼다. 슬롯 축은 이미 올라가 있어 다시 주지 않는다
+            -- (기획서 T6: 중복 지급 없음). 회차 표시만 갱신하고 끝낸다.
+            log("[SkillSlots] 보스 재클리어 " .. roomId .. " (" .. tostring(prev)
+                .. "회차에 이미 지급) — 슬롯 지급 없음")
+            self:MarkSavePerm("보스 재클리어")
+            return true
+        end
+
         local before = self.MonsterSlotCount
-        self.BossRoomsCleared[roomId] = 1
         self.BossesCleared = self.BossesCleared + 1
         self:RecomputeSlotCount()
 
@@ -130,6 +150,14 @@ script PlayerSkillSlots extends Component
 
         self:MarkSavePerm("보스 클리어")
         return true
+    end
+
+    -- 실행공간을 비워둔다. 서버 스포너가 "세울까"를 묻고, 클라도 같은 값을 본다
+    -- (BossRoomsCleared / RebirthCount 둘 다 @TargetUserSync).
+    method boolean IsBossClearedThisRun(string roomId)
+        -- 이번 회차에 이 보스방을 깼는가. 지난 회차 기록은 false다.
+        if roomId == nil or roomId == "" then return false end
+        return self.BossRoomsCleared[roomId] == self.RebirthCount + 1
     end
 
     @ExecSpace("Client")
