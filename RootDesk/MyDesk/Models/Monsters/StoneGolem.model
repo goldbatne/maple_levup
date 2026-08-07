@@ -28,7 +28,9 @@
         "MOD.Core.KinematicbodyComponent",
         "MOD.Core.HitEffectSpawnerComponent",
         "MOD.Core.DamageSkinComponent",
-        "script.RoomMonster"
+        "script.RoomMonster",
+        "MOD.Core.AIChaseComponent",
+        "script.MonsterAttack"
       ],
       "Properties": [],
       "Values": [
@@ -41,9 +43,9 @@
           },
           "Value": {
             "$type": "MOD.Core.MODVector3, MOD.Core",
-            "x": 0.0,
+            "x": 0,
             "y": 0.4,
-            "z": 0.0
+            "z": 0
           }
         },
         {
@@ -55,10 +57,10 @@
           },
           "Value": {
             "$type": "MOD.Core.MODQuaternion, MOD.Core",
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0,
-            "w": 1.0
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 1
           }
         },
         {
@@ -175,7 +177,7 @@
             "$type": "MODNativeType",
             "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
-          "Value": 6.0
+          "Value": 6
         },
         {
           "TargetType": "MOD.Core.MovementComponent",
@@ -304,6 +306,42 @@
             "type": "System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
           "Value": false
+        },
+        {
+          "TargetType": "MOD.Core.AIChaseComponent",
+          "Name": "DetectionRange",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Value": 6
+        },
+        {
+          "TargetType": "MOD.Core.AIChaseComponent",
+          "Name": "IsChaseNearPlayer",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Value": true
+        },
+        {
+          "TargetType": "MOD.Core.AIChaseComponent",
+          "Name": "IsLegacy",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Value": false
+        },
+        {
+          "TargetType": "script.MonsterAttack",
+          "Name": "AttackInterval",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "System.Double, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Value": 0.5
         }
       ],
       "EventLinks": [],
