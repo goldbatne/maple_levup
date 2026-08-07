@@ -1,0 +1,129 @@
+{
+  "Id": "",
+  "GameId": "",
+  "EntryKey": "model://returnportal",
+  "ContentType": "x-mod/model",
+  "Content": "",
+  "Usage": 0,
+  "UsePublish": 1,
+  "UseService": 0,
+  "CoreVersion": "26.7.0.0",
+  "StudioVersion": "0.1.0.0",
+  "DynamicLoading": 0,
+  "ContentProto": {
+    "Use": "Json",
+    "Json": {
+      "Version": 1,
+      "Name": "ReturnPortal",
+      "BaseModelId": null,
+      "Id": "returnportal",
+      "Components": [
+        "MOD.Core.TransformComponent",
+        "MOD.Core.SpriteRendererComponent",
+        "MOD.Core.TagComponent",
+        "MOD.Core.TriggerComponent",
+        "script.ReturnPortal"
+      ],
+      "Properties": [
+        {
+          "Type": {
+            "$type": "MODNativeType",
+            "type": "System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Name": "renderguid",
+          "DisplayName": "renderguid",
+          "ShowInInspector": false,
+          "Link": {
+            "Target": {
+              "$type": "MODNativeType",
+              "type": "MOD.Core.SpriteRendererComponent, MOD.Core, Version=26.7.0.0, Culture=neutral, PublicKeyToken=null"
+            },
+            "Property": "SpriteRUID"
+          }
+        },
+        {
+          "Type": {
+            "$type": "MODNativeType",
+            "type": "MOD.Core.MODSyncList`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]], MOD.Core, Version=26.7.0.0, Culture=neutral, PublicKeyToken=null"
+          },
+          "Name": "propTags",
+          "DisplayName": "propTags",
+          "ShowInInspector": false,
+          "Link": {
+            "Target": {
+              "$type": "MODNativeType",
+              "type": "MOD.Core.TagComponent, MOD.Core, Version=26.7.0.0, Culture=neutral, PublicKeyToken=null"
+            },
+            "Property": "Tags"
+          }
+        }
+      ],
+      "Values": [
+        {
+          "TargetType": "MOD.Core.SpriteRendererComponent",
+          "Name": "OrderInLayer",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Value": 2
+        },
+        {
+          "TargetType": "MOD.Core.SpriteRendererComponent",
+          "Name": "SpriteRUID",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Value": "0cad726e623d4a3994c36fb3f7473841"
+        },
+        {
+          "TargetType": "MOD.Core.TriggerComponent",
+          "Name": "BoxSize",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "MOD.Core.MODVector2, MOD.Core, Version=26.7.0.0, Culture=neutral, PublicKeyToken=null"
+          },
+          "Value": {
+            "$type": "MOD.Core.MODVector2, MOD.Core",
+            "x": 3,
+            "y": 3
+          }
+        },
+        {
+          "TargetType": "MOD.Core.TriggerComponent",
+          "Name": "ColliderOffset",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "MOD.Core.MODVector2, MOD.Core, Version=26.7.0.0, Culture=neutral, PublicKeyToken=null"
+          },
+          "Value": {
+            "$type": "MOD.Core.MODVector2, MOD.Core",
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "TargetType": "script.ReturnPortal",
+          "Name": "openRUID",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Value": "1507704072384d8ba4dc1d73c02ba92b"
+        },
+        {
+          "TargetType": "script.ReturnPortal",
+          "Name": "lockedRUID",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Value": "0cad726e623d4a3994c36fb3f7473841"
+        }
+      ],
+      "EventLinks": [],
+      "Children": []
+    }
+  }
+}
