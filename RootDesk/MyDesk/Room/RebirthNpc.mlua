@@ -1,0 +1,113 @@
+-- @클라이언트 + @서버 (터치는 클라, 환생은 서버. 메서드마다 실행공간을 따로 붙인다)
+--
+-- 시작방의 환생 NPC (기획서 4.5 / 작업지시서 T7).
+--
+-- 환생을 **확정하는 자리**다. HUD 버튼(T7-3)은 여기까지 데려다줄 뿐이고,
+-- 되돌릴 수 없는 선택은 여기서 일어난다.
+--
+-- ## 조건 미달이면 무엇이 부족한지 말해준다
+--
+-- 게이트 3종과 같은 어법이다 — 조용히 막지 않고 이유를 준다.
+-- 문구는 여기서 만들지 않고 _Rebirth:Evaluate가 준 것을 그대로 보여준다.
+-- 여기서 다시 해석하면 판정 규칙이 두 곳에 생겨 언젠가 어긋난다.
+--
+-- ## TouchEvent는 누가 눌렀는지 알려주지 않는다
+--
+-- TouchEvent에는 TouchId와 TouchPoint만 있다. 터치한 사람의 클라에서 뜨는
+-- 이벤트라 _UserService.LocalPlayer가 곧 그 사람이다.
+-- 그래서 판정 표시는 클라에서 하고, 실행만 서버로 넘긴다.
+--
+-- ## T7-4b 예정
+--
+-- 지금은 조건을 채우고 누르면 **바로 환생한다.** 잃는 것 / 얻는 것 / 직업 선택을
+-- 보여주는 확인 화면이 다음 단계에서 이 앞에 붙는다 (작업지시서 T7 요청 2).
+
+@Component
+script RebirthNpc extends Component
+
+    property any touchHandler = nil
+
+    method void OnBeginPlay()
+        -- 터치는 클라에서만 받는다. 서버에는 입력이 오지 않는다.
+        if self:IsClient() then
+            self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.OnTouch)
+            log("[RebirthNpc] 터치 대기")
+        end
+    end
+
+    method void OnEndPlay()
+        if self.touchHandler ~= nil then
+            self.Entity:DisconnectEvent(TouchEvent, self.touchHandler)
+            self.touchHandler = nil
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnTouch(TouchEvent event)
+        -- 내 플레이어 기준으로 판정해 바로 보여준다. 서버를 왕복하지 않는 이유:
+        -- 읽는 값이 전부 @TargetUserSync라 클라에서 같은 결과가 나오고,
+        -- 왕복하면 눌렀는데 한 박자 뒤에 답이 오는 느낌이 된다.
+        local me = _UserService.LocalPlayer
+        if me == nil then return end
+
+        local gate = _Rebirth:Evaluate(me)
+        if gate.passed == false then
+            log("[RebirthNpc] 환생 거절 — " .. gate.reason)
+            _GateNotice:ShowNotice("아직 이르다", gate.reason)
+            return
+        end
+
+        log("[RebirthNpc] 환생 요청")
+        self:RequestRebirth()
+    end
+
+    @ExecSpace("Server")
+    method void RequestRebirth()
+        -- 클라 판정은 표시일 뿐이라 서버에서 다시 본다.
+        -- senderUserId는 서버가 채우는 값이라 위조할 수 없다.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if player == nil then
+            log_warning("[RebirthNpc] 요청한 플레이어를 찾을 수 없다: " .. tostring(senderUserId))
+            return
+        end
+
+        -- 환생 전 값을 미리 읽어둔다. Execute가 리셋한 뒤에는 알 수 없다.
+        ---@type PlayerStats
+        local stats = player:GetComponent("script.PlayerStats")
+        ---@type PlayerSkillSlots
+        local slots = player:GetComponent("script.PlayerSkillSlots")
+        local fromLevel = 0
+        if stats ~= nil then fromLevel = stats.Level end
+
+        if _Rebirth:Execute(player) == false then
+            -- Execute가 이미 사유를 로그로 남겼다. 당사자에게도 알린다.
+            local gate = _Rebirth:Evaluate(player)
+            self:OnRebirthFailed(gate.reason, senderUserId)
+            return
+        end
+
+        local count = 0
+        if slots ~= nil then count = slots.RebirthCount end
+        self:OnRebirthDone(count, fromLevel, senderUserId)
+    end
+
+    @ExecSpace("Client")
+    method void OnRebirthDone(integer rebirthCount, integer fromLevel)
+        -- 대상 userId는 선언부가 아니라 호출부 마지막 인자로 붙인다
+        -- (첫 인자로 넘겼다가 [LEA-3032]로 실패한 적이 있다 — RoomPortal 주석 참고).
+        _GateNotice:ShowNotice("환생 " .. tostring(rebirthCount) .. "회차",
+            "Lv" .. tostring(fromLevel) .. " 에서 다시 시작한다")
+
+        -- 레벨 캡 도달과 같은 연출. RUID 없이 enum만으로 재생되고 isLoop=false다
+        -- (PlayerStats.OnReachedCap과 같은 근거).
+        _ParticleService:PlayBasicParticleAttached(
+            BasicParticleType.PillarBurst, self.Entity,
+            Vector3(0, 0, 0), 0, Vector3(2, 2, 2), false)
+    end
+
+    @ExecSpace("Client")
+    method void OnRebirthFailed(string reason)
+        _GateNotice:ShowNotice("아직 이르다", reason)
+    end
+
+end
