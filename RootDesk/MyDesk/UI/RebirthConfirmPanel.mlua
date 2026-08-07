@@ -1,0 +1,323 @@
+-- @클라이언트 + @서버 (표시·선택은 클라, 환생 실행은 서버)
+--
+-- 환생 확인 화면 (작업지시서 T7 요청 2: 잃는 것 / 얻는 것 / 직업 선택을 한 화면에).
+--
+-- NPC를 눌렀는데 곧바로 환생해 버리면 되돌릴 수 없는 선택이 사고로 일어난다.
+-- 이 창이 그 사이에 선다 (기획서 4.5 "의도적으로 한 단계를 둔다").
+--
+-- ## 왜 @Logic인가
+--
+-- Server RPC가 필요한데 UI 엔티티에 붙은 @Component는 Server 메서드를 가질 수 없다
+-- (조용히 죽는다). StatPanel / SkillBar / EquipPanel / GateNotice / RebirthHud와 같다.
+--
+-- ## 문구를 서버에 묻지 않는다
+--
+-- 잃는 것·얻는 것은 전부 @TargetUserSync 값과 GameData에서 나온다. 클라가 직접
+-- 계산하므로 창이 즉시 뜬다. 서버를 왕복하면 누르고 한 박자 뒤에 내용이 채워진다.
+--
+-- ## "얻는 것"은 이미 가진 것을 빼고 보여준다
+--
+-- 랜드마크 원장(LandmarkClaimed)은 동기화되지 않아 클라가 볼 수 없다. 대신
+-- **결과**를 본다 — 직업이 이미 해금돼 있으면 "해금"이라 쓰지 않는다.
+-- 2회차 이후 "마법사 해금"이 또 뜨는 거짓말을 막는다.
+
+@Logic
+script RebirthConfirmPanel extends Logic
+
+    -- 창 전체를 껐다 켜는 컨테이너. Visible이 아니라 Enable을 쓴다 —
+    -- Visible=false는 클릭이 살아 있어 안 보이는 버튼이 눌린다 (ui-hierarchy 5).
+    property Entity root = "33487180-e14e-414c-8bbe-2f62df0b4381"
+
+    property TextGUIRendererComponent loseText = "18245ce8-7b73-47b5-ae3a-1b3184da59da"
+    property TextGUIRendererComponent gainText = "644fd42f-052d-4767-838c-fa302c93e2e7"
+
+    -- 직업 칸 4개(고정). 런타임에 엔티티를 만들지 않는다 — EquipPanel과 같은 방식이다.
+    -- 버튼 엔티티 하나에 ButtonComponent와 TextGUIRendererComponent가 함께 있어서
+    -- .Entity로 둘 다 닿는다. 그래서 칸마다 프로퍼티 하나면 된다.
+    property ButtonComponent jobBtn1 = "bd0dac3e-f0fd-4db7-874c-ebd795fc325e"
+    property ButtonComponent jobBtn2 = "07a0cdfd-6c7a-4e6b-a340-321d77303d07"
+    property ButtonComponent jobBtn3 = "7b31f4f0-7b78-4b5a-93a1-b6399a7d5183"
+    property ButtonComponent jobBtn4 = "e4bd3309-5544-4dd3-a04b-bf82a6b507a9"
+
+    property ButtonComponent btnConfirm = "2b44b656-3624-48f8-ac95-c478325ffb18"
+    property ButtonComponent btnCancel = "6dbbfcbd-5bcf-4034-8965-47a850a0de44"
+
+    -- 지금 창에 뿌려진 직업 목록. index -> jobId. 빈 칸은 키가 없다.
+    property table jobIds = {}
+    property string selectedJob = ""
+
+    property any handlers = {}
+
+    ---------------------------------------------------------------
+    -- 수명
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self.root.Enable = false
+        self.jobIds = {}
+        self.selectedJob = ""
+        self.handlers = {}
+        log("[RebirthConfirm] OnBeginPlay — 닫힌 채로 시작")
+
+        self:Bind(self.jobBtn1, function() self:SelectJobSlot(1) end)
+        self:Bind(self.jobBtn2, function() self:SelectJobSlot(2) end)
+        self:Bind(self.jobBtn3, function() self:SelectJobSlot(3) end)
+        self:Bind(self.jobBtn4, function() self:SelectJobSlot(4) end)
+        self:Bind(self.btnConfirm, function() self:OnConfirm() end)
+        self:Bind(self.btnCancel, function() self:Close() end)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Bind(ButtonComponent btn, any fn)
+        -- 연결한 핸들러를 모아둔다. OnEndPlay에서 전부 끊어야
+        -- 스크립트가 다시 로드될 때 중복으로 쌓이지 않는다.
+        if btn == nil then return end
+        local h = btn.Entity:ConnectEvent(ButtonClickEvent, fn)
+        -- 키 이름을 handler로 쓰면 안 된다. mlua에서 handler는 선언 키워드라
+        -- 테이블 생성자 안에서도 파싱 에러가 난다 (실측: "Unexpected symbol near 'handler'").
+        self.handlers[#self.handlers + 1] = { btn = btn, conn = h }
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        for i = 1, #self.handlers do
+            local e = self.handlers[i]
+            e.btn.Entity:DisconnectEvent(ButtonClickEvent, e.conn)
+        end
+        self.handlers = {}
+    end
+
+    ---------------------------------------------------------------
+    -- 열기 / 닫기
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method void Open()
+        -- NPC(RebirthNpc)가 조건을 통과한 뒤 부른다.
+        local me = _UserService.LocalPlayer
+        if me == nil then return end
+
+        -- 여기서도 조건을 본다. NPC와 창 사이에 상태가 바뀔 수 있고,
+        -- 무엇보다 이 창이 다른 경로에서 열려도 안전해야 한다.
+        local gate = _Rebirth:Evaluate(me)
+        if gate.passed == false then
+            _GateNotice:ShowNotice("아직 이르다", gate.reason)
+            return
+        end
+
+        self:FillLose(me)
+        self:FillGain(me)
+        self:FillJobs(me)
+
+        self.root.Enable = true
+        log("[RebirthConfirm] 열림  선택 직업=" .. self.selectedJob)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Close()
+        self.root.Enable = false
+        log("[RebirthConfirm] 닫힘")
+    end
+
+    ---------------------------------------------------------------
+    -- 문구 채우기
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method void FillLose(Entity me)
+        ---@type PlayerStats
+        local stats = me:GetComponent("script.PlayerStats")
+        ---@type PlayerSkillSlots
+        local slots = me:GetComponent("script.PlayerSkillSlots")
+        if stats == nil or slots == nil then return end
+
+        local spent = stats.StatAtk + stats.StatInt + stats.StatDef + stats.StatLuk
+        local equipped = 0
+        local maxSlot = math.floor(_GameData:GetBalance("monster_slot_max"))
+        for i = 1, maxSlot do
+            if slots.MonsterSlots[i] ~= nil then equipped = equipped + 1 end
+        end
+
+        self.loseText.Text = "레벨 " .. tostring(stats.Level) .. " → 1"
+            .. "   ·   분배한 " .. tostring(spent + stats.UnspentPoints) .. "P 초기화"
+            .. "   ·   장착 " .. tostring(equipped) .. "개 해제"
+    end
+
+    @ExecSpace("ClientOnly")
+    method void FillGain(Entity me)
+        ---@type PlayerSkillSlots
+        local slots = me:GetComponent("script.PlayerSkillSlots")
+        ---@type PlayerStats
+        local stats = me:GetComponent("script.PlayerStats")
+        if slots == nil or stats == nil then return end
+
+        local parts = {}
+        parts[#parts + 1] = "환생 " .. tostring(slots.RebirthCount + 1) .. "회차"
+
+        -- 슬롯은 축에서 다시 계산한다 (RecomputeSlotCount와 같은 식).
+        -- 실제로 늘 때만 적는다 — 상한에 걸려 그대로면 얻는 게 아니다.
+        local start = math.floor(_GameData:GetBalance("monster_slot_start"))
+        local maxSlot = math.floor(_GameData:GetBalance("monster_slot_max"))
+        local after = start + slots.BossesCleared + (slots.RebirthCount + 1)
+        if after > maxSlot then after = maxSlot end
+        if after > slots.MonsterSlotCount then
+            parts[#parts + 1] = "몬스터 슬롯 " .. tostring(after) .. "개"
+        end
+
+        -- 랜드마크. 원장(LandmarkClaimed)은 동기화되지 않아 못 본다.
+        -- 대신 **결과**를 본다 — 이미 해금/개방된 것은 적지 않는다.
+        for _, r in ipairs(_GameData:GetLandmarksAtLevel(stats.Level)) do
+            if r.reward_type == "job" then
+                if slots.UnlockedJobs[r.reward_value] == nil then
+                    local job = _GameData:GetJob(r.reward_value)
+                    parts[#parts + 1] = ((job ~= nil) and job.name or r.reward_value) .. " 해금"
+                end
+            elseif r.reward_type == "area" then
+                if slots.UnlockedAreas[r.reward_value] == nil then
+                    parts[#parts + 1] = r.reward_value .. " 개방"
+                end
+            end
+            -- slot 보상은 적지 않는다. 위의 환생 축 계산이 이미 같은 +1을 반영한다
+            -- (Rebirth.GrantLandmarks의 중복 계산 주석과 같은 근거).
+        end
+
+        parts[#parts + 1] = "컬렉션·보스 기록은 그대로"
+
+        local s = parts[1]
+        for i = 2, #parts do s = s .. "   ·   " .. parts[i] end
+        self.gainText.Text = s
+    end
+
+    ---------------------------------------------------------------
+    -- 직업 선택
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method ButtonComponent JobSlot(integer index)
+        if index == 1 then return self.jobBtn1 end
+        if index == 2 then return self.jobBtn2 end
+        if index == 3 then return self.jobBtn3 end
+        if index == 4 then return self.jobBtn4 end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method void FillJobs(Entity me)
+        -- 고를 수 있는 직업만 칸에 올린다. 판정은 _Rebirth가 갖고 있다.
+        self.jobIds = {}
+        local available = _Rebirth:GetAvailableJobs(me)
+        for i = 1, #available do
+            if i <= 4 then self.jobIds[i] = available[i] end
+        end
+        if #available > 4 then
+            log_warning("[RebirthConfirm] 직업 칸이 4개뿐인데 " .. tostring(#available)
+                .. "개가 열려 있다 — 칸을 늘려야 한다")
+        end
+
+        -- 기본 선택은 첫 칸. 아무것도 안 고른 채 확인을 누르는 상태를 없앤다.
+        self.selectedJob = self.jobIds[1] or ""
+        self:RefreshJobLabels()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshJobLabels()
+        -- 선택 표시를 글자로 한다. 배경색을 바꾸면 ButtonComponent의
+        -- ColorTint 전이가 상태마다 덮어써서 선택이 사라져 보인다.
+        -- (EquipPanel에서 같은 이유로 [선택] 접두사를 썼다)
+        for i = 1, 4 do
+            local btn = self:JobSlot(i)
+            if btn ~= nil then
+                local id = self.jobIds[i]
+                if id == nil then
+                    btn.Entity.Enable = false
+                else
+                    btn.Entity.Enable = true
+                    local job = _GameData:GetJob(id)
+                    local name = (job ~= nil) and job.name or id
+                    local mark = (id == self.selectedJob) and "▶ " or "　"
+                    btn.Entity.TextGUIRendererComponent.Text = mark .. name
+                end
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SelectJobSlot(integer index)
+        local id = self.jobIds[index]
+        if id == nil then return end
+        self.selectedJob = id
+        self:RefreshJobLabels()
+        log("[RebirthConfirm] 직업 선택 → " .. id)
+    end
+
+    ---------------------------------------------------------------
+    -- 확정
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method void OnConfirm()
+        if self.selectedJob == "" then
+            _GateNotice:ShowNotice("직업을 고르시오", "회차마다 직업을 다시 고른다")
+            return
+        end
+        log("[RebirthConfirm] 확인 — 직업 " .. self.selectedJob)
+        self:Close()
+        self:RequestRebirth(self.selectedJob)
+    end
+
+    @ExecSpace("Server")
+    method void RequestRebirth(string jobId)
+        -- 클라 판정은 표시일 뿐이라 서버에서 조건과 직업을 다시 본다.
+        -- senderUserId는 서버가 채우는 값이라 위조할 수 없다.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if player == nil then
+            log_warning("[RebirthConfirm] 요청한 플레이어를 찾을 수 없다: " .. tostring(senderUserId))
+            return
+        end
+
+        ---@type PlayerStats
+        local stats = player:GetComponent("script.PlayerStats")
+        ---@type PlayerSkillSlots
+        local slots = player:GetComponent("script.PlayerSkillSlots")
+        local fromLevel = 0
+        if stats ~= nil then fromLevel = stats.Level end
+
+        if _Rebirth:Execute(player, jobId) == false then
+            local gate = _Rebirth:Evaluate(player)
+            self:OnRebirthFailed(gate.reason, senderUserId)
+            return
+        end
+
+        local count = 0
+        if slots ~= nil then count = slots.RebirthCount end
+        local jobName = jobId
+        local job = _GameData:GetJob(jobId)
+        if job ~= nil then jobName = job.name end
+
+        self:OnRebirthDone(count, fromLevel, jobName, senderUserId)
+    end
+
+    @ExecSpace("Client")
+    method void OnRebirthDone(integer rebirthCount, integer fromLevel, string jobName)
+        -- 대상 userId는 선언부가 아니라 호출부 마지막 인자로 붙인다
+        -- (첫 인자로 넘겼다가 [LEA-3032]로 실패한 적이 있다 — RoomPortal 주석 참고).
+        _GateNotice:ShowNotice("환생 " .. tostring(rebirthCount) .. "회차",
+            "Lv" .. tostring(fromLevel) .. " 에서 " .. jobName .. " 으로 다시 시작한다")
+
+        -- 연출은 NPC가 아니라 **플레이어**에게 붙인다. 이 스크립트는 @Logic이라
+        -- self.Entity가 없고, NPC 엔티티를 경로로 찾으면 맵 이름이 코드에 박힌다.
+        -- 축하받는 건 플레이어이기도 하다 (PlayerStats.OnReachedCap과 같은 자리).
+        local me = _UserService.LocalPlayer
+        if me == nil then return end
+        _ParticleService:PlayBasicParticleAttached(
+            BasicParticleType.PillarBurst, me,
+            Vector3(0, 0, 0), 0, Vector3(2, 2, 2), false)
+    end
+
+    @ExecSpace("Client")
+    method void OnRebirthFailed(string reason)
+        _GateNotice:ShowNotice("아직 이르다", reason)
+    end
+
+end

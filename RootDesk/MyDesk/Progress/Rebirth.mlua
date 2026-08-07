@@ -70,17 +70,70 @@ script Rebirth extends Logic
     end
 
     ---------------------------------------------------------------
+    -- 직업 (환생 시 고른다 — 기획서 4.4)
+    ---------------------------------------------------------------
+
+    method table GetAvailableJobs(Entity player)
+        -- 이번 회차에 고를 수 있는 직업 id 목록.
+        --
+        --   시작 직업(JobTable.is_starter)  항상 고를 수 있다
+        --   해금 직업(UnlockedJobs)         랜드마크로 열린 것
+        --
+        -- @ExecSpace를 붙이지 않는다. 확인 화면이 이 목록을 그려야 하는데
+        -- 클라에서 따로 조립하면 규칙이 두 곳에 생긴다.
+        -- UnlockedJobs가 @TargetUserSync라 양쪽 결과가 같다.
+        ---@type PlayerSkillSlots
+        local slots = player:GetComponent("script.PlayerSkillSlots")
+
+        local out = {}
+        for _, id in ipairs(_GameData:GetAllJobIds()) do
+            local job = _GameData:GetJob(id)
+            if job ~= nil then
+                local unlocked = slots ~= nil and slots.UnlockedJobs[id] ~= nil
+                if job.is_starter or unlocked then
+                    out[#out + 1] = id
+                end
+            end
+        end
+        return out
+    end
+
+    method boolean IsJobAvailable(Entity player, string jobId)
+        if jobId == "" then return false end
+        for _, id in ipairs(self:GetAvailableJobs(player)) do
+            if id == jobId then return true end
+        end
+        return false
+    end
+
+    ---------------------------------------------------------------
     -- 실행 (서버 전용)
     ---------------------------------------------------------------
 
     @ExecSpace("ServerOnly")
-    method boolean Execute(Entity player)
+    method boolean Execute(Entity player, string jobId)
         -- 조건을 다시 검사한다. 클라가 HUD로 먼저 걸렀더라도 여기서 또 본다 —
         -- 클라 판정은 표시일 뿐이고 권한은 서버에 있다.
         local gate = self:Evaluate(player)
         if gate.passed == false then
             log_warning("[Rebirth] 환생 거부 — " .. gate.reason)
             return false
+        end
+
+        -- 직업도 서버에서 다시 고른다. 클라가 잠긴 직업을 보내도 통과시키지 않는다.
+        -- 빈 값이면 첫 번째 가능한 직업으로 대체한다 — 직업 없이 시작하면
+        -- 직업 스킬 슬롯이 비어 "직업을 선택하는 이유"가 사라진다 (기획서 4.3).
+        local available = self:GetAvailableJobs(player)
+        if #available == 0 then
+            log_error("[Rebirth] 고를 수 있는 직업이 없다 — JobTable에 is_starter가 있는지 확인")
+            return false
+        end
+        if self:IsJobAvailable(player, jobId) == false then
+            if jobId ~= "" then
+                log_warning("[Rebirth] 고를 수 없는 직업: " .. tostring(jobId)
+                    .. " — " .. available[1] .. " 로 대체한다")
+            end
+            jobId = available[1]
         end
 
         ---@type PlayerStats
@@ -114,16 +167,24 @@ script Rebirth extends Logic
         -- 4. 회차 초기화. 영구 데이터는 건드리지 않는다.
         stats:ResetRun()
 
-        -- 5. 시작방으로. 스탯이 초기화된 채 깊은 방에 남지 않게 한다 (기획서 4.5).
+        -- 5. 고른 직업을 새 회차에 심는다. ResetRun이 CurrentJob을 ""로 비우므로
+        --    반드시 그 뒤에 와야 한다. 직업 스킬은 저장하지 않고
+        --    CurrentJob에서 JobTable로 매번 유도한다 (PlayerSkillSlots.GetJobSkills).
+        stats.CurrentJob = jobId
+        local job = _GameData:GetJob(jobId)
+        log("[Rebirth] 직업 = " .. ((job ~= nil) and job.name or jobId))
+
+        -- 6. 시작방으로. 스탯이 초기화된 채 깊은 방에 남지 않게 한다 (기획서 4.5).
         self:ReturnToStart(player, db)
 
-        -- 6. 즉시 저장. 스로틀에 맡기면 그 사이에 앱이 죽었을 때
+        -- 7. 즉시 저장. 스로틀에 맡기면 그 사이에 앱이 죽었을 때
         --    회차만 초기화되고 영구가 안 써진 반쪽 상태가 남는다.
         if db ~= nil then db:SaveNow("환생") end
 
         log("[Rebirth] 환생 완료  Lv" .. tostring(stats.Level)
             .. "  환생 " .. tostring(slots.RebirthCount) .. "회"
-            .. "  몬스터 슬롯 " .. tostring(slots.MonsterSlotCount) .. "개")
+            .. "  몬스터 슬롯 " .. tostring(slots.MonsterSlotCount) .. "개"
+            .. "  직업 " .. tostring(stats.CurrentJob))
 
         _ProgressLog:Rebirth(userId, slots.RebirthCount, fromLevel)
         return true
