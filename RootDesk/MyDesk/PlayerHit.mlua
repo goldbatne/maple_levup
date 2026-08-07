@@ -1,3 +1,12 @@
+-- @서버 (HP 차감·사망 판정은 서버 권한. 클라는 동기화된 HP를 표시만 한다)
+--
+-- 샘플은 i-frame만 있었고 **HP를 깎는 코드가 없었다.**
+-- 그래서 T10-3 실측에서 4초간 맞아도 HP가 1000 → 1000이었다 — 플레이어는 사실상 불사였다.
+-- 맞는 것에 대가가 없으면 DEF도, "방어가 필요한 방"도 의미가 없다.
+--
+-- HP는 PlayerComponent가 네이티브로 갖고 있다. 커스텀 Hp 프로퍼티를 만들지 않는다
+-- (msw-combat-system 9: "Do not create custom Hp/MaxHp properties").
+
 @Component
 script PlayerHit extends HitComponent
 
@@ -6,6 +15,51 @@ script PlayerHit extends HitComponent
 
 	@HideFromInspector
 	property number LastHitTime = 0
+
+	method void OnHit(Entity attacker, integer damage, boolean isCritical, string attackInfo, int32 hitCount)
+		-- 실제 HP 차감. 데미지 자체는 공격자(MonsterAttack.CalcDamage)가 계산했고
+		-- 거기서 플레이어 DEF가 이미 반영됐다.
+		--
+		-- ⚠ 부모 HitComponent.OnHit에는 @ExecSpace가 없다 — 붙이면 LEA-3014.
+		--   히트 파이프라인이 서버에서 도므로 실제 실행은 서버다.
+		local pc = self.Entity.PlayerComponent
+		if not isvalid(pc) then return end
+		if pc:IsDead() then return end
+
+		pc.Hp = pc.Hp - damage
+		log("[PlayerHit] 피격 -" .. tostring(damage) .. "  HP " .. tostring(pc.Hp + damage)
+			.. " → " .. tostring(pc.Hp) .. " / " .. tostring(pc.MaxHp))
+
+		if pc.Hp <= 0 then
+			self:HandleDeath()
+		end
+	end
+
+	@ExecSpace("ServerOnly")
+	method void HandleDeath()
+		-- 죽음의 대가 = **시작방으로 돌려보낸다** (T10-3 결정).
+		-- 잃는 것이 "탐험 진행"이라 방 단위 탐험 코어와 맞고, 레벨·스탯은 건드리지 않아
+		-- 환생의 비용 구조(기획서 4.5)와 충돌하지 않는다.
+		--
+		-- Respawn()이 HP를 채우고 ReviveEvent를 자동으로 띄운다. 그 뒤에 시작방으로 옮긴다 —
+		-- 순서를 바꾸면 죽은 상태로 이동해 조작이 막힌 채 서 있게 된다.
+		local pc = self.Entity.PlayerComponent
+		log("[PlayerHit] 사망 — 시작방으로 돌려보낸다")
+		pc:Respawn()
+		-- db를 함께 넘긴다. 안 넘기면 저장된 방이 그대로라 재접속했을 때
+		-- 죽은 그 깊은 방에서 다시 시작한다 (환생과 같은 이유).
+		---@type PlayerDBManager
+		local db = self.Entity:GetComponent("script.PlayerDBManager")
+		_Rebirth:ReturnToStart(self.Entity, db)
+		self:OnDied(pc.UserId)
+	end
+
+	@ExecSpace("Client")
+	method void OnDied()
+		-- 당사자에게만 알린다. 대상 userId는 선언부가 아니라 호출부 마지막 인자다
+		-- (첫 인자로 넘겼다가 [LEA-3032]로 실패한 적이 있다 — RoomPortal 주석 참고).
+		_GateNotice:ShowNotice("쓰러졌다", "시작방으로 돌아왔다")
+	end
 
 	method boolean IsHitTarget(string attackInfo)
 		-- Enforce ImmuneCooldown between successful hits.

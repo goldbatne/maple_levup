@@ -27,6 +27,9 @@ script RoomMonster extends Component
     @Sync property number MaxHp = 0
     @Sync property number Hp = 0
     @Sync property number Def = 0
+    -- 플레이어를 때릴 때 쓰는 공격력. MonsterTable에 atk 컬럼이 없어 곡선에서 유도한다
+    -- (LevelCurve.MonsterAtkAtLevel — ★수치는 초안★, T10-3).
+    @Sync property number Atk = 0
     @Sync property number ExpReward = 0
     @Sync property string DisplayName = ""
     @Sync @HideFromInspector property boolean IsDead = false
@@ -55,6 +58,7 @@ script RoomMonster extends Component
         self.Def = record.def
         self.ExpReward = record.exp
         local level = record.level
+        self.Atk = _LevelCurve:MonsterAtkAtLevel(level)
 
         -- 방이 레벨을 덮어쓰면(RoomTable.monster_level) 수치를 곡선에서 다시 계산한다.
         -- MonsterTable의 확정값은 그 몬스터의 기본 레벨에서만 맞기 때문이다.
@@ -68,6 +72,7 @@ script RoomMonster extends Component
             self.MaxHp = _LevelCurve:MonsterHpAtLevel(level)
             self.Def = _LevelCurve:MonsterDefAtLevel(level)
             self.ExpReward = _LevelCurve:MonsterExpAtLevel(level)
+            self.Atk = _LevelCurve:MonsterAtkAtLevel(level)
         end
 
         self.Hp = self.MaxHp

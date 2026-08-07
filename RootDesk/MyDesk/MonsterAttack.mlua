@@ -59,6 +59,33 @@ script MonsterAttack extends AttackComponent
 		self:AttackFast(self.Shape, nil, CollisionGroups.Player)
 	end
 
+	method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
+		-- 몬스터 → 플레이어 데미지. 플레이어 → 몬스터와 **같은 공식**을 쓴다
+		-- (계수 x ATK^2 / (ATK+DEF), CombatFormula 한 곳에만 둔다).
+		-- 여기서 플레이어 DEF가 처음으로 쓰인다 — 기획서 4.7의 "DEF = 생존(통합 방어)".
+		--
+		-- ⚠ 부모 AttackComponent.CalcDamage에는 @ExecSpace가 없다.
+		--   여기에 붙이면 LEA-3014 SignatureMismatch가 난다 (PlayerAttack과 같은 함정).
+		--
+		-- 오버라이드 전에는 부모 기본값 1이었는데, PlayerHit에 HP를 깎는 코드가
+		-- 아예 없어서 실제로는 0이었다 (T10-3 실측: 4초간 맞아도 HP 1000 → 1000).
+		local atk = 0
+		---@type RoomMonster
+		local mon = attacker:GetComponent("script.RoomMonster")
+		if mon ~= nil then atk = mon.Atk end
+
+		local def = 0
+		---@type PlayerStats
+		local stats = defender:GetComponent("script.PlayerStats")
+		if stats ~= nil then def = stats:GetTotalDef() end
+
+		local damage = _CombatFormula:CalcSkillDamage(atk, def, nil)
+		log("[MonsterAttack] " .. tostring(mon ~= nil and mon.DisplayName or "?")
+			.. " ATK=" .. tostring(atk) .. " vs 플레이어 DEF=" .. tostring(def)
+			.. " → 데미지 " .. tostring(damage))
+		return damage
+	end
+
 	method boolean IsAttackTarget(Entity defender, string attackInfo)
 		-- Restrict the attack to Player entities; delegate to base rules.
 		if isvalid(defender.PlayerComponent) == false then
