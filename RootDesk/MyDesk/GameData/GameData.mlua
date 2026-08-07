@@ -19,6 +19,7 @@ script GameData extends Logic
     property table jobs = {}        -- id(string)    -> 직업 레코드
     property table landmarks = {}   -- level(number) -> 보상 레코드 배열
     property table roomsByMap = {}  -- mapName(string) -> roomId(string) 역인덱스
+    property string startRoomId = ""  -- is_start가 켜진 방. 환생 복귀 지점 (T7)
 
     method void OnBeginPlay()
         -- 월드 세션 시작 시 6개 데이터셋을 한 번만 읽어 캐시한다.
@@ -175,11 +176,26 @@ script GameData extends Logic
                     -- 몬스터가 없는 방은 monster_id를 비워두면 된다.
                     monster_id = self:ToText(row:GetItem("monster_id")),
                     monster_count = self:ToNumber(row:GetItem("monster_count"), 0),
+                    -- 시작방 표시. 환생하면 여기로 돌아온다 (기획서 4.5).
+                    -- room_type을 "start"로 쓰지 않는 이유: 시작방도 사냥방일 수 있어
+                    -- "어떤 방인가"와 "시작점인가"는 다른 축이다.
+                    is_start = self:ToBoolean(row:GetItem("is_start")),
                 }
                 -- 맵 이름 → 방 역인덱스. 플레이어가 어느 맵에 있는지로 방을 찾을 때 쓴다.
                 local mapName = self:ToText(row:GetItem("map_name"))
                 if mapName ~= "" then
                     self.roomsByMap[mapName] = id
+                end
+
+                if self.rooms[id].is_start then
+                    -- 시작방이 둘이면 어느 쪽으로 환생 복귀할지 정해지지 않는다.
+                    -- 조용히 덮어쓰면 CSV 순서에 따라 결과가 바뀌므로 경고하고 첫 번째를 지킨다.
+                    if self.startRoomId ~= "" then
+                        log_warning("[GameData] 시작방이 둘 이상이다: " .. self.startRoomId
+                            .. " 를 유지하고 " .. id .. " 는 무시한다")
+                    else
+                        self.startRoomId = id
+                    end
                 end
             end
         end
@@ -282,6 +298,14 @@ script GameData extends Logic
         return list
     end
 
+    method table GetStartRoom()
+        -- 시작방 레코드. 환생 복귀와 마을 귀환이 여기를 쓴다 (기획서 4.5).
+        -- 없으면 nil — 부르는 쪽이 판단하게 둔다. 여기서 아무 방이나 고르면
+        -- 데이터가 빠진 걸 아무도 모른 채 엉뚱한 방으로 보내게 된다.
+        if self.startRoomId == "" then return nil end
+        return self.rooms[self.startRoomId]
+    end
+
     method table GetRoomByMapName(string mapName)
         -- 맵 이름으로 방 레코드를 찾는다. 플레이어가 어느 맵에 있는지로 방 정보를 얻을 때 쓴다.
         local roomId = self.roomsByMap[mapName]
@@ -332,6 +356,16 @@ script GameData extends Logic
         return ids
     end
 
+    method table GetAllJobIds()
+        -- JobTable의 모든 직업 id. 해금된 직업 목록의 키 공간이다 (T7).
+        local ids = {}
+        for id, _ in pairs(self.jobs) do
+            ids[#ids + 1] = id
+        end
+        table.sort(ids)
+        return ids
+    end
+
     method table GetAllRoomIds()
         -- RoomTable의 모든 방 id. 보스 클리어 원장의 키 공간이다.
         local ids = {}
@@ -342,12 +376,18 @@ script GameData extends Logic
         return ids
     end
 
-    method table GetRebirthAreaIds()
-        -- 환생 게이트가 요구하는 구역 id 목록 = 개방 구역의 키 공간.
-        -- 구역 테이블이 따로 없어서 rebirth 게이트의 gate_key에서 모은다.
-        -- 같은 구역을 여러 방이 가리킬 수 있으므로 중복을 제거한다.
+    method table GetAllAreaIds()
+        -- 개방 구역의 키 공간. 구역 테이블이 따로 없어서 두 곳에서 모은다:
+        --
+        --   1. rebirth 게이트의 gate_key  — 구역을 **요구하는** 쪽 (RoomTable)
+        --   2. 랜드마크의 area 보상값     — 구역을 **주는** 쪽 (LandmarkTable)
+        --
+        -- 둘 다 봐야 하는 이유(T7 실측): 슬라이스의 Lv30 랜드마크가 area_02를 주는데
+        -- 그 구역을 요구하는 rebirth 게이트는 아직 RoomTable에 없다.
+        -- 요구하는 쪽만 훑으면 방금 개방한 구역이 저장에서 통째로 사라진다.
         local seen = {}
         local ids = {}
+
         for _, room in pairs(self.rooms) do
             if room.gate_type == "rebirth" and room.gate_key ~= "" then
                 if seen[room.gate_key] == nil then
@@ -356,6 +396,19 @@ script GameData extends Logic
                 end
             end
         end
+
+        for _, list in pairs(self.landmarks) do
+            for i = 1, #list do
+                local r = list[i]
+                if r.reward_type == "area" and r.reward_value ~= "" then
+                    if seen[r.reward_value] == nil then
+                        seen[r.reward_value] = true
+                        ids[#ids + 1] = r.reward_value
+                    end
+                end
+            end
+        end
+
         table.sort(ids)
         return ids
     end

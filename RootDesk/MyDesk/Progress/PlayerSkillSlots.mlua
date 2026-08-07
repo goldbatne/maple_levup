@@ -36,6 +36,13 @@ script PlayerSkillSlots extends Component
     -- 영구 진행이 더 커지면 그때 별도 컴포넌트로 떼는 게 맞다.
     @TargetUserSync property SyncTable<string, integer> UnlockedAreas
 
+    -- 해금된 직업. jobId -> 1. 랜드마크의 job 보상이 여기 쌓인다 (기획서 4.5).
+    --
+    -- 시작 직업(JobTable.is_starter)은 여기 없어도 항상 고를 수 있다.
+    -- 저장에 넣으면 "해금"의 의미가 흐려지고, 시트에서 시작 직업을 바꿨을 때
+    -- 옛 값이 남아 어긋난다. 해금은 **추가로 열린 것**만 담는다.
+    @TargetUserSync property SyncTable<string, integer> UnlockedJobs
+
     -- 클리어한 보스방. roomId -> 1. 영구 데이터이고 환생해도 유지된다.
     --
     -- BossesCleared(개수)와 따로 두는 이유: 개수만으로는 "이 보스를 이미 잡았는가"를
