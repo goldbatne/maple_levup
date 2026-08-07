@@ -1,0 +1,550 @@
+-- @서버 (DataStorage는 서버 전용. 클라에서 부르면 조용히 아무 일도 안 일어난다)
+--
+-- 플레이어 진행 데이터의 저장/로드 창구. 데이터 컴포넌트 3종이 직접 저장하지 않고
+-- 전부 여기를 지난다 — 컴포넌트마다 SetAsync를 부르면 저장 1회가 3회가 되고
+-- Credit이 그만큼 배로 나간다.
+--
+-- ## 키를 둘로 나눈 이유
+--
+--   Perm  환생해도 남는 것 (컬렉션·천장·슬롯 수·보스 원장·환생 횟수)
+--   Run   환생하면 초기화되는 것 (레벨·경험치·스탯·직업·장착·현재 방)
+--
+-- T7 환생은 Run 키만 새로 쓰고 Perm은 손대지 않는다. 한 키에 몰아넣으면
+-- 환생할 때마다 영구 데이터를 통째로 다시 쓰게 되고, 그 쓰기가 실패하면
+-- 회차 초기화는 됐는데 컬렉션이 날아간 반쪽 상태가 남는다.
+--
+-- ## 저장 시점 — 이벤트 + 스로틀 (작업지시서 T8)
+--
+-- 주기 저장이 아니다. 레벨업 / 포획 / 분배 / 환생 / 방 전환 때 저장하고,
+-- 최소 간격(save_min_interval) 안에 다시 요청이 오면 모아서 한 번만 쓴다.
+-- 주기 저장으로 하면 완료 조건인 "강제 종료 후 복원"에서 최대 주기만큼을 잃는다.
+--
+-- ## SyncTable을 어떻게 직렬화하는가
+--
+-- SyncTable에는 순회 API가 없다(.d.mlua 정의 자체가 없어 확인 불가).
+-- 그래서 "안에 뭐가 들었는지" 물어볼 수 없고, GameData가 아는 **키 공간 전체**를
+-- 훑어 값이 있는 것만 담는다 (_GameData:GetAllSkillIds 등).
+
+@Component
+script PlayerDBManager extends Component
+
+    -- UserDataStorage(profileCode) 안의 키 이름. 문자열 리터럴을 여기저기
+    -- 흩어놓으면 오타 하나로 빈 컨테이너가 새로 생긴다 (datastorage §2).
+    property string KeyPerm = "Perm"
+    property string KeyRun = "Run"
+
+    -- 로드가 끝나기 전에는 절대 저장하지 않는다. 이 게이트가 없으면
+    -- 로드 실패 시 기본값(Lv1·빈 컬렉션)으로 저장을 덮어써 세이브가 날아간다.
+    @TargetUserSync property boolean IsLoadSuccess = false
+
+    -- 도메인별 더티 플래그와 세대. 바뀐 도메인만 payload에 담아 Credit을 아낀다.
+    property boolean permDirty = false
+    property boolean runDirty = false
+    property integer permGen = 0
+    property integer runGen = 0
+
+    -- 스로틀 상태.
+    property number lastSaveAt = -9999
+    property any pendingTimer = nil
+    property string pendingReason = ""
+    property integer pendingCount = 0
+
+    -- 아직 런타임 소유자가 없는 영구 필드. 로드값을 여기 들고 있다가 저장 때 그대로
+    -- 돌려준다 — 소유자가 없다고 버리면 T7을 붙이는 순간 과거 기록이 사라진다.
+    property table LandmarkClaimed = {}
+    property integer HighestLevel = 1
+
+    -- 현재 방. OnMapEnter가 갱신하고 Run 키에 실린다.
+    property string CurrentRoom = ""
+
+    -- 복원 전의 맵 이동은 기록하지 않는다. 로그인 직후 기본 스폰 맵에서 뜨는
+    -- OnMapEnter가 저장된 방을 덮어쓰면 복원이 무의미해진다.
+    property boolean roomRestored = false
+    property any restoreTimer = nil
+
+    ---------------------------------------------------------------
+    -- 수명
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- 로그인 로드. BatchGet은 블로킹이지만 여기서는 블로킹이 맞다 —
+        -- 로드가 끝나기 전에 플레이가 시작되면 어차피 빈 값으로 논다.
+        log("[PlayerDB] 로드 시작  profileCode=" .. tostring(self.Entity.PlayerComponent.ProfileCode))
+        self:LoadFromDB()
+
+        if self.IsLoadSuccess == false then
+            log_error("[PlayerDB] 로드 실패 — 이 세션은 저장하지 않는다 (세이브 보호)")
+            return
+        end
+
+        -- 방 복원은 조금 뒤에 한다. OnBeginPlay 시점에는 플레이어가 아직 맵에
+        -- 자리잡기 전이라 곧바로 텔레포트하면 출발 맵과 도착 맵이 엉킨다.
+        self.restoreTimer = _TimerService:SetTimerOnce(function()
+            self.restoreTimer = nil
+            self:RestoreRoom()
+        end, 0.5)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnEndPlay()
+        -- 타이머 정리. 남겨두면 사라진 엔티티를 붙잡고 돈다.
+        if self.pendingTimer ~= nil then
+            _TimerService:ClearTimer(self.pendingTimer)
+            self.pendingTimer = nil
+        end
+        if self.restoreTimer ~= nil then
+            _TimerService:ClearTimer(self.restoreTimer)
+            self.restoreTimer = nil
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnMapEnter(Entity enterEntity)
+        -- 방 전환 = 저장 트리거 (작업지시서 T8).
+        if self.roomRestored == false then return end
+
+        local map = self.Entity.CurrentMap
+        if map == nil then return end
+
+        local room = _GameData:GetRoomByMapName(map.Name)
+        if room == nil then return end
+        if room.id == self.CurrentRoom then return end
+
+        log("[PlayerDB] 방 전환 " .. tostring(self.CurrentRoom) .. " → " .. room.id)
+        self.CurrentRoom = room.id
+        self:MarkRunDirty("방 전환")
+    end
+
+    @ExecSpace("ServerOnly")
+    @EventSender("Service", "UserService")
+    handler HandleUserLeaveEvent(UserLeaveEvent event)
+        -- 접속 종료 시점 저장 보장 (작업지시서 T8 질문 3).
+        -- 스로틀을 무시하고 즉시, 그리고 AndWait으로 — 세션이 끝나기 전에
+        -- 스토리지가 확인해줄 때까지 기다려야 한다. 마지막 기회다.
+        if event.UserId ~= self.Entity.PlayerComponent.UserId then return end
+
+        if self.pendingTimer ~= nil then
+            _TimerService:ClearTimer(self.pendingTimer)
+            self.pendingTimer = nil
+        end
+        log("[PlayerDB] 접속 종료 — 마지막 저장")
+        self:SaveToDB(true, "접속 종료")
+    end
+
+    ---------------------------------------------------------------
+    -- 로드
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method void LoadFromDB()
+        local profileCode = self.Entity.PlayerComponent.ProfileCode
+        local loadKeys = { self.KeyPerm, self.KeyRun }
+
+        local loaded = {}
+        if self:BatchGetAndWait(profileCode, loadKeys, loaded) == false then
+            return
+        end
+
+        local perm = SavePermanentData()
+        perm:Init(math.floor(_GameData:GetBalance("monster_slot_start")))
+        local permItem = loaded[self.KeyPerm]
+        if permItem ~= nil and _UtilLogic:IsNilorEmptyString(permItem.Value) == false then
+            perm:Deserialize(_HttpService:JSONDecode(permItem.Value))
+            log("[PlayerDB] Perm 로드  환생=" .. tostring(perm.rebirth_count)
+                .. " 최고Lv=" .. tostring(perm.highest_level)
+                .. " 슬롯=" .. tostring(perm.monster_slot_count))
+        else
+            log("[PlayerDB] Perm 없음 — 신규 계정 기본값")
+            self.permDirty = true
+            self.permGen += 1
+        end
+
+        local run = SaveRunData()
+        run:Init()
+        local runItem = loaded[self.KeyRun]
+        if runItem ~= nil and _UtilLogic:IsNilorEmptyString(runItem.Value) == false then
+            run:Deserialize(_HttpService:JSONDecode(runItem.Value))
+            log("[PlayerDB] Run 로드  Lv=" .. tostring(run.level)
+                .. " EXP=" .. tostring(run.exp)
+                .. " 방=" .. (run.current_room == "" and "(없음)" or run.current_room))
+        else
+            log("[PlayerDB] Run 없음 — 새 회차 기본값")
+            self.runDirty = true
+            self.runGen += 1
+        end
+
+        self:ApplyPerm(perm)
+        self:ApplyRun(run)
+
+        -- 모든 적용이 끝난 뒤에만 게이트를 연다.
+        self.IsLoadSuccess = true
+        log("[PlayerDB] 로드 완료")
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean BatchGetAndWait(string profileCode, table loadKeys, table outLoaded)
+        -- 페이지를 끝까지 훑는다. 한 페이지만 읽으면 뒤쪽 키가 조용히 사라진다
+        -- (datastorage §4.6). 키가 2개뿐이라 지금은 한 페이지지만,
+        -- 키가 늘어났을 때 조용히 깨지는 자리라 처음부터 제대로 돌린다.
+        local ds = _DataStorageService:GetUserDataStorage(profileCode)
+        local code, pages = ds:BatchGetAndWait(loadKeys)
+        if code ~= 0 then
+            log_error("[PlayerDB] BatchGetAndWait 실패  ErrorCode=" .. tostring(code))
+            return false
+        end
+
+        while true do
+            local datas = pages:GetCurrentPageDatas()
+            if datas == nil then break end
+
+            for i = 1, #datas do
+                outLoaded[datas[i].KeyInfo.Key] = datas[i]
+            end
+
+            if pages.IsLastPage then break end
+
+            local loadErr = pages:LoadNextPageAndWait()
+            if loadErr ~= 0 then
+                log_error("[PlayerDB] LoadNextPageAndWait 실패  ErrorCode=" .. tostring(loadErr))
+                return false
+            end
+            pages:MoveToNextPageAndWait()
+        end
+
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyPerm(SavePermanentData perm)
+        -- 영구 데이터를 각 컴포넌트에 붓는다.
+        self.HighestLevel = perm.highest_level
+        self.LandmarkClaimed = perm.landmark_claimed
+
+        ---@type PlayerCollection
+        local collection = self.Entity:GetComponent("script.PlayerCollection")
+        if collection ~= nil then
+            for id, count in pairs(perm.owned_skills) do
+                collection.OwnedSkills[id] = math.floor(count)
+            end
+            for id, kills in pairs(perm.species_kills) do
+                collection.SpeciesKills[id] = math.floor(kills)
+            end
+        end
+
+        ---@type PlayerSkillSlots
+        local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
+        if slots ~= nil then
+            slots.RebirthCount = perm.rebirth_count
+            for roomId, _ in pairs(perm.bosses_cleared) do
+                slots.BossRoomsCleared[roomId] = 1
+            end
+            for areaId, _ in pairs(perm.unlocked_areas) do
+                slots.UnlockedAreas[areaId] = 1
+            end
+            -- 보스 개수는 원장에서 다시 센다. 개수를 따로 저장하면 원장과 어긋날 수 있고,
+            -- 어긋나면 슬롯 수가 틀어진다 — 원장 하나만 진실로 둔다.
+            local cleared = 0
+            for _, _ in pairs(perm.bosses_cleared) do
+                cleared += 1
+            end
+            slots.BossesCleared = cleared
+            -- 슬롯 수는 저장값을 그대로 쓰지 않고 두 축에서 다시 계산한다.
+            -- 저장된 monster_slot_count는 참고용이고, 계산이 진실이다.
+            slots:RecomputeSlotCount()
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyRun(SaveRunData run)
+        -- 회차 데이터를 각 컴포넌트에 붓는다.
+        self.CurrentRoom = run.current_room
+
+        ---@type PlayerStats
+        local stats = self.Entity:GetComponent("script.PlayerStats")
+        if stats ~= nil then
+            stats.Level = run.level
+            stats.Exp = run.exp
+            stats.StatAtk = run.stat_atk
+            stats.StatInt = run.stat_int
+            stats.StatDef = run.stat_def
+            stats.StatLuk = run.stat_luk
+            stats.UnspentPoints = run.unspent_points
+            stats.CurrentJob = run.current_job
+            -- 캡 플래그는 저장하지 않고 레벨에서 다시 판정한다.
+            -- 저장해두면 캡 수치를 조정했을 때 옛 플래그가 남아 어긋난다.
+            stats.CanRebirth = _LevelCurve:IsAtCap(run.level)
+        end
+
+        ---@type PlayerSkillSlots
+        local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
+        if slots ~= nil then
+            for idx, skillId in pairs(run.equipped_monster_skills) do
+                -- 저장할 때 문자열 키로 넣었으므로("1") 여기서 되돌린다.
+                local slotIndex = tonumber(idx)
+                if slotIndex ~= nil then
+                    slots.MonsterSlots[math.floor(slotIndex)] = skillId
+                end
+            end
+            -- 슬롯 수가 줄어든 뒤 저장된 장착이 남아 있을 수 있다.
+            slots:TrimOverflow()
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RestoreRoom()
+        -- 로그아웃한 방으로 되돌린다. 여기서부터 OnMapEnter가 방을 기록하기 시작한다.
+        self.roomRestored = true
+
+        if self.CurrentRoom == "" then
+            log("[PlayerDB] 복원할 방 없음 — 기본 스폰 유지")
+            return
+        end
+
+        local room = _GameData:GetRoom(self.CurrentRoom)
+        if room == nil or room.map_name == "" then
+            log_warning("[PlayerDB] 저장된 방을 찾을 수 없다: " .. self.CurrentRoom)
+            return
+        end
+
+        local map = self.Entity.CurrentMap
+        if map ~= nil and map.Name == room.map_name then
+            log("[PlayerDB] 이미 " .. self.CurrentRoom .. " 에 있다 — 이동 없음")
+            return
+        end
+
+        -- 도착점은 방 한가운데(0,0,0)다. 포탈은 방 가장자리에 있으므로
+        -- 가운데로 떨어지면 어떤 포탈 트리거에도 걸리지 않는다.
+        log("[PlayerDB] 방 복원 → " .. self.CurrentRoom .. "(" .. room.map_name .. ")")
+        _TeleportService:TeleportToMapPosition(self.Entity, Vector3(0, 0, 0), room.map_name)
+    end
+
+    ---------------------------------------------------------------
+    -- 더티 표시 + 스로틀
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method void MarkPermDirty(string reason)
+        -- 영구 데이터가 바뀌었다. 부르는 쪽: 포획 / 보스 클리어 / 환생.
+        self.permDirty = true
+        self.permGen += 1
+        self:RequestSave(reason)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void MarkRunDirty(string reason)
+        -- 회차 데이터가 바뀌었다. 부르는 쪽: 레벨업 / 분배 / 장착 / 방 전환.
+        self.runDirty = true
+        self.runGen += 1
+        self:RequestSave(reason)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RequestSave(string reason)
+        -- 이벤트 저장의 유일한 입구. 최소 간격 안이면 예약만 하고 돌아간다.
+        if self.IsLoadSuccess == false then return end
+
+        local minInterval = _GameData:GetBalance("save_min_interval")
+        local now = _UtilLogic.ElapsedSeconds
+        local since = now - self.lastSaveAt
+
+        if since >= minInterval then
+            self:SaveToDB(false, reason)
+            return
+        end
+
+        -- 이미 예약이 걸려 있으면 새로 걸지 않는다. 예약은 "그때 한 번 쓴다"는
+        -- 뜻이고, 그 사이 쌓인 변경은 그 한 번에 전부 실린다.
+        --
+        -- 사유는 첫 것만 남기고 나머지는 세기만 한다. 이어붙이면 슬라임 40마리를
+        -- 잡는 동안 사유가 47개까지 늘어나 로그 한 줄이 화면을 덮는다 (실측).
+        if self.pendingTimer ~= nil then
+            self.pendingCount = self.pendingCount + 1
+            return
+        end
+
+        self.pendingReason = reason
+        self.pendingCount = 1
+        self.pendingTimer = _TimerService:SetTimerOnce(function()
+            self.pendingTimer = nil
+            local label = self.pendingReason
+            if self.pendingCount > 1 then
+                label = label .. " 외 " .. tostring(self.pendingCount - 1) .. "건"
+            end
+            self.pendingReason = ""
+            self.pendingCount = 0
+            self:SaveToDB(false, label)
+        end, minInterval - since)
+    end
+
+    ---------------------------------------------------------------
+    -- 저장
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method void SaveToDB(boolean isLeaving, string reason)
+        if self.IsLoadSuccess == false then return end
+
+        -- saveData / savedGenerations는 **지역 변수**다. 저장 두 개가 동시에
+        -- 떠 있어도(퇴장 저장이 진행 중인 비동기 저장과 겹칠 때) 각자 자기
+        -- 스냅샷을 들고 돌아오므로 서로의 결과를 덮어쓰지 않는다 (datastorage §8).
+        local saveData = {}
+        local savedGens = {}
+
+        if self.permDirty then
+            saveData[self.KeyPerm] = _HttpService:JSONEncode(self:GatherPerm())
+            savedGens[self.KeyPerm] = self.permGen
+        end
+        if self.runDirty then
+            saveData[self.KeyRun] = _HttpService:JSONEncode(self:GatherRun())
+            savedGens[self.KeyRun] = self.runGen
+        end
+
+        if next(saveData) == nil then return end
+
+        self.lastSaveAt = _UtilLogic.ElapsedSeconds
+        local profileCode = self.Entity.PlayerComponent.ProfileCode
+        local ds = _DataStorageService:GetUserDataStorage(profileCode)
+
+        if isLeaving then
+            local code, successKeys = ds:BatchSetAndWait(saveData)
+            self:OnSavedToDB(successKeys, savedGens)
+            if code ~= 0 then
+                log_error("[PlayerDB] 퇴장 저장 실패  ErrorCode=" .. tostring(code)
+                    .. "  성공 키=" .. tostring(#successKeys))
+            else
+                log("[PlayerDB] 저장 완료 (" .. reason .. ")  키=" .. tostring(#successKeys) .. "개")
+            end
+        else
+            ds:BatchSetAsync(saveData, function(code, successKeys)
+                self:OnSavedToDB(successKeys, savedGens)
+                if code ~= 0 then
+                    log_warning("[PlayerDB] 저장 부분 실패  ErrorCode=" .. tostring(code)
+                        .. "  성공 키=" .. tostring(#successKeys))
+                else
+                    log("[PlayerDB] 저장 완료 (" .. reason .. ")  키=" .. tostring(#successKeys) .. "개")
+                end
+            end)
+        end
+    end
+
+    -- successKeys의 타입이 table이 아니라 any인 이유: BatchSet*이 돌려주는 값은
+    -- List<string>이라 table로 선언하면 LSP가 막는다. 인덱싱과 #는 그대로 된다.
+    @ExecSpace("ServerOnly")
+    method void OnSavedToDB(any successKeys, table savedGens)
+        -- 스토리지가 확인해준 키만 더티를 내린다.
+        --
+        -- 세대를 비교하는 이유: 비동기 저장이 오가는 사이에 값이 또 바뀔 수 있다.
+        -- 성공했다고 무조건 더티를 내리면 그 사이 변경이 조용히 사라진다.
+        for i = 1, #successKeys do
+            local key = successKeys[i]
+            if key == self.KeyPerm then
+                if savedGens[key] ~= nil and savedGens[key] == self.permGen then
+                    self.permDirty = false
+                end
+            elseif key == self.KeyRun then
+                if savedGens[key] ~= nil and savedGens[key] == self.runGen then
+                    self.runDirty = false
+                end
+            end
+        end
+    end
+
+    ---------------------------------------------------------------
+    -- 직렬화 — 컴포넌트에서 긁어모아 구조체로
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method table GatherPerm()
+        local perm = SavePermanentData()
+        perm:Init(math.floor(_GameData:GetBalance("monster_slot_start")))
+
+        ---@type PlayerStats
+        local stats = self.Entity:GetComponent("script.PlayerStats")
+        if stats ~= nil and stats.Level > self.HighestLevel then
+            self.HighestLevel = stats.Level
+        end
+        perm.highest_level = self.HighestLevel
+        perm.landmark_claimed = self.LandmarkClaimed
+
+        ---@type PlayerCollection
+        local collection = self.Entity:GetComponent("script.PlayerCollection")
+        if collection ~= nil then
+            local owned = {}
+            for _, id in ipairs(_GameData:GetAllSkillIds()) do
+                local n = collection.OwnedSkills[id]
+                if n ~= nil and n > 0 then owned[id] = n end
+            end
+            perm.owned_skills = owned
+
+            local kills = {}
+            for _, id in ipairs(_GameData:GetAllMonsterIds()) do
+                local n = collection.SpeciesKills[id]
+                if n ~= nil and n > 0 then kills[id] = n end
+            end
+            perm.species_kills = kills
+        end
+
+        ---@type PlayerSkillSlots
+        local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
+        if slots ~= nil then
+            perm.rebirth_count = slots.RebirthCount
+            perm.monster_slot_count = slots.MonsterSlotCount
+
+            local bosses = {}
+            for _, roomId in ipairs(_GameData:GetAllRoomIds()) do
+                if slots.BossRoomsCleared[roomId] ~= nil then bosses[roomId] = 1 end
+            end
+            perm.bosses_cleared = bosses
+
+            local areas = {}
+            for _, areaId in ipairs(_GameData:GetRebirthAreaIds()) do
+                if slots.UnlockedAreas[areaId] ~= nil then areas[areaId] = 1 end
+            end
+            perm.unlocked_areas = areas
+        end
+
+        local out = {}
+        perm:Serialize(out)
+        return out
+    end
+
+    @ExecSpace("ServerOnly")
+    method table GatherRun()
+        local run = SaveRunData()
+        run:Init()
+        run.current_room = self.CurrentRoom
+
+        ---@type PlayerStats
+        local stats = self.Entity:GetComponent("script.PlayerStats")
+        if stats ~= nil then
+            run.level = stats.Level
+            run.exp = stats.Exp
+            run.stat_atk = stats.StatAtk
+            run.stat_int = stats.StatInt
+            run.stat_def = stats.StatDef
+            run.stat_luk = stats.StatLuk
+            run.unspent_points = stats.UnspentPoints
+            run.current_job = stats.CurrentJob
+        end
+
+        ---@type PlayerSkillSlots
+        local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
+        if slots ~= nil then
+            local maxSlot = math.floor(_GameData:GetBalance("monster_slot_max"))
+            local equipped = {}
+            for i = 1, maxSlot do
+                local id = slots.MonsterSlots[i]
+                -- JSON 객체 키는 문자열이라야 한다. 숫자 인덱스를 그대로 넣으면
+                -- 디코드했을 때 키 타입이 달라져 장착이 복원되지 않는다.
+                if id ~= nil then equipped[tostring(i)] = id end
+            end
+            run.equipped_monster_skills = equipped
+        end
+
+        local out = {}
+        run:Serialize(out)
+        return out
+    end
+
+end

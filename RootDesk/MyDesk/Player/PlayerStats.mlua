@@ -28,8 +28,12 @@ script PlayerStats extends Component
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
         -- 시트 공식: 분배 가능 P 누적 = (Lv - 1) x stat_points_per_level.
-        -- 따라서 Lv1의 시작 포인트는 0이다.
-        self:ResetRun()
+        -- 따라서 Lv1의 시작 포인트는 0이다 — 프로퍼티 기본값이 이미 그 값이다.
+        --
+        -- 여기서 ResetRun()을 부르지 않는 이유(T8): 컴포넌트의 OnBeginPlay 순서는
+        -- 정해져 있지 않다. PlayerDBManager가 먼저 로드해 Lv15를 채워 넣은 뒤
+        -- 이 줄이 돌면 세이브가 통째로 Lv1로 지워진다.
+        -- 기본값 = ResetRun()의 결과와 같으므로 부를 필요도 없다.
         log("[PlayerStats] 초기화  Lv=" .. tostring(self.Level)
             .. "  미분배P=" .. tostring(self.UnspentPoints)
             .. "  ATK총합=" .. tostring(self:GetTotalAtk()))
@@ -83,7 +87,20 @@ script PlayerStats extends Component
             .. " DEF=" .. tostring(self.StatDef) .. " LUK=" .. tostring(self.StatLuk)
             .. "  남은P=" .. tostring(self.UnspentPoints)
             .. "  ATK총합=" .. tostring(self:GetTotalAtk()))
+
+        self:MarkSave("분배 확정")
         return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void MarkSave(string reason)
+        -- 회차 데이터가 바뀌었음을 저장 담당에게 알린다 (작업지시서 T8 저장 트리거).
+        -- 여기서 직접 DataStorage를 부르지 않는다 — 컴포넌트마다 쓰기를 하면
+        -- 저장 1회가 컴포넌트 수만큼 늘어난다.
+        ---@type PlayerDBManager
+        local db = self.Entity:GetComponent("script.PlayerDBManager")
+        if db == nil then return end
+        db:MarkRunDirty(reason)
     end
 
     @ExecSpace("ServerOnly")
@@ -117,6 +134,7 @@ script PlayerStats extends Component
                     self.CanRebirth = true
                     log("[PlayerStats] 레벨 캡 도달 Lv" .. tostring(self.Level) .. " — 환생 가능")
                     self:OnReachedCap(self.Entity.PlayerComponent.UserId)
+                    self:MarkSave("레벨 캡 도달")
                 end
                 return
             end
@@ -133,6 +151,7 @@ script PlayerStats extends Component
                 .. "  미분배P=" .. tostring(self.UnspentPoints))
 
             self:OnLevelUp(self.Level, self.Entity.PlayerComponent.UserId)
+            self:MarkSave("레벨업")
         end
     end
 

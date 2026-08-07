@@ -296,4 +296,68 @@ script GameData extends Logic
         return self:ToText(room.connections[direction])
     end
 
+    ---------------------------------------------------------------
+    -- 키 공간 열거 (T8 저장이 쓴다)
+    ---------------------------------------------------------------
+    --
+    -- 왜 필요한가: 플레이어 진행 데이터는 SyncTable에 담겨 있는데
+    -- **SyncTable에는 순회 API가 없다** (Environment/NativeScripts에 .d.mlua 정의가
+    -- 아예 없어 pairs가 되는지 확인할 방법이 없었다). 그래서 저장할 때
+    -- "어떤 키가 들어 있는지"를 SyncTable에게 물어볼 수 없고,
+    -- 데이터 테이블이 정의한 **키 공간 전체를 훑어** 값이 있는 것만 담는다.
+    --
+    -- 부수 효과 하나: CSV에서 사라진 id는 다음 저장에서 함께 사라진다.
+    -- 콘텐츠를 지웠다가 되돌리면 그 사이 저장으로 값이 날아간다는 뜻이라,
+    -- 운영 중에 행을 지울 때는 주의해야 한다.
+    -- 정렬해 돌려주는 이유는 GetMonsterSkillIds와 같다 — 저장 페이로드의
+    -- 키 순서가 매번 달라지면 diff로 무엇이 바뀌었는지 읽을 수 없다.
+
+    method table GetAllSkillIds()
+        -- SkillTable의 모든 스킬 id (직업 스킬 포함).
+        local ids = {}
+        for id, _ in pairs(self.skills) do
+            ids[#ids + 1] = id
+        end
+        table.sort(ids)
+        return ids
+    end
+
+    method table GetAllMonsterIds()
+        -- MonsterTable의 모든 몬스터 id. 포획 천장 카운터의 키 공간이다.
+        local ids = {}
+        for id, _ in pairs(self.monsters) do
+            ids[#ids + 1] = id
+        end
+        table.sort(ids)
+        return ids
+    end
+
+    method table GetAllRoomIds()
+        -- RoomTable의 모든 방 id. 보스 클리어 원장의 키 공간이다.
+        local ids = {}
+        for id, _ in pairs(self.rooms) do
+            ids[#ids + 1] = id
+        end
+        table.sort(ids)
+        return ids
+    end
+
+    method table GetRebirthAreaIds()
+        -- 환생 게이트가 요구하는 구역 id 목록 = 개방 구역의 키 공간.
+        -- 구역 테이블이 따로 없어서 rebirth 게이트의 gate_key에서 모은다.
+        -- 같은 구역을 여러 방이 가리킬 수 있으므로 중복을 제거한다.
+        local seen = {}
+        local ids = {}
+        for _, room in pairs(self.rooms) do
+            if room.gate_type == "rebirth" and room.gate_key ~= "" then
+                if seen[room.gate_key] == nil then
+                    seen[room.gate_key] = true
+                    ids[#ids + 1] = room.gate_key
+                end
+            end
+        end
+        table.sort(ids)
+        return ids
+    end
+
 end

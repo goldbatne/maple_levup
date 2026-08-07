@@ -43,19 +43,34 @@ script SavePermanentData
         self.bosses_cleared = {}
     end
 
+    method boolean HasAny(table t)
+        -- 빈 테이블인가.
+        --
+        -- 왜 필요한가 (T8 실측): _HttpService:JSONEncode는 **중첩된 빈 테이블**을
+        -- 만나면 [LEA-3001] NotSupported 'LuaTableToJsonType.UnknownType'으로 죽는다.
+        --   JSONEncode({ Perm = { lv = 1 } })            -> {"Perm":{"lv":1}}
+        --   JSONEncode({ Perm = { lv = 1, own = {} } })  -> LEA-3001
+        -- 최상위 빈 테이블은 조용히 빈 문자열을 돌려줘서 더 헷갈린다.
+        -- Deserialize가 없는 필드를 기본값으로 채우므로 빼도 잃는 게 없다.
+        if t == nil then return false end
+        return next(t) ~= nil
+    end
+
     method boolean Serialize(table out)
         -- 저장 페이로드로 직렬화. "Perm" 네임스페이스 아래로 넣는다.
+        -- 비어 있는 테이블 필드는 아예 넣지 않는다 (HasAny 주석 참고).
         local body = {}
         out["Perm"] = body
         body["schema_version"] = self.schema_version
-        body["owned_skills"] = self.owned_skills
-        body["species_kills"] = self.species_kills
         body["rebirth_count"] = self.rebirth_count
         body["highest_level"] = self.highest_level
-        body["landmark_claimed"] = self.landmark_claimed
-        body["unlocked_areas"] = self.unlocked_areas
         body["monster_slot_count"] = self.monster_slot_count
-        body["bosses_cleared"] = self.bosses_cleared
+
+        if self:HasAny(self.owned_skills) then body["owned_skills"] = self.owned_skills end
+        if self:HasAny(self.species_kills) then body["species_kills"] = self.species_kills end
+        if self:HasAny(self.landmark_claimed) then body["landmark_claimed"] = self.landmark_claimed end
+        if self:HasAny(self.unlocked_areas) then body["unlocked_areas"] = self.unlocked_areas end
+        if self:HasAny(self.bosses_cleared) then body["bosses_cleared"] = self.bosses_cleared end
         return true
     end
 

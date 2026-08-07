@@ -28,6 +28,13 @@ script SaveRunData
     -- 직업 슬롯은 여기 없다 — current_job에서 JobTable로 매번 유도한다.
     property table equipped_monster_skills = {}
 
+    -- 로그아웃 시점의 방. 재접속하면 여기서 다시 시작한다 (T8: "옛날 메이플처럼").
+    --
+    -- 회차 데이터인 이유: 환생하면 시작방으로 돌아가야 한다. 영구에 두면
+    -- 환생 직후 스탯만 초기화된 채 깊은 방에 서 있게 된다 (기획서 4.5).
+    -- 빈 문자열이면 복원하지 않고 기본 스폰 위치를 쓴다.
+    property string current_room = ""
+
     method void Init()
         -- 새 회차 시작값. 환생 시에도 이 값으로 되돌린다.
         self.schema_version = 1
@@ -40,6 +47,20 @@ script SaveRunData
         self.unspent_points = 0
         self.current_job = ""
         self.equipped_monster_skills = {}
+        self.current_room = ""
+    end
+
+    method boolean HasAny(table t)
+        -- 빈 테이블인가.
+        --
+        -- 왜 필요한가 (T8 실측): _HttpService:JSONEncode는 **중첩된 빈 테이블**을
+        -- 만나면 [LEA-3001] NotSupported 'LuaTableToJsonType.UnknownType'으로 죽는다.
+        --   JSONEncode({ Run = { level = 1 } })            -> {"Run":{"level":1}}
+        --   JSONEncode({ Run = { level = 1, eq = {} } })   -> LEA-3001
+        -- 최상위 빈 테이블은 조용히 빈 문자열을 돌려줘서 더 헷갈린다.
+        -- Deserialize가 없는 필드를 기본값으로 채우므로 빼도 잃는 게 없다.
+        if t == nil then return false end
+        return next(t) ~= nil
     end
 
     method boolean Serialize(table out)
@@ -55,7 +76,10 @@ script SaveRunData
         body["stat_luk"] = self.stat_luk
         body["unspent_points"] = self.unspent_points
         body["current_job"] = self.current_job
-        body["equipped_monster_skills"] = self.equipped_monster_skills
+        if self:HasAny(self.equipped_monster_skills) then
+            body["equipped_monster_skills"] = self.equipped_monster_skills
+        end
+        body["current_room"] = self.current_room
         return true
     end
 
@@ -74,6 +98,7 @@ script SaveRunData
         self.unspent_points = body["unspent_points"] or 0
         self.current_job = body["current_job"] or ""
         self.equipped_monster_skills = body["equipped_monster_skills"] or {}
+        self.current_room = body["current_room"] or ""
         return true
     end
 
