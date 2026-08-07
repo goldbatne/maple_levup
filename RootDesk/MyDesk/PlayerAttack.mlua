@@ -126,17 +126,27 @@ script PlayerAttack extends AttackComponent
 		-- attackInfo에 스킬 id가 실려 온다. 기본 공격은 nil이라 시트 기준 계수가 쓰인다.
 		-- 스킬마다 scaling_stat이 다르므로(SkillTable: ATK / INT) 어느 스탯을 쓸지도
 		-- 여기서 갈린다. 마법사 스킬을 ATK로 계산하면 조용히 틀린 숫자가 나온다.
+		--
+		-- 스킬은 자기 scaling_stat을 그대로 따르고, **기본 공격만 ATK/INT 중 높은 쪽**을 쓴다
+		-- (밸런스시트 v0.2 "자동 공격 계수 스탯 = max(ATK, INT)", 작업지시서 T9-4 결정).
+		--
+		-- 왜 필요했나 (T9-3 실측): 기본 공격이 ATK 고정이었는데 그게 총딜의 83%를 낸다.
+		-- 그래서 INT에 투자하면 총딜이 1/3로 떨어져 INT 빌드가 성립할 수 없었다.
+		-- 높은 쪽을 쓰면 "스탯을 어디에 찍었나"가 곧 계열을 정한다.
+		---@type PlayerStats
+		local stats = attacker:GetComponent("script.PlayerStats")
+
 		local statName = "ATK"
 		if attackInfo ~= nil and attackInfo ~= "" then
 			local skill = _GameData:GetSkill(attackInfo)
 			if skill ~= nil and skill.scaling_stat ~= "" then
 				statName = skill.scaling_stat
 			end
+		elseif stats ~= nil and stats:GetTotalInt() > stats:GetTotalAtk() then
+			statName = "INT"
 		end
 
 		local power = _GameData:GetBalance("player_base_atk")
-		---@type PlayerStats
-		local stats = attacker:GetComponent("script.PlayerStats")
 		if stats ~= nil then
 			if statName == "INT" then
 				power = stats:GetTotalInt()
