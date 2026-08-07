@@ -1,0 +1,152 @@
+-- @서버 (진행 로깅은 판정이 일어나는 곳에서만 남긴다. 클라 로그는 위조 가능하고
+--        같은 사건이 두 번 찍힌다)
+--
+-- 플레이 진행 기록 (작업지시서 T8: level_up / capture / gate_pass / rebirth / session_end).
+--
+-- ## 무엇에 쓰는가
+--
+-- T9 통합 검증의 질문은 "성장해서 문이 열리고 환생이 도는가"다.
+-- 그 답은 한 세션의 **순서**에 있다 — 몇 분에 몇 레벨을 올렸고, 언제 첫 포획이
+-- 나왔고, 게이트를 언제 넘었는가. 그래서 흩어진 log() 대신 한 줄 규격으로 모은다.
+--
+--   [PROGRESS] level_up | 2026-08-07T07:41:12Z | t=123.4 | user=2037... | lv=8
+--
+-- `[PROGRESS]`만 걸러내면 세션 전체가 시간순으로 나온다.
+-- 파이프 구분 + key=value라 나중에 표로 옮기기도 쉽다.
+--
+-- ## DataStorage에 쓰지 않는 이유
+--
+-- 이건 세이브가 아니라 관측 기록이다. 저장하면 Credit을 먹고 보관·회전 규칙을
+-- 또 정해야 하는데, 지금 필요한 건 "이번 판이 어땠나"뿐이라 콘솔로 충분하다.
+-- 세션을 넘겨 누적 분석이 필요해지면 그때 별도 키로 뺀다.
+--
+-- ## @Logic인 이유
+--
+-- 세션 카운터는 맵을 옮겨도 이어져야 한다. 방마다 리셋되면 세션 요약이 무의미하다.
+
+@Logic
+script ProgressLog extends Logic
+
+    -- userId -> { startedAt, levelUps, captures, gatePasses, rebirths }
+    -- @Sync가 아니다. 클라가 볼 이유가 없고, 남의 진행이 새어 나갈 이유는 더 없다.
+    property table sessions = {}
+
+    ---------------------------------------------------------------
+    -- 공통
+    ---------------------------------------------------------------
+
+    method string Stamp()
+        -- UTC 시각 문자열.
+        --
+        -- ToFormattedString(format)을 쓰지 않고 구성 요소를 직접 조립하는 이유:
+        -- 포맷 문자열 규격(.NET 지정자로 보이지만 확인 못 함)이 틀리면 예외가 나고,
+        -- 그러면 **모든 로그 호출이 죽는다**. Year/Month/... 는 문서화된 int32
+        -- 프로퍼티라 실패할 여지가 없다. 기록이 기록 때문에 게임을 멈추면 안 된다.
+        local n = DateTime.UtcNow
+        return string.format("%04d-%02d-%02dT%02d:%02d:%02dZ",
+            n.Year, n.Month, n.Day, n.Hour, n.Minute, n.Second)
+    end
+
+    method table Session(string userId)
+        -- 이 유저의 세션 카운터. 없으면 지금 만든다.
+        --
+        -- Begin()을 못 받은 경우에도 만들어 두는 이유: 로깅이 세션 시작 순서에
+        -- 의존하면, 순서가 어긋난 날 로그가 통째로 비어 원인을 못 찾는다.
+        local s = self.sessions[userId]
+        if s == nil then
+            s = {
+                startedAt = _UtilLogic.ElapsedSeconds,
+                levelUps = 0,
+                captures = 0,
+                gatePasses = 0,
+                rebirths = 0,
+            }
+            self.sessions[userId] = s
+        end
+        return s
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Emit(string event, string userId, string detail)
+        -- 한 줄 규격. 여기 말고 다른 데서 [PROGRESS]를 찍지 않는다 —
+        -- 형식이 두 곳에 생기면 나중에 걸러낼 때 한쪽이 빠진다.
+        log("[PROGRESS] " .. event
+            .. " | " .. self:Stamp()
+            .. " | t=" .. string.format("%.1f", _UtilLogic.ElapsedSeconds)
+            .. " | user=" .. tostring(userId)
+            .. " | " .. detail)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Begin(string userId)
+        -- 세션 시작. 카운터를 새로 깐다.
+        --
+        -- 줄을 찍지 않는 이유: 작업지시서가 정한 이벤트는 5종이고 session_start는
+        -- 거기 없다. 시작 시각은 session_end의 dur=로 되돌려준다.
+        self.sessions[userId] = nil
+        self:Session(userId)
+    end
+
+    ---------------------------------------------------------------
+    -- 이벤트 5종
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method void LevelUp(string userId, integer level)
+        local s = self:Session(userId)
+        s.levelUps = s.levelUps + 1
+        self:Emit("level_up", userId, "lv=" .. tostring(level))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Capture(string userId, string monsterId, string skillId, integer owned, boolean byPity)
+        -- 성공한 포획만 남긴다. 실패까지 남기면 처치 수만큼 줄이 늘어나
+        -- 정작 보고 싶은 사건이 묻힌다.
+        local s = self:Session(userId)
+        s.captures = s.captures + 1
+        self:Emit("capture", userId,
+            "monster=" .. monsterId
+            .. " | skill=" .. skillId
+            .. " | owned=" .. tostring(owned)
+            .. " | by=" .. (byPity and "pity" or "roll"))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GatePass(string userId, string roomId, string gateType)
+        -- 게이트가 걸린 방을 **실제로 통과했을 때만**. 조건 없는 문은 사건이 아니다.
+        local s = self:Session(userId)
+        s.gatePasses = s.gatePasses + 1
+        self:Emit("gate_pass", userId, "room=" .. roomId .. " | gate=" .. gateType)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Rebirth(string userId, integer rebirthCount, integer fromLevel)
+        -- 부르는 쪽이 아직 없다. T7 환생이 확정되는 지점에서 부른다.
+        -- 미리 만들어 두는 이유: 다섯 이벤트가 한 파일에 모여 있어야
+        -- 형식이 갈라지지 않는다.
+        local s = self:Session(userId)
+        s.rebirths = s.rebirths + 1
+        self:Emit("rebirth", userId,
+            "count=" .. tostring(rebirthCount) .. " | from_lv=" .. tostring(fromLevel))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SessionEnd(string userId, integer finalLevel)
+        -- 세션 요약. 이 한 줄만 봐도 "이번 판이 어땠나"가 나온다.
+        local s = self:Session(userId)
+        local dur = _UtilLogic.ElapsedSeconds - s.startedAt
+
+        self:Emit("session_end", userId,
+            "dur=" .. string.format("%.1f", dur) .. "s"
+            .. " | final_lv=" .. tostring(finalLevel)
+            .. " | level_ups=" .. tostring(s.levelUps)
+            .. " | captures=" .. tostring(s.captures)
+            .. " | gate_passes=" .. tostring(s.gatePasses)
+            .. " | rebirths=" .. tostring(s.rebirths))
+
+        -- 나간 유저의 카운터는 버린다. 남겨두면 재접속했을 때 이전 세션 수치가
+        -- 이어져 세션 요약이 세션 요약이 아니게 된다.
+        self.sessions[userId] = nil
+    end
+
+end

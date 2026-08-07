@@ -121,6 +121,7 @@ script PlayerCollection extends Component
         end
 
         self:MarkSave("포획")
+        _ProgressLog:Capture(self.Entity.PlayerComponent.UserId, monsterId, skillId, owned, byPity)
         self:OnCaptured(skillName, owned, self.Entity.PlayerComponent.UserId)
         return true
     end
