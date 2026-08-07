@@ -1,0 +1,183 @@
+-- @서버 (이동 판정과 실행은 서버 권한. 클라는 스프라이트만 고른다)
+--
+-- 보스방 → 시작방 귀환 포탈 (기획서 4.5 / 작업지시서 T7).
+--
+-- ## RoomPortal과 무엇이 다른가
+--
+--   RoomPortal    RoomTable의 conn_{방향}을 따라가는 **공간 연결**. 양방향이 짝을 이룬다.
+--   ReturnPortal  목적지가 늘 시작방인 **일방 귀환로**. 짝이 없다.
+--
+-- 그래서 conn_* 에 넣지 않았다. 넣으면 시작방 쪽에 보스방으로 가는 반대편 문이
+-- 생겨야 하는데(GameDataVerify가 "양방향 OK"를 검사한다), 그런 문은 없어야 한다.
+--
+-- ## 여는 조건
+--
+-- **이 방의 보스를 잡았는가.** 환생 조건(레벨 캡 AND 보스)과는 별개다 —
+-- 레벨이 모자라도 마을에는 갈 수 있어야 한다 (기획서 4.5의 포탈/버튼 역할 분리).
+-- 보스 기록(BossRoomsCleared)은 영구 데이터라 한 번 열리면 계속 열려 있다.
+--
+-- ## 왜 클라가 스프라이트를 고르는가
+--
+-- 조건이 **사람마다 다르다**. RoomPortal의 locked(@Sync)처럼 서버가 하나의 값을
+-- 방송하면 남의 화면 문까지 바뀐다. BossRoomsCleared가 @TargetUserSync라
+-- 주인 클라에도 그대로 있어서 클라가 직접 판정할 수 있다.
+
+@Component
+script ReturnPortal extends Component
+
+    -- 개방/잠김 스프라이트. RUID를 코드에 박지 않고 모델 Values에서 주입받는다.
+    property string openRUID = ""
+    property string lockedRUID = ""
+
+    property any enterHandler = nil
+    property any visualTimer = nil
+
+    -- 잠김 표시를 다시 계산하는 주기(초). 보스를 잡으면 이 간격 안에 문이 열린다.
+    property number visualInterval = 0.5
+
+    method void OnBeginPlay()
+        -- 열기 전까지는 잠긴 그림으로 시작한다. 열린 그림으로 시작하면
+        -- 첫 0.5초 동안 "열려 있는데 안 통과되는" 문이 보인다.
+        self:ApplySprite(true)
+
+        if self:IsServer() then
+            self.enterHandler = self.Entity:ConnectEvent(TriggerEnterEvent, self.OnTriggerEnter)
+        end
+
+        if self:IsClient() then
+            self.visualTimer = _TimerService:SetTimerRepeat(function()
+                self:RefreshVisualForMe()
+            end, self.visualInterval)
+        end
+    end
+
+    method void OnEndPlay()
+        -- 실행공간을 비워둔 이유: 서버는 이벤트를, 클라는 타이머를 정리해야 한다.
+        -- ServerOnly로 두면 클라 타이머가 남아 맵을 옮길 때마다 쌓인다
+        -- (RoomPortal.OnEndPlay와 같은 근거).
+        if self.enterHandler ~= nil then
+            self.Entity:DisconnectEvent(TriggerEnterEvent, self.enterHandler)
+            self.enterHandler = nil
+        end
+        if self.visualTimer ~= nil then
+            _TimerService:ClearTimer(self.visualTimer)
+            self.visualTimer = nil
+        end
+    end
+
+    ---------------------------------------------------------------
+    -- 개방 판정 (서버·클라 공용)
+    ---------------------------------------------------------------
+
+    method boolean IsOpenFor(Entity player)
+        -- @ExecSpace를 붙이지 않는다. 서버는 통과 판정에, 클라는 스프라이트에 쓴다.
+        -- 읽는 값(BossRoomsCleared)이 @TargetUserSync라 양쪽 결과가 같다.
+        if player == nil then return false end
+
+        local map = self.Entity.CurrentMap
+        if map == nil then return false end
+
+        local room = _GameData:GetRoomByMapName(map.Name)
+        if room == nil then return false end
+
+        ---@type PlayerSkillSlots
+        local slots = player:GetComponent("script.PlayerSkillSlots")
+        if slots == nil then return false end
+
+        return slots.BossRoomsCleared[room.id] ~= nil
+    end
+
+    ---------------------------------------------------------------
+    -- 표시
+    ---------------------------------------------------------------
+
+    method void ApplySprite(boolean showLocked)
+        -- RoomPortal.ApplySprite와 같은 규칙. 같은 값이면 쓰지 않는다 —
+        -- 0.5초마다 도는 경로라 불필요한 대입을 줄인다.
+        local renderer = self.Entity.SpriteRendererComponent
+        if renderer == nil then return end
+
+        local ruid = self.openRUID
+        if showLocked and self.lockedRUID ~= "" then
+            ruid = self.lockedRUID
+        end
+        if ruid ~= "" and renderer.SpriteRUID ~= ruid then
+            renderer.SpriteRUID = ruid
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshVisualForMe()
+        -- 내 플레이어 기준으로 열렸는지 보고 스프라이트를 고른다.
+        local me = _UserService.LocalPlayer
+        if me == nil then return end
+
+        local map = self.Entity.CurrentMap
+        if map == nil then return end
+
+        -- 내가 있는 방의 문만 건드린다. 다른 맵의 문을 내 기준으로 칠하면
+        -- 그 맵에 있는 사람 화면이 엉킨다.
+        local myMap = me.CurrentMap
+        if myMap == nil or myMap.Name ~= map.Name then return end
+
+        self:ApplySprite(not self:IsOpenFor(me))
+    end
+
+    ---------------------------------------------------------------
+    -- 통과
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method void OnTriggerEnter(TriggerEnterEvent event)
+        local other = event.TriggerBodyEntity
+        if other == nil then return end
+        if other.PlayerComponent == nil then return end
+        self:TryReturn(other)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TryReturn(Entity player)
+        -- 방금 포탈을 탄 플레이어는 잠시 무시한다 (RoomPortal과 같은 가드).
+        local userId = player.PlayerComponent.UserId
+        if not _PortalGuard:CanPass(userId) then return end
+
+        if not self:IsOpenFor(player) then
+            -- 조용히 막지 않고 왜 막혔는지 알린다 (게이트 3종과 같은 어법).
+            local map = self.Entity.CurrentMap
+            local roomName = "이 구역"
+            if map ~= nil then
+                local room = _GameData:GetRoomByMapName(map.Name)
+                if room ~= nil then roomName = room.name end
+            end
+            log("[ReturnPortal] 아직 닫혀 있다 — " .. roomName .. " 보스 미격파")
+            self:OnBlocked(userId)
+            return
+        end
+
+        local startRoom = _GameData:GetStartRoom()
+        if startRoom == nil or startRoom.map_name == "" then
+            log_error("[ReturnPortal] RoomTable에 쓸 만한 is_start 방이 없다")
+            return
+        end
+
+        _PortalGuard:Mark(userId)
+        log("[ReturnPortal] 귀환 → " .. startRoom.id .. "(" .. startRoom.map_name .. ")")
+
+        -- 도착점은 방 한가운데(0,0,0). 포탈은 가장자리에 있어 트리거에 걸리지 않는다.
+        _TeleportService:TeleportToMapPosition(player, Vector3(0, 0, 0), startRoom.map_name)
+
+        -- 방향키를 누른 채 포탈에 들어가면 도착 후에도 계속 걸어간다.
+        -- 근거와 실측은 RoomPortal.StopAfterArrive / MoveInputGuard 주석에 있다.
+        local movement = player.MovementComponent
+        if movement ~= nil then movement:Stop() end
+        _MoveInputGuard:Begin(userId)
+    end
+
+    @ExecSpace("Client")
+    method void OnBlocked()
+        -- 당사자에게만 알린다. 대상 userId는 선언부가 아니라 호출부 마지막 인자로 붙인다
+        -- (첫 인자로 넘겼다가 [LEA-3032]로 실패한 적이 있다 — RoomPortal 주석 참고).
+        _GateNotice:ShowNotice("닫혀 있다", "이 구역의 보스를 잡아야 열린다")
+    end
+
+end

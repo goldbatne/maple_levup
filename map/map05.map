@@ -3933,6 +3933,94 @@
             "replaced_model_id": null
           }
         }
+      },
+      {
+        "id": "8e01479b-1046-4b71-aee4-d485318999df",
+        "path": "/maps/map05/Portal_Return",
+        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.ReturnPortal",
+        "jsonString": {
+          "name": "Portal_Return",
+          "path": "/maps/map05/Portal_Return",
+          "nameEditable": true,
+          "enable": true,
+          "visible": true,
+          "localize": false,
+          "displayOrder": 5,
+          "pathConstraints": "///",
+          "revision": 1,
+          "modelId": "returnportal",
+          "@components": [
+            {
+              "@type": "MOD.Core.TransformComponent",
+              "Position": {
+                "x": 13,
+                "y": 1,
+                "z": 0
+              },
+              "QuaternionRotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "w": 1
+              },
+              "Scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SpriteRendererComponent",
+              "SpriteRUID": "0cad726e623d4a3994c36fb3f7473841",
+              "Color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+              },
+              "DrawMode": 0,
+              "FlipX": false,
+              "FlipY": false,
+              "PlayRate": 1,
+              "OrderInLayer": 2,
+              "StartFrameIndex": 0,
+              "EndFrameIndex": 2147483647,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.TagComponent",
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.TriggerComponent",
+              "Enable": true,
+              "BoxSize": {
+                "x": 1.5,
+                "y": 1.5
+              },
+              "ColliderOffset": {
+                "$type": "MOD.Core.MODVector2, MOD.Core",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "@type": "script.ReturnPortal",
+              "Enable": true,
+              "openRUID": "1507704072384d8ba4dc1d73c02ba92b",
+              "lockedRUID": "0cad726e623d4a3994c36fb3f7473841"
+            }
+          ],
+          "@version": 1,
+          "origin": {
+            "type": "Model",
+            "entry_id": "returnportal",
+            "sub_entity_id": null,
+            "root_entity_id": "8e01479b-1046-4b71-aee4-d485318999df",
+            "replaced_model_id": null
+          }
+        }
       }
     ]
   }
