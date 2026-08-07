@@ -8,6 +8,9 @@ monster_exp_base,5,Lv1 몬스터 EXP
 monster_exp_ratio,1.1,몬스터 EXP 공비 - 필요EXP 공비보다 낮게
 seconds_per_kill,10,처치당 시간(초) - 이동+전투 포함 평균
 player_base_atk,10,기본 ATK (분배 전)
+player_base_int,10,기본 INT (분배 전) - ATK와 대칭. 첫 1P부터 계열 선택이 성립하게 (T10-1b)
+player_base_def,10,기본 DEF (분배 전) - ATK와 대칭. 피격 감쇄는 T10-3
+player_base_luk,0,기본 LUK (분배 전) - 0을 유지한다. 10을 주면 기본 포획률이 3%가 아니라 4%가 되어 기획서 4.8과 어긋난다
 atk_per_stat_point,1,스탯 1P당 ATK
 atk_alloc_ratio,0.6,ATK 분배 비중 (기준 빌드)
 player_attack_range,1.0,기본 공격 근접 판정 반경(월드 유닛) - 시트 외 구현 상수

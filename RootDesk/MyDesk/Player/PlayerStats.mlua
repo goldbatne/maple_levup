@@ -235,17 +235,28 @@ script PlayerStats extends Component
     end
 
     method number GetTotalInt()
-        -- INT/DEF/LUK은 밸런스시트에 플레이어 기본값이 없어 base 0으로 둔다.
-        -- 시트 v0.2에서 정해지면 GameBalance에 키를 추가하고 여기만 고친다.
-        return self.StatInt * _GameData:GetBalance("atk_per_stat_point")
+        -- ATK와 대칭으로 기본값을 준다 (T10-1b). 기본 ATK만 10이던 시절에는
+        -- INT를 11P 넘게 찍어야 비로소 기본 공격을 가져갔다 — INT 빌드의 첫
+        -- 두세 레벨이 죽어 있었다. 둘이 같은 출발선에 서야 첫 1P부터 선택이 된다.
+        local base = _GameData:GetBalance("player_base_int")
+        local perPoint = _GameData:GetBalance("atk_per_stat_point")
+        return base + self.StatInt * perPoint
     end
 
     method number GetTotalDef()
-        return self.StatDef * _GameData:GetBalance("atk_per_stat_point")
+        -- 마찬가지로 ATK와 대칭. 실제 피격 감쇄는 T10-3에서 붙는다.
+        local base = _GameData:GetBalance("player_base_def")
+        local perPoint = _GameData:GetBalance("atk_per_stat_point")
+        return base + self.StatDef * perPoint
     end
 
     method number GetTotalLuk()
-        return self.StatLuk * _GameData:GetBalance("atk_per_stat_point")
+        -- LUK만 기본값 0이다. 10을 주면 GetCaptureRate의 하한이 3%가 아니라 4%가 되어
+        -- 기획서 4.8("확률 = 3% + LUK x 0.1%p")과 어긋난다. 바꾸려면 시트의
+        -- capture_base_rate와 함께 정해야 한다 — 그래서 키만 만들어 두고 0으로 뒀다.
+        local base = _GameData:GetBalance("player_base_luk")
+        local perPoint = _GameData:GetBalance("atk_per_stat_point")
+        return base + self.StatLuk * perPoint
     end
 
     method number GetCaptureRate()
