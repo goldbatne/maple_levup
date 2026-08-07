@@ -1,0 +1,115 @@
+-- @클라이언트 + @서버 (표시는 클라, 이동은 서버. 메서드마다 실행공간을 따로 붙인다)
+--
+-- "환생 가능" 상시 표시 (기획서 4.5 / 작업지시서 T7).
+--
+-- 조건(레벨 캡 AND 보스)을 채운 순간부터 환생할 때까지 **사라지지 않는다.**
+-- GateNotice로 만들 수 없는 이유가 이것이다 — 그건 2.5초 뒤 스스로 지워지는 배너다.
+--
+-- ## 버튼은 환생시키지 않는다
+--
+-- 누르면 시작방으로 데려다줄 뿐이고, 환생은 NPC 대화(T7-4)에서 확정한다.
+-- 되돌릴 수 없는 선택에 의도적으로 한 단계를 둔다 (기획서 4.5).
+--
+-- ## 왜 @Logic인가
+--
+-- Server RPC가 필요한데 **UI 엔티티에 붙은 @Component는 Server 메서드를 가질 수 없다**
+-- (조용히 죽는다). @Logic은 UI 엔티티가 아니라서 괜찮다.
+-- StatPanel / SkillBar / EquipPanel / GateNotice가 전부 같은 이유로 @Logic이다.
+--
+-- ## 왜 폴링인가
+--
+-- 조건이 **사람마다 다르다**. 서버가 하나의 값을 방송하면 남의 화면 버튼까지 바뀐다.
+-- _Rebirth:Evaluate가 읽는 값이 전부 @TargetUserSync라 클라가 직접 판정할 수 있어,
+-- 0.5초마다 내 기준으로 다시 본다 (RoomPortal의 잠김 표시와 같은 방식).
+
+@Logic
+script RebirthHud extends Logic
+
+    -- 같은 버튼 엔티티를 두 타입으로 받는다. Enable 토글에는 Entity가,
+    -- 클릭 연결에는 ButtonComponent가 필요하다. 주입되는 UUID는 하나다.
+    property Entity btnRoot = "5c0d5873-44bb-4209-af29-410673ae6c82"
+    property ButtonComponent btnRebirth = "5c0d5873-44bb-4209-af29-410673ae6c82"
+
+    -- 조건을 다시 보는 주기(초). 캡에 닿으면 이 간격 안에 버튼이 뜬다.
+    property number pollInterval = 0.5
+    property any pollTimer = nil
+    property any clickHandler = nil
+
+    -- 지금 보이고 있는가. 같은 값이면 Enable을 다시 쓰지 않는다 —
+    -- 0.5초마다 도는 경로라 불필요한 대입을 줄인다.
+    property boolean shown = false
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- 숨긴 채로 시작한다. 조건을 확인하기 전에 보이면
+        -- 접속 직후 한 박자 동안 "누를 수 없는 버튼"이 떠 있다.
+        self.btnRoot.Enable = false
+        self.shown = false
+        log("[RebirthHud] OnBeginPlay — 숨김으로 시작")
+
+        -- Visible이 아니라 Enable을 쓴다. Visible=false는 클릭이 살아 있어서
+        -- 안 보이는 버튼이 눌린다 (ui-hierarchy 5).
+        self.clickHandler = self.btnRebirth.Entity:ConnectEvent(ButtonClickEvent, self.OnClick)
+
+        self.pollTimer = _TimerService:SetTimerRepeat(function()
+            self:Refresh()
+        end, self.pollInterval)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.clickHandler ~= nil then
+            self.btnRebirth.Entity:DisconnectEvent(ButtonClickEvent, self.clickHandler)
+            self.clickHandler = nil
+        end
+        if self.pollTimer ~= nil then
+            _TimerService:ClearTimer(self.pollTimer)
+            self.pollTimer = nil
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Refresh()
+        -- 내 플레이어 기준으로 환생 가능 여부를 보고 버튼을 켜고 끈다.
+        local me = _UserService.LocalPlayer
+        if me == nil then return end
+
+        local can = _Rebirth:CanRebirth(me)
+        if can == self.shown then return end
+
+        self.shown = can
+        self.btnRoot.Enable = can
+        log("[RebirthHud] 환생 가능 표시 " .. (can and "켜짐" or "꺼짐"))
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnClick()
+        log("[RebirthHud] 눌림 — 시작방으로 요청")
+        self:RequestWarpToStart()
+    end
+
+    @ExecSpace("Server")
+    method void RequestWarpToStart()
+        -- 클라 판정은 표시일 뿐이라 서버에서 다시 본다.
+        -- senderUserId는 서버가 채우는 값이라 위조할 수 없다.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if player == nil then
+            log_warning("[RebirthHud] 요청한 플레이어를 찾을 수 없다: " .. tostring(senderUserId))
+            return
+        end
+
+        local gate = _Rebirth:Evaluate(player)
+        if gate.passed == false then
+            log_warning("[RebirthHud] 환생 조건 미달인데 워프 요청이 왔다 — " .. gate.reason)
+            return
+        end
+
+        ---@type PlayerDBManager
+        local db = player:GetComponent("script.PlayerDBManager")
+
+        -- 환생시키지 않는다. 시작방까지만 데려다준다 — 확정은 NPC(T7-4)의 몫이다.
+        log("[RebirthHud] 시작방으로 워프")
+        _Rebirth:ReturnToStart(player, db)
+    end
+
+end
