@@ -176,6 +176,11 @@ script GameData extends Logic
                     -- 몬스터가 없는 방은 monster_id를 비워두면 된다.
                     monster_id = self:ToText(row:GetItem("monster_id")),
                     monster_count = self:ToNumber(row:GetItem("monster_count"), 0),
+                    -- 그 방에서 몬스터를 몇 레벨로 세울지 (T10-2 방별 계단).
+                    -- 0이면 덮어쓰지 않고 MonsterTable의 기본 레벨을 쓴다.
+                    -- 같은 종을 방마다 다른 레벨로 세우려면 이게 필요하다 —
+                    -- 슬라임이 r_01에서 Lv1, r_02에서 Lv3인 식.
+                    monster_level = self:ToNumber(row:GetItem("monster_level"), 0),
                     -- 시작방 표시. 환생하면 여기로 돌아온다 (기획서 4.5).
                     -- room_type을 "start"로 쓰지 않는 이유: 시작방도 사냥방일 수 있어
                     -- "어떤 방인가"와 "시작점인가"는 다른 축이다.
