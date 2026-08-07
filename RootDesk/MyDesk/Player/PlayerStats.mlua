@@ -152,6 +152,7 @@ script PlayerStats extends Component
 
             self:OnLevelUp(self.Level, self.Entity.PlayerComponent.UserId)
             self:MarkSave("레벨업")
+            _ProgressLog:LevelUp(self.Entity.PlayerComponent.UserId, self.Level)
         end
     end
 

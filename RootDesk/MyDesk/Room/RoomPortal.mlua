@@ -195,6 +195,12 @@ script RoomPortal extends Component
         -- T6에서 여기에 게이트 판정이 들어간다 (수치 / 열쇠 / 환생).
         if not self:CanPass(player, targetRoom) then return end
 
+        -- 조건이 걸린 방을 실제로 넘었을 때만 기록한다 (작업지시서 T8: gate_pass).
+        -- 조건 없는 문까지 남기면 방 이동 전부가 줄이 되어 정작 볼 사건이 묻힌다.
+        if targetRoom.gate_type ~= "" and targetRoom.gate_type ~= "none" then
+            _ProgressLog:GatePass(userId, targetRoom.id, targetRoom.gate_type)
+        end
+
         local arrive = self:ArrivePosition()
         if arrive == nil then return end   -- 방향이 잘못됐다. 이미 로그를 남겼다.
 
