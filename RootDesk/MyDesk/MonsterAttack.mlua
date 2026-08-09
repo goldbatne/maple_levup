@@ -1,11 +1,33 @@
+-- @서버 (공격 판정·상태 전환 전부 서버. 클라는 동기화된 상태로 애니메이션만 재생한다)
+--
+-- 몬스터가 플레이어를 때리는 쪽. 데미지는 T10-3에서, 공격 **모션**은 T11-1에서 붙였다.
+
 @Component
 script MonsterAttack extends AttackComponent
 
 	@MinValue(0)
 	property number AttackInterval = 0.03
 
+	-- 공격 자세를 유지하는 시간(초). 이 시간이 지나면 IDLE로 돌려보내
+	-- AIChase가 다시 IDLE↔MOVE를 굴리게 둔다.
+	@MinValue(0)
+	property number AttackPoseSeconds = 0.4
+
 	@HideFromInspector
 	property any Shape = nil
+
+	@HideFromInspector
+	property integer attackTimerId = 0
+
+	-- 상태 전환이 실제로 먹는지 확인하려고 처음 몇 번만 로그를 남긴다.
+	-- AIChase가 매 프레임 IDLE↔MOVE를 덮어쓰므로 ATTACK이 살아남는지가 관건이었다.
+	@HideFromInspector
+	property integer poseLogLeft = 4
+
+	-- 공격 자세가 도는 중인지. 0.5초 주기 공격이 자세 시간(0.4초)과 겹쳐
+	-- 되돌리기 타이머가 중첩되는 걸 막는다.
+	@HideFromInspector
+	property integer poseUntil = 0
 
 	@HideFromInspector
 	property Vector2 SpriteSize = Vector2(0,0)
@@ -31,7 +53,11 @@ script MonsterAttack extends AttackComponent
 		end
 
 		self.Shape = BoxShape(Vector2.zero, Vector2.one, 0)
-		
+
+		-- ATTACK 상태는 등록하지 않는다. 등록해서 ChangeState로 가는 길을 먼저 만들었는데
+		-- AIChase가 0.1초 만에 되돌려서 못 쓴다 (PlayAttackPose 주석 참고).
+		-- 공격 모션은 SpriteRUID를 직접 갈아끼우는 쪽으로 처리한다.
+
 		_ResourceService:PreloadAsync({self.Entity.SpriteRendererComponent.SpriteRUID}, function()
 			local clip = _ResourceService:LoadAnimationClipAndWait(self.Entity.SpriteRendererComponent.SpriteRUID)
 			local firstFrameSprite = clip.Frames[1].FrameSprite
@@ -41,12 +67,81 @@ script MonsterAttack extends AttackComponent
 			self.SpriteSize = firstSpriteSizeInPixel / ppu
 			self.PositionOffset = (firstSpriteSizeInPixel / 2 - firstFrameSprite.PivotPixel:ToVector2()) / ppu
 		
-			_TimerService:SetTimerRepeat(function()
+			self.attackTimerId = _TimerService:SetTimerRepeat(function()
 				if monster.IsDead == false then
 					self:AttackNear()
 				end
 			end, self.AttackInterval)
 		end)
+	end
+
+	@ExecSpace("ServerOnly")
+	method void OnEndPlay()
+		-- 타이머를 남기면 몬스터가 죽어 사라진 뒤에도 유령 공격이 계속 돈다.
+		-- 원래 이 스크립트에는 정리가 없었다 (PlayerAttack은 처음부터 있었다).
+		if self.attackTimerId ~= 0 then
+			_TimerService:ClearTimer(self.attackTimerId)
+			self.attackTimerId = 0
+		end
+	end
+
+	method string ClipForState(string stateName)
+		-- 상태 이름 → ActionSheet 키 → 클립 RUID. 자세를 푼 뒤 되돌릴 그림을 찾는다.
+		-- 매핑은 엔진의 StateStringToAnimationKey 기본값과 같다 (animation-state.md 6a).
+		local anim = self.Entity.StateAnimationComponent
+		if not isvalid(anim) then return "" end
+
+		local key = "stand"
+		if stateName == "MOVE" then key = "move"
+		elseif stateName == "HIT" then key = "hit"
+		elseif stateName == "DEAD" then key = "die"
+		elseif stateName == "ATTACK" then key = "attack" end
+
+		local ruid = anim.ActionSheet[key]
+		if ruid == nil then return "" end
+		return ruid
+	end
+
+	@ExecSpace("ServerOnly")
+	method void PlayAttackPose()
+		-- 공격 클립을 잠깐 보여 준다. 데미지와 무관한 연출 전용 경로다.
+		--
+		-- ⚠ 여기는 상태머신을 쓰지 않는다. 원래 ChangeState("ATTACK")로 만들었는데
+		--   **AIChaseComponent가 0.1초 안에 되돌린다.** 실측:
+		--       ATTACK 건 뒤 0.1초 간격 12회 → ATTACK IDLE IDLE IDLE ...
+		--   AIChase는 매 프레임 자기 BT를 돌려 IDLE/MOVE를 다시 쓰기 때문에,
+		--   상태로 건 공격 자세는 한두 프레임 만에 사라져 화면에 안 보인다.
+		--   그래서 SpriteRUID를 직접 갈아끼우는 방식(animation-state.md 0의 Pattern A)으로
+		--   우회한다. 상태를 안 건드리므로 AIChase와 싸우지 않는다.
+		local sc = self.Entity.StateComponent
+		if isvalid(sc) and sc.CurrentStateName == "DEAD" then return end
+
+		local sprite = self.Entity.SpriteRendererComponent
+		if not isvalid(sprite) then return end
+
+		local attackRuid = self:ClipForState("ATTACK")
+		if attackRuid == "" then return end
+		if self.poseUntil > 0 then return end   -- 이미 공격 자세 중이면 겹쳐 걸지 않는다
+
+		self.poseUntil = 1
+		sprite.SpriteRUID = attackRuid
+
+		if self.poseLogLeft > 0 then
+			self.poseLogLeft = self.poseLogLeft - 1
+			log("[MonsterAttack] 공격 모션 재생 (" .. tostring(self.Entity.Name)
+				.. ")  상태=" .. tostring(isvalid(sc) and sc.CurrentStateName or "?"))
+		end
+
+		_TimerService:SetTimerOnce(function()
+			self.poseUntil = 0
+			if not isvalid(self.Entity) then return end
+			local sp = self.Entity.SpriteRendererComponent
+			if not isvalid(sp) then return end
+			-- 지금 상태에 맞는 그림으로 되돌린다. 자세 중에 죽었으면 die가 이긴다.
+			local cur = isvalid(sc) and sc.CurrentStateName or "IDLE"
+			local back = self:ClipForState(cur)
+			if back ~= "" then sp.SpriteRUID = back end
+		end, self.AttackPoseSeconds)
 	end
 
 	method void AttackNear()
@@ -66,6 +161,18 @@ script MonsterAttack extends AttackComponent
 		end
 		
 		self:AttackFast(self.Shape, nil, CollisionGroups.Player)
+	end
+
+	method void OnAttack(Entity defender)
+		-- 실제로 뭔가를 맞혔을 때만 불린다. 공격 모션을 여기에 거는 이유다.
+		--
+		-- AttackNear 쪽에 걸었더니 몬스터가 **허공에 계속 공격 모션**을 했다.
+		-- 이 스크립트의 타이머는 플레이어가 근처에 있든 없든 0.5초마다 AttackFast를
+		-- 쏘기 때문이다 (사거리 판정은 Shape 겹침이 대신한다). 실측 로그에서
+		-- 스폰 직후부터 슬라임 3마리가 쉬지 않고 ATTACK으로 전환됐다.
+		--
+		-- ⚠ 부모 AttackComponent.OnAttack에는 @ExecSpace가 없다. 붙이면 LEA-3014다.
+		self:PlayAttackPose()
 	end
 
 	method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
