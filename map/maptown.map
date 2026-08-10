@@ -1166,7 +1166,7 @@
       {
         "id": "1aa865ba-498f-4b5a-bf0b-4ddb594470cf",
         "path": "/maps/maptown/Portal_E",
-        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.RoomPortal",
+        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.TownGate",
         "jsonString": {
           "name": "Portal_E",
           "path": "/maps/maptown/Portal_E",
@@ -1236,12 +1236,10 @@
               }
             },
             {
-              "@type": "script.RoomPortal",
+              "@type": "script.TownGate",
               "Enable": true,
-              "openRUID": "1507704072384d8ba4dc1d73c02ba92b",
-              "lockedRUID": "0cad726e623d4a3994c36fb3f7473841",
-              "locked": false,
-              "direction": "east"
+              "AskEvenWhenSingle": false,
+              "arriveInset": 2.5
             }
           ],
           "@version": 1,

@@ -49,6 +49,20 @@ script RoomPortal extends Component
     property number visualInterval = 0.5
 
     method void OnBeginPlay()
+        -- 같은 엔티티에 TownGate가 있으면 **마을 문이 이긴다** — 여기서 통째로 물러난다.
+        --
+        -- 왜 필요한가: 마을 동쪽 문은 RoomPortal을 떼고 TownGate를 붙인 자리다. 그런데
+        -- Maker는 .map에서 스크립트 컴포넌트를 **지운 것을 refresh로 반영하지 않는다**
+        -- (추가는 반영된다). 그래서 파일에는 없는 RoomPortal이 런타임에 살아남아
+        --   ① 프로퍼티가 기본값으로 초기화돼 openRUID가 ""가 되고 → 포탈이 안 보이고
+        --   ② TriggerEnter를 같이 물어 TownGate보다 먼저 플레이어를 보내 버린다.
+        -- 파일을 고치는 것만으로는 이 설치본에서 못 고치므로 코드로 막는다. (T12-3 실측)
+        if self.Entity:GetComponent("script.TownGate") ~= nil then
+            log_warning("[RoomPortal] 같은 엔티티에 TownGate가 있어 물러난다: "
+                .. self.Entity.Name)
+            return
+        end
+
         -- 스프라이트는 양쪽에서 각자 세팅한다 (렌더러는 클라 소유).
         self:RefreshVisual()
 

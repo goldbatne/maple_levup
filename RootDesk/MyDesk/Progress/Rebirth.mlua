@@ -234,7 +234,21 @@ script Rebirth extends Logic
             elseif r.reward_type == "area" then
                 if slots.UnlockedAreas[r.reward_value] == nil then
                     slots.UnlockedAreas[r.reward_value] = 1
-                    log("[Rebirth] 랜드마크 Lv" .. key .. " — 구역 개방 [" .. r.reward_value .. "]")
+
+                    -- 이름은 AreaTable이 갖고 있다. 없으면 id라도 보여준다 —
+                    -- 조용히 넘어가면 "뭔가 열렸는데 뭔지 모르는" 상태가 된다.
+                    local area = _GameData:GetArea(r.reward_value)
+                    local areaName = r.reward_value
+                    if area ~= nil and area.name ~= "" then areaName = area.name end
+
+                    log("[Rebirth] 랜드마크 Lv" .. key .. " — 구역 개방 [" .. areaName .. "]")
+
+                    -- 당사자에게 알린다. 새 지역이 열린 건 회차의 보상이라
+                    -- 로그에만 남기면 플레이어는 알 길이 없다 (T12-3).
+                    local pc = slots.Entity.PlayerComponent
+                    if isvalid(pc) then
+                        self:NoticeAreaUnlocked(areaName, pc.UserId)
+                    end
                 end
 
             elseif r.reward_type == "slot" then
@@ -254,6 +268,19 @@ script Rebirth extends Logic
                 log_warning("[Rebirth] 알 수 없는 랜드마크 보상 종류: " .. tostring(r.reward_type))
             end
         end
+    end
+
+    @ExecSpace("Client")
+    method void NoticeAreaUnlocked(string areaName)
+        -- 새 지역이 열렸음을 당사자에게 알린다.
+        --
+        -- 대상 userId는 선언부가 아니라 호출부 마지막 인자다. 선언에 넣으면
+        -- [LEA-3032]가 난다 (PlayerHit.OnDied와 같은 규칙).
+        --
+        -- GateNotice.ShowNotice는 로그를 남기지 않는다. 여기서 한 줄 남겨야
+        -- "RPC가 클라까지 왔는지"를 로그로 확인할 수 있다 (T12-3 검증에서 필요했다).
+        log("[Rebirth] 지역 해금 알림 — " .. areaName)
+        _GateNotice:ShowNotice("새 지역이 열렸다", areaName .. " — 마을 동쪽 문에서 갈 수 있다")
     end
 
     ---------------------------------------------------------------
