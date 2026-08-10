@@ -32,6 +32,7 @@ script GameDataVerify extends Logic
         self:VerifyRooms()
         self:VerifyJobs()
         self:VerifyLandmarks()
+        self:VerifyAreas()
         self:VerifySaveSchema()
         log("========== T0 데이터 검증 끝 ==========")
     end
@@ -157,6 +158,61 @@ script GameDataVerify extends Logic
             end
             log("  [직업] " .. id .. " " .. job.name .. " 시작직업=" .. tostring(job.is_starter)
                 .. " 전용스킬=[" .. names .. "] 계승=" .. job.inherit_skill_id)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void VerifyAreas()
+        -- 지역 테이블 (T12). 마을 게이트가 여기를 읽어 목록을 만든다.
+        --
+        -- 특히 세 가지가 조용히 어긋날 수 있어서 전부 대조한다:
+        --   ① 진입 방이 실재하는가 (오타 하나면 게이트가 빈 곳으로 보낸다)
+        --   ② 랜드마크가 주는 area 보상이 AreaTable에 있는가 (없으면 해금해도 갈 데가 없다)
+        --   ③ 방의 area_id가 AreaTable에 있는가
+        local ids = _GameData:GetOrderedAreaIds()
+        log("[지역] 총 " .. tostring(#ids) .. "개")
+
+        for i = 1, #ids do
+            local area = _GameData:GetArea(ids[i])
+            local entryText = area.entry_room_id
+            if entryText == "" then
+                entryText = "(진입 방 미정 — 마을 게이트 목록에서 건너뛴다)"
+            else
+                local entry = _GameData:GetRoom(area.entry_room_id)
+                if entry == nil then
+                    log_error("  [지역] " .. area.id .. " 의 진입 방이 없다: " .. area.entry_room_id)
+                    entryText = area.entry_room_id .. " (없는 방!)"
+                else
+                    entryText = area.entry_room_id .. " " .. entry.name
+                end
+            end
+            log("  [지역] " .. area.id .. " " .. area.name
+                .. "  진입=" .. entryText
+                .. "  기본해금=" .. tostring(area.default_unlocked)
+                .. "  순서=" .. tostring(area.sort_order))
+        end
+
+        -- ② 랜드마크의 area 보상이 실재하는 지역인가
+        local cap = _GameData:GetBalance("initial_level_cap")
+        local rewards = _GameData:GetLandmarksAtLevel(cap)
+        for i = 1, #rewards do
+            if rewards[i].reward_type == "area" then
+                if _GameData:GetArea(rewards[i].reward_value) == nil then
+                    log_error("  [지역] 랜드마크가 없는 지역을 준다: " .. rewards[i].reward_value)
+                else
+                    log("  [지역] 랜드마크 Lv" .. tostring(cap) .. " → "
+                        .. rewards[i].reward_value .. " 해금 (AreaTable에 있음)")
+                end
+            end
+        end
+
+        -- ③ 방의 area_id 대조
+        local roomIds = _GameData:GetAllRoomIds()
+        for i = 1, #roomIds do
+            local room = _GameData:GetRoom(roomIds[i])
+            if room.area_id ~= "" and _GameData:GetArea(room.area_id) == nil then
+                log_error("  [지역] 방 " .. room.id .. " 이 없는 지역을 가리킨다: " .. room.area_id)
+            end
         end
     end
 
