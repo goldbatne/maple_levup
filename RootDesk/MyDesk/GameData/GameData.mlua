@@ -20,9 +20,11 @@ script GameData extends Logic
     property table landmarks = {}   -- level(number) -> 보상 레코드 배열
     property table roomsByMap = {}  -- mapName(string) -> roomId(string) 역인덱스
     property string startRoomId = ""  -- is_start가 켜진 방. 환생 복귀 지점 (T7)
+    property table areas = {}       -- id(string)    -> 지역 레코드 (T12)
+    property table areaOrder = {}   -- sort_order로 정렬된 지역 id 배열
 
     method void OnBeginPlay()
-        -- 월드 세션 시작 시 6개 데이터셋을 한 번만 읽어 캐시한다.
+        -- 월드 세션 시작 시 7개 데이터셋을 한 번만 읽어 캐시한다.
         self:LoadAll()
     end
 
@@ -74,13 +76,14 @@ script GameData extends Logic
     ---------------------------------------------------------------
 
     method void LoadAll()
-        -- 6개 데이터셋을 캐시한다. 하나가 없어도 나머지는 계속 로드한다.
+        -- 7개 데이터셋을 캐시한다. 하나가 없어도 나머지는 계속 로드한다.
         self:LoadBalance()
         self:LoadSkills()
         self:LoadMonsters()
         self:LoadRooms()
         self:LoadJobs()
         self:LoadLandmarks()
+        self:LoadAreas()
         self.IsLoaded = true
     end
 
@@ -185,6 +188,9 @@ script GameData extends Logic
                     -- room_type을 "start"로 쓰지 않는 이유: 시작방도 사냥방일 수 있어
                     -- "어떤 방인가"와 "시작점인가"는 다른 축이다.
                     is_start = self:ToBoolean(row:GetItem("is_start")),
+                    -- 이 방이 속한 지역 (T12-1). 마을처럼 어느 지역에도 안 속하는
+                    -- 허브는 비워 둔다 — 마을은 지역 이동의 출발점이지 목적지가 아니다.
+                    area_id = self:ToText(row:GetItem("area_id")),
                 }
                 -- 맵 이름 → 방 역인덱스. 플레이어가 어느 맵에 있는지로 방을 찾을 때 쓴다.
                 local mapName = self:ToText(row:GetItem("map_name"))
@@ -202,6 +208,50 @@ script GameData extends Logic
                         self.startRoomId = id
                     end
                 end
+            end
+        end
+    end
+
+    method void LoadAreas()
+        -- 지역 테이블 (T12). 마을 게이트가 "어디로 갈 수 있나"를 여기서 읽는다.
+        --
+        -- 방(RoomTable)과 따로 두는 이유: 지역은 방의 묶음이라 이름·진입점·순서가
+        -- 방 단위 속성이 아니다. RoomTable에 area_name 컬럼을 넣으면 같은 이름이
+        -- 방 개수만큼 중복되고, 한 곳만 고치면 조용히 어긋난다.
+        local dataSet = self:GetDataSet("AreaTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local id = self:ToText(row:GetItem("id"))
+            if id ~= "" then
+                self.areas[id] = {
+                    id = id,
+                    name = self:ToText(row:GetItem("name")),
+                    -- 그 지역에 들어갈 때 도착하는 방. 마을 게이트의 목적지다.
+                    -- 아직 방을 안 만든 지역은 비어 있을 수 있다 — 그 경우 게이트가
+                    -- 목록에서 건너뛴다 (조용히 빈 곳으로 보내는 것보다 낫다).
+                    entry_room_id = self:ToText(row:GetItem("entry_room_id")),
+                    -- 조건 없이 처음부터 열려 있는 지역. 시작 지역이 여기 해당한다.
+                    -- 나머지는 랜드마크 area 보상으로 UnlockedAreas에 쌓인다.
+                    default_unlocked = self:ToBoolean(row:GetItem("default_unlocked")),
+                    sort_order = self:ToNumber(row:GetItem("sort_order"), 0),
+                }
+                -- sort_order 오름차순으로 꽂아 넣는다. 마을 게이트 목록이 CSV 행
+                -- 순서에 휘둘리지 않게 하려는 것.
+                --
+                -- table.sort에 비교 함수를 넘기지 않는 이유: 이 워크스페이스의 다른
+                -- 코드는 전부 인자 없는 table.sort(ids) 형태만 쓴다. 비교 함수를
+                -- 넘겼더니 GameData Logic 자체가 등록되지 않아(_GameData가 nil)
+                -- 게임 전체가 멈췄다. 지역 수는 한 자릿수라 삽입 정렬로 충분하다.
+                local pos = #self.areaOrder + 1
+                for k = 1, #self.areaOrder do
+                    if self.areas[id].sort_order < self.areas[self.areaOrder[k]].sort_order then
+                        pos = k
+                        break
+                    end
+                end
+                table.insert(self.areaOrder, pos, id)
             end
         end
     end
@@ -294,6 +344,28 @@ script GameData extends Logic
     method table GetJob(string id)
         -- 직업 레코드. 없으면 nil.
         return self.jobs[id]
+    end
+
+    method table GetArea(string id)
+        -- 지역 레코드. 없으면 nil.
+        return self.areas[id]
+    end
+
+    method table GetOrderedAreaIds()
+        -- AreaTable의 지역 id를 sort_order 순서로. 마을 게이트가 목록을 그릴 때 쓴다.
+        --
+        -- ⚠ 아래쪽의 GetAllAreaIds와 헷갈리지 말 것. 그쪽은 T7 저장 시스템이
+        --   rebirth 게이트와 랜드마크 보상에서 구역 키를 **긁어모으는** 함수고,
+        --   이건 AreaTable이라는 정식 출처를 **순서대로 읽는** 함수다.
+        --   처음에 같은 이름으로 만들었다가 멤버 중복으로 GameData Logic 자체가
+        --   등록되지 않아(_GameData가 nil) 게임 전체가 멈췄다.
+        --
+        -- 사본을 준다 — 호출부가 정렬 결과를 흐트러뜨리면 다음 호출이 달라진다.
+        local out = {}
+        for i = 1, #self.areaOrder do
+            table.insert(out, self.areaOrder[i])
+        end
+        return out
     end
 
     method table GetLandmarksAtLevel(number level)
