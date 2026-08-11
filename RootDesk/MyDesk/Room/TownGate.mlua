@@ -1,0 +1,164 @@
+-- @서버 (어디로 갈 수 있는지 판정하고 보내는 건 서버 권한. 클라는 목록을 그리기만 한다)
+--
+-- 마을의 동쪽 문. 지역(area) 단위 이동의 유일한 출입구다.
+--
+-- RoomPortal과 따로 만든 이유:
+--   RoomPortal은 "이 방향의 옆방"으로 보내는 고정 목적지 포탈이다. 마을 문은
+--   목적지가 **고를 수 있는 목록**이라 성격이 다르다. 한 컴포넌트에 두 동작을
+--   넣으면 트리거 핸들러가 둘 다 붙어 서로 먼저 보내려고 싸운다.
+--   그래서 마을 포탈에서는 RoomPortal을 떼고 이걸 붙인다.
+--
+-- 잠금 표시가 없는 이유: 마을 문은 잠기지 않는다. 못 가는 지역은 문이 잠기는 게
+-- 아니라 **목록에 뜨지 않는다**. 그게 이 설계의 잠금 방식이다 (환생 게이트를
+-- 따로 두지 않는 이유이기도 하다).
+
+@Component
+script TownGate extends Component
+
+    -- 갈 수 있는 곳이 하나뿐일 때 선택 창을 띄울지. 기본은 끔 —
+    -- 1회차 내내 목록 하나짜리 창을 매번 보는 건 번거롭다 (대표 결정, T12-3).
+    property boolean AskEvenWhenSingle = false
+
+    -- 도착 시 포탈에서 안쪽으로 물러나는 거리. RoomPortal.arriveInset과 같은 이유다 —
+    -- 문 위에 내려놓으면 트리거가 즉시 다시 발동해 왕복한다.
+    property number arriveInset = 2.5
+
+    @HideFromInspector property any enterHandler = nil
+
+    method void OnBeginPlay()
+        -- 진입 감지와 이동은 서버만.
+        if self:IsServer() then
+            self.enterHandler = self.Entity:ConnectEvent(TriggerEnterEvent, self.OnTriggerEnter)
+        end
+    end
+
+    method void OnEndPlay()
+        -- 핸들러를 남기면 맵을 다시 열 때 중복으로 붙는다.
+        if self.enterHandler ~= nil then
+            self.Entity:DisconnectEvent(TriggerEnterEvent, self.enterHandler)
+            self.enterHandler = nil
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method table ListOpenAreas(Entity player)
+        -- 이 플레이어가 지금 갈 수 있는 지역 목록. 순서는 AreaTable의 sort_order.
+        --
+        -- 두 가지를 모두 만족해야 목록에 든다:
+        --   1. 해금됐는가        — PlayerSkillSlots.IsAreaUnlocked (판정의 유일한 창구)
+        --   2. 갈 곳이 있는가    — entry_room_id가 실재하는 방인가
+        -- 2를 빼먹으면 아직 방을 안 만든 지역으로 보내 빈 곳에 떨어뜨린다.
+        local out = {}
+
+        ---@type PlayerSkillSlots
+        local slots = player:GetComponent("script.PlayerSkillSlots")
+        if slots == nil then return out end
+
+        local ids = _GameData:GetOrderedAreaIds()
+        for i = 1, #ids do
+            local area = _GameData:GetArea(ids[i])
+            if area ~= nil and slots:IsAreaUnlocked(area.id) then
+                if area.entry_room_id == "" then
+                    -- 해금은 됐는데 방이 아직 없다. 조용히 빼면 "왜 안 뜨지"가 되므로 남긴다.
+                    log_warning("[TownGate] " .. area.id
+                        .. " 는 해금됐지만 entry_room_id가 비어 있어 건너뛴다")
+                elseif _GameData:GetRoom(area.entry_room_id) == nil then
+                    log_error("[TownGate] " .. area.id .. " 의 진입 방이 없다: "
+                        .. area.entry_room_id)
+                else
+                    table.insert(out, area.id)
+                end
+            end
+        end
+        return out
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnTriggerEnter(TriggerEnterEvent event)
+        -- 플레이어가 문에 닿았다. 갈 수 있는 곳을 세어 바로 보낼지 물어볼지 정한다.
+        local player = event.TriggerBodyEntity
+        if player == nil or not isvalid(player.PlayerComponent) then return end
+
+        local open = self:ListOpenAreas(player)
+
+        if #open == 0 then
+            log_warning("[TownGate] 갈 수 있는 지역이 하나도 없다 — AreaTable을 확인할 것")
+            return
+        end
+
+        if #open == 1 and not self.AskEvenWhenSingle then
+            -- 하나뿐이면 바로 보낸다 (대표 결정).
+            self:SendToArea(player, open[1])
+            return
+        end
+
+        -- 둘 이상이면 고르게 한다. 실제 이동은 선택을 받은 뒤 서버가 한다.
+        self:OpenSelect(player, open)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OpenSelect(Entity player, table areaIds)
+        -- 선택 창에 넘길 목록을 만든다. 클라에는 id와 이름만 보낸다 —
+        -- 방 정보까지 넘길 이유가 없고, 목적지 결정은 서버가 다시 한다.
+        local ids = ""
+        local names = ""
+        for i = 1, #areaIds do
+            local area = _GameData:GetArea(areaIds[i])
+            if i > 1 then
+                ids = ids .. "|"
+                names = names .. "|"
+            end
+            ids = ids .. areaIds[i]
+            names = names .. (area ~= nil and area.name or areaIds[i])
+        end
+
+        log("[TownGate] 선택 창 — " .. tostring(#areaIds) .. "곳: " .. names)
+        self:ShowSelect(ids, names, player.PlayerComponent.UserId)
+    end
+
+    @ExecSpace("Client")
+    method void ShowSelect(string idsJoined, string namesJoined)
+        -- 파이프로 이어 보낸다. table을 그대로 넘기는 것도 되지만, 이 프로젝트가
+        -- CSV에서 이미 파이프 구분을 쓰고 있어 형태를 맞춘다 (GameData.SplitIds).
+        _AreaSelectPanel:Show(idsJoined, namesJoined)
+    end
+
+    @ExecSpace("Server")
+    method void RequestGo(string areaId)
+        -- 클라가 고른 결과. **여기서 다시 판정한다** — 클라가 보낸 areaId를
+        -- 그대로 믿으면 목록에 없던 지역으로도 갈 수 있다.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if player == nil then return end
+
+        local open = self:ListOpenAreas(player)
+        for i = 1, #open do
+            if open[i] == areaId then
+                self:SendToArea(player, areaId)
+                return
+            end
+        end
+        log_warning("[TownGate] 갈 수 없는 지역 요청을 막았다: " .. tostring(areaId)
+            .. " (user " .. tostring(senderUserId) .. ")")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SendToArea(Entity player, string areaId)
+        -- 지역의 진입 방으로 보낸다.
+        local area = _GameData:GetArea(areaId)
+        if area == nil then return end
+
+        local room = _GameData:GetRoom(area.entry_room_id)
+        if room == nil then
+            log_error("[TownGate] 진입 방이 없다: " .. tostring(area.entry_room_id))
+            return
+        end
+
+        -- 문 바로 위가 아니라 안쪽에 내려놓는다. 도착지의 서쪽 포탈과 겹치면
+        -- 즉시 되돌아온다 (RoomPortal이 겪었던 왕복 버그와 같은 원인).
+        local x = -13 + self.arriveInset
+        log("[TownGate] " .. tostring(player.Name) .. " → " .. area.name
+            .. " (" .. room.id .. " / " .. room.map_name .. ")")
+        _TeleportService:TeleportToMapPosition(player, Vector3(x, 1, 0), room.map_name)
+    end
+
+end

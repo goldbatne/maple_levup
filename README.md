@@ -45,19 +45,23 @@ RootDesk/MyDesk/
                  Rebirth.mlua ........ 환생 판정/실행/랜드마크 (@Logic)
                  ProgressLog.mlua .... 진행 로깅 5종 (@Logic)
   Room/          RoomPortal / RoomGate / RoomSpawner / RoomCamera / ReturnPortal
+                 TownGate.mlua ....... 마을 동쪽 문 = **지역(area) 이동의 유일한 출입구**
+                                       갈 수 있는 곳 1곳이면 바로, 2곳 이상이면 선택 창
                  PortalGuard.mlua .... 포탈 재진입 방지
-                 RebirthNpc.mlua ..... 시작방 환생 NPC
+                 RebirthNpc.mlua ..... 마을 환생 NPC
   Save/          PlayerDBManager.mlua  로드·저장·스로틀 (@Component)
                  SaveRunData / SavePermanentData (@Struct — 회차/영구 분리)
   UI/            StatPanel / SkillBar / EquipPanel / GateNotice / RebirthHud / RebirthConfirmPanel
+                 PlayerHud.mlua ...... 상시 HP·EXP·레벨
+                 AreaSelectPanel.mlua  마을 게이트의 지역 선택 창
   PlayerAttack.mlua ... 자동 공격 + **어느 스탯으로 때릴지 고르는 곳** (CalcDamage)
   PlayerHit.mlua ...... HP 차감 · 사망 → 시작방 · i-frame
   MonsterAttack.mlua .. 몬스터 → 플레이어 공격 + DEF 감쇄
                         ↑ 셋 다 MSW 샘플 유래라 루트에 있다 (폴더로 옮기지 않았다)
   Models/        Monsters(4) · Terrain(2) · Npc(1)
 
-map/    map01~map05 (RectTile 탑다운, TileMapMode = 1)
-ui/     9개
+map/    maptown(마을) + map01~map05 (전부 RectTile 탑다운, TileMapMode = 1)
+ui/     11개
 Global/ DefaultPlayer.model 등 — 엔진 기본. 새 파일을 만들지 말 것
 ```
 
@@ -93,18 +97,23 @@ Global/ DefaultPlayer.model 등 — 엔진 기본. 새 파일을 만들지 말 �
 
 ### 방 1개 추가
 
-1. `GameData/RoomTable.csv`에 행 추가. 컬럼 15개는 이렇다:
+1. `GameData/RoomTable.csv`에 행 추가. 컬럼 16개는 이렇다:
 
    ```
    id, name, room_type, conn_north, conn_south, conn_east, conn_west,
    gate_type, gate_key, gate_value, map_name,
-   monster_id, monster_count, monster_level, is_start
+   monster_id, monster_count, monster_level, is_start, area_id
    ```
 
-   - `room_type` = `hunt` / `gate` / `boss`. **`boss`면 회차당 1마리만 스폰**된다.
+   - `room_type` = `hunt` / `gate` / `boss` / `town`.
+     **`boss`면 회차당 1마리만 스폰**된다.
+   - `area_id` = 이 방이 속한 지역(`AreaTable.csv`). 마을은 어느 지역에도 속하지
+     않으므로 비워 둔다. 값이 있으면 `GameDataVerify`가 AreaTable에 있는지 확인한다.
    - `monster_level` — **비워 두면 `MonsterTable`의 기본 레벨을 그대로 쓴다**(0으로 읽힌다).
      값을 넣으면 그 레벨로 HP·DEF·EXP·ATK를 다시 계산한다.
    - `is_start` = 시작방(사망·환생 시 돌아오는 곳). 하나만 `true`.
+     지금은 **마을(`r_town`)**이 그 방이다. 이 한 칸을 옮기면 사망 복귀·환생 복귀·
+     보스방 귀환 포탈 셋이 코드 수정 없이 같이 따라간다.
    - **연결은 양방향으로** — 새 방의 `conn_west`에 `r_04`를 넣었으면
      `r_04`의 `conn_east`에도 새 방을 넣어야 한다.
      `GameDataVerify`가 기동 시 `깨진 연결 N개`로 잡아 준다.
@@ -132,6 +141,24 @@ Global/ DefaultPlayer.model 등 — 엔진 기본. 새 파일을 만들지 말 �
 
 6. 게이트를 걸려면 `gate_type`에 `stat` / `key` / `rebirth` 중 하나 + `gate_key`·`gate_value`.
    판정 코드는 이미 3종 모두 있다 — 데이터만 채우면 된다.
+
+### 지역 1개 추가
+
+방은 지역(area) 단위로 묶이고, **마을 동쪽 문(`maptown/Portal_E`, `script.TownGate`)이
+지역 이동의 유일한 출입구**다. 잠긴 지역은 문이 잠기는 게 아니라 **목록에 뜨지 않는다.**
+
+1. `GameData/AreaTable.csv`에 행 추가 — `id, name, entry_room_id, default_unlocked, sort_order, note`.
+   `entry_room_id`는 그 지역의 첫 방. **비워 두면 해금돼 있어도 목록에서 빠진다**
+   (경고 로그가 남는다). 방을 다 만든 뒤에 채우는 것을 전제로 한 동작이다.
+2. 그 지역의 방들을 위 "방 1개 추가"대로 만들고 `area_id`에 지역 id를 넣는다.
+3. 해금 조건을 건다. 지금 있는 축은 **랜드마크 보상**(`LandmarkTable`의 `reward_type=area`)
+   하나다. 환생 처리(`Progress/Rebirth.mlua`)가 `PlayerSkillSlots.UnlockedAreas`에 기록하고
+   당사자에게 `GateNotice`로 알린다.
+4. 진입 판정을 새로 짜지 말 것. **`PlayerSkillSlots:IsAreaUnlocked(areaId)` 하나만 쓴다** —
+   서버·클라 양쪽에서 같은 답이 나오도록 `@ExecSpace`를 붙이지 않은 함수다.
+
+⚠ 마을 문 엔티티에는 `script.RoomPortal`을 붙이지 말 것. 둘 다 붙으면 트리거를 같이 물어
+서로 먼저 보내려고 싸운다. (안전장치로 RoomPortal이 스스로 물러나지만, 애초에 붙이지 않는다.)
 
 ### 수치 하나 바꾸기
 
