@@ -259,6 +259,20 @@ script PlayerStats extends Component
         return base + self.StatLuk * perPoint
     end
 
+    method number GetAllocatedTotal()
+        -- 지금까지 **분배한** 포인트의 총합. 기본값(10/10/10/0)은 포함하지 않는다.
+        --
+        -- 수치 게이트가 쓴다 (RoomGate, gate_key = STAT_TOTAL). 어디에 넣었는지를
+        -- 묻지 않으므로 어떤 빌드든 같은 시점에 문이 열린다 — 2·3스탯 빌드나
+        -- 올스탯 빌드가 불리해지지 않게 하려는 결정이다 (대표 지시 2026-08-12).
+        --
+        -- ⚠ 이 값은 사실상 레벨이다: 레벨당 5P이므로
+        --      총합 = 5 x (레벨 - 1) - 미분배 포인트
+        --   레벨 게이트와 다른 점은 **미분배로 쌓아 둔 포인트는 쳐주지 않는다**는 것
+        --   하나뿐이다. 즉 "레벨을 올렸는가"가 아니라 "올리고 실제로 찍었는가"를 묻는다.
+        return self.StatAtk + self.StatInt + self.StatDef + self.StatLuk
+    end
+
     method number GetCaptureRate()
         -- 포획 확률 = 기본 + LUK x LUK당 보정 (기획서 4.8).
         local base = _GameData:GetBalance("capture_base_rate")
