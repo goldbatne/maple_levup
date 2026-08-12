@@ -1177,10 +1177,22 @@
           "displayOrder": 4,
           "pathConstraints": "///",
           "revision": 1,
+          "origin": {
+            "type": "Model",
+            "entry_id": "roomportal",
+            "sub_entity_id": null,
+            "root_entity_id": "1aa865ba-498f-4b5a-bf0b-4ddb594470cf",
+            "replaced_model_id": null
+          },
           "modelId": "roomportal",
           "@components": [
             {
               "@type": "MOD.Core.TransformComponent",
+              "Rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
               "Position": {
                 "x": 6,
                 "y": 1,
@@ -1197,24 +1209,27 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
               "@type": "MOD.Core.SpriteRendererComponent",
+              "ActionSheet": {},
+              "DrawMode": 0,
+              "EndFrameIndex": 2147483647,
+              "FlipX": false,
+              "FlipY": false,
+              "OrderInLayer": 2,
+              "PlayRate": 1,
+              "RenderSetting": 0,
               "SpriteRUID": "1507704072384d8ba4dc1d73c02ba92b",
+              "StartFrameIndex": 0,
               "Color": {
                 "r": 1,
                 "g": 1,
                 "b": 1,
                 "a": 1
               },
-              "DrawMode": 0,
-              "FlipX": false,
-              "FlipY": false,
-              "PlayRate": 1,
-              "OrderInLayer": 2,
-              "StartFrameIndex": 0,
-              "EndFrameIndex": 2147483647,
               "Enable": true
             },
             {
@@ -1223,17 +1238,16 @@
             },
             {
               "@type": "MOD.Core.TriggerComponent",
-              "Enable": true,
               "BoxSize": {
-                "$type": "MOD.Core.MODVector2, MOD.Core",
                 "x": 3,
                 "y": 3
               },
               "ColliderOffset": {
-                "$type": "MOD.Core.MODVector2, MOD.Core",
                 "x": 0,
                 "y": 0
-              }
+              },
+              "IsLegacy": true,
+              "Enable": true
             },
             {
               "@type": "script.TownGate",
@@ -1242,14 +1256,7 @@
               "arriveInset": 2.5
             }
           ],
-          "@version": 1,
-          "origin": {
-            "type": "Model",
-            "entry_id": "roomportal",
-            "sub_entity_id": null,
-            "root_entity_id": "1aa865ba-498f-4b5a-bf0b-4ddb594470cf",
-            "replaced_model_id": null
-          }
+          "@version": 1
         }
       },
       {
@@ -1266,10 +1273,22 @@
           "displayOrder": 5,
           "pathConstraints": "///",
           "revision": 1,
+          "origin": {
+            "type": "Model",
+            "entry_id": "rebirthnpc",
+            "sub_entity_id": null,
+            "root_entity_id": "e79e977e-747f-431d-a572-7c23a6dcfb06",
+            "replaced_model_id": null
+          },
           "modelId": "rebirthnpc",
           "@components": [
             {
               "@type": "MOD.Core.TransformComponent",
+              "Rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
               "Position": {
                 "x": -5,
                 "y": 3,
@@ -1286,48 +1305,43 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
               "@type": "MOD.Core.SpriteRendererComponent",
+              "ActionSheet": {},
+              "DrawMode": 0,
+              "EndFrameIndex": 2147483647,
+              "FlipX": false,
+              "FlipY": false,
+              "OrderInLayer": 2,
+              "PlayRate": 1,
+              "RenderSetting": 0,
               "SpriteRUID": "8a4086d22bff4c92b75c83916aaf78fd",
+              "StartFrameIndex": 0,
               "Color": {
                 "r": 1,
                 "g": 1,
                 "b": 1,
                 "a": 1
               },
-              "DrawMode": 0,
-              "FlipX": false,
-              "FlipY": false,
-              "PlayRate": 1,
-              "OrderInLayer": 2,
-              "StartFrameIndex": 0,
-              "EndFrameIndex": 2147483647,
               "Enable": true
             },
             {
               "@type": "MOD.Core.TouchReceiveComponent",
-              "Enable": true,
               "TouchArea": {
-                "$type": "MOD.Core.MODVector2, MOD.Core",
                 "x": 1.4,
                 "y": 1.4
-              }
+              },
+              "Enable": true
             },
             {
               "@type": "script.RebirthNpc",
               "Enable": true
             }
           ],
-          "@version": 1,
-          "origin": {
-            "type": "Model",
-            "entry_id": "rebirthnpc",
-            "sub_entity_id": null,
-            "root_entity_id": "e79e977e-747f-431d-a572-7c23a6dcfb06",
-            "replaced_model_id": null
-          }
+          "@version": 1
         }
       }
     ]
