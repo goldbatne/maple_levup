@@ -28,6 +28,26 @@ script SkillBar extends Logic
 
     property number refreshInterval = 0.3
 
+    ---------------------------------------------------------------
+    -- 키보드 입력 (T14-1)
+    ---------------------------------------------------------------
+
+    -- 맨 왼쪽 슬롯부터 순서대로 붙는 키. 쉼표로 구분한다 (대표 지시 2026-08-13).
+    --
+    -- 왜 문자열 한 줄인가: 나중에 키 재설정(T14-2)이 들어오면 저장된 설정으로
+    -- **이 값만 덮어쓰면** 된다. 분기로 흩어 놓으면 재설정할 자리가 없어진다.
+    -- 슬롯은 현재 5개(직업 최대 2 + 몬스터 상한 3)이므로 Z~B까지 쓰이고,
+    -- N·M은 슬롯이 늘면 자동으로 이어 붙는다.
+    property string keyOrder = "Z,X,C,V,B,N,M"
+
+    -- keyOrder를 파싱한 결과. index → KeyboardKey.
+    @HideFromInspector property table keyCodes = {}
+    @HideFromInspector property table keyNames = {}
+    property any keyDownHandler = nil
+
+    -- 버튼 라벨에 키를 함께 보여줄지. 모바일에는 키보드가 없어 자동으로 숨긴다.
+    property boolean showKeyHint = true
+
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         log("[SkillBar] OnBeginPlay")
@@ -38,6 +58,11 @@ script SkillBar extends Logic
         self.handler3 = self.btn3.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(3) end)
         self.handler4 = self.btn4.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(4) end)
         self.handler5 = self.btn5.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(5) end)
+
+        -- 키보드도 같은 Use()로 보낸다. 버튼과 키가 서로 다른 경로를 타면
+        -- 한쪽만 고쳐지는 버그가 난다.
+        self:RebuildKeyMap()
+        self.keyDownHandler = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
 
         self.refreshTimer = _TimerService:SetTimerRepeat(function()
             self:Refresh()
@@ -55,6 +80,62 @@ script SkillBar extends Logic
         if self.handler4 ~= nil then self.btn4.Entity:DisconnectEvent(ButtonClickEvent, self.handler4) end
         if self.handler5 ~= nil then self.btn5.Entity:DisconnectEvent(ButtonClickEvent, self.handler5) end
         if self.refreshTimer ~= nil then _TimerService:ClearTimer(self.refreshTimer) end
+        if self.keyDownHandler ~= nil then
+            _InputService:DisconnectEvent(KeyDownEvent, self.keyDownHandler)
+            self.keyDownHandler = nil
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RebuildKeyMap()
+        -- keyOrder("Z,X,C,V,B,N,M")를 index → KeyboardKey 표로 만든다.
+        -- 키 재설정(T14-2)은 keyOrder를 갈아끼운 뒤 이걸 다시 부르면 된다.
+        self.keyCodes = {}
+        self.keyNames = {}
+        for name in string.gmatch(self.keyOrder, "([^,]+)") do
+            local code = self:KeyCodeOf(name)
+            if code == nil then
+                -- 조용히 건너뛰면 "그 키만 안 먹는다"가 되어 원인을 찾기 어렵다.
+                log_warning("[SkillBar] 모르는 키 이름은 건너뛴다: '" .. name .. "'")
+            else
+                table.insert(self.keyCodes, code)
+                table.insert(self.keyNames, name)
+            end
+        end
+        log("[SkillBar] 키 매핑 " .. tostring(#self.keyCodes) .. "개 — " .. self.keyOrder)
+    end
+
+    @ExecSpace("ClientOnly")
+    method any KeyCodeOf(string name)
+        -- 이름 → KeyboardKey. 열거형을 문자열로 인덱싱하는 API는 확인된 바 없어
+        -- 분기로 적는다 (개발 규칙 4: 존재하지 않는 API 추측 금지).
+        -- 재설정에서 다른 키를 쓰고 싶으면 여기에 한 줄 추가한다.
+        if name == "Z" then return KeyboardKey.Z end
+        if name == "X" then return KeyboardKey.X end
+        if name == "C" then return KeyboardKey.C end
+        if name == "V" then return KeyboardKey.V end
+        if name == "B" then return KeyboardKey.B end
+        if name == "N" then return KeyboardKey.N end
+        if name == "M" then return KeyboardKey.M end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnKeyDown(KeyDownEvent event)
+        -- 눌린 키가 몇 번째 슬롯인지 찾아 버튼과 같은 창구로 보낸다.
+        for i = 1, #self.keyCodes do
+            if self.keyCodes[i] == event.key then
+                self:Use(i)
+                return
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method string KeyNameFor(integer index)
+        -- 버튼 라벨에 붙일 키 이름. 매핑이 없으면 빈 문자열.
+        if index < 1 or index > #self.keyNames then return "" end
+        return self.keyNames[index]
     end
 
     @ExecSpace("ClientOnly")
@@ -118,6 +199,13 @@ script SkillBar extends Logic
                     local skill = _GameData:GetSkill(skillId)
                     local label = skillId
                     if skill ~= nil then label = skill.name end
+
+                    -- 어떤 키인지 보여준다. 수동 조작이라 키를 모르면 슬롯이 있어도
+                    -- 쓸 방법을 알 수 없다. 모바일에는 키보드가 없어 붙이지 않는다.
+                    if self.showKeyHint and Environment:IsPCPlatform() then
+                        local keyName = self:KeyNameFor(i)
+                        if keyName ~= "" then label = label .. " [" .. keyName .. "]" end
+                    end
 
                     -- 쿨다운 중이면 남은 초를 함께 보여준다. 판정은 서버가 하고
                     -- 여기서는 "왜 안 나가는지"만 알린다 (개발 규칙 2).
