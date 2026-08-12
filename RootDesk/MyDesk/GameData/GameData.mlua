@@ -191,6 +191,15 @@ script GameData extends Logic
                     -- 이 방이 속한 지역 (T12-1). 마을처럼 어느 지역에도 안 속하는
                     -- 허브는 비워 둔다 — 마을은 지역 이동의 출발점이지 목적지가 아니다.
                     area_id = self:ToText(row:GetItem("area_id")),
+                    -- 이 방 포탈의 x·y 절대값 (T13-1c). 다른 방에서 **이 방으로** 들어올 때
+                    -- 도착 지점을 여기서 계산한다.
+                    --
+                    -- 왜 데이터로 옮겼는가: RoomPortal이 portalX=13을 상수로 갖고 있어
+                    -- 모든 맵이 28칸 폭이라고 가정했다. 마을(maptown)은 14칸 폭이라
+                    -- r_01에서 서쪽으로 들어오면 x=+10.5, 즉 **타일 밖**에 떨어졌다.
+                    -- 0이면 RoomPortal의 기본값을 쓴다 (기존 맵 5개는 비워 두면 그대로).
+                    portal_x = self:ToNumber(row:GetItem("portal_x"), 0),
+                    portal_y = self:ToNumber(row:GetItem("portal_y"), 0),
                 }
                 -- 맵 이름 → 방 역인덱스. 플레이어가 어느 맵에 있는지로 방을 찾을 때 쓴다.
                 local mapName = self:ToText(row:GetItem("map_name"))
