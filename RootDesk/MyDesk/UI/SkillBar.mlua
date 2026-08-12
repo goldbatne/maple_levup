@@ -50,10 +50,20 @@ script SkillBar extends Logic
     -- 돌아갈 곳이 필요하다 (T14-2b의 "기본값으로 되돌리기").
     @HideFromInspector property string defaultKeyOrder = ""
 
-    -- keyOrder를 파싱한 결과. index → KeyboardKey.
+    -- keyOrder를 파싱한 결과. **슬롯 번호로 색인한다** (빈 슬롯은 구멍이다).
+    -- 구멍이 있으므로 #keyCodes를 쓰면 안 된다 — keySlotCount를 본다.
     @HideFromInspector property table keyCodes = {}
     @HideFromInspector property table keyNames = {}
+    @HideFromInspector property integer keySlotCount = 0
     property any keyDownHandler = nil
+
+    -- 스킬에 걸 수 없는 키 (대표 지시 2026-08-13: "모든 키를 설정할 수 있도록").
+    -- 전부 열어 주되 이동·취소에 쓰이는 것만 막는다. 막지 않으면 스킬을 쏘면서
+    -- 캐릭터가 같이 움직이거나, 창을 닫을 방법이 사라진다.
+    --
+    -- 프로퍼티로 둔 이유: WASD도 이동에 쓰이는지가 아직 확인되지 않았다.
+    -- 그렇다는 게 드러나면 여기에 이름만 더 적으면 된다.
+    property string reservedKeys = "UpArrow,DownArrow,LeftArrow,RightArrow,Escape"
 
     -- 버튼 라벨에 키를 함께 보여줄지. 모바일에는 키보드가 없어 자동으로 숨긴다.
     property boolean showKeyHint = true
@@ -141,43 +151,134 @@ script SkillBar extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method table SplitOrder(string raw)
+        -- 쉼표 분해. **위치를 보존한다** — 빈 칸("Z,,C")은 "키 없는 슬롯"이다.
+        -- gmatch("[^,]+")를 쓰면 빈 칸이 사라져 그 뒤 슬롯 번호가 하나씩 밀린다.
+        -- 밀어내기(대표 지시)로 빈 슬롯이 생길 수 있어서 이게 필요해졌다.
+        -- 끝에 쉼표를 붙이고 "([^,]*)," 로 훑는다. `*`라서 빈 칸도 잡히고,
+        -- 붙인 쉼표 덕에 마지막 칸까지 하나로 처리된다.
+        local out = {}
+        if raw == nil then return out end
+        for field in string.gmatch(raw .. ",", "([^,]*),") do
+            table.insert(out, field)
+        end
+        return out
+    end
+
+    @ExecSpace("ClientOnly")
+    method string Trim(string s)
+        -- 사람이 적은 배치("Z, X")도 받아들인다.
+        if s == nil then return "" end
+        return string.match(s, "^%s*(.-)%s*$")
+    end
+
+    @ExecSpace("ClientOnly")
     method void RebuildKeyMap()
-        -- keyOrder("Z,X,C,V,B,N,M")를 index → KeyboardKey 표로 만든다.
-        -- 키 재설정(T14-2)은 keyOrder를 갈아끼운 뒤 이걸 다시 부르면 된다.
+        -- keyOrder("Z,X,C,V,B,N,M")를 슬롯번호 → KeyboardKey 표로 만든다.
+        -- 키 재설정은 keyOrder를 갈아끼운 뒤 이걸 다시 부르면 된다.
         self.keyCodes = {}
         self.keyNames = {}
-        for name in string.gmatch(self.keyOrder, "([^,]+)") do
-            local code = self:KeyCodeOf(name)
-            if code == nil then
-                -- 조용히 건너뛰면 "그 키만 안 먹는다"가 되어 원인을 찾기 어렵다.
-                log_warning("[SkillBar] 모르는 키 이름은 건너뛴다: '" .. name .. "'")
-            else
-                table.insert(self.keyCodes, code)
-                table.insert(self.keyNames, name)
+
+        local tokens = self:SplitOrder(self.keyOrder)
+        self.keySlotCount = #tokens
+
+        local bound = 0
+        for i = 1, #tokens do
+            local name = self:Trim(tokens[i])
+            if name ~= "" then
+                local code = self:KeyCodeOf(name)
+                if code == nil then
+                    -- 조용히 건너뛰면 "그 키만 안 먹는다"가 되어 원인을 찾기 어렵다.
+                    log_warning("[SkillBar] 모르는 키 이름은 건너뛴다: '" .. name .. "'")
+                elseif self:IsReserved(name) then
+                    log_warning("[SkillBar] 예약된 키는 걸 수 없다: '" .. name .. "'")
+                else
+                    self.keyCodes[i] = code
+                    self.keyNames[i] = name
+                    bound += 1
+                end
             end
         end
-        log("[SkillBar] 키 매핑 " .. tostring(#self.keyCodes) .. "개 — " .. self.keyOrder)
+        log("[SkillBar] 키 매핑 " .. tostring(bound) .. "/" .. tostring(self.keySlotCount)
+            .. "칸 — " .. self.keyOrder)
     end
 
     @ExecSpace("ClientOnly")
     method any KeyCodeOf(string name)
-        -- 이름 → KeyboardKey. 열거형을 문자열로 인덱싱하는 API는 확인된 바 없어
-        -- 분기로 적는다 (개발 규칙 4: 존재하지 않는 API 추측 금지).
-        -- 재설정에서 다른 키를 쓰고 싶으면 여기에 한 줄 추가한다.
-        if name == "Z" then return KeyboardKey.Z end
-        if name == "X" then return KeyboardKey.X end
-        if name == "C" then return KeyboardKey.C end
-        if name == "V" then return KeyboardKey.V end
-        if name == "B" then return KeyboardKey.B end
-        if name == "N" then return KeyboardKey.N end
-        if name == "M" then return KeyboardKey.M end
-        return nil
+        -- 이름 → KeyboardKey. `KeyboardKey.CastFrom(string)`이 열거형에 문서화돼 있다.
+        --
+        -- 실측 (2026-08-13): **대소문자를 구분하고, 모르는 이름은 [LEA-3021]을 던진다**
+        -- (None을 돌려주지 않는다). 그래서 pcall로 감싸 nil로 바꿔 돌려준다.
+        --   CastFrom("Z")        → Z
+        --   CastFrom("z")        → 던짐
+        --   CastFrom("Alpha1")   → Alpha1
+        --   CastFrom("Nonsense") → 던짐
+        --
+        -- 이 덕에 분기를 늘리지 않고 **키보드 전체**를 지원한다 (대표 지시).
+        -- 이름은 열거형 멤버명 그대로다: A~Z / Alpha0~9 / F1~F15 / Keypad0~9 /
+        -- Space / Tab / Semicolon / LeftShift ...
+        if name == nil or name == "" then return nil end
+        -- pcall의 반환값을 하나만 받는다. 둘을 받으면 LSP가
+        -- "'2' values are assigned to '1' variables"로 경고한다 (동작은 같다).
+        local code = nil
+        local ok = pcall(function() code = KeyboardKey.CastFrom(name) end)
+        if not ok then return nil end
+        return code
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean IsReserved(string name)
+        -- 이동·취소에 쓰이는 키인가. reservedKeys 프로퍼티가 목록이다.
+        for token in string.gmatch(self.reservedKeys, "([^,]+)") do
+            if self:Trim(token) == name then return true end
+        end
+        return false
+    end
+
+    @ExecSpace("ClientOnly")
+    method string BuildOrderWithKey(integer index, string keyName)
+        -- 슬롯 index에 keyName을 걸었을 때의 새 배치 문자열을 만든다.
+        --
+        -- **밀어내기** (대표 지시 2026-08-13): 그 키를 이미 쓰던 다른 슬롯은 **비운다.**
+        -- 교환이 아니라 비우는 쪽이라, 옮긴 자리는 키 없이 버튼만 남는다.
+        -- 설정 창(T14-2b)이 이 결과를 RequestSetKeyOrder로 보낸다.
+        --
+        -- keyName이 ""이면 그 슬롯만 비운다.
+        local tokens = self:SplitOrder(self.keyOrder)
+
+        -- 슬롯이 배치보다 뒤에 있으면 빈 칸으로 늘린다.
+        while #tokens < index do
+            table.insert(tokens, "")
+        end
+
+        local wanted = self:Trim(keyName)
+        if wanted ~= "" then
+            for i = 1, #tokens do
+                if i ~= index and self:Trim(tokens[i]) == wanted then
+                    tokens[i] = ""   -- 밀어냈다
+                end
+            end
+        end
+        tokens[index] = wanted
+
+        -- 끝쪽 빈 칸은 떼어낸다. 안 떼면 "Z,,,,,,"처럼 계속 길어진다.
+        while #tokens > 0 and self:Trim(tokens[#tokens]) == "" do
+            table.remove(tokens)
+        end
+
+        local out = ""
+        for i = 1, #tokens do
+            if i > 1 then out = out .. "," end
+            out = out .. self:Trim(tokens[i])
+        end
+        return out
     end
 
     @ExecSpace("ClientOnly")
     method void OnKeyDown(KeyDownEvent event)
         -- 눌린 키가 몇 번째 슬롯인지 찾아 버튼과 같은 창구로 보낸다.
-        for i = 1, #self.keyCodes do
+        -- keyCodes에 구멍이 있을 수 있어 #가 아니라 keySlotCount로 돈다.
+        for i = 1, self.keySlotCount do
             if self.keyCodes[i] == event.key then
                 self:Use(i)
                 return
@@ -187,9 +288,10 @@ script SkillBar extends Logic
 
     @ExecSpace("ClientOnly")
     method string KeyNameFor(integer index)
-        -- 버튼 라벨에 붙일 키 이름. 매핑이 없으면 빈 문자열.
-        if index < 1 or index > #self.keyNames then return "" end
-        return self.keyNames[index]
+        -- 버튼 라벨에 붙일 키 이름. 걸린 키가 없으면 빈 문자열.
+        local name = self.keyNames[index]
+        if name == nil then return "" end
+        return name
     end
 
     @ExecSpace("ClientOnly")
