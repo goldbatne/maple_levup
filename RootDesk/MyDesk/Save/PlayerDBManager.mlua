@@ -268,6 +268,8 @@ script PlayerDBManager extends Component
                 cleared += 1
             end
             slots.BossesCleared = cleared
+            -- 키 배치 (T14-2). 빈 문자열이면 SkillBar가 자기 기본값을 쓴다.
+            slots.KeyOrder = perm.key_order
             -- 슬롯 수는 저장값을 그대로 쓰지 않고 두 축에서 다시 계산한다.
             -- 저장된 monster_slot_count는 참고용이고, 계산이 진실이다.
             slots:RecomputeSlotCount()
@@ -568,6 +570,7 @@ script PlayerDBManager extends Component
         if slots ~= nil then
             perm.rebirth_count = slots.RebirthCount
             perm.monster_slot_count = slots.MonsterSlotCount
+            perm.key_order = slots.KeyOrder
 
             local bosses = {}
             for _, roomId in ipairs(_GameData:GetAllRoomIds()) do

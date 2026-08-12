@@ -40,6 +40,16 @@ script SkillBar extends Logic
     -- N·M은 슬롯이 늘면 자동으로 이어 붙는다.
     property string keyOrder = "Z,X,C,V,B,N,M"
 
+    -- 저장된 배치(PlayerSkillSlots.KeyOrder)가 있으면 그걸 쓴다. 지금 적용돼 있는 값을
+    -- 들고 있다가 달라질 때만 다시 만든다 — 세이브 로드가 비동기라서 OnBeginPlay
+    -- 시점엔 아직 비어 있을 수 있다. 폴링이 이벤트보다 타이밍에 안전하다.
+    @HideFromInspector property string appliedKeyOrder = ""
+
+    -- 인스펙터에 적힌 기본 배치를 시작할 때 따로 보관한다.
+    -- keyOrder는 저장값으로 덮어써지므로, 저장값이 ""로 되돌아왔을 때
+    -- 돌아갈 곳이 필요하다 (T14-2b의 "기본값으로 되돌리기").
+    @HideFromInspector property string defaultKeyOrder = ""
+
     -- keyOrder를 파싱한 결과. index → KeyboardKey.
     @HideFromInspector property table keyCodes = {}
     @HideFromInspector property table keyNames = {}
@@ -61,6 +71,8 @@ script SkillBar extends Logic
 
         -- 키보드도 같은 Use()로 보낸다. 버튼과 키가 서로 다른 경로를 타면
         -- 한쪽만 고쳐지는 버그가 난다.
+        self.defaultKeyOrder = self.keyOrder
+        self.appliedKeyOrder = self.keyOrder
         self:RebuildKeyMap()
         self.keyDownHandler = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
 
@@ -84,6 +96,48 @@ script SkillBar extends Logic
             _InputService:DisconnectEvent(KeyDownEvent, self.keyDownHandler)
             self.keyDownHandler = nil
         end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SyncKeyOrderFromSave()
+        -- 저장된 배치를 따라간다 (T14-2). Refresh가 0.3초마다 부른다.
+        --
+        -- 빈 문자열이면 저장된 설정이 없다는 뜻이라 **기본 배치로 돌아간다.**
+        -- 여기서 기본값을 세이브에 써넣지 않는다 — 그러면 기본값을 바꿔도
+        -- 옛 계정이 옛 배치를 영구히 들고 있게 된다.
+        --
+        -- ""도 목표값으로 취급해야 "기본값으로 되돌리기"가 재접속 없이 먹는다.
+        -- 처음엔 ""를 그냥 무시했는데, 그러면 되돌려도 바뀐 배치가 그대로 남았다.
+        ---@type PlayerSkillSlots
+        local slots = self:GetSlots()
+        if slots == nil then return end
+
+        local saved = slots.KeyOrder
+        local target = self.defaultKeyOrder
+        if saved ~= nil and saved ~= "" then target = saved end
+
+        if target == self.appliedKeyOrder then return end
+
+        if saved == nil or saved == "" then
+            log("[SkillBar] 기본 키 배치로 되돌린다 — '" .. target .. "'")
+        else
+            log("[SkillBar] 저장된 키 배치 적용 — '" .. target .. "'")
+        end
+        self.keyOrder = target
+        self.appliedKeyOrder = target
+        self:RebuildKeyMap()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RequestSetKeyOrder(string order)
+        -- 키 배치를 바꿔 달라고 서버에 요청한다. 판정·저장은 서버가 한다.
+        -- 설정 창(T14-2b)이 여기를 부른다.
+        local me = _UserService.LocalPlayer
+        if me == nil then return end
+        ---@type PlayerSkillSlots
+        local slots = me:GetComponent("script.PlayerSkillSlots")
+        if slots == nil then return end
+        slots:RequestSetKeyOrder(order)
     end
 
     @ExecSpace("ClientOnly")
@@ -185,6 +239,9 @@ script SkillBar extends Logic
         ---@type PlayerSkillSlots
         local slots = self:GetSlots()
         if slots == nil then return end
+
+        -- 저장된 키 배치가 도착했는지 본다 (T14-2). 달라졌을 때만 다시 만든다.
+        self:SyncKeyOrderFromSave()
 
         local active = slots:GetActiveSkills()
         for i = 1, 5 do

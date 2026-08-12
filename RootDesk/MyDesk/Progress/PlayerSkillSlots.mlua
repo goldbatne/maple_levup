@@ -56,6 +56,19 @@ script PlayerSkillSlots extends Component
     -- 1회차 클리어가 곧 1이라 예전 저장값과도 그대로 맞는다.
     @TargetUserSync property SyncTable<string, integer> BossRoomsCleared
 
+    -- 스킬 슬롯의 키 배치 (T14-2). "Z,X,C,V,B,N,M" 같은 쉼표 구분 한 줄.
+    -- 빈 문자열이면 SkillBar의 기본값을 쓴다.
+    --
+    -- 왜 여기 있는가: 조작 설정 전용 컴포넌트를 새로 만들면 Global/DefaultPlayer.model을
+    -- 건드려야 한다. 슬롯과 슬롯의 키는 인접한 관심사이고, UnlockedAreas가 여기 얹혀 있는
+    -- 것과 같은 판단이다 (위 주석 참고). 영구 진행이 더 커지면 그때 함께 떼는 게 맞다.
+    --
+    -- @TargetUserSync인 이유: 당사자 클라만 알면 된다. SkillBar가 이 값을 읽어 키를 붙인다.
+    @TargetUserSync property string KeyOrder = ""
+
+    -- 저장에 들어가는 문자열이라 상한을 둔다. 슬롯 상한이 5인데 넉넉히 잡았다.
+    property integer keyOrderMaxLength = 64
+
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
         -- 슬롯 수를 직접 대입하지 않고 두 축에서 다시 계산한다 (T8).
@@ -65,6 +78,34 @@ script PlayerSkillSlots extends Component
         self:RecomputeSlotCount()
         log("[SkillSlots] 초기화  몬스터 슬롯 " .. tostring(self.MonsterSlotCount)
             .. "/" .. tostring(math.floor(_GameData:GetBalance("monster_slot_max"))))
+    end
+
+    @ExecSpace("Server")
+    method void RequestSetKeyOrder(string order)
+        -- 클라가 키 배치를 바꿔 달라고 요청한다 (T14-2). 저장까지 서버가 한다.
+        --
+        -- 남의 설정을 못 바꾸게 senderUserId를 확인한다. 조작 설정이라 남용 여지는
+        -- 작지만, 클라가 부르는 창구는 전부 같은 규칙으로 막아 둔다.
+        if senderUserId ~= self.Entity.PlayerComponent.UserId then
+            log_warning("[SkillSlots] 남의 키 설정 변경 시도 차단: " .. tostring(senderUserId))
+            return
+        end
+
+        -- 키 **이름**의 유효성은 클라가 판정한다. 이름 → KeyboardKey 표가
+        -- SkillBar(클라 전용)에 있고, 서버에 같은 표를 복사해 두면 두 곳이 어긋난다.
+        -- 서버는 모양만 본다 — 길이와 빈 값. 모르는 이름은 SkillBar가 경고를 남기고 건너뛴다.
+        if order == nil then return end
+        if string.len(order) > self.keyOrderMaxLength then
+            log_warning("[SkillSlots] 키 배치가 너무 길다(" .. tostring(string.len(order))
+                .. " > " .. tostring(self.keyOrderMaxLength) .. ") — 무시한다")
+            return
+        end
+
+        if self.KeyOrder == order then return end   -- 같은 값이면 저장하지 않는다
+
+        self.KeyOrder = order
+        log("[SkillSlots] 키 배치 변경 → '" .. order .. "'")
+        self:MarkSavePerm("키 배치 변경")
     end
 
     @ExecSpace("ServerOnly")
