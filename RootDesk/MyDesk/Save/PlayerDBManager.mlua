@@ -315,26 +315,43 @@ script PlayerDBManager extends Component
         -- 로그아웃한 방으로 되돌린다. 여기서부터 OnMapEnter가 방을 기록하기 시작한다.
         self.roomRestored = true
 
-        if self.CurrentRoom == "" then
-            log("[PlayerDB] 복원할 방 없음 — 기본 스폰 유지")
-            return
+        -- 저장된 방이 없으면(=신규 계정) **시작방으로 보낸다.**
+        --
+        -- 왜 필요한가: is_start(현재 r_town 마을)는 사망 복귀·환생 복귀·보스방 귀환
+        -- 세 경로만 쓰고 있었다. 최초 스폰은 Maker의 월드 시작 맵(map01)을 따르므로
+        -- **신규 플레이어는 마을을 한 번도 못 보고 사냥방에서 시작**했다.
+        -- 마을을 만든 이유(환생·귀환·재출발이 모이는 자리)와 첫 출발이 어긋나 있었다.
+        local targetId = self.CurrentRoom
+        local firstStart = false
+        if targetId == "" then
+            local startRoom = _GameData:GetStartRoom()
+            if startRoom == nil then
+                log_warning("[PlayerDB] RoomTable에 is_start 방이 없다 — 기본 스폰 유지")
+                return
+            end
+            targetId = startRoom.id
+            firstStart = true
         end
 
-        local room = _GameData:GetRoom(self.CurrentRoom)
+        local room = _GameData:GetRoom(targetId)
         if room == nil or room.map_name == "" then
-            log_warning("[PlayerDB] 저장된 방을 찾을 수 없다: " .. self.CurrentRoom)
+            log_warning("[PlayerDB] 갈 방을 찾을 수 없다: " .. targetId)
             return
         end
 
         local map = self.Entity.CurrentMap
         if map ~= nil and map.Name == room.map_name then
-            log("[PlayerDB] 이미 " .. self.CurrentRoom .. " 에 있다 — 이동 없음")
+            -- 이미 그 맵에 있으면 옮기지 않는다. 단 신규 계정은 CurrentRoom이 비어 있어
+            -- 여기서 채워야 한다 — OnMapEnter가 안 불리므로 방이 기록되지 않는다.
+            if firstStart then self.CurrentRoom = targetId end
+            log("[PlayerDB] 이미 " .. targetId .. " 에 있다 — 이동 없음")
             return
         end
 
         -- 도착점은 방 한가운데(0,0,0)다. 포탈은 방 가장자리에 있으므로
         -- 가운데로 떨어지면 어떤 포탈 트리거에도 걸리지 않는다.
-        log("[PlayerDB] 방 복원 → " .. self.CurrentRoom .. "(" .. room.map_name .. ")")
+        log("[PlayerDB] " .. (firstStart and "신규 시작방으로" or "방 복원 →") .. " "
+            .. targetId .. "(" .. room.map_name .. ")")
         _TeleportService:TeleportToMapPosition(self.Entity, Vector3(0, 0, 0), room.map_name)
     end
 
