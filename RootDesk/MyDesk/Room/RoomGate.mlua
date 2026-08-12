@@ -55,6 +55,7 @@ script RoomGate extends Logic
         if key == "DEF" then return "방어력" end
         if key == "LUK" then return "행운" end
         if key == "LEVEL" then return "레벨" end
+        if key == "STAT_TOTAL" then return "분배한 스탯" end
         return key
     end
 
@@ -72,6 +73,8 @@ script RoomGate extends Logic
         if key == "DEF" then return stats:GetTotalDef() end
         if key == "LUK" then return stats:GetTotalLuk() end
         if key == "LEVEL" then return stats.Level end
+        -- 분배한 포인트 총합. 어디에 넣었는지는 묻지 않는다 (PlayerStats 주석 참고).
+        if key == "STAT_TOTAL" then return stats:GetAllocatedTotal() end
         return -1
     end
 
