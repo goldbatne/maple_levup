@@ -55,7 +55,9 @@ RootDesk/MyDesk/
                  RebirthNpc.mlua ..... 마을 환생 NPC
   Save/          PlayerDBManager.mlua  로드·저장·스로틀 (@Component)
                  SaveRunData / SavePermanentData (@Struct — 회차/영구 분리)
-  UI/            StatPanel / SkillBar / EquipPanel / GateNotice / RebirthHud / RebirthConfirmPanel
+  UI/            StatPanel / EquipPanel / GateNotice / RebirthHud / RebirthConfirmPanel
+                 SkillBar.mlua ....... 스킬 **수동 사용** 창구. 버튼 탭과 키보드
+                                       (Z X C V B N M, 맨 왼쪽 슬롯부터)가 같은 Use()를 탄다
                  PlayerHud.mlua ...... 상시 HP·EXP·레벨
                  AreaSelectPanel.mlua  마을 게이트의 지역 선택 창
   PlayerAttack.mlua ... 자동 공격 + **어느 스탯으로 때릴지 고르는 곳** (CalcDamage)
