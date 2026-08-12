@@ -65,6 +65,10 @@ script SkillBar extends Logic
     -- 그렇다는 게 드러나면 여기에 이름만 더 적으면 된다.
     property string reservedKeys = "UpArrow,DownArrow,LeftArrow,RightArrow,Escape"
 
+    -- 설정 창이 키를 받고 있는 동안은 스킬을 쓰지 않는다 (T14-2b-2).
+    -- 안 막으면 키를 고르는 순간 그 키에 걸린 스킬이 같이 나간다.
+    @HideFromInspector property boolean captureMode = false
+
     -- 버튼 라벨에 키를 함께 보여줄지. 모바일에는 키보드가 없어 자동으로 숨긴다.
     property boolean showKeyHint = true
 
@@ -275,7 +279,16 @@ script SkillBar extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method void SetCaptureMode(boolean on)
+        -- 설정 창(KeyConfigPanel)이 키를 받는 동안 켠다.
+        self.captureMode = on
+    end
+
+    @ExecSpace("ClientOnly")
     method void OnKeyDown(KeyDownEvent event)
+        -- 설정 창이 키를 받고 있으면 스킬을 쓰지 않는다.
+        if self.captureMode then return end
+
         -- 눌린 키가 몇 번째 슬롯인지 찾아 버튼과 같은 창구로 보낸다.
         -- keyCodes에 구멍이 있을 수 있어 #가 아니라 keySlotCount로 돈다.
         for i = 1, self.keySlotCount do
