@@ -66,7 +66,8 @@ script LevelCurve extends Logic
     end
 
     method number MonsterAtkAtLevel(integer level)
-        -- 몬스터 공격력. ★시트 v0.2에는 없는 값이라 초안이다★ (T10-3).
+        -- 몬스터 공격력. 시트 v0.2에 없는 값이라 초안으로 뒀다가
+        -- **2026-08-13 실플레이로 확정했다** (T10-3c: "데미지는 괜찮았다").
         -- MonsterTable에 atk 컬럼이 없어서 곡선으로만 유도한다 — 종별로 다르게 하려면
         -- 컬럼을 추가해야 한다. HP/DEF와 같은 모양으로 뒀다.
         if level < 1 then level = 1 end
