@@ -22,9 +22,11 @@ script GameData extends Logic
     property string startRoomId = ""  -- is_start가 켜진 방. 환생 복귀 지점 (T7)
     property table areas = {}       -- id(string)    -> 지역 레코드 (T12)
     property table areaOrder = {}   -- sort_order로 정렬된 지역 id 배열
+    property table items = {}       -- id(string)    -> 아이템 레코드 (T13-2)
+    property table itemsByDropper = {}  -- monsterId(string) -> 아이템 id 배열
 
     method void OnBeginPlay()
-        -- 월드 세션 시작 시 7개 데이터셋을 한 번만 읽어 캐시한다.
+        -- 월드 세션 시작 시 8개 데이터셋을 한 번만 읽어 캐시한다.
         self:LoadAll()
     end
 
@@ -76,7 +78,7 @@ script GameData extends Logic
     ---------------------------------------------------------------
 
     method void LoadAll()
-        -- 7개 데이터셋을 캐시한다. 하나가 없어도 나머지는 계속 로드한다.
+        -- 8개 데이터셋을 캐시한다. 하나가 없어도 나머지는 계속 로드한다.
         self:LoadBalance()
         self:LoadSkills()
         self:LoadMonsters()
@@ -84,6 +86,7 @@ script GameData extends Logic
         self:LoadJobs()
         self:LoadLandmarks()
         self:LoadAreas()
+        self:LoadItems()
         self.IsLoaded = true
     end
 
@@ -265,6 +268,62 @@ script GameData extends Logic
         end
     end
 
+    method void LoadItems()
+        -- 아이템 테이블 (T13-2). 장비와 소비를 한 테이블에 담고 item_type으로 갈린다.
+        --
+        -- 왜 한 테이블인가: 인벤토리는 둘을 같은 칸에 담고, 드랍도 같은 경로로 나온다.
+        -- 테이블을 쪼개면 "이 id가 어느 표에 있는가"를 부르는 쪽마다 따져야 한다.
+        --
+        -- 스탯 컬럼이 5개인 이유: 특정 스탯 4종(atk/int/def/luk) + 올스탯(stat_all).
+        -- 올스탯을 stat_atk~stat_luk에 5씩 적어 표현하지 않는 이유는, 올스탯 장비를
+        -- **최종 목표로 따로 보여줘야** 하기 때문이다 (대표 지시). 컬럼이 따로 있으면
+        -- UI가 "올스탯 +3"으로 한 줄에 쓸 수 있고, 밸런스도 한 값만 만지면 된다.
+        local dataSet = self:GetDataSet("ItemTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local id = self:ToText(row:GetItem("id"))
+            if id ~= "" then
+                self.items[id] = {
+                    id = id,
+                    name = self:ToText(row:GetItem("name")),
+                    -- "equip"(장착) / "consume"(소비). 빈 값은 없다고 본다.
+                    item_type = self:ToText(row:GetItem("item_type")),
+                    -- 장비가 들어가는 자리: weapon / armor / accessory. 소비는 빈 칸.
+                    slot = self:ToText(row:GetItem("slot")),
+                    stat_atk = self:ToNumber(row:GetItem("stat_atk"), 0),
+                    stat_int = self:ToNumber(row:GetItem("stat_int"), 0),
+                    stat_def = self:ToNumber(row:GetItem("stat_def"), 0),
+                    stat_luk = self:ToNumber(row:GetItem("stat_luk"), 0),
+                    -- 4스탯에 동시에 얹히는 값. 장비 스탯은 **게이트 계산에 넣지 않는다**
+                    -- (수치 게이트는 분배한 포인트만 본다 — T13-1b).
+                    stat_all = self:ToNumber(row:GetItem("stat_all"), 0),
+                    -- 소비 아이템의 HP 회복량(정액).
+                    heal_hp = self:ToNumber(row:GetItem("heal_hp"), 0),
+                    -- 한 칸에 몇 개까지 겹치는가. 장비는 1.
+                    stack_max = self:ToNumber(row:GetItem("stack_max"), 1),
+                    -- 이 아이템을 떨어뜨리는 몬스터 id 하나와 확률.
+                    -- 한 아이템이 여러 몬스터에서 나오게 하려면 별도 드랍 테이블이
+                    -- 필요하다 — 슬라이스에는 1:1로 충분해서 컬럼으로 뒀다.
+                    drop_from = self:ToText(row:GetItem("drop_from")),
+                    drop_rate = self:ToNumber(row:GetItem("drop_rate"), 0),
+                    icon_ruid = self:ToText(row:GetItem("icon_ruid")),
+                }
+
+                -- 몬스터 → 떨어뜨리는 아이템 역인덱스. 드랍 판정(T13-6)이 처치 시점에
+                -- "이 몬스터가 뭘 떨구나"를 물어볼 곳이다.
+                local dropper = self.items[id].drop_from
+                if dropper ~= "" then
+                    if self.itemsByDropper[dropper] == nil then
+                        self.itemsByDropper[dropper] = {}
+                    end
+                    table.insert(self.itemsByDropper[dropper], id)
+                end
+            end
+        end
+    end
+
     method void LoadJobs()
         -- skill_ids는 파이프 구분 → 배열. 직업 전용 슬롯에 자동 장착될 스킬 목록이다.
         local dataSet = self:GetDataSet("JobTable")
@@ -377,6 +436,40 @@ script GameData extends Logic
         return out
     end
 
+    method table GetItem(string id)
+        -- 아이템 레코드. 없으면 nil.
+        return self.items[id]
+    end
+
+    method table GetItemDropsOf(string monsterId)
+        -- 그 몬스터가 떨어뜨릴 수 있는 아이템 id 목록. 없으면 빈 배열.
+        --
+        -- 사본을 준다 — 호출부가 흐트러뜨리면 다음 처치의 드랍 판정이 달라진다.
+        local list = self.itemsByDropper[monsterId]
+        local out = {}
+        if list == nil then return out end
+        for i = 1, #list do
+            table.insert(out, list[i])
+        end
+        return out
+    end
+
+    method number GetItemStatBonus(string id, string stat)
+        -- 아이템 하나가 특정 스탯에 얹는 값. 올스탯은 4스탯 전부에 더해진다.
+        -- stat은 "ATK"/"INT"/"DEF"/"LUK".
+        --
+        -- 여기서 합치는 이유: 부르는 쪽마다 "stat_all도 더해야 한다"를 기억해야 하면
+        -- 언젠가 한 곳이 빠뜨린다. 올스탯이 조용히 안 먹는 버그는 찾기 어렵다.
+        local item = self.items[id]
+        if item == nil then return 0 end
+        local own = 0
+        if stat == "ATK" then own = item.stat_atk end
+        if stat == "INT" then own = item.stat_int end
+        if stat == "DEF" then own = item.stat_def end
+        if stat == "LUK" then own = item.stat_luk end
+        return own + item.stat_all
+    end
+
     method table GetLandmarksAtLevel(number level)
         -- 해당 도달 레벨의 보상 목록. 없으면 빈 배열.
         local list = self.landmarks[level]
@@ -456,6 +549,16 @@ script GameData extends Logic
         -- RoomTable의 모든 방 id. 보스 클리어 원장의 키 공간이다.
         local ids = {}
         for id, _ in pairs(self.rooms) do
+            ids[#ids + 1] = id
+        end
+        table.sort(ids)
+        return ids
+    end
+
+    method table GetAllItemIds()
+        -- ItemTable의 모든 아이템 id. 인벤토리 저장(T13-3)의 키 공간이다.
+        local ids = {}
+        for id, _ in pairs(self.items) do
             ids[#ids + 1] = id
         end
         table.sort(ids)

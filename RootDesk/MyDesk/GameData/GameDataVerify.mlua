@@ -33,6 +33,7 @@ script GameDataVerify extends Logic
         self:VerifyJobs()
         self:VerifyLandmarks()
         self:VerifyAreas()
+        self:VerifyItems()
         self:VerifySaveSchema()
         log("========== T0 데이터 검증 끝 ==========")
     end
@@ -212,6 +213,78 @@ script GameDataVerify extends Logic
             local room = _GameData:GetRoom(roomIds[i])
             if room.area_id ~= "" and _GameData:GetArea(room.area_id) == nil then
                 log_error("  [지역] 방 " .. room.id .. " 이 없는 지역을 가리킨다: " .. room.area_id)
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void VerifyItems()
+        -- 아이템 테이블 (T13-2). 조용히 어긋날 수 있는 네 가지를 대조한다:
+        --   ① item_type이 equip/consume 중 하나인가
+        --   ② 장비에 slot이 있고, 소비에는 없는가
+        --   ③ drop_from이 실재하는 몬스터인가 (오타면 영원히 안 떨어진다)
+        --   ④ 아이콘 RUID가 비어 있지 않은가 (비면 인벤토리에 빈 칸으로 보인다)
+        local ids = _GameData:GetAllItemIds()
+        log("[아이템] 총 " .. tostring(#ids) .. "개")
+
+        for i = 1, #ids do
+            local item = _GameData:GetItem(ids[i])
+
+            if item.item_type ~= "equip" and item.item_type ~= "consume" then
+                log_error("  [아이템] " .. item.id .. " 의 item_type이 이상하다: '"
+                    .. item.item_type .. "' (equip/consume 중 하나여야 한다)")
+            end
+
+            if item.item_type == "equip" then
+                if item.slot == "" then
+                    log_error("  [아이템] " .. item.id .. " 는 장비인데 slot이 비어 있다")
+                end
+            elseif item.slot ~= "" then
+                log_warning("  [아이템] " .. item.id .. " 는 소비인데 slot이 채워져 있다: " .. item.slot)
+            end
+
+            if item.drop_from ~= "" and _GameData:GetMonster(item.drop_from) == nil then
+                log_error("  [아이템] " .. item.id .. " 가 없는 몬스터에서 떨어진다: " .. item.drop_from)
+            end
+
+            if item.icon_ruid == "" then
+                log_warning("  [아이템] " .. item.id .. " 에 아이콘 RUID가 없다 — 인벤토리에서 빈 칸으로 보인다")
+            end
+
+            local statText = ""
+            if item.item_type == "equip" then
+                statText = "ATK+" .. tostring(_GameData:GetItemStatBonus(item.id, "ATK"))
+                    .. " INT+" .. tostring(_GameData:GetItemStatBonus(item.id, "INT"))
+                    .. " DEF+" .. tostring(_GameData:GetItemStatBonus(item.id, "DEF"))
+                    .. " LUK+" .. tostring(_GameData:GetItemStatBonus(item.id, "LUK"))
+                if item.stat_all > 0 then
+                    statText = statText .. " (올스탯 +" .. tostring(item.stat_all) .. ")"
+                end
+            else
+                statText = "HP회복 " .. tostring(item.heal_hp) .. " / 최대 " .. tostring(item.stack_max) .. "개"
+            end
+
+            local dropText = "드랍 없음"
+            if item.drop_from ~= "" then
+                dropText = item.drop_from .. " " .. tostring(item.drop_rate * 100) .. "%"
+            end
+
+            log("  [아이템] " .. item.id .. " " .. item.name
+                .. " (" .. item.item_type .. (item.slot ~= "" and "/" .. item.slot or "") .. ")  "
+                .. statText .. "  " .. dropText)
+        end
+
+        -- 몬스터 → 드랍 역인덱스가 실제로 만들어졌는지. 드랍 판정(T13-6)이 이걸 읽는다.
+        local monsterIds = _GameData:GetAllMonsterIds()
+        for i = 1, #monsterIds do
+            local drops = _GameData:GetItemDropsOf(monsterIds[i])
+            if #drops > 0 then
+                local names = ""
+                for k = 1, #drops do
+                    if names ~= "" then names = names .. ", " end
+                    names = names .. drops[k]
+                end
+                log("  [드랍표] " .. monsterIds[i] .. " → " .. names)
             end
         end
     end
