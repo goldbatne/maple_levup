@@ -66,8 +66,10 @@ script PlayerSkillSlots extends Component
     -- @TargetUserSync인 이유: 당사자 클라만 알면 된다. SkillBar가 이 값을 읽어 키를 붙인다.
     @TargetUserSync property string KeyOrder = ""
 
-    -- 저장에 들어가는 문자열이라 상한을 둔다. 슬롯 상한이 5인데 넉넉히 잡았다.
-    property integer keyOrderMaxLength = 64
+    -- 저장에 들어가는 문자열이라 상한을 둔다.
+    -- 키 이름이 열거형 멤버명 그대로여서 길다 ("KeypadMultiply" 14자).
+    -- 슬롯 7칸 × 최장 이름 + 쉼표를 넉넉히 덮는 값으로 잡았다.
+    property integer keyOrderMaxLength = 200
 
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
