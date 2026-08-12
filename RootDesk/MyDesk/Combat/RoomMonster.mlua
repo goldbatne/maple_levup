@@ -28,7 +28,7 @@ script RoomMonster extends Component
     @Sync property number Hp = 0
     @Sync property number Def = 0
     -- 플레이어를 때릴 때 쓰는 공격력. MonsterTable에 atk 컬럼이 없어 곡선에서 유도한다
-    -- (LevelCurve.MonsterAtkAtLevel — ★수치는 초안★, T10-3).
+    -- (LevelCurve.MonsterAtkAtLevel — 2026-08-13 실플레이로 확정, T10-3c).
     @Sync property number Atk = 0
     @Sync property number ExpReward = 0
     @Sync property string DisplayName = ""
