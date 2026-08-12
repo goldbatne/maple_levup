@@ -79,6 +79,17 @@ script TownGate extends Component
         local player = event.TriggerBodyEntity
         if player == nil or not isvalid(player.PlayerComponent) then return end
 
+        -- 방금 포탈을 탄 사람은 잠시 무시한다. RoomPortal이 이미 Mark를 찍어 두는데
+        -- 여기서 CanPass를 안 보면 그 표시가 무의미해진다.
+        --
+        -- 실측 (T13-1c): r_01에서 서쪽으로 마을에 들어오면 도착 지점이 마을 문 근처였고,
+        -- 이 가드가 없어서 **들어온 즉시 다시 지역으로 쫓겨났다.** 로그가
+        -- `방 전환 r_01 → r_town` 다음 줄에 바로 `→ 시작 지역`이었다.
+        -- 도착 좌표를 고친 뒤에도 이 가드는 남긴다 — 좌표만 고치면 포탈을 옮기거나
+        -- 트리거를 넓히는 순간 같은 증상이 다시 난다 (PortalGuard 주석과 같은 이유).
+        local userId = player.PlayerComponent.UserId
+        if not _PortalGuard:CanPass(userId) then return end
+
         local open = self:ListOpenAreas(player)
 
         if #open == 0 then
@@ -155,10 +166,23 @@ script TownGate extends Component
 
         -- 문 바로 위가 아니라 안쪽에 내려놓는다. 도착지의 서쪽 포탈과 겹치면
         -- 즉시 되돌아온다 (RoomPortal이 겪었던 왕복 버그와 같은 원인).
-        local x = -13 + self.arriveInset
+        --
+        -- 폭은 **도착 방**의 값을 쓴다. -13을 박아 두면 좁은 맵을 지역 진입 방으로
+        -- 만드는 순간 타일 밖에 떨어진다 — 마을이 겪은 것과 같은 함정이다 (T13-1c).
+        local px = 13
+        if room.portal_x ~= nil and room.portal_x > 0 then px = room.portal_x end
+        local py = 1
+        if room.portal_y ~= nil and room.portal_y ~= 0 then py = room.portal_y end
+
+        -- 도착 직후 그 방의 포탈에 얹히더라도 되돌아가지 않게 표시해 둔다.
+        _PortalGuard:Mark(player.PlayerComponent.UserId)
+
         log("[TownGate] " .. tostring(player.Name) .. " → " .. area.name
-            .. " (" .. room.id .. " / " .. room.map_name .. ")")
-        _TeleportService:TeleportToMapPosition(player, Vector3(x, 1, 0), room.map_name)
+            .. " (" .. room.id .. " / " .. room.map_name .. ")  도착=("
+            .. string.format("%.1f", -px + self.arriveInset) .. ", "
+            .. string.format("%.1f", py) .. ")")
+        _TeleportService:TeleportToMapPosition(player,
+            Vector3(-px + self.arriveInset, py, 0), room.map_name)
     end
 
 end

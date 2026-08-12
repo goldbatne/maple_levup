@@ -101,13 +101,19 @@ Global/ DefaultPlayer.model 등 — 엔진 기본. 새 파일을 만들지 말 �
 
 ### 방 1개 추가
 
-1. `GameData/RoomTable.csv`에 행 추가. 컬럼 16개는 이렇다:
+1. `GameData/RoomTable.csv`에 행 추가. 컬럼 18개는 이렇다:
 
    ```
    id, name, room_type, conn_north, conn_south, conn_east, conn_west,
    gate_type, gate_key, gate_value, map_name,
-   monster_id, monster_count, monster_level, is_start, area_id
+   monster_id, monster_count, monster_level, is_start, area_id,
+   portal_x, portal_y
    ```
+
+   - ⚠ **`portal_x` / `portal_y`는 이 방 포탈의 좌표 절대값이다.** 다른 방에서 **이 방으로**
+     들어올 때 도착 지점을 여기서 계산한다. 맵 폭이 28칸이 아니면 **반드시 맞춰야 한다** —
+     안 맞추면 타일 밖에 떨어진다. 마을(14칸 폭)이 실제로 그렇게 깨졌다.
+     기존 맵 5개는 `13,1`, 마을은 `6,1`.
 
    - `room_type` = `hunt` / `gate` / `boss` / `town`.
      **`boss`면 회차당 1마리만 스폰**된다.

@@ -215,7 +215,8 @@ script RoomPortal extends Component
             _ProgressLog:GatePass(userId, targetRoom.id, targetRoom.gate_type)
         end
 
-        local arrive = self:ArrivePosition()
+        -- 도착 좌표는 **목적지 방**의 크기로 계산한다. 맵마다 폭이 달라서다.
+        local arrive = self:ArrivePosition(targetRoom)
         if arrive == nil then return end   -- 방향이 잘못됐다. 이미 로그를 남겼다.
 
         _PortalGuard:Mark(userId)
@@ -282,13 +283,30 @@ script RoomPortal extends Component
     end
 
     @ExecSpace("ServerOnly")
-    method any ArrivePosition()
+    method any ArrivePosition(table targetRoom)
         -- 반대편 포탈 바로 안쪽. 도착 즉시 그 포탈에 다시 닿으면 무한 왕복이 된다.
         -- 방향이 잘못됐으면 nil (Vector3가 아니라 any인 이유).
+        --
+        -- ⚠ 좌표는 **목적지 방**의 포탈 위치로 계산한다. 예전에는 이 컴포넌트의
+        -- portalX(=13)를 썼는데, 그건 "모든 맵이 28칸 폭"이라는 가정이었다.
+        -- 마을은 14칸 폭이라 r_01에서 서쪽으로 들어오면 x=+10.5, 즉 타일 밖에
+        -- 떨어졌고 → 타일 경계로 밀려나 마을 문 트리거에 얹혀 즉시 쫓겨났다. (T13-1c 실측)
+        local px = self.portalX
+        local py = self.portalYSide
+        if targetRoom ~= nil then
+            -- 0이거나 컬럼이 없으면 컴포넌트 기본값을 그대로 쓴다 (기존 맵 5개).
+            if targetRoom.portal_x ~= nil and targetRoom.portal_x > 0 then
+                px = targetRoom.portal_x
+            end
+            if targetRoom.portal_y ~= nil and targetRoom.portal_y ~= 0 then
+                py = targetRoom.portal_y
+            end
+        end
+
         if self.direction == "east" then
-            return Vector3(-self.portalX + self.arriveInset, self.portalYSide, 0)
+            return Vector3(-px + self.arriveInset, py, 0)
         elseif self.direction == "west" then
-            return Vector3(self.portalX - self.arriveInset, self.portalYSide, 0)
+            return Vector3(px - self.arriveInset, py, 0)
         elseif self.direction == "north" then
             return Vector3(0, self.portalYSouth + self.arriveInset, 0)
         elseif self.direction == "south" then
