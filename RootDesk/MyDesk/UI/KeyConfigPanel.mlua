@@ -1,0 +1,308 @@
+-- @클라이언트 (설정 창은 보여주고 고르는 것까지만. 저장은 서버가 다시 판정한다)
+--
+-- 스킬 슬롯의 키 설정 창 (T14-2b-2).
+--
+-- 흐름: 줄을 누른다 → "키를 누르세요" 상태 → 다음 키 입력을 그 슬롯에 건다
+--       → SkillBar.BuildOrderWithKey로 새 배치를 만들고(밀어내기 포함)
+--       → RequestSetKeyOrder로 서버에 보낸다 → 서버가 저장 → 동기화되어 되돌아온다
+--
+-- @Logic인 이유: UI 엔티티에 붙은 @Component는 Server 계열 메서드를 가질 수 없다.
+-- 이 프로젝트의 UI 컨트롤러는 전부 @Logic으로 통일돼 있다.
+--
+-- 키 판정·배치 계산을 여기서 다시 구현하지 않는다. 전부 SkillBar에 있고
+-- 이 창은 그걸 부르기만 한다 — 규칙이 두 곳에 생기면 언젠가 어긋난다.
+
+@Logic
+script KeyConfigPanel extends Logic
+
+    -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다.
+    property Entity panel = "08542b88-003f-49f6-af03-4ee99dbf1b02"
+    property ButtonComponent openBtn = "aa841996-bd35-44de-a434-f1cb47944d6c"
+    property ButtonComponent closeBtn = "ed5af98d-dd94-4f6a-9fbc-180e5ade74c7"
+    property ButtonComponent resetBtn = "417e7556-fa44-4325-83bf-4b1a7c5afe0e"
+    property TextGUIRendererComponent hintText = "5ed6c33c-9074-498a-8777-31eecbe5287d"
+    property ButtonComponent row0 = "cd1ef99a-7209-4c2b-9375-a8d48ae415f3"
+    property ButtonComponent row1 = "20747f30-8b9b-415c-8719-d0591d9aab77"
+    property ButtonComponent row2 = "0d1316fc-34a2-42a1-b1a8-9920e8da24a0"
+    property ButtonComponent row3 = "23cbb206-d0f2-4474-acff-d63588242066"
+    property ButtonComponent row4 = "b4c71ffe-f2d8-4311-bf88-4fd87431e9ef"
+
+    -- 지금 어느 슬롯의 키를 받고 있는가. 0이면 대기 중이 아니다.
+    @HideFromInspector property integer capturingIndex = 0
+
+    -- (엔티티, 핸들러) 병렬 배열. `handler`는 mlua 예약어라 키로 쓸 수 없다.
+    property table handlerEntities = {}
+    property table handlerIds = {}
+    property any keyDownHandler = nil
+    property any refreshTimer = nil
+
+    property number refreshInterval = 0.3
+
+    -- 창이 보여줄 슬롯 수. SkillBar의 버튼 5개와 같다 (직업 최대 2 + 몬스터 상한 3).
+    property integer rowCount = 5
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self:Hide()
+        log("[KeyConfig] OnBeginPlay — 닫힌 채로 시작")
+
+        self:Bind(self.openBtn, function() self:Open() end)
+        self:Bind(self.closeBtn, function() self:Hide() end)
+        self:Bind(self.resetBtn, function() self:ResetToDefault() end)
+
+        for i = 1, self.rowCount do
+            local captured = i
+            self:Bind(self:GetRow(i), function() self:BeginCapture(captured) end)
+        end
+
+        -- 키 입력을 받는다. 대기 중이 아니면 아무 것도 하지 않는다.
+        self.keyDownHandler = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
+
+        self.refreshTimer = _TimerService:SetTimerRepeat(function()
+            self:Refresh()
+        end, self.refreshInterval)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- 붙인 것은 전부 뗀다. 남기면 스크립트를 다시 읽을 때 중복으로 붙는다.
+        for i = 1, #self.handlerEntities do
+            local ent = self.handlerEntities[i]
+            if isvalid(ent) then
+                ent:DisconnectEvent(ButtonClickEvent, self.handlerIds[i])
+            end
+        end
+        self.handlerEntities = {}
+        self.handlerIds = {}
+
+        if self.keyDownHandler ~= nil then
+            _InputService:DisconnectEvent(KeyDownEvent, self.keyDownHandler)
+            self.keyDownHandler = nil
+        end
+        if self.refreshTimer ~= nil then
+            _TimerService:ClearTimer(self.refreshTimer)
+            self.refreshTimer = nil
+        end
+        self:EndCapture()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Bind(ButtonComponent btn, any fn)
+        -- 버튼 하나에 클릭 핸들러를 붙이고 나중에 뗄 수 있게 기억한다.
+        if not isvalid(btn) then return end
+        local ent = btn.Entity
+        local h = ent:ConnectEvent(ButtonClickEvent, fn)
+        table.insert(self.handlerEntities, ent)
+        table.insert(self.handlerIds, h)
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetRow(integer index)
+        -- 프로퍼티를 배열처럼 쓰기 위한 창구. 5개뿐이라 분기로 충분하다.
+        if index == 1 then return self.row0 end
+        if index == 2 then return self.row1 end
+        if index == 3 then return self.row2 end
+        if index == 4 then return self.row3 end
+        if index == 5 then return self.row4 end
+        return nil
+    end
+
+    ---------------------------------------------------------------
+    -- 열고 닫기
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method void Open()
+        if isvalid(self.panel) then self.panel.Enable = true end
+        self:EndCapture()
+        self:Refresh()
+        log("[KeyConfig] 열림")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        -- Enable로 끈다. Visible=false는 클릭이 살아 있다 (ui-hierarchy 5).
+        self:EndCapture()
+        if isvalid(self.panel) then self.panel.Enable = false end
+    end
+
+    ---------------------------------------------------------------
+    -- 키 받기
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method void BeginCapture(integer index)
+        -- 이 슬롯의 키를 받기 시작한다.
+        --
+        -- SkillBar에 "지금은 스킬을 쓰지 말라"고 알린다. 안 알리면 키를 고르는
+        -- 순간 그 키에 걸린 스킬이 같이 나간다.
+        self.capturingIndex = index
+        _SkillBar:SetCaptureMode(true)
+        self:Refresh()
+        log("[KeyConfig] " .. tostring(index) .. "번 슬롯 — 키 입력 대기")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void EndCapture()
+        if self.capturingIndex == 0 then return end
+        self.capturingIndex = 0
+        _SkillBar:SetCaptureMode(false)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnKeyDown(KeyDownEvent event)
+        -- 대기 중일 때만 받는다.
+        if self.capturingIndex == 0 then return end
+
+        local index = self.capturingIndex
+        local name = self:NameOfKey(event.key)
+        if name == "" then
+            log_warning("[KeyConfig] 키 이름을 알 수 없다 — 무시한다")
+            return
+        end
+
+        -- 예약 키는 거절한다. 왜 안 되는지 알려주지 않으면 "고장났다"로 보인다.
+        if _SkillBar:IsReserved(name) then
+            self:EndCapture()
+            self:Refresh()
+            log("[KeyConfig] " .. name .. " 는 예약 키 — 거절")
+            _GateNotice:ShowNotice("쓸 수 없는 키", name .. " 는 이동·취소에 쓰인다")
+            return
+        end
+
+        -- 배치 계산(밀어내기 포함)은 SkillBar가 한다. 여기서 다시 구현하지 않는다.
+        local order = _SkillBar:BuildOrderWithKey(index, name)
+        self:EndCapture()
+        log("[KeyConfig] " .. tostring(index) .. "번 슬롯 ← " .. name
+            .. "  새 배치 '" .. order .. "'")
+        _SkillBar:RequestSetKeyOrder(order)
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method string NameOfKey(any pressed)
+        -- 눌린 KeyboardKey를 이름으로 되돌린다.
+        --
+        -- 코드→이름 API는 확인된 바 없어, SkillBar가 이름→코드로 바꿔주는 것을
+        -- 이용해 후보를 훑는다. 후보 목록은 원작에서 실제로 쓰는 범위로 한정했다 —
+        -- 열거형 전체를 매번 훑을 이유가 없고, 여기 없는 키는 걸리지 않는다.
+        for token in string.gmatch(self:CandidateKeys(), "([^,]+)") do
+            if _SkillBar:KeyCodeOf(token) == pressed then return token end
+        end
+        return ""
+    end
+
+    @ExecSpace("ClientOnly")
+    method string CandidateKeys()
+        -- 창에서 고를 수 있는 키. 예약 키(방향키·Escape)도 넣어 둔다 —
+        -- 넣어야 "쓸 수 없는 키"라고 알려줄 수 있다. 빼면 조용히 무시된다.
+        return "A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,"
+            .. "Alpha0,Alpha1,Alpha2,Alpha3,Alpha4,Alpha5,Alpha6,Alpha7,Alpha8,Alpha9,"
+            .. "F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11,F12,"
+            .. "Keypad0,Keypad1,Keypad2,Keypad3,Keypad4,"
+            .. "Keypad5,Keypad6,Keypad7,Keypad8,Keypad9,"
+            .. "Space,Tab,LeftShift,RightShift,LeftControl,RightControl,LeftAlt,RightAlt,"
+            .. "Semicolon,Quote,Comma,Period,Slash,Backslash,"
+            .. "LeftBracket,RightBracket,Minus,Equals,BackQuote,"
+            .. "Insert,Home,End,PageUp,PageDown,Delete,Backspace,Return,"
+            .. "UpArrow,DownArrow,LeftArrow,RightArrow,Escape"
+    end
+
+    @ExecSpace("ClientOnly")
+    method string ShortName(string name)
+        -- 화면에 보일 짧은 이름. 내부 이름이 Alpha1·Semicolon처럼 길어서
+        -- 그대로 쓰면 줄이 읽기 어렵다. 표에 없으면 이름 그대로 보여준다.
+        if name == "" then return "-" end
+        if string.sub(name, 1, 5) == "Alpha" then return string.sub(name, 6) end
+        if string.sub(name, 1, 6) == "Keypad" then return "숫자" .. string.sub(name, 7) end
+        if name == "Semicolon" then return ";" end
+        if name == "Quote" then return "'" end
+        if name == "Comma" then return "," end
+        if name == "Period" then return "." end
+        if name == "Slash" then return "/" end
+        if name == "Backslash" then return "\\" end
+        if name == "LeftBracket" then return "[" end
+        if name == "RightBracket" then return "]" end
+        if name == "Minus" then return "-" end
+        if name == "Equals" then return "=" end
+        if name == "BackQuote" then return "`" end
+        if name == "Space" then return "스페이스" end
+        if name == "LeftShift" then return "왼Shift" end
+        if name == "RightShift" then return "오Shift" end
+        if name == "LeftControl" then return "왼Ctrl" end
+        if name == "RightControl" then return "오Ctrl" end
+        if name == "LeftAlt" then return "왼Alt" end
+        if name == "RightAlt" then return "오Alt" end
+        if name == "Return" then return "엔터" end
+        return name
+    end
+
+    ---------------------------------------------------------------
+    -- 표시
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method void ResetToDefault()
+        -- 빈 문자열을 보내면 SkillBar가 기본 배치로 되돌린다 (T14-2a).
+        self:EndCapture()
+        log("[KeyConfig] 기본값으로 되돌리기")
+        _SkillBar:RequestSetKeyOrder("")
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetSlots()
+        local me = _UserService.LocalPlayer
+        if me == nil then return nil end
+        return me:GetComponent("script.PlayerSkillSlots")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Refresh()
+        -- 창이 닫혀 있으면 그릴 필요가 없다.
+        if not isvalid(self.panel) then return end
+        if not self.panel.Enable then return end
+
+        ---@type PlayerSkillSlots
+        local slots = self:GetSlots()
+        local active = {}
+        if slots ~= nil then active = slots:GetActiveSkills() end
+
+        for i = 1, self.rowCount do
+            local btn = self:GetRow(i)
+            if btn ~= nil and isvalid(btn) then
+                local label = btn.Entity.TextGUIRendererComponent
+                if isvalid(label) then
+                    label.Text = self:RowLabel(i, active)
+                end
+            end
+        end
+
+        if isvalid(self.hintText) then
+            -- 줄바꿈을 직접 넣는다. 맡기면 "그 자리는 / 비워집니다"처럼 끊긴다.
+            self.hintText.Text =
+                "줄을 누르고 원하는 키를 누르세요.\n"
+                .. "이미 쓰는 키를 고르면 그 자리가 비워집니다.\n"
+                .. "방향키와 Esc는 이동·취소에 쓰여 걸 수 없습니다."
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method string RowLabel(integer index, table active)
+        -- "1. 강타          [Z]" 꼴. 대기 중인 줄은 안내로 바뀐다.
+        if index == self.capturingIndex then
+            return tostring(index) .. ".  ← 키를 누르세요"
+        end
+
+        local skillName = "(빈 슬롯)"
+        local skillId = active[index]
+        if skillId ~= nil then
+            local skill = _GameData:GetSkill(skillId)
+            if skill ~= nil then skillName = skill.name else skillName = skillId end
+        end
+
+        local key = self:ShortName(_SkillBar:KeyNameFor(index))
+        return tostring(index) .. ".  " .. skillName .. "          [ " .. key .. " ]"
+    end
+
+end
