@@ -70,6 +70,34 @@ script PlayerHit extends HitComponent
 		self:OnRested(pc.UserId)
 	end
 
+	@ExecSpace("ServerOnly")
+	method number Heal(number amount)
+		-- HP를 채운다. **실제로 채운 양**을 돌려준다 (T13-7).
+		--
+		-- 0을 돌려주면 "이미 가득하거나 죽었다"는 뜻이다. 포션(PlayerInventory.UseItem)이
+		-- 이 값을 보고 소모할지 정한다 — 만피에서 마시면 개수만 줄고 아무 일도 안 일어나는
+		-- 것이 제일 나쁘다.
+		--
+		-- 왜 여기 있는가: HP를 만지는 코드를 이 파일에 모아 둔다 (OnMapEnter 주석과 같은 이유).
+		-- 인벤토리가 pc.Hp를 직접 만지면 HP 규칙이 두 곳으로 갈라진다.
+		if amount <= 0 then return 0 end
+
+		local pc = self.Entity.PlayerComponent
+		if not isvalid(pc) then return 0 end
+		if pc:IsDead() then return 0 end
+		if pc.Hp >= pc.MaxHp then return 0 end
+
+		local before = pc.Hp
+		local after = before + amount
+		if after > pc.MaxHp then after = pc.MaxHp end
+		pc.Hp = after
+
+		local healed = after - before
+		log("[PlayerHit] 회복 +" .. tostring(healed)
+			.. "  HP " .. tostring(before) .. " → " .. tostring(after) .. " / " .. tostring(pc.MaxHp))
+		return healed
+	end
+
 	@ExecSpace("Client")
 	method void OnRested()
 		-- 당사자에게만 알린다. 대상 userId는 호출부 마지막 인자다 (OnDied와 같은 규칙).

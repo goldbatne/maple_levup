@@ -149,6 +149,78 @@ script PlayerInventory extends Component
     end
 
     ---------------------------------------------------------------
+    -- 소비 (T13-7)
+    ---------------------------------------------------------------
+
+    @ExecSpace("Server")
+    method void RequestUseItem(string itemId)
+        -- 창·퀵슬롯이 부르는 창구. 클라 → 서버 요청이다.
+        if senderUserId ~= self.Entity.PlayerComponent.UserId then
+            log_warning("[Inventory] 남의 아이템 사용 시도 차단: " .. tostring(senderUserId))
+            return
+        end
+        self:UseItem(itemId)
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean UseItem(string itemId)
+        -- 소비 아이템을 쓴다. 효과가 실제로 들어갔을 때만 개수를 줄인다.
+        --
+        -- 순서가 중요하다: **효과 먼저, 소모 나중.** 먼저 줄이면 만피에서 마셨을 때
+        -- 포션만 사라지고 아무 일도 안 일어난다 — 그게 제일 나쁜 결과다.
+        local record = _GameData:GetItem(itemId)
+        if record == nil then
+            log_warning("[Inventory] 없는 아이템을 쓰려 한다: " .. tostring(itemId))
+            return false
+        end
+        if record.item_type ~= "consume" then
+            log_warning("[Inventory] 소비 아이템이 아니다: " .. itemId .. " (" .. record.item_type .. ")")
+            return false
+        end
+        if self:GetCount(itemId) <= 0 then
+            log_warning("[Inventory] 가지고 있지 않은 아이템을 쓰려 한다: " .. itemId)
+            return false
+        end
+
+        -- HP를 만지는 것은 PlayerHit의 일이다. 여기서 pc.Hp를 직접 건드리지 않는다.
+        local healed = 0
+        if record.heal_hp > 0 then
+            ---@type PlayerHit
+            local hit = self.Entity:GetComponent("script.PlayerHit")
+            if hit == nil then
+                log_warning("[Inventory] PlayerHit이 없어 회복할 수 없다")
+                return false
+            end
+            healed = hit:Heal(record.heal_hp)
+            if healed <= 0 then
+                -- 만피(또는 사망). 소모하지 않고 알려 준다.
+                log("[Inventory] " .. record.name .. " — 이미 체력이 가득해 쓰지 않았다")
+                self:OnUseFailed(record.name, self.Entity.PlayerComponent.UserId)
+                return false
+            end
+        end
+
+        -- 효과가 들어갔으니 이제 하나 줄인다.
+        self:RemoveItem(itemId, 1)
+        log("[Inventory] 사용 " .. record.name .. "  회복 " .. tostring(healed)
+            .. "  남은 개수 " .. tostring(self:GetCount(itemId)))
+        self:OnUsed(record.name, math.floor(healed), self.Entity.PlayerComponent.UserId)
+        return true
+    end
+
+    @ExecSpace("Client")
+    method void OnUsed(string itemName, integer healed)
+        -- 사용 알림. 판정은 서버, 표시는 클라 — 여기서 갈라진다.
+        _GateNotice:ShowNotice(itemName, "체력을 " .. tostring(healed) .. " 회복했다")
+    end
+
+    @ExecSpace("Client")
+    method void OnUseFailed(string itemName)
+        -- 쓰지 못한 이유를 알려 준다. 안 알려주면 "고장났다"로 보인다.
+        _GateNotice:ShowNotice(itemName, "체력이 이미 가득하다")
+    end
+
+    ---------------------------------------------------------------
     -- 장착 (T13-3은 저장까지. 스탯 반영은 T13-4)
     ---------------------------------------------------------------
 
