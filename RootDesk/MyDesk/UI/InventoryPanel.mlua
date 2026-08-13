@@ -248,6 +248,8 @@ script InventoryPanel extends Logic
                         .. "        " .. self:StatSummary(item)
                     if item.item_type == "equip" then
                         label = label .. "        [장착]"
+                    else
+                        label = label .. "        [사용]"
                     end
                     icon = item.icon_ruid
                 end
@@ -263,7 +265,7 @@ script InventoryPanel extends Logic
                 self.hintText.Text = "가방이 비어 있다. 아이템은 몬스터에게서 얻는다 (드랍은 아직 없다)."
             else
                 -- 한 줄로 둔다. 두 줄이면 마지막 아이템 줄과 겹친다 (ui_lint L023).
-                self.hintText.Text = "장비 줄을 누르면 장착 · 착용 중인 줄을 누르면 해제"
+                self.hintText.Text = "장비는 눌러서 장착 · 물약은 눌러서 마신다 · 착용 중인 줄은 눌러서 해제"
             end
         end
     end
@@ -299,14 +301,18 @@ script InventoryPanel extends Logic
         local item = _GameData:GetItem(itemId)
         if item == nil then return end
 
-        if item.item_type ~= "equip" then
-            _GateNotice:ShowNotice("아직 쓸 수 없다", item.name .. " 은 퀵슬롯이 붙으면 쓸 수 있다")
-            return
-        end
-
         ---@type PlayerInventory
         local inv = self:GetInventory()
         if inv == nil then return end
+
+        -- 소비 아이템은 여기서 바로 쓴다 (T13-7). 퀵슬롯(T13-5b)이 붙으면
+        -- 손이 빠른 길이 하나 더 생기는 것이고, 창에서 쓰는 길은 그대로 남는다.
+        if item.item_type ~= "equip" then
+            log("[Inventory창] 사용 요청 " .. itemId)
+            inv:RequestUseItem(itemId)
+            self:Refresh()
+            return
+        end
 
         log("[Inventory창] 장착 요청 " .. item.slot .. " = " .. itemId)
         inv:RequestSetEquip(item.slot, itemId)

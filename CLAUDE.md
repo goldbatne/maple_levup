@@ -125,7 +125,9 @@
   T13-5a 가방 창 ✅ (`ui/Inventory.ui` + `UI/InventoryPanel.mlua` — 줄을 눌러 장착·해제) /
   **T13-6 몬스터 드랍 ✅** (`Inventory/ItemDrop.mlua` 판정 + `Inventory/DropItem.mlua`
   바닥 아이템 — 밟으면 줍고 30초 뒤 사라진다. LUK이 드랍률에 비례 보정) /
-  T13-5b(아이템 퀵슬롯)·T13-7(포션 사용)이 남았다
+  **T13-7 포션 사용 ✅** (`PlayerHit.Heal` + `PlayerInventory.UseItem` —
+  가방 창에서 물약 줄을 눌러 마신다. 만피면 소모하지 않는다) /
+  T13-5b(아이템 퀵슬롯 — 손이 빠른 길)이 남았다
 - 진행 중: **T14 스킬 조작** (지시서 밖). T14-1 키보드 수동 사용(Z X C V B N M) ✅ /
   T14-2a 키 배치 저장·적용 계층 ✅ / T14-2b-1 전체 키 + 밀어내기 ✅ /
   T14-2b-2 키 설정 창 ✅ (`ui/KeyConfig.ui` + `UI/KeyConfigPanel.mlua`)
