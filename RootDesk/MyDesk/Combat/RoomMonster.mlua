@@ -151,6 +151,12 @@ script RoomMonster extends Component
                     collection:TryCapture(self.MonsterId)
                 end
 
+                -- 아이템 드랍 (T13-6). 판정과 스폰은 ItemDrop이 한다 —
+                -- 몬스터 스크립트가 아이템 시스템을 알 필요는 없다.
+                _ItemDrop:TrySpawnDrops(self.MonsterId,
+                    self.Entity.TransformComponent.WorldPosition,
+                    self.Entity.CurrentMap, killer)
+
                 self:GrantBossReward(killer)
             else
                 log_warning("[RoomMonster] 막타 엔티티에 PlayerStats가 없어 EXP 미지급: " .. tostring(killer.Name))

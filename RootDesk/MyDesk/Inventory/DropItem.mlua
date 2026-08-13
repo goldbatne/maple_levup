@@ -1,0 +1,154 @@
+-- @서버 (수거 판정은 서버. 클라는 획득 알림만 받는다 — 개발 규칙 2)
+--
+-- 바닥에 떨어진 아이템 하나 (T13-6). 밟으면 인벤토리로 들어간다.
+--
+-- ## 왜 트리거가 아니라 거리 판정인가
+--
+-- 이 프로젝트의 포탈은 TriggerComponent를 쓴다. 그런데 그건 맵에 미리 놓인
+-- 엔티티라 CollisionGroup을 에디터에서 맞춰 둘 수 있다. 드랍은 런타임 스폰이라
+-- 그 설정이 모델에 박혀 있어야 하고, 충돌 그룹이 어긋나면 **에러 없이 안 주워진다**.
+-- 반경 판정은 설정이 필요 없고 로그로 바로 보인다. 방에 동시에 떠 있는 드랍이
+-- 몇 개뿐이라 0.2초 폴링으로 충분하다.
+--
+-- ## 스프라이트를 따로 찾지 않는 이유
+--
+-- ItemTable.icon_ruid가 이미 그 아이템의 그림이다. SpriteRUID는 sprite RUID를
+-- 그대로 받으므로(msw-sprite-ruid) 인벤토리 아이콘과 바닥 그림이 같아진다 —
+-- 무엇이 떨어졌는지 줍기 전에 알 수 있다.
+
+@Component
+script DropItem extends Component
+
+    -- 무엇이 떨어졌는가. 스폰 직후 ItemDrop이 채운다.
+    @Sync property string ItemId = ""
+    @Sync property integer Count = 1
+
+    -- 이 드랍을 주울 수 있는 유저. 막타를 넣은 사람에게 먼저 준다.
+    -- 빈 문자열이면 누구나 줍는다 (지금은 항상 막타 주체로 채운다).
+    property string OwnerUserId = ""
+
+    property any tickTimer = nil
+    property any despawnTimer = nil
+    property boolean taken = false
+
+    -- 폴링 주기(초). 0.2면 걸어서 지나갈 때 놓치지 않는다.
+    property number tickInterval = 0.2
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- 스폰 직후에는 ItemId가 아직 비어 있을 수 있다. 한 박자 늦춰 그림을 입힌다.
+        _TimerService:SetTimerOnce(function()
+            self:ApplyLook()
+        end, 0.05)
+
+        self.tickTimer = _TimerService:SetTimerRepeat(function()
+            self:Tick()
+        end, self.tickInterval)
+
+        local ttl = _GameData:GetBalance("drop_despawn_seconds")
+        self.despawnTimer = _TimerService:SetTimerOnce(function()
+            self.despawnTimer = nil
+            if self.taken then return end
+            log("[Drop] 사라짐 " .. tostring(self.ItemId))
+            self:Cleanup()
+            self.Entity:Destroy()
+        end, ttl)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnEndPlay()
+        self:Cleanup()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Cleanup()
+        -- 타이머를 남기면 사라진 엔티티를 붙잡고 돈다.
+        if self.tickTimer ~= nil then
+            _TimerService:ClearTimer(self.tickTimer)
+            self.tickTimer = nil
+        end
+        if self.despawnTimer ~= nil then
+            _TimerService:ClearTimer(self.despawnTimer)
+            self.despawnTimer = nil
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyLook()
+        -- 아이템의 아이콘을 바닥 그림으로 쓴다.
+        local item = _GameData:GetItem(self.ItemId)
+        if item == nil then
+            log_warning("[Drop] ItemTable에 없는 아이템이 떨어졌다: " .. tostring(self.ItemId))
+            return
+        end
+        local renderer = self.Entity.SpriteRendererComponent
+        if isvalid(renderer) and item.icon_ruid ~= "" then
+            renderer.SpriteRUID = item.icon_ruid
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Tick()
+        -- 반경 안에 주인이 들어왔는지 본다.
+        if self.taken then return end
+
+        local map = self.Entity.CurrentMap
+        if map == nil then return end
+
+        local users = _UserService:GetUsersByMapComponent(map.MapComponent)
+        if users == nil then return end
+
+        local range = _GameData:GetBalance("drop_pickup_range")
+        local myPos = self.Entity.TransformComponent.WorldPosition
+
+        for i = 1, #users do
+            local user = users[i]
+            if isvalid(user) then
+                if self.OwnerUserId == "" or user.PlayerComponent.UserId == self.OwnerUserId then
+                    local p = user.TransformComponent.WorldPosition
+                    local dx = p.x - myPos.x
+                    local dy = p.y - myPos.y
+                    -- 제곱으로 비교한다. 루트를 씌울 이유가 없다.
+                    if dx * dx + dy * dy <= range * range then
+                        self:Pickup(user)
+                        return
+                    end
+                end
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void Pickup(Entity player)
+        ---@type PlayerInventory
+        local inv = player:GetComponent("script.PlayerInventory")
+        if inv == nil then return end
+
+        local added = inv:AddItem(self.ItemId, self.Count)
+        if added <= 0 then
+            -- 가방이 꽉 찼다(종류당 상한). 남겨 두면 계속 시도하므로 잠깐 쉰다 —
+            -- 매 0.2초마다 "버린다" 로그가 쌓이는 것을 막는다.
+            self.taken = true
+            _TimerService:SetTimerOnce(function() self.taken = false end, 3.0)
+            return
+        end
+
+        self.taken = true
+        local item = _GameData:GetItem(self.ItemId)
+        local name = self.ItemId
+        if item ~= nil then name = item.name end
+        log("[Drop] 획득 " .. name .. " x" .. tostring(added))
+
+        self:OnPicked(name, added, player.PlayerComponent.UserId)
+        self:Cleanup()
+        self.Entity:Destroy()
+    end
+
+    @ExecSpace("Client")
+    method void OnPicked(string itemName, integer count)
+        -- 획득 알림. 판정은 서버, 알림은 클라 — 여기서 갈라진다.
+        -- 배너를 새로 만들지 않고 GateNotice를 쓴다 (이미 검증된 표시 경로).
+        _GateNotice:ShowNotice("획득", itemName .. " x" .. tostring(count))
+    end
+
+end
