@@ -58,12 +58,16 @@ script SkillBar extends Logic
     property any keyDownHandler = nil
 
     -- 스킬에 걸 수 없는 키 (대표 지시 2026-08-13: "모든 키를 설정할 수 있도록").
-    -- 전부 열어 주되 이동·취소에 쓰이는 것만 막는다. 막지 않으면 스킬을 쏘면서
-    -- 캐릭터가 같이 움직이거나, 창을 닫을 방법이 사라진다.
+    -- 전부 열어 주되 **다른 조작이 이미 쓰는 것**만 막는다:
+    --   방향키·Escape  이동과 취소. 막지 않으면 스킬을 쏘면서 캐릭터가 같이
+    --                  움직이거나, 창을 닫을 방법이 사라진다.
+    --   Alpha1·Alpha2  아이템 퀵슬롯 (T13-5b). 막지 않으면 1을 눌렀을 때
+    --                  스킬과 물약이 **동시에** 나간다.
     --
     -- 프로퍼티로 둔 이유: WASD도 이동에 쓰이는지가 아직 확인되지 않았다.
     -- 그렇다는 게 드러나면 여기에 이름만 더 적으면 된다.
-    property string reservedKeys = "UpArrow,DownArrow,LeftArrow,RightArrow,Escape"
+    -- 퀵슬롯 키를 재설정할 수 있게 되면(T13-5c) 이 목록도 그 값을 따라가야 한다.
+    property string reservedKeys = "UpArrow,DownArrow,LeftArrow,RightArrow,Escape,Alpha1,Alpha2"
 
     -- 설정 창이 키를 받고 있는 동안은 스킬을 쓰지 않는다 (T14-2b-2).
     -- 안 막으면 키를 고르는 순간 그 키에 걸린 스킬이 같이 나간다.
