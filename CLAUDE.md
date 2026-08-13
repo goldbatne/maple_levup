@@ -122,7 +122,8 @@
   T13-3 인벤토리·장착 저장 ✅ (`Inventory/PlayerInventory.mlua` + `Perm.inventory/equipped`) /
   **T13-4 장착 스탯 반영 ✅** (`PlayerStats.GetEquipBonus` — 전투는 장비 포함,
   게이트는 `GetStatWithoutEquip`으로 장비 제외) /
-  T13-5~7(인벤토리·퀵슬롯 UI·드랍·포션)이 남았다
+  **T13-5a 가방 창 ✅** (`ui/Inventory.ui` + `UI/InventoryPanel.mlua` — 줄을 눌러 장착·해제) /
+  T13-5b(아이템 퀵슬롯)·T13-6(드랍)·T13-7(포션 사용)이 남았다
 - 진행 중: **T14 스킬 조작** (지시서 밖). T14-1 키보드 수동 사용(Z X C V B N M) ✅ /
   T14-2a 키 배치 저장·적용 계층 ✅ / T14-2b-1 전체 키 + 밀어내기 ✅ /
   T14-2b-2 키 설정 창 ✅ (`ui/KeyConfig.ui` + `UI/KeyConfigPanel.mlua`)

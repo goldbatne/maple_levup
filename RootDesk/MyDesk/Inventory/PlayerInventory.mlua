@@ -152,6 +152,19 @@ script PlayerInventory extends Component
     -- 장착 (T13-3은 저장까지. 스탯 반영은 T13-4)
     ---------------------------------------------------------------
 
+    @ExecSpace("Server")
+    method void RequestSetEquip(string slot, string itemId)
+        -- 창(T13-5)이 부르는 유일한 창구. 클라 → 서버 요청이다.
+        --
+        -- senderUserId는 서버가 채우는 값이라 클라가 위조할 수 없다.
+        -- 이 검사가 없으면 남의 장비를 갈아끼울 수 있다 (PlayerStats.RequestAllocate와 같은 판단).
+        if senderUserId ~= self.Entity.PlayerComponent.UserId then
+            log_warning("[Inventory] 남의 장착 변경 시도 차단: " .. tostring(senderUserId))
+            return
+        end
+        self:SetEquipSlot(slot, itemId)
+    end
+
     @ExecSpace("ServerOnly")
     method boolean SetEquipSlot(string slot, string itemId)
         -- 슬롯에 아이템을 끼우거나(itemId) 비운다(itemId == "").
