@@ -1,0 +1,316 @@
+-- @클라이언트 (창은 보여주고 고르는 것까지만. 장착 판정은 서버가 다시 한다)
+--
+-- 가방 창 (T13-5a). 가진 것을 보여주고, 장비를 눌러 장착·해제한다.
+--
+-- @Logic인 이유: UI 엔티티에 붙은 @Component는 Server 계열 메서드를 가질 수 없다.
+-- 이 프로젝트의 UI 컨트롤러는 전부 @Logic으로 통일돼 있다.
+--
+-- 판정을 여기서 하지 않는다. 줄을 누르면 PlayerInventory.RequestSetEquip을 부르고,
+-- 장비인가·슬롯이 맞는가·가지고 있는가는 전부 서버가 다시 본다 —
+-- 창이 보내는 값은 클라가 조작할 수 있으므로 여기의 검사는 표시용일 뿐이다.
+--
+-- 줄 수가 고정인 이유: ItemTable이 6종이라 6줄로 전부 보인다. 10종을 넘으면
+-- 스크롤이 필요하다 (component-api: 10개 이하는 직접 배치, 100개 넘으면 GridView).
+
+@Logic
+script InventoryPanel extends Logic
+
+    -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다.
+    property Entity panel = "56fff49a-5160-4788-8823-5ed82346a41d"
+    property ButtonComponent openBtn = "2b4d9dcb-9f52-45fa-a33f-77f109f75cfd"
+    property ButtonComponent closeBtn = "ae271623-3f82-477c-ba7b-d34593b658d4"
+    property TextGUIRendererComponent hintText = "49adf353-217b-4141-8a09-9df4741bda91"
+    property ButtonComponent equipRow0 = "bd74db13-e42c-475d-b745-12fba4e359c3"
+    property ButtonComponent equipRow1 = "aba901f3-2ba8-4e46-b050-b5de3d1c07ae"
+    property ButtonComponent equipRow2 = "92e81a35-bcbc-49e1-93bd-6c0c3f39b430"
+    property ButtonComponent itemRow0 = "0c0b25b4-908e-40d3-9602-addb15250e7d"
+    property ButtonComponent itemRow1 = "96c3f147-ffb6-4ce4-ad16-543f23656399"
+    property ButtonComponent itemRow2 = "8f02aa7b-d65a-46af-bac9-f81705b6342e"
+    property ButtonComponent itemRow3 = "054a940c-40d6-428f-b76b-829d277a27de"
+    property ButtonComponent itemRow4 = "052e3af6-7baa-45b7-bc8b-233e9f9c1bca"
+    property ButtonComponent itemRow5 = "b67c6d15-b23b-438a-9e6e-b56ee8b4f920"
+
+    -- (엔티티, 핸들러) 병렬 배열. `handler`는 mlua 예약어라 키로 쓸 수 없다.
+    property table handlerEntities = {}
+    property table handlerIds = {}
+    property any refreshTimer = nil
+    property number refreshInterval = 0.3
+
+    -- 지금 각 줄이 무엇을 들고 있는가. 줄을 눌렀을 때 무엇을 장착할지 여기서 찾는다.
+    -- 클릭 핸들러에 아이템 id를 캡처하지 않는 이유: 목록이 갱신되면 줄의 내용이
+    -- 바뀌는데 핸들러는 그대로라, 캡처했다면 옛 아이템을 장착하게 된다.
+    property table rowItemIds = {}
+
+    property integer equipRowCount = 3
+    property integer itemRowCount = 6
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self:Hide()
+        log("[Inventory창] OnBeginPlay — 닫힌 채로 시작")
+
+        self:Bind(self.openBtn, function() self:Open() end)
+        self:Bind(self.closeBtn, function() self:Hide() end)
+
+        for i = 1, self.equipRowCount do
+            local captured = i
+            self:Bind(self:GetEquipRow(i), function() self:OnEquipRowClick(captured) end)
+        end
+        for i = 1, self.itemRowCount do
+            local captured = i
+            self:Bind(self:GetItemRow(i), function() self:OnItemRowClick(captured) end)
+        end
+
+        self.refreshTimer = _TimerService:SetTimerRepeat(function()
+            self:Refresh()
+        end, self.refreshInterval)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- 붙인 것은 전부 뗀다. 남기면 스크립트를 다시 읽을 때 중복으로 붙는다.
+        for i = 1, #self.handlerEntities do
+            local ent = self.handlerEntities[i]
+            if isvalid(ent) then
+                ent:DisconnectEvent(ButtonClickEvent, self.handlerIds[i])
+            end
+        end
+        self.handlerEntities = {}
+        self.handlerIds = {}
+
+        if self.refreshTimer ~= nil then
+            _TimerService:ClearTimer(self.refreshTimer)
+            self.refreshTimer = nil
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Bind(ButtonComponent btn, any fn)
+        -- 버튼 하나에 클릭 핸들러를 붙이고 나중에 뗄 수 있게 기억한다.
+        if not isvalid(btn) then return end
+        local ent = btn.Entity
+        local h = ent:ConnectEvent(ButtonClickEvent, fn)
+        table.insert(self.handlerEntities, ent)
+        table.insert(self.handlerIds, h)
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetEquipRow(integer index)
+        -- 프로퍼티를 배열처럼 쓰기 위한 창구. 3개뿐이라 분기로 충분하다.
+        if index == 1 then return self.equipRow0 end
+        if index == 2 then return self.equipRow1 end
+        if index == 3 then return self.equipRow2 end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetItemRow(integer index)
+        if index == 1 then return self.itemRow0 end
+        if index == 2 then return self.itemRow1 end
+        if index == 3 then return self.itemRow2 end
+        if index == 4 then return self.itemRow3 end
+        if index == 5 then return self.itemRow4 end
+        if index == 6 then return self.itemRow5 end
+        return nil
+    end
+
+    ---------------------------------------------------------------
+    -- 열고 닫기
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method void Open()
+        if isvalid(self.panel) then self.panel.Enable = true end
+        self:Refresh()
+        log("[Inventory창] 열림")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        -- Enable로 끈다. Visible=false는 클릭이 살아 있다 (ui-hierarchy 5).
+        if isvalid(self.panel) then self.panel.Enable = false end
+    end
+
+    ---------------------------------------------------------------
+    -- 조회
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method any GetInventory()
+        local me = _UserService.LocalPlayer
+        if me == nil then return nil end
+        return me:GetComponent("script.PlayerInventory")
+    end
+
+    @ExecSpace("ClientOnly")
+    method string SlotLabel(string slot)
+        -- 화면에 보일 슬롯 이름. 모르는 슬롯은 이름 그대로 — 데이터가 늘어나도 깨지지 않는다.
+        if slot == "weapon" then return "무기" end
+        if slot == "armor" then return "방어구" end
+        if slot == "accessory" then return "장신구" end
+        return slot
+    end
+
+    @ExecSpace("ClientOnly")
+    method string StatSummary(table item)
+        -- "ATK+5" / "올스탯+3" 꼴. 0인 스탯은 적지 않는다.
+        if item.stat_all > 0 then return "올스탯+" .. tostring(item.stat_all) end
+        local out = ""
+        if item.stat_atk > 0 then out = out .. " ATK+" .. tostring(item.stat_atk) end
+        if item.stat_int > 0 then out = out .. " INT+" .. tostring(item.stat_int) end
+        if item.stat_def > 0 then out = out .. " DEF+" .. tostring(item.stat_def) end
+        if item.stat_luk > 0 then out = out .. " LUK+" .. tostring(item.stat_luk) end
+        if item.heal_hp > 0 then out = out .. " HP회복 " .. tostring(item.heal_hp) end
+        if out == "" then return "" end
+        return string.sub(out, 2)
+    end
+
+    ---------------------------------------------------------------
+    -- 표시
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method void SetRow(any btn, string label, string iconRuid)
+        -- 줄 하나를 채운다. iconRuid가 빈 문자열이면 아이콘을 숨긴다 —
+        -- 빈 RUID를 넣으면 아이콘이 "안 보이는 것"이 아니라 깨진 자리로 남는다.
+        if btn == nil or not isvalid(btn) then return end
+        local rowEntity = btn.Entity
+        rowEntity.Enable = true
+
+        local text = rowEntity.TextGUIRendererComponent
+        if isvalid(text) then text.Text = label end
+
+        local icon = rowEntity:GetChildByName("Icon", false)
+        if icon ~= nil and isvalid(icon) then
+            if iconRuid == "" then
+                icon.Enable = false
+            else
+                icon.Enable = true
+                icon.SpriteGUIRendererComponent.ImageRUID = DataRef(iconRuid)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void HideRow(any btn)
+        if btn == nil or not isvalid(btn) then return end
+        btn.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Refresh()
+        -- 창이 닫혀 있으면 그릴 필요가 없다.
+        if not isvalid(self.panel) then return end
+        if not self.panel.Enable then return end
+
+        ---@type PlayerInventory
+        local inv = self:GetInventory()
+        if inv == nil then return end
+
+        -- 착용 중 3줄. 슬롯 이름과 순서는 PlayerInventory가 정본이다.
+        local slots = inv:GetEquipSlotNames()
+        for i = 1, self.equipRowCount do
+            local btn = self:GetEquipRow(i)
+            local slot = slots[i]
+            if slot == nil then
+                self:HideRow(btn)
+            else
+                local itemId = inv:GetEquipped(slot)
+                if itemId == "" then
+                    self:SetRow(btn, self:SlotLabel(slot) .. "        (비어 있음)", "")
+                else
+                    local item = _GameData:GetItem(itemId)
+                    if item == nil then
+                        self:SetRow(btn, self:SlotLabel(slot) .. "        " .. itemId, "")
+                    else
+                        self:SetRow(btn, self:SlotLabel(slot) .. "        " .. item.name
+                            .. "   " .. self:StatSummary(item) .. "        [해제]", item.icon_ruid)
+                    end
+                end
+            end
+        end
+
+        -- 가진 것. 0개는 건너뛰고, 남는 줄은 숨긴다.
+        self.rowItemIds = {}
+        local ids = _GameData:GetAllItemIds()
+        local row = 0
+        for i = 1, #ids do
+            local id = ids[i]
+            local count = inv:GetCount(id)
+            if count > 0 and row < self.itemRowCount then
+                row = row + 1
+                self.rowItemIds[row] = id
+                local item = _GameData:GetItem(id)
+                local label = id
+                local icon = ""
+                if item ~= nil then
+                    label = item.name .. "   x" .. tostring(count)
+                        .. "        " .. self:StatSummary(item)
+                    if item.item_type == "equip" then
+                        label = label .. "        [장착]"
+                    end
+                    icon = item.icon_ruid
+                end
+                self:SetRow(self:GetItemRow(row), label, icon)
+            end
+        end
+        for i = row + 1, self.itemRowCount do
+            self:HideRow(self:GetItemRow(i))
+        end
+
+        if isvalid(self.hintText) then
+            if row == 0 then
+                self.hintText.Text = "가방이 비어 있다. 아이템은 몬스터에게서 얻는다 (드랍은 아직 없다)."
+            else
+                -- 한 줄로 둔다. 두 줄이면 마지막 아이템 줄과 겹친다 (ui_lint L023).
+                self.hintText.Text = "장비 줄을 누르면 장착 · 착용 중인 줄을 누르면 해제"
+            end
+        end
+    end
+
+    ---------------------------------------------------------------
+    -- 클릭
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method void OnEquipRowClick(integer index)
+        -- 착용 중인 줄을 누르면 해제한다.
+        ---@type PlayerInventory
+        local inv = self:GetInventory()
+        if inv == nil then return end
+
+        local slots = inv:GetEquipSlotNames()
+        local slot = slots[index]
+        if slot == nil then return end
+        if inv:GetEquipped(slot) == "" then return end
+
+        log("[Inventory창] 해제 요청 " .. slot)
+        inv:RequestSetEquip(slot, "")
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnItemRowClick(integer index)
+        -- 가진 것 줄을 누르면 장착한다. 소비 아이템은 여기서 쓰지 않는다 —
+        -- 퀵슬롯(T13-5b)과 사용(T13-7)이 붙을 자리다.
+        local itemId = self.rowItemIds[index]
+        if itemId == nil then return end
+
+        local item = _GameData:GetItem(itemId)
+        if item == nil then return end
+
+        if item.item_type ~= "equip" then
+            _GateNotice:ShowNotice("아직 쓸 수 없다", item.name .. " 은 퀵슬롯이 붙으면 쓸 수 있다")
+            return
+        end
+
+        ---@type PlayerInventory
+        local inv = self:GetInventory()
+        if inv == nil then return end
+
+        log("[Inventory창] 장착 요청 " .. item.slot .. " = " .. itemId)
+        inv:RequestSetEquip(item.slot, itemId)
+        self:Refresh()
+    end
+
+end
