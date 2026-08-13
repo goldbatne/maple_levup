@@ -1,0 +1,235 @@
+-- @클라이언트 (누르는 것까지만. 사용 판정은 서버가 다시 한다)
+--
+-- 아이템 퀵슬롯 (T13-5b). 창을 열지 않고 키로 물약을 마신다.
+--
+-- ## 스킬 바와 분리한 이유 (설계 이력 2026-08-13)
+--
+-- 몬스터 슬롯 1→3 확장이 이 게임 성장 체감의 축이고, 대표가 이미
+-- *"슬롯 늘어나는건 실감이 돼"* 로 확인해 줬다. 물약이 같은 바에 들어오면
+-- 슬롯이 늘어난 것이 "쓸 수 있는 스킬이 늘었다"가 아니라 "칸이 늘었다"로
+-- 희석된다. 원작 메이플도 스킬 바와 아이템 퀵슬롯이 따로다.
+--
+-- ## 무엇이 올라가는가 — 지금은 자동이다
+--
+-- 가진 소비 아이템을 id 순서로 앞 칸부터 채운다. 손으로 올리는 UI를 만들지 않은
+-- 이유: 소비 아이템이 **1종(빨간 포션)뿐**이라 고를 것이 없다. 종류가 늘면
+-- "내가 원하는 걸 올리고 싶다"가 생기므로 그때 수동 배정을 붙인다 —
+-- 그 자리는 Refresh 하나이고, 저장 키(Perm)를 하나 더 두면 된다.
+--
+-- ## 키는 1·2 고정이다
+--
+-- 재설정은 T13-5c(키 설정 창에 "아이템 슬롯" 줄 추가)로 미뤘다.
+-- 대신 SkillBar.reservedKeys에 Alpha1/Alpha2를 넣어 **스킬이 같은 키를 못 쓰게**
+-- 막았다. 안 막으면 1을 눌렀을 때 스킬과 물약이 동시에 나간다.
+
+@Logic
+script ItemQuickSlotBar extends Logic
+
+    -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다.
+    property ButtonComponent slot0 = "4ffecc5f-b385-4ca4-9082-a18c61b4fe41"
+    property ButtonComponent slot1 = "d362c02d-3af9-4ac6-a402-6498e720245b"
+
+    -- 칸에 걸린 키 이름. 쉼표 구분이고 칸 순서와 같다.
+    property string keyOrder = "Alpha1,Alpha2"
+
+    -- (엔티티, 핸들러) 병렬 배열. `handler`는 mlua 예약어라 키로 쓸 수 없다.
+    property table handlerEntities = {}
+    property table handlerIds = {}
+    property any keyDownHandler = nil
+    property any refreshTimer = nil
+    property number refreshInterval = 0.3
+
+    -- 지금 각 칸이 무엇을 들고 있는가. 키를 눌렀을 때 무엇을 쓸지 여기서 찾는다.
+    property table slotItemIds = {}
+
+    property integer slotCount = 2
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        log("[퀵슬롯] OnBeginPlay")
+
+        for i = 1, self.slotCount do
+            local captured = i
+            self:Bind(self:GetSlot(i), function() self:Use(captured) end)
+        end
+
+        self.keyDownHandler = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
+
+        self.refreshTimer = _TimerService:SetTimerRepeat(function()
+            self:Refresh()
+        end, self.refreshInterval)
+
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- 붙인 것은 전부 뗀다. 남기면 스크립트를 다시 읽을 때 중복으로 붙는다.
+        for i = 1, #self.handlerEntities do
+            local ent = self.handlerEntities[i]
+            if isvalid(ent) then
+                ent:DisconnectEvent(ButtonClickEvent, self.handlerIds[i])
+            end
+        end
+        self.handlerEntities = {}
+        self.handlerIds = {}
+
+        if self.keyDownHandler ~= nil then
+            _InputService:DisconnectEvent(KeyDownEvent, self.keyDownHandler)
+            self.keyDownHandler = nil
+        end
+        if self.refreshTimer ~= nil then
+            _TimerService:ClearTimer(self.refreshTimer)
+            self.refreshTimer = nil
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Bind(ButtonComponent btn, any fn)
+        -- 버튼 하나에 클릭 핸들러를 붙이고 나중에 뗄 수 있게 기억한다.
+        if not isvalid(btn) then return end
+        local ent = btn.Entity
+        local h = ent:ConnectEvent(ButtonClickEvent, fn)
+        table.insert(self.handlerEntities, ent)
+        table.insert(self.handlerIds, h)
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetSlot(integer index)
+        -- 프로퍼티를 배열처럼 쓰기 위한 창구. 2개뿐이라 분기로 충분하다.
+        if index == 1 then return self.slot0 end
+        if index == 2 then return self.slot1 end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method string KeyNameFor(integer index)
+        -- 칸에 걸린 키 이름. 없으면 "".
+        --
+        -- SkillBar.SplitOrder와 같은 방식으로 자르지 않는 이유: 여기는 빈 칸이
+        -- 없고(고정 2칸) 목록이 짧아 gmatch 한 줄로 충분하다.
+        local i = 0
+        for token in string.gmatch(self.keyOrder, "([^,]+)") do
+            i = i + 1
+            if i == index then return token end
+        end
+        return ""
+    end
+
+    @ExecSpace("ClientOnly")
+    method string ShortKeyName(string name)
+        -- 화면에 보일 짧은 이름. Alpha1 → 1 (SkillBar.ShortName과 같은 규칙).
+        if name == "" then return "" end
+        if string.sub(name, 1, 5) == "Alpha" then return string.sub(name, 6) end
+        return name
+    end
+
+    ---------------------------------------------------------------
+    -- 표시
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method any GetInventory()
+        local me = _UserService.LocalPlayer
+        if me == nil then return nil end
+        return me:GetComponent("script.PlayerInventory")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Refresh()
+        ---@type PlayerInventory
+        local inv = self:GetInventory()
+        if inv == nil then return end
+
+        -- 가진 소비 아이템을 앞 칸부터 채운다.
+        self.slotItemIds = {}
+        local ids = _GameData:GetAllItemIds()
+        local filled = 0
+        for i = 1, #ids do
+            local id = ids[i]
+            local item = _GameData:GetItem(id)
+            if item ~= nil and item.item_type == "consume" and inv:GetCount(id) > 0 then
+                if filled < self.slotCount then
+                    filled = filled + 1
+                    self.slotItemIds[filled] = id
+                end
+            end
+        end
+
+        for i = 1, self.slotCount do
+            self:DrawSlot(i, inv)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void DrawSlot(integer index, any inv)
+        -- 칸 하나를 그린다. 비어 있으면 아이콘을 숨기고 개수를 지운다 —
+        -- 칸 자체는 남긴다. 사라지면 "어디로 갔지"가 되고, 남아 있으면
+        -- "여기에 물약이 올라간다"는 자리로 읽힌다.
+        local btn = self:GetSlot(index)
+        if btn == nil or not isvalid(btn) then return end
+        local ent = btn.Entity
+
+        local keyLabel = ent:GetChildByName("KeyLabel", false)
+        if keyLabel ~= nil and isvalid(keyLabel) then
+            keyLabel.TextGUIRendererComponent.Text = self:ShortKeyName(self:KeyNameFor(index))
+        end
+
+        local icon = ent:GetChildByName("Icon", false)
+        local countLabel = ent:GetChildByName("CountLabel", false)
+        local itemId = self.slotItemIds[index]
+
+        if itemId == nil then
+            if icon ~= nil and isvalid(icon) then icon.Enable = false end
+            if countLabel ~= nil and isvalid(countLabel) then
+                countLabel.TextGUIRendererComponent.Text = ""
+            end
+            return
+        end
+
+        local item = _GameData:GetItem(itemId)
+        if icon ~= nil and isvalid(icon) and item ~= nil and item.icon_ruid ~= "" then
+            icon.Enable = true
+            icon.SpriteGUIRendererComponent.ImageRUID = DataRef(item.icon_ruid)
+        end
+        if countLabel ~= nil and isvalid(countLabel) then
+            countLabel.TextGUIRendererComponent.Text = tostring(inv:GetCount(itemId))
+        end
+    end
+
+    ---------------------------------------------------------------
+    -- 사용
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method void OnKeyDown(KeyDownEvent event)
+        -- 키 설정 창이 키를 받고 있으면 물러난다. 안 막으면 키를 고르는 순간
+        -- 물약이 같이 나간다 (SkillBar가 같은 이유로 captureMode를 본다).
+        if _SkillBar.captureMode then return end
+
+        for i = 1, self.slotCount do
+            local name = self:KeyNameFor(i)
+            if name ~= "" and _SkillBar:KeyCodeOf(name) == event.key then
+                self:Use(i)
+                return
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Use(integer index)
+        -- 칸을 쓴다. 버튼 탭(모바일)과 키 입력이 **같은 창구**를 지난다 —
+        -- 둘로 갈라놓으면 한쪽만 고쳐지는 일이 생긴다 (SkillBar와 같은 판단).
+        local itemId = self.slotItemIds[index]
+        if itemId == nil then return end
+
+        ---@type PlayerInventory
+        local inv = self:GetInventory()
+        if inv == nil then return end
+
+        log("[퀵슬롯] " .. tostring(index) .. "번 사용 요청 " .. itemId)
+        inv:RequestUseItem(itemId)
+        self:Refresh()
+    end
+
+end

@@ -145,8 +145,19 @@ script KeyConfigPanel extends Logic
     @ExecSpace("ClientOnly")
     method void EndCapture()
         if self.capturingIndex == 0 then return end
+        -- 대기 상태는 즉시 끝낸다 (중복 캡처 방지).
         self.capturingIndex = 0
-        _SkillBar:SetCaptureMode(false)
+
+        -- 그런데 captureMode는 **한 박자 뒤에** 끈다.
+        --
+        -- 왜 (T13-5b 실측): 같은 KeyDownEvent를 듣는 리스너가 여럿이고 순서가
+        -- 정해져 있지 않다. 여기서 즉시 끄면, 아직 안 돌아온 리스너가 captureMode를
+        -- false로 보고 그 키를 **그대로 발동**한다. 실제로 키 설정 창에서 1을 눌렀을 때
+        -- 예약 키로 거절되면서 동시에 아이템 퀵슬롯이 물약을 마셨다.
+        -- (마침 만피여서 소모되지 않았을 뿐, 체력이 깎여 있었으면 한 개를 잃었다.)
+        _TimerService:SetTimerOnce(function()
+            _SkillBar:SetCaptureMode(false)
+        end, 0.05)
     end
 
     @ExecSpace("ClientOnly")
@@ -166,7 +177,9 @@ script KeyConfigPanel extends Logic
             self:EndCapture()
             self:Refresh()
             log("[KeyConfig] " .. name .. " 는 예약 키 — 거절")
-            _GateNotice:ShowNotice("쓸 수 없는 키", name .. " 는 이동·취소에 쓰인다")
+            -- 무엇에 쓰이는지 하나로 못 박지 않는다. 예약 목록에 이동·취소 말고
+            -- 아이템 퀵슬롯(1·2)도 들어왔다 (T13-5b).
+            _GateNotice:ShowNotice("쓸 수 없는 키", name .. " 는 다른 조작에 쓰인다")
             return
         end
 
@@ -283,7 +296,7 @@ script KeyConfigPanel extends Logic
             self.hintText.Text =
                 "줄을 누르고 원하는 키를 누르세요.\n"
                 .. "이미 쓰는 키를 고르면 그 자리가 비워집니다.\n"
-                .. "방향키와 Esc는 이동·취소에 쓰여 걸 수 없습니다."
+                .. "방향키·Esc(이동·취소)와 1·2(아이템 퀵슬롯)는 걸 수 없습니다."
         end
     end
 
