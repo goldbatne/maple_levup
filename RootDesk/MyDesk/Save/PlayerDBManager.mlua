@@ -274,6 +274,33 @@ script PlayerDBManager extends Component
             -- 저장된 monster_slot_count는 참고용이고, 계산이 진실이다.
             slots:RecomputeSlotCount()
         end
+
+        ---@type PlayerInventory
+        local inventory = self.Entity:GetComponent("script.PlayerInventory")
+        if inventory ~= nil then
+            for id, count in pairs(perm.inventory) do
+                -- ItemTable에서 사라진 아이템은 버린다. 그대로 부으면 창(T13-5)이
+                -- 이름 없는 칸을 그리고, 스탯 합산(T13-4)이 nil을 만난다.
+                if _GameData:GetItem(id) == nil then
+                    log_warning("[PlayerDB] ItemTable에 없는 아이템을 버린다: " .. tostring(id))
+                else
+                    inventory.Items[id] = math.floor(count)
+                end
+            end
+            for slot, id in pairs(perm.equipped) do
+                -- 장착도 같은 이유로 검사한다. 다만 여기서는 슬롯 정합까지 본다 —
+                -- CSV에서 아이템의 slot을 바꿨으면 옛 장착이 엉뚱한 칸에 남는다.
+                local record = _GameData:GetItem(id)
+                if record == nil then
+                    log_warning("[PlayerDB] 없는 아이템의 장착을 버린다: " .. tostring(id))
+                elseif record.slot ~= slot then
+                    log_warning("[PlayerDB] 슬롯이 바뀐 장착을 버린다: " .. tostring(id)
+                        .. " (저장=" .. tostring(slot) .. " 현재=" .. record.slot .. ")")
+                else
+                    inventory.Equipped[slot] = id
+                end
+            end
+        end
     end
 
     @ExecSpace("ServerOnly")
@@ -590,6 +617,28 @@ script PlayerDBManager extends Component
                 if slots.UnlockedJobs[jobId] ~= nil then jobs[jobId] = 1 end
             end
             perm.unlocked_jobs = jobs
+        end
+
+        ---@type PlayerInventory
+        local inventory = self.Entity:GetComponent("script.PlayerInventory")
+        if inventory ~= nil then
+            -- SyncTable을 순회할 수 없으므로 ItemTable의 키 공간 전체를 훑는다
+            -- (이 파일 상단 주석 참고). 0개는 담지 않는다.
+            local bag = {}
+            for _, id in ipairs(_GameData:GetAllItemIds()) do
+                local n = inventory:GetCount(id)
+                if n > 0 then bag[id] = n end
+            end
+            perm.inventory = bag
+
+            -- 장착은 슬롯 이름 목록을 훑는다. 슬롯 수가 한 자릿수라 이쪽이 싸다.
+            local worn = {}
+            local slotNames = inventory:GetEquipSlotNames()
+            for i = 1, #slotNames do
+                local id = inventory:GetEquipped(slotNames[i])
+                if id ~= "" then worn[slotNames[i]] = id end
+            end
+            perm.equipped = worn
         end
 
         local out = {}
