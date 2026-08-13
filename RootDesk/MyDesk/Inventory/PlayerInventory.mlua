@@ -1,0 +1,202 @@
+-- @서버 (개수 증감·장착 판정은 반드시 서버. 클라는 표시만 — 개발 규칙 2)
+--
+-- 인벤토리의 런타임 소유자 (T13-3). 필드는 SavePermanentData의
+-- inventory / equipped 와 대응하고, 저장은 PlayerDBManager가 모아서 한다.
+--
+-- ## 왜 영구 데이터인가
+--
+-- 장비가 환생해도 남는 것은 확정된 설계다 (2026-08-12 대표 지시).
+-- 소비 아이템(포션)까지 같은 표에 두고 통째로 영구로 간다 — 소비만 회차 데이터로
+-- 갈라놓으면 "환생하면 물약이 사라진다"는 규칙을 새로 만드는 셈이고,
+-- 그건 승인 없이 정할 일이 아니다. 바꾸려면 이 주석부터 고칠 것.
+--
+-- ## 이 태스크의 범위 (T13-3)
+--
+-- 담는 것 / 꺼내는 것 / 저장에 실리는 것까지다.
+--   * 스탯 반영은 T13-4 (SetEquipSlot이 자리를 잡아 놓았고, 거기서 재계산을 붙인다)
+--   * 인벤토리 창·아이템 퀵슬롯은 T13-5
+--   * 몬스터 드랍은 T13-6, 포션 사용은 T13-7
+-- 지금은 부르는 쪽이 없다. 검증은 서버 스크립트로 직접 호출해서 한다.
+--
+-- ## 칸 수 제한이 없다
+--
+-- 슬라이스에는 인벤토리 칸 제한을 두지 않는다. 종류당 stack_max만 지킨다.
+-- 칸 제한은 창(T13-5)이 있어야 "가득 찼다"를 보여줄 수 있고, 보여주지 못하는
+-- 제한은 아이템이 조용히 사라지는 버그로만 나타난다.
+
+@Component
+script PlayerInventory extends Component
+
+    -- itemId -> 개수. 개인 데이터라 @TargetUserSync — @Sync면 남의 인벤토리가 새어 나간다
+    -- (PlayerCollection.OwnedSkills와 같은 판단).
+    @TargetUserSync property SyncTable<string, integer> Items
+
+    -- 장비 슬롯. slot("weapon"/"armor"/"accessory") -> itemId.
+    -- 비어 있는 슬롯은 키 자체가 없다 — ""를 넣으면 "빈 슬롯"과 "없는 슬롯"이 섞인다.
+    @TargetUserSync property SyncTable<string, string> Equipped
+
+    -- 장비 슬롯의 이름과 순서. ItemTable의 slot 컬럼이 이 중 하나여야 한다.
+    -- 쉼표 구분 한 줄로 두는 이유: SyncTable에는 순회 API가 없어(T8 실측)
+    -- "슬롯이 몇 개이고 무엇인가"를 물어볼 곳이 따로 필요하다.
+    property string equipSlots = "weapon,armor,accessory"
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        -- 로드는 PlayerDBManager가 한다 (T8과 같은 이유로 여기서 초기화하지 않는다 —
+        -- 컴포넌트 OnBeginPlay 순서가 정해져 있지 않아 로드값을 덮어쓸 수 있다).
+        log("[Inventory] 초기화  장비 슬롯=" .. self.equipSlots)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void MarkSave(string reason)
+        -- 인벤토리·장착은 영구 데이터다.
+        ---@type PlayerDBManager
+        local db = self.Entity:GetComponent("script.PlayerDBManager")
+        if db == nil then return end
+        db:MarkPermDirty(reason)
+    end
+
+    method table GetEquipSlotNames()
+        -- 장비 슬롯 이름 배열. 실행공간을 비워 둔다 — 서버는 검증에,
+        -- 클라는 장착 창(T13-5)의 줄을 그릴 때 쓴다.
+        local out = {}
+        for token in string.gmatch(self.equipSlots, "([^,]+)") do
+            table.insert(out, token)
+        end
+        return out
+    end
+
+    ---------------------------------------------------------------
+    -- 개수 조회 / 증감
+    ---------------------------------------------------------------
+
+    -- 실행공간을 일부러 비워둔다. 서버는 판정에, 클라는 표시에 쓴다.
+    -- 읽는 값이 @TargetUserSync라 주인 클라에도 같은 값이 있다
+    -- (PlayerCollection.GetOwnedCount와 같은 판단 — ServerOnly로 두면
+    --  클라 호출이 에러 없이 0을 돌려줘서 창이 통째로 비어 보인다).
+    method integer GetCount(string itemId)
+        -- 보유 개수. 없으면 0.
+        local n = self.Items[itemId]
+        if n == nil then return 0 end
+        return n
+    end
+
+    method string GetEquipped(string slot)
+        -- 그 슬롯에 장착된 아이템 id. 비었으면 "".
+        local id = self.Equipped[slot]
+        if id == nil then return "" end
+        return id
+    end
+
+    @ExecSpace("ServerOnly")
+    method integer AddItem(string itemId, integer count)
+        -- 아이템을 넣는다. 실제로 들어간 개수를 돌려준다 (stack_max에서 잘릴 수 있다).
+        --
+        -- 0을 돌려주면 "꽉 찼거나 없는 아이템"이다. 드랍(T13-6)은 이 값을 보고
+        -- 획득 연출을 낼지 말지 정한다 — 안 들어갔는데 연출이 나가면 거짓말이 된다.
+        if count <= 0 then return 0 end
+
+        local record = _GameData:GetItem(itemId)
+        if record == nil then
+            log_warning("[Inventory] ItemTable에 없는 아이템: " .. tostring(itemId))
+            return 0
+        end
+
+        local before = self:GetCount(itemId)
+        local cap = math.floor(record.stack_max)
+        if cap < 1 then cap = 1 end
+
+        local after = before + count
+        if after > cap then after = cap end
+        local added = after - before
+        if added <= 0 then
+            log("[Inventory] " .. record.name .. " 가 이미 상한(" .. tostring(cap) .. ")이다 — 버린다")
+            return 0
+        end
+
+        self.Items[itemId] = after
+        log("[Inventory] 획득 " .. record.name .. " +" .. tostring(added)
+            .. "  (" .. tostring(before) .. " → " .. tostring(after) .. "/" .. tostring(cap) .. ")")
+        self:MarkSave("아이템 획득")
+        return added
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean RemoveItem(string itemId, integer count)
+        -- 아이템을 뺀다. 모자라면 아무것도 하지 않고 false — 부분 소모는 하지 않는다.
+        -- 포션 2개를 요구하는 소비가 1개만 먹고 실패하면 그게 더 나쁜 상태다.
+        if count <= 0 then return false end
+
+        local before = self:GetCount(itemId)
+        if before < count then return false end
+
+        local after = before - count
+        if after <= 0 then
+            -- 0을 남기지 않고 키를 지운다. 0이 남으면 저장 페이로드가 계속 커지고,
+            -- "가진 적 있음"과 "지금 가짐"이 구분되지 않는다.
+            self.Items[itemId] = nil
+        else
+            self.Items[itemId] = after
+        end
+
+        local record = _GameData:GetItem(itemId)
+        local name = itemId
+        if record ~= nil then name = record.name end
+        log("[Inventory] 소모 " .. name .. " -" .. tostring(count)
+            .. "  (" .. tostring(before) .. " → " .. tostring(after) .. ")")
+        self:MarkSave("아이템 소모")
+        return true
+    end
+
+    ---------------------------------------------------------------
+    -- 장착 (T13-3은 저장까지. 스탯 반영은 T13-4)
+    ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method boolean SetEquipSlot(string slot, string itemId)
+        -- 슬롯에 아이템을 끼우거나(itemId) 비운다(itemId == "").
+        --
+        -- 검증을 서버에 두는 이유: 클라가 슬롯 이름과 아이템을 마음대로 보내면
+        -- 무기 칸에 포션을 끼워 스탯을 만들어낼 수 있다. 요청 창구(T13-4)는
+        -- 이 함수를 부르기만 하고, 판정은 전부 여기 있어야 한다.
+        --
+        -- 지금은 스탯을 다시 계산하지 않는다 — 장착 스탯 합산은 T13-4에서
+        -- PlayerStats에 붙인다. 그때 이 함수 끝에 재계산 호출 한 줄이 들어간다.
+        if itemId == "" then
+            if self:GetEquipped(slot) == "" then return false end
+            log("[Inventory] 장착 해제 " .. slot)
+            self.Equipped[slot] = nil
+            self:MarkSave("장착 해제")
+            return true
+        end
+
+        local record = _GameData:GetItem(itemId)
+        if record == nil then
+            log_warning("[Inventory] 없는 아이템을 장착하려 한다: " .. tostring(itemId))
+            return false
+        end
+        if record.item_type ~= "equip" then
+            log_warning("[Inventory] 장비가 아니다: " .. itemId .. " (" .. record.item_type .. ")")
+            return false
+        end
+        if record.slot ~= slot then
+            log_warning("[Inventory] 슬롯이 맞지 않다: " .. itemId
+                .. " 는 " .. record.slot .. " 인데 " .. slot .. " 에 넣으려 한다")
+            return false
+        end
+        if self:GetCount(itemId) <= 0 then
+            log_warning("[Inventory] 가지고 있지 않은 아이템을 장착하려 한다: " .. itemId)
+            return false
+        end
+
+        local before = self:GetEquipped(slot)
+        if before == itemId then return false end
+
+        self.Equipped[slot] = itemId
+        log("[Inventory] 장착 " .. slot .. " = " .. record.name
+            .. (before == "" and "" or "  (" .. before .. " 교체)"))
+        self:MarkSave("장착 변경")
+        return true
+    end
+
+end
