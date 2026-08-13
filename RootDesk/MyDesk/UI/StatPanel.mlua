@@ -140,10 +140,20 @@ script StatPanel extends Logic
         end
 
         self.pointsValue.Text = tostring(stats.UnspentPoints)
-        self.atkValue.Text = tostring(stats.StatAtk) .. "  (" .. tostring(stats:GetTotalAtk()) .. ")"
-        self.intValue.Text = tostring(stats.StatInt)
-        self.defValue.Text = tostring(stats.StatDef)
-        self.lukValue.Text = tostring(stats.StatLuk)
+        -- "분배값 (총합)" 꼴. 총합에는 기본값과 **장비분**이 들어 있다 (T13-4).
+        -- 네 스탯을 같은 꼴로 맞춘 이유: ATK만 총합을 보여주던 동안 장비를 껴도
+        -- DEF·LUK 줄은 숫자가 그대로여서 "장비가 안 먹었다"로 보였다.
+        self.atkValue.Text = self:StatText(stats.StatAtk, stats:GetTotalAtk())
+        self.intValue.Text = self:StatText(stats.StatInt, stats:GetTotalInt())
+        self.defValue.Text = self:StatText(stats.StatDef, stats:GetTotalDef())
+        self.lukValue.Text = self:StatText(stats.StatLuk, stats:GetTotalLuk())
+    end
+
+    @ExecSpace("ClientOnly")
+    method string StatText(integer allocated, number total)
+        -- "3  (18)" 꼴로 맞춘다. 소수점이 붙지 않게 총합은 내림한다 —
+        -- 밸런스 값이 실수라 그냥 tostring하면 "18.0"으로 나온다.
+        return tostring(allocated) .. "  (" .. tostring(math.floor(total)) .. ")"
     end
 
 end

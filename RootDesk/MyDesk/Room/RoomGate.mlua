@@ -68,10 +68,13 @@ script RoomGate extends Logic
         local stats = player:GetComponent("script.PlayerStats")
         if stats == nil then return -1 end
 
-        if key == "ATK" then return stats:GetTotalAtk() end
-        if key == "INT" then return stats:GetTotalInt() end
-        if key == "DEF" then return stats:GetTotalDef() end
-        if key == "LUK" then return stats:GetTotalLuk() end
+        -- 장비를 뺀 값으로 잰다 (T13-4, 대표 지시 2026-08-12).
+        -- GetTotalX는 장비를 포함하므로 여기서 쓰면 좋은 장비 하나로 문이 열린다 —
+        -- 문이 재는 것이 성장이 아니라 운이 된다.
+        if key == "ATK" then return stats:GetStatWithoutEquip("ATK") end
+        if key == "INT" then return stats:GetStatWithoutEquip("INT") end
+        if key == "DEF" then return stats:GetStatWithoutEquip("DEF") end
+        if key == "LUK" then return stats:GetStatWithoutEquip("LUK") end
         if key == "LEVEL" then return stats.Level end
         -- 분배한 포인트 총합. 어디에 넣었는지는 묻지 않는다 (PlayerStats 주석 참고).
         if key == "STAT_TOTAL" then return stats:GetAllocatedTotal() end

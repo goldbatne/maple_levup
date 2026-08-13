@@ -227,36 +227,79 @@ script PlayerStats extends Component
     -- 파생 스탯 (양쪽에서 계산 가능 — 표시용)
     ---------------------------------------------------------------
 
-    method number GetTotalAtk()
-        -- 데미지 공식(T3)이 쓰는 값. 기본 ATK + 분배 P x P당 상승분.
-        local base = _GameData:GetBalance("player_base_atk")
+    method number GetEquipBonus(string stat)
+        -- 장착한 장비가 이 스탯에 얹는 값 (T13-4). stat은 "ATK"/"INT"/"DEF"/"LUK".
+        --
+        -- 실행공간을 비워 두는 이유: GetTotalX가 양쪽에서 불린다 —
+        -- 서버는 데미지 계산에, 클라는 스탯 창 표시에 쓴다. 인벤토리의
+        -- Items/Equipped가 @TargetUserSync라 주인 클라에도 같은 값이 있다.
+        --
+        -- 올스탯(stat_all)은 _GameData:GetItemStatBonus가 이미 합쳐서 준다.
+        -- 여기서 다시 더하면 두 번 들어간다.
+        local inventory = self.Entity:GetComponent("script.PlayerInventory")
+        if inventory == nil then return 0 end
+
+        ---@type PlayerInventory
+        local inv = inventory
+        local total = 0
+        local slots = inv:GetEquipSlotNames()
+        for i = 1, #slots do
+            local itemId = inv:GetEquipped(slots[i])
+            if itemId ~= "" then
+                total = total + _GameData:GetItemStatBonus(itemId, stat)
+            end
+        end
+        return total
+    end
+
+    method number GetStatWithoutEquip(string stat)
+        -- 장비를 빼고 본 스탯 (기본값 + 분배분). **수치 게이트가 이걸 쓴다.**
+        --
+        -- 왜 나눠 두는가 (대표 지시 2026-08-12): 게이트는 "성장했는가"를 묻는
+        -- 문이다. 장비를 세면 좋은 장비 하나로 문이 열려, 문이 재는 것이
+        -- 성장이 아니라 운이 된다. 반대로 전투는 장비를 세는 게 당연하다.
+        -- 그래서 전투용(GetTotalX)과 게이트용(이 함수)을 물리적으로 갈라 둔다.
         local perPoint = _GameData:GetBalance("atk_per_stat_point")
-        return base + self.StatAtk * perPoint
+        if stat == "ATK" then
+            return _GameData:GetBalance("player_base_atk") + self.StatAtk * perPoint
+        end
+        if stat == "INT" then
+            return _GameData:GetBalance("player_base_int") + self.StatInt * perPoint
+        end
+        if stat == "DEF" then
+            return _GameData:GetBalance("player_base_def") + self.StatDef * perPoint
+        end
+        if stat == "LUK" then
+            return _GameData:GetBalance("player_base_luk") + self.StatLuk * perPoint
+        end
+        return 0
+    end
+
+    method number GetTotalAtk()
+        -- 데미지 공식(T3)이 쓰는 값. 기본 ATK + 분배 P x P당 상승분 + 장비(T13-4).
+        return self:GetStatWithoutEquip("ATK") + self:GetEquipBonus("ATK")
     end
 
     method number GetTotalInt()
         -- ATK와 대칭으로 기본값을 준다 (T10-1b). 기본 ATK만 10이던 시절에는
         -- INT를 11P 넘게 찍어야 비로소 기본 공격을 가져갔다 — INT 빌드의 첫
         -- 두세 레벨이 죽어 있었다. 둘이 같은 출발선에 서야 첫 1P부터 선택이 된다.
-        local base = _GameData:GetBalance("player_base_int")
-        local perPoint = _GameData:GetBalance("atk_per_stat_point")
-        return base + self.StatInt * perPoint
+        return self:GetStatWithoutEquip("INT") + self:GetEquipBonus("INT")
     end
 
     method number GetTotalDef()
-        -- 마찬가지로 ATK와 대칭. 실제 피격 감쇄는 T10-3에서 붙는다.
-        local base = _GameData:GetBalance("player_base_def")
-        local perPoint = _GameData:GetBalance("atk_per_stat_point")
-        return base + self.StatDef * perPoint
+        -- 마찬가지로 ATK와 대칭. 피격 감쇄는 MonsterAttack이 이 값을 읽는다 (T10-3).
+        return self:GetStatWithoutEquip("DEF") + self:GetEquipBonus("DEF")
     end
 
     method number GetTotalLuk()
         -- LUK만 기본값 0이다. 10을 주면 GetCaptureRate의 하한이 3%가 아니라 4%가 되어
         -- 기획서 4.8("확률 = 3% + LUK x 0.1%p")과 어긋난다. 바꾸려면 시트의
         -- capture_base_rate와 함께 정해야 한다 — 그래서 키만 만들어 두고 0으로 뒀다.
-        local base = _GameData:GetBalance("player_base_luk")
-        local perPoint = _GameData:GetBalance("atk_per_stat_point")
-        return base + self.StatLuk * perPoint
+        --
+        -- 장비 LUK은 여기 포함되므로 **포획률에도 얹힌다.** 의도한 것이다 —
+        -- 기획서 4.7이 LUK을 포획·드랍·일부 스킬 계수의 스탯으로 정의한다.
+        return self:GetStatWithoutEquip("LUK") + self:GetEquipBonus("LUK")
     end
 
     method number GetAllocatedTotal()
