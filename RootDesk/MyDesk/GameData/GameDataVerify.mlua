@@ -70,6 +70,23 @@ script GameDataVerify extends Logic
         end
         log("[스킬] 총 " .. tostring(total) .. "개 (직업 " .. tostring(jobCount)
             .. " / 몬스터 " .. tostring(monsterCount) .. " / 열쇠 " .. tostring(keyCount) .. ")")
+
+        -- 중복 강화 계수 (T15-2). 몬스터 스킬만 쌓이므로 그것만 적는다.
+        -- 상한이나 보너스가 0으로 되돌아가도 에러가 나지 않아 로그로만 보인다.
+        local stackMax = math.floor(_GameData:GetBalance("skill_stack_max"))
+        local stackBonus = _GameData:GetBalance("skill_stack_bonus")
+        log("[스킬] 중복 상한 " .. tostring(stackMax) .. "장 / 1장당 비례 +"
+            .. tostring(stackBonus * 100) .. "% → 만작 "
+            .. string.format("%.2f", 1 + stackBonus * (stackMax - 1)) .. "배")
+        local monsterSkills = _GameData:GetMonsterSkillIds()
+        for i = 1, #monsterSkills do
+            local skill = _GameData:GetSkill(monsterSkills[i])
+            if skill ~= nil then
+                log("  [중복강화] " .. skill.name .. " (" .. skill.scaling_stat .. ")  계수 "
+                    .. string.format("%.2f", skill.coefficient) .. " → 만작 "
+                    .. string.format("%.2f", _CombatFormula:StackedCoefficient(skill.coefficient, stackMax)))
+            end
+        end
     end
 
     @ExecSpace("ServerOnly")

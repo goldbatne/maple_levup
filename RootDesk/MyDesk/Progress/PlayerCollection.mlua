@@ -83,6 +83,18 @@ script PlayerCollection extends Component
             return false
         end
 
+        -- 이미 만작이면 굴리지 않는다 (T15-2).
+        --
+        -- 천장 카운터도 올리지 않는다: 더 얻을 것이 없는데 40마리를 세는 것은
+        -- 의미가 없고, 상한을 나중에 6으로 올리면 그 순간 확정 포획이 튀어나온다.
+        local stackMax = math.floor(_GameData:GetBalance("skill_stack_max"))
+        if stackMax < 1 then stackMax = 1 end
+        if self:GetOwnedCount(skillId) >= stackMax then
+            log("[PlayerCollection] " .. record.name .. " 는 이미 만작 "
+                .. tostring(stackMax) .. "/" .. tostring(stackMax) .. " — 포획을 굴리지 않는다")
+            return false
+        end
+
         local kills = self:GetSpeciesKills(monsterId) + 1
         local pity = math.floor(_GameData:GetBalance("capture_pity_kills"))
         local rate = self:GetCaptureRate()
@@ -116,8 +128,16 @@ script PlayerCollection extends Component
             log("[PlayerCollection] 포획 성공 " .. record.name .. " → 신규 스킬 [" .. skillName .. "]"
                 .. (byPity and "  (천장)" or "  (확률)"))
         else
+            -- 강화된 계수를 같이 남긴다 (T15-2). 개수만 적으면 그게 데미지에
+            -- 반영됐는지 로그에서 확인할 방법이 없다 — T15-2 이전이 정확히 그 상태였다.
+            local coefText = ""
+            if skill ~= nil then
+                coefText = "  계수 " .. string.format("%.2f", skill.coefficient)
+                    .. " → " .. string.format("%.2f", _CombatFormula:StackedCoefficient(skill.coefficient, owned))
+            end
             log("[PlayerCollection] 포획 성공 " .. record.name .. " → [" .. skillName .. "] 강화 "
-                .. tostring(owned) .. (byPity and "  (천장)" or "  (확률)"))
+                .. tostring(owned) .. "/" .. tostring(stackMax)
+                .. (byPity and "  (천장)" or "  (확률)") .. coefText)
         end
 
         self:MarkSave("포획")

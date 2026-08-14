@@ -232,8 +232,17 @@ script EquipPanel extends Logic
                     local skill = _GameData:GetSkill(skillId)
                     local name = skillId
                     if skill ~= nil then name = skill.name end
+                    -- 개수와 **강화된 계수**를 같이 적는다 (T15-2). 개수만 보이면
+                    -- 중복이 실제로 세졌는지가 화면 어디에도 없다.
                     local owned = collection:GetOwnedCount(skillId)
-                    btn.Entity.TextGUIRendererComponent.Text = name .. "   x" .. tostring(owned)
+                    local stackMax = math.floor(_GameData:GetBalance("skill_stack_max"))
+                    local coefText = ""
+                    if skill ~= nil then
+                        coefText = "   계수 " .. string.format("%.2f",
+                            _CombatFormula:StackedCoefficient(skill.coefficient, owned))
+                    end
+                    btn.Entity.TextGUIRendererComponent.Text = name
+                        .. "   x" .. tostring(owned) .. "/" .. tostring(stackMax) .. coefText
                 end
             end
         end

@@ -174,9 +174,34 @@ script PlayerAttack extends AttackComponent
 			def = monster.Def
 		end
 
-		local damage = _CombatFormula:CalcSkillDamage(power, def, attackInfo)
+		-- 중복 보유가 계수를 올린다 (T15-2). 몇 장 가졌는지는 플레이어의 것이라
+		-- CombatFormula가 알 수 없어, 여기서 개수를 읽어 계수를 만들고 넘긴다.
+		--
+		-- 몬스터 스킬만 쌓인다: 직업 스킬은 포획이 아니라 직업 선택으로 붙으므로
+		-- 중복 자체가 생기지 않는다. source를 안 보고 GetOwnedCount를 부르면
+		-- 직업 스킬은 항상 0이 나와 계수가 0.8배로 **깎인다**.
+		local coefficient = _CombatFormula:GetSkillCoefficient(attackInfo)
+		local stack = 1
+		if attackInfo ~= nil and attackInfo ~= "" then
+			local skill = _GameData:GetSkill(attackInfo)
+			if skill ~= nil and skill.source == "monster" then
+				---@type PlayerCollection
+				local collection = attacker:GetComponent("script.PlayerCollection")
+				if collection ~= nil then
+					local owned = collection:GetOwnedCount(attackInfo)
+					if owned > 1 then
+						stack = owned
+						coefficient = _CombatFormula:StackedCoefficient(coefficient, owned)
+					end
+				end
+			end
+		end
+
+		local damage = _CombatFormula:CalcDamage(power, def, coefficient)
 		log("[PlayerAttack] " .. statName .. "=" .. tostring(power) .. " vs DEF=" .. tostring(def)
 			.. "  스킬=" .. tostring(attackInfo == nil and "기본공격" or attackInfo)
+			.. "  계수=" .. string.format("%.3f", coefficient)
+			.. (stack > 1 and " (중복 " .. tostring(stack) .. "장 강화)" or "")
 			.. " → 데미지 " .. tostring(damage))
 		return damage
 	end
