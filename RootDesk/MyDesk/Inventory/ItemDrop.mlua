@@ -34,7 +34,10 @@ script ItemDrop extends Logic
 
         local luk = 0
         local ownerUserId = ""
+        local killerInv = nil
         if isvalid(killer) then
+            -- 상한에 닿은 아이템을 굴리지 않기 위해 인벤토리도 본다 (T15-1).
+            killerInv = killer:GetComponent("script.PlayerInventory")
             ---@type PlayerStats
             local stats = killer:GetComponent("script.PlayerStats")
             -- 장비 LUK도 포함된 값이다(GetTotalLuk). 장비가 드랍을 돕는 것은
@@ -52,6 +55,24 @@ script ItemDrop extends Logic
             local itemId = candidates[i]
             local item = _GameData:GetItem(itemId)
             if item ~= nil and item.drop_rate > 0 then
+                -- 이미 상한만큼 가진 아이템은 굴리지 않는다 (T15-1).
+                --
+                -- 떨어뜨려도 밟는 순간 AddItem이 0을 돌려주며 버린다 — 화면에는
+                -- "주웠는데 아무 일도 안 일어난다"로만 보여서 고장처럼 읽힌다.
+                -- 굴리지 않으면 바닥에 뜨지 않으니 헷갈릴 자리가 없다.
+                local cap = _GameData:GetItemStackCap(itemId)
+                local held = 0
+                if killerInv ~= nil then
+                    ---@type PlayerInventory
+                    local inv = killerInv
+                    held = inv:GetCount(itemId)
+                end
+                if held >= cap then
+                    log("[ItemDrop] " .. monsterId .. " → " .. itemId
+                        .. "  이미 상한 " .. tostring(held) .. "/" .. tostring(cap) .. " — 굴리지 않는다")
+                    continue
+                end
+
                 local chance = item.drop_rate * multiplier
                 local roll = _UtilLogic:RandomDouble()
                 if roll < chance then

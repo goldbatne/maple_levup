@@ -260,6 +260,14 @@ script GameDataVerify extends Logic
                 if item.stat_all > 0 then
                     statText = statText .. " (올스탯 +" .. tostring(item.stat_all) .. ")"
                 end
+                -- 중복 상한과 만작 수치를 같이 남긴다 (T15-1). 상한이 1로 되돌아가면
+                -- 중복 합산이 통째로 죽는데, 죽어도 에러가 나지 않아 로그로만 보인다.
+                local cap = _GameData:GetItemStackCap(item.id)
+                statText = statText .. "  [최대 " .. tostring(cap) .. "개 중첩 → 만작 "
+                    .. "ATK+" .. tostring(_GameData:GetItemStackedStatBonus(item.id, "ATK", cap))
+                    .. " INT+" .. tostring(_GameData:GetItemStackedStatBonus(item.id, "INT", cap))
+                    .. " DEF+" .. tostring(_GameData:GetItemStackedStatBonus(item.id, "DEF", cap))
+                    .. " LUK+" .. tostring(_GameData:GetItemStackedStatBonus(item.id, "LUK", cap)) .. "]"
             else
                 statText = "HP회복 " .. tostring(item.heal_hp) .. " / 최대 " .. tostring(item.stack_max) .. "개"
             end

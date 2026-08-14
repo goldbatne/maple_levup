@@ -152,17 +152,35 @@ script InventoryPanel extends Logic
     end
 
     @ExecSpace("ClientOnly")
-    method string StatSummary(table item)
+    method string StatSummary(table item, integer count)
         -- "ATK+5" / "올스탯+3" 꼴. 0인 스탯은 적지 않는다.
-        if item.stat_all > 0 then return "올스탯+" .. tostring(item.stat_all) end
+        --
+        -- count는 보유 개수다. 중복 장비는 개당 수치가 그대로 더해지므로(T15-1)
+        -- 여기도 **합산값**을 보여준다 — 개당 수치를 띄우면 스탯 창의 숫자와
+        -- 어긋나서 "장비가 안 먹는다"로 읽힌다.
+        --
+        -- 회복량(heal_hp)은 곱하지 않는다. 한 번에 하나씩 마시므로 개당이 맞다.
+        if count < 1 then count = 1 end
+        if item.stat_all > 0 then return "올스탯+" .. tostring(item.stat_all * count) end
         local out = ""
-        if item.stat_atk > 0 then out = out .. " ATK+" .. tostring(item.stat_atk) end
-        if item.stat_int > 0 then out = out .. " INT+" .. tostring(item.stat_int) end
-        if item.stat_def > 0 then out = out .. " DEF+" .. tostring(item.stat_def) end
-        if item.stat_luk > 0 then out = out .. " LUK+" .. tostring(item.stat_luk) end
+        if item.stat_atk > 0 then out = out .. " ATK+" .. tostring(item.stat_atk * count) end
+        if item.stat_int > 0 then out = out .. " INT+" .. tostring(item.stat_int * count) end
+        if item.stat_def > 0 then out = out .. " DEF+" .. tostring(item.stat_def * count) end
+        if item.stat_luk > 0 then out = out .. " LUK+" .. tostring(item.stat_luk * count) end
         if item.heal_hp > 0 then out = out .. " HP회복 " .. tostring(item.heal_hp) end
         if out == "" then return "" end
         return string.sub(out, 2)
+    end
+
+    @ExecSpace("ClientOnly")
+    method string CountLabel(table item, integer count)
+        -- "x3/5" 꼴. 장비만 상한을 같이 보여준다 — 5가 목표 숫자라서
+        -- 몇 개가 남았는지가 바로 읽혀야 한다. 포션은 상한이 99라 "/99"가
+        -- 잡음이 될 뿐이라 개수만 적는다.
+        if item.item_type == "equip" then
+            return "x" .. tostring(count) .. "/" .. tostring(_GameData:GetItemStackCap(item.id))
+        end
+        return "x" .. tostring(count)
     end
 
     ---------------------------------------------------------------
@@ -223,8 +241,13 @@ script InventoryPanel extends Logic
                     if item == nil then
                         self:SetRow(btn, self:SlotLabel(slot) .. "        " .. itemId, "")
                     else
+                        -- 착용 줄에도 개수를 적는다. 장착은 한 슬롯이지만 수치는
+                        -- 보유 개수만큼 붙으므로(T15-1) 개수가 안 보이면
+                        -- "왜 +5가 아니라 +15지"의 답이 화면에 없다.
+                        local held = inv:GetCount(itemId)
                         self:SetRow(btn, self:SlotLabel(slot) .. "        " .. item.name
-                            .. "   " .. self:StatSummary(item) .. "        [해제]", item.icon_ruid)
+                            .. " " .. self:CountLabel(item, held)
+                            .. "   " .. self:StatSummary(item, held) .. "        [해제]", item.icon_ruid)
                     end
                 end
             end
@@ -244,8 +267,8 @@ script InventoryPanel extends Logic
                 local label = id
                 local icon = ""
                 if item ~= nil then
-                    label = item.name .. "   x" .. tostring(count)
-                        .. "        " .. self:StatSummary(item)
+                    label = item.name .. "   " .. self:CountLabel(item, count)
+                        .. "        " .. self:StatSummary(item, count)
                     if item.item_type == "equip" then
                         label = label .. "        [장착]"
                     else
@@ -262,7 +285,7 @@ script InventoryPanel extends Logic
 
         if isvalid(self.hintText) then
             if row == 0 then
-                self.hintText.Text = "가방이 비어 있다. 아이템은 몬스터에게서 얻는다 (드랍은 아직 없다)."
+                self.hintText.Text = "가방이 비어 있다. 몬스터를 잡으면 바닥에 떨어진다 — 밟으면 줍는다."
             else
                 -- 한 줄로 둔다. 두 줄이면 마지막 아이템 줄과 겹친다 (ui_lint L023).
                 self.hintText.Text = "장비는 눌러서 장착 · 물약은 눌러서 마신다 · 착용 중인 줄은 눌러서 해제"
