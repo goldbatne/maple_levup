@@ -47,7 +47,36 @@ script CombatFormula extends Logic
 
     method integer CalcSkillDamage(number atk, number def, string skillId)
         -- 실제 호출부가 쓰는 진입점. 계수 조회와 계산을 한 번에 한다.
+        --
+        -- ⚠ 중복 강화(T15-2)는 여기서 못 얹는다 — 몇 장 가졌는지는 **플레이어의 것**이라
+        --   상태 없는 이 모듈이 알 수 없다. 스킬 데미지는 PlayerAttack.CalcDamage가
+        --   StackedCoefficient로 계수를 만든 뒤 CalcDamage를 직접 부른다.
+        --   이 함수는 몬스터 공격(MonsterAttack)처럼 중복이 없는 쪽이 쓴다.
         return self:CalcDamage(atk, def, self:GetSkillCoefficient(skillId))
+    end
+
+    method number StackedCoefficient(number baseCoefficient, integer stack)
+        -- 중복 보유가 계수를 올린다 (T15-2, 대표 지시 2026-08-14).
+        --
+        --   계수 = 기본 × (1 + skill_stack_bonus × (보유수 - 1))
+        --   5장 만작 + 보너스 0.2 → ×1.8
+        --
+        -- **비례**인 이유: 정액(+0.1 고정)으로 두면 계수 1.0인 점액 튀기기가 +40%,
+        -- 1.35인 바위 던지기가 +30%로 **약한 스킬이 비율로 더 오른다** — 희귀도 서열이
+        -- 뒤집힌다. 드랍률에 LUK을 비례로 얹은 것(T13-6)과 같은 판단이다.
+        --
+        -- 장비는 규칙이 다르다(개당 수치 × 보유 개수 = 배수). 스탯이 정수 5라
+        -- 비례 20%면 5 → 6 → 7이 되어 체감이 없기 때문이다. 섞지 말 것.
+        if stack < 1 then stack = 1 end
+
+        -- 상한을 여기서 자른다. 세이브에 상한을 넘는 값이 남아 있어도(상한을 나중에
+        -- 낮추는 경우) 조용히 초과 배율이 나가지 않게 한다.
+        local cap = math.floor(_GameData:GetBalance("skill_stack_max"))
+        if cap < 1 then cap = 1 end
+        if stack > cap then stack = cap end
+
+        local bonus = _GameData:GetBalance("skill_stack_bonus")
+        return baseCoefficient * (1 + bonus * (stack - 1))
     end
 
     ---------------------------------------------------------------

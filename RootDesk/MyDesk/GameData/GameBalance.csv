@@ -29,6 +29,8 @@ drop_pickup_range,0.9,아이템을 줍는 반경(월드 유닛) - 플레이어 �
 capture_base_rate,0.03,기본 포획 확률 3%
 capture_luk_bonus,0.001,LUK 1P당 포획 보정 +0.1%p
 capture_pity_kills,40,종별 포획 천장 - N마리 처치 시 확정
+skill_stack_max,5,같은 몬스터 스킬을 몇 장까지 겹쳐 쌓을 수 있는가 (T15-2). 만작이면 포획 판정 자체를 건너뛴다
+skill_stack_bonus,0.2,중복 1장당 계수 비례 증가분 - 계수 = 기본 x (1 + 이 값 x (보유수-1)). 5장 만작이면 x1.8. 정액으로 두면 계수 1.0인 스킬이 1.35인 스킬보다 비율로 더 올라 희귀도 서열이 뒤집힌다
 monster_slot_start,1,몬스터 스킬 슬롯 시작 개수 - 기획서 4.3
 monster_slot_max,3,몬스터 스킬 슬롯 상한 - 기획서 4.3
 save_min_interval,10,저장 최소 간격(초) - 이벤트 저장 스로틀. 시트 외 구현 상수
