@@ -236,6 +236,16 @@ script PlayerStats extends Component
         --
         -- 올스탯(stat_all)은 _GameData:GetItemStatBonus가 이미 합쳐서 준다.
         -- 여기서 다시 더하면 두 번 들어간다.
+        --
+        -- ## 중복 보유가 그대로 쌓인다 (T15-1, 대표 지시 2026-08-13)
+        --
+        -- 같은 장비를 5개까지 모을 수 있고, **보너스는 보유 개수만큼 곱해진다**
+        -- (무쇠 검 3개 = ATK+15). 그래서 "장착했는가"가 아니라 "몇 개 가졌는가"가
+        -- 수치를 정한다 — 5개를 모아도 장착은 한 슬롯이다.
+        --
+        -- 왜 장착 개수가 아니라 보유 개수인가: 슬롯이 3개뿐이라 5개를 동시에
+        -- 낄 자리가 없다. 개수를 세지 않으면 2개째부터 아무 의미가 없어
+        -- 중복 드랍이 그냥 낭비가 된다.
         local inventory = self.Entity:GetComponent("script.PlayerInventory")
         if inventory == nil then return 0 end
 
@@ -246,7 +256,7 @@ script PlayerStats extends Component
         for i = 1, #slots do
             local itemId = inv:GetEquipped(slots[i])
             if itemId ~= "" then
-                total = total + _GameData:GetItemStatBonus(itemId, stat)
+                total = total + _GameData:GetItemStackedStatBonus(itemId, stat, inv:GetCount(itemId))
             end
         end
         return total

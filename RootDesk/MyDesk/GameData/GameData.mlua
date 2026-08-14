@@ -470,6 +470,36 @@ script GameData extends Logic
         return own + item.stat_all
     end
 
+    method integer GetItemStackCap(string id)
+        -- 이 아이템을 몇 개까지 쌓을 수 있는가 (ItemTable.stack_max).
+        --
+        -- 없는 아이템에 1을 돌려주는 이유: 0을 주면 부르는 쪽이 "하나도 못 가진다"로
+        -- 읽어서, 데이터에 없는 아이템이 획득 자체가 막히는 것처럼 보인다.
+        -- 없는 아이템은 GetItem에서 이미 걸러지므로 여기서는 안전한 값만 준다.
+        local item = self.items[id]
+        if item == nil then return 1 end
+        local cap = math.floor(item.stack_max)
+        if cap < 1 then return 1 end
+        return cap
+    end
+
+    method number GetItemStackedStatBonus(string id, string stat, integer count)
+        -- 보유 개수만큼 합산한 스탯 보너스 (T15-1).
+        --
+        -- 중복 획득은 **개당 수치를 그대로 더한다** — +5 장비를 3개 가지면 +15다
+        -- (대표 지시 2026-08-13). 스킬 중복은 규칙이 다르다(계수에 비례 20%씩) —
+        -- 섞지 말 것. 장비만 배수인 이유는 스탯이 정수 5라서 비례 20%를 적용하면
+        -- 5 → 6 → 7이 되어 체감이 없기 때문이다.
+        --
+        -- 상한을 여기서 한 번 더 자르는 이유: AddItem이 이미 stack_max에서 막지만,
+        -- 상한을 나중에 낮추면 옛 세이브에 초과분이 남는다. 그때 조용히 초과
+        -- 보너스가 나가면 "왜 스탯이 더 높지"의 원인을 찾을 곳이 없다.
+        if count <= 0 then return 0 end
+        local cap = self:GetItemStackCap(id)
+        if count > cap then count = cap end
+        return self:GetItemStatBonus(id, stat) * count
+    end
+
     method table GetLandmarksAtLevel(number level)
         -- 해당 도달 레벨의 보상 목록. 없으면 빈 배열.
         local list = self.landmarks[level]
