@@ -204,6 +204,18 @@ script PlayerSkillSlots extends Component
         return self.BossRoomsCleared[roomId] == self.RebirthCount + 1
     end
 
+    -- 실행공간을 비워둔다. 서버는 게이트 판정에, 클라는 잠김 표시에 쓴다.
+    method boolean HasEverClearedBoss(string roomId)
+        -- **한 번이라도** 이 보스방을 깼는가 (T16-3 보스 게이트).
+        --
+        -- IsBossClearedThisRun과 갈라 두는 이유: 저 함수는 "이번 회차"를 묻고,
+        -- 게이트는 **해금**을 묻는다. 환생했다고 이미 연 문이 다시 잠기면
+        -- "성장의 결과로 열린 땅"이 회차마다 도로 닫히는 셈이라 코어와 어긋난다.
+        -- BossRoomsCleared는 영구 데이터라 회차와 무관하게 기록이 남는다.
+        if roomId == nil or roomId == "" then return false end
+        return self.BossRoomsCleared[roomId] ~= nil
+    end
+
     -- 실행공간을 비워둔다. 서버(마을 게이트의 이동 판정)와 클라(선택 목록 그리기)가
     -- 같은 답을 봐야 한다. UnlockedAreas가 @TargetUserSync라 양쪽에서 같은 값이 나온다.
     method boolean IsAreaUnlocked(string areaId)
