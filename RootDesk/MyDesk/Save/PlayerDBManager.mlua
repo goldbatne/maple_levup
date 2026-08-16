@@ -273,6 +273,10 @@ script PlayerDBManager extends Component
             -- 슬롯 수는 저장값을 그대로 쓰지 않고 두 축에서 다시 계산한다.
             -- 저장된 monster_slot_count는 참고용이고, 계산이 진실이다.
             slots:RecomputeSlotCount()
+            -- 표에서 사라진 스킬이 장착된 채로 로드되는 것을 막는다 (T17-1).
+            -- RecomputeSlotCount는 **슬롯 수가 바뀔 때만** TrimOverflow를 부르므로,
+            -- 수가 그대로인 로드에서는 걸러지지 않는다. 여기서 한 번 더 확인한다.
+            slots:DropUnknownSkills()
         end
 
         ---@type PlayerInventory
