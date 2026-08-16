@@ -40,6 +40,8 @@ script RoomGate extends Logic
             return self:EvaluateKey(player, room)
         elseif gateType == "rebirth" then
             return self:EvaluateRebirth(player, room)
+        elseif gateType == "boss" then
+            return self:EvaluateBoss(player, room)
         end
 
         -- 모르는 게이트 종류. 열어두면 조용히 뚫리므로 막고 시끄럽게 알린다.
@@ -155,6 +157,38 @@ script RoomGate extends Logic
         end
 
         return { passed = false, reason = "[" .. skill.name .. "] 스킬 필요" }
+    end
+
+    method table EvaluateBoss(Entity player, table room)
+        -- 보스 게이트 (T16-3, 대표 지시 2026-08-16).
+        -- gate_key가 **보스방의 방 id**다. 그 방의 보스를 한 번이라도 잡았으면 열린다.
+        --
+        -- 왜 열쇠 스킬을 대체했나: r_03의 열쇠가 직업 스킬(s_job_war_02 돌진)이었는데,
+        -- 직업 선택이 사라지면서(2026-08-16) 그 스킬을 얻을 경로가 없어져
+        -- **문이 영구히 잠기게 됐다**(인수인계 3절 차이 K). 스테이지 끝 보스를 조건으로
+        -- 바꾸면 획득 경로가 늘 존재하고, "안쪽을 다 헤친 사람에게 열리는 샛길"이 된다.
+        local bossRoomId = room.gate_key
+
+        local bossRoom = _GameData:GetRoom(bossRoomId)
+        if bossRoom == nil then
+            log_error("[RoomGate] RoomTable에 없는 보스방을 열쇠로 지정: '" .. tostring(bossRoomId)
+                .. "' (방 " .. tostring(room.id) .. ")")
+            return { passed = false, reason = "알 수 없는 잠금" }
+        end
+
+        -- 보스방이 아닌 방을 가리키면 영영 안 열린다. 통과시키지는 않되 크게 남긴다.
+        if bossRoom.room_type ~= "boss" then
+            log_warning("[RoomGate] 보스방이 아닌 방이 보스 게이트 열쇠로 지정됨: "
+                .. bossRoomId .. " (room_type=" .. tostring(bossRoom.room_type) .. ")")
+        end
+
+        ---@type PlayerSkillSlots
+        local slots = player:GetComponent("script.PlayerSkillSlots")
+        if slots ~= nil and slots:HasEverClearedBoss(bossRoomId) then
+            return { passed = true, reason = "" }
+        end
+
+        return { passed = false, reason = "[" .. bossRoom.name .. "]의 보스를 잡아야 한다" }
     end
 
     method table EvaluateRebirth(Entity player, table room)
