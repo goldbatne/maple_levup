@@ -75,14 +75,33 @@ script RoomMonster extends Component
             self.Atk = _LevelCurve:MonsterAtkAtLevel(level)
         end
 
+        -- 보스는 같은 레벨의 일반 몬스터보다 훨씬 세다 (T16-1, 대표 지시 2026-08-14).
+        --
+        -- 왜 필요했나: 보스가 곡선값 그대로라 "레벨 높은 잡몹"이었다. 재입장마다
+        -- 다시 서게 만들면서(RoomSpawner) 반복할 수 있게 됐으니, 반복할 값어치가
+        -- 있으려면 한 판이 사건이어야 한다.
+        --
+        -- 배율을 스탯별로 나눠 둔 이유: **ATK만 따로 낮출 일이 온다.** ATK 3배는
+        -- 플레이어 DEF 10 기준 피격 242 = 4대에 죽는 수치다(i-frame 1초라 약 4초).
+        -- 세다고 느껴지면 boss_atk_multiplier부터 내린다 — HP·EXP는 그대로 두고.
+        local isBoss = (room ~= nil and room.room_type == "boss")
+        if isBoss then
+            self.MaxHp = self.MaxHp * _GameData:GetBalance("boss_hp_multiplier")
+            self.Def = self.Def * _GameData:GetBalance("boss_def_multiplier")
+            self.Atk = self.Atk * _GameData:GetBalance("boss_atk_multiplier")
+            self.ExpReward = self.ExpReward * _GameData:GetBalance("boss_exp_multiplier")
+        end
+
         self.Hp = self.MaxHp
         self.IsDead = false
 
         log("[RoomMonster] 스폰 " .. record.name .. "(" .. self.MonsterId .. ")"
             .. " Lv" .. tostring(level)
             .. (level ~= record.level and " (방 지정)" or "")
+            .. (isBoss and " [보스 배율]" or "")
             .. " HP=" .. tostring(self.MaxHp)
             .. " DEF=" .. tostring(self.Def)
+            .. " ATK=" .. tostring(self.Atk)
             .. " EXP=" .. tostring(self.ExpReward))
     end
 
