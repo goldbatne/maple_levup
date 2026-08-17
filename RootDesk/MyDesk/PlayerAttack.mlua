@@ -6,6 +6,14 @@ script PlayerAttack extends AttackComponent
 	@HideFromInspector
 	property integer autoAttackTimer = 0
 
+	-- 이번 한 방이 때릴 수 있는 대상 수 (T17-3).
+	-- 엔진에 "최대 타격 수"가 없어서(msw-combat-system 1-2: "not native. Manage in script")
+	-- 후보를 훑는 IsAttackTarget 훅에서 직접 센다.
+	--   hitLimited=false  제한 없음 (기본 공격 · area 스킬)
+	--   hitLimited=true   hitBudget 만큼만 맞고 나머지는 걸러낸다
+	@HideFromInspector property boolean hitLimited = false
+	@HideFromInspector property integer hitBudget = 0
+
 	-- skillId -> 다시 쓸 수 있게 되는 시각(월드 경과초). 비어 있으면 즉시 사용 가능.
 	--
 	-- @TargetUserSync인 이유: 판정은 서버가 하지만 HUD도 남은 시간을 그려야 한다.
@@ -44,7 +52,25 @@ script PlayerAttack extends AttackComponent
 		local worldPosition = transform.WorldPosition
 		-- 발밑이 원점이라 반 칸 올려야 몸통 높이에서 판정된다.
 		self.Shape.Position = Vector2(worldPosition.x, worldPosition.y + 0.5)
+		-- 기본 공격은 예나 지금이나 닿는 것을 전부 친다. 제한을 걸지 않는다.
+		self.hitLimited = false
 		self:AttackFast(self.Shape, nil, CollisionGroups.Monster)
+	end
+
+	method boolean IsAttackTarget(Entity defender, string attackInfo)
+		-- 대상 수 제한 (T17-3). `max_targets`가 1이면 범위 안에 여럿이 있어도 하나만 맞는다.
+		--
+		-- ⚠ 부모 AttackComponent.IsAttackTarget에는 @ExecSpace가 없다.
+		--   여기에 붙이면 LEA-3014 SignatureMismatch가 난다 (CalcDamage와 같은 함정).
+		--
+		-- 왜 이 훅에서 세는가: 엔진에 최대 타격 수가 없다. 판정 후보를 하나씩 물어보는
+		-- 곳이 여기뿐이라, 예산을 깎아 가며 false를 돌려주는 것이 유일한 방법이다.
+		if __base:IsAttackTarget(defender, attackInfo) == false then return false end
+		if self.hitLimited == false then return true end
+		if self.hitBudget <= 0 then return false end
+
+		self.hitBudget = self.hitBudget - 1
+		return true
 	end
 
 	@ExecSpace("Server")
@@ -96,16 +122,29 @@ script PlayerAttack extends AttackComponent
 			return false
 		end
 
-		-- 판정 모양은 기본 공격과 같다. 스킬별 사거리는 시트에 없어서 만들지 않았다.
+		-- 판정 모양은 스킬마다 다르다 (T17-3). range가 0이면 기본 근접 반경을 쓴다.
+		--
+		-- 판정이 **플레이어 중심 원형**이라는 것이 여기서 중요하다 — 넓히면 사방이 같이
+		-- 넓어진다. 방향이 있는 스킬(전방 부채꼴 등)이 필요해지면 모양 자체를 바꿔야 한다.
 		local transform = self.Entity.TransformComponent
 		if not isvalid(transform) then return false end
 		local worldPosition = transform.WorldPosition
-		self.Shape.Position = Vector2(worldPosition.x, worldPosition.y + 0.5)
+
+		local radius = _GameData:GetBalance("player_attack_range")
+		if skill.range > 0 then radius = skill.range end
+		local shape = CircleShape(Vector2(worldPosition.x, worldPosition.y + 0.5), radius)
+
+		-- 대상 수 예산을 이 한 방에만 걸어 둔다. IsAttackTarget이 이걸 깎는다.
+		self.hitLimited = (skill.max_targets > 0)
+		self.hitBudget = math.floor(skill.max_targets)
 
 		-- 스킬 id를 attackInfo로 태운다. CalcDamage가 이걸로 계수와 scaling_stat을 고른다.
 		log("[PlayerAttack] 스킬 사용 " .. tostring(activeIndex) .. "번 [" .. skill.name
-			.. "]  계수=" .. tostring(skill.coefficient) .. " 스탯=" .. skill.scaling_stat)
-		self:AttackFast(self.Shape, skillId, CollisionGroups.Monster)
+			.. "]  계수=" .. tostring(skill.coefficient) .. " 스탯=" .. skill.scaling_stat
+			.. "  반경=" .. string.format("%.2f", radius)
+			.. "  대상=" .. (self.hitLimited and (skill.target_mode .. " 최대 " .. tostring(self.hitBudget))
+				or (skill.target_mode .. " 제한 없음")))
+		self:AttackFast(shape, skillId, CollisionGroups.Monster)
 
 		-- 쐈으면 쿨다운을 건다. cooldown이 0이면 걸지 않는다 (데이터로 끌 수 있게).
 		if skill.cooldown > 0 then
