@@ -16,6 +16,17 @@ script PlayerHit extends HitComponent
 	@HideFromInspector
 	property number LastHitTime = 0
 
+	-- 실드 (T17-3b). 받는 피해를 ShieldRatio만큼 깎는 상태를 ShieldUntil까지 유지한다.
+	--
+	-- @TargetUserSync인 이유: 판정은 서버가 하지만 HUD도 "지금 실드 중"을 그려야 한다.
+	-- 남의 실드까지 새어 나가면 안 되므로 @Sync가 아니다 (SkillReadyAt과 같은 판단).
+	--
+	-- 왜 PlayerHit에 있는가: 받는 피해를 만지는 것은 이 파일의 일이다. 새 컴포넌트를
+	-- 만들면 DefaultPlayer.model도 건드려야 하고 피해 규칙이 두 곳으로 갈라진다
+	-- (OnMapEnter·Heal 주석과 같은 이유).
+	@TargetUserSync property number ShieldRatio = 0
+	@TargetUserSync property number ShieldUntil = 0
+
 	method void OnHit(Entity attacker, integer damage, boolean isCritical, string attackInfo, int32 hitCount)
 		-- 실제 HP 차감. 데미지 자체는 공격자(MonsterAttack.CalcDamage)가 계산했고
 		-- 거기서 플레이어 DEF가 이미 반영됐다.
@@ -96,6 +107,48 @@ script PlayerHit extends HitComponent
 		log("[PlayerHit] 회복 +" .. tostring(healed)
 			.. "  HP " .. tostring(before) .. " → " .. tostring(after) .. " / " .. tostring(pc.MaxHp))
 		return healed
+	end
+
+	@ExecSpace("ServerOnly")
+	method void ApplyShield(number ratio, number seconds)
+		-- 실드를 건다 (T17-3b). 이미 걸려 있으면 덮어쓴다 — 겹쳐 쌓지 않는다.
+		--
+		-- 겹치기를 막는 이유: 같은 스킬을 연타해 감쇄가 누적되면 쿨다운만 버티면
+		-- 사실상 무적이 된다. 지속 시간만 새로 고치는 편이 규칙이 단순하다.
+		if ratio <= 0 or seconds <= 0 then return end
+
+		-- 상한을 둔다. CSV에 1.0이 들어가면 **피해가 0이 되어 무적**이 되는데,
+		-- 그건 데이터 오타 한 번으로 게임이 무너지는 자리다. 최소 한 대는 아파야 한다.
+		if ratio > 0.9 then
+			log_warning("[PlayerHit] 실드 감쇄율이 너무 크다(" .. tostring(ratio) .. ") — 0.9로 자른다")
+			ratio = 0.9
+		end
+
+		self.ShieldRatio = ratio
+		self.ShieldUntil = _UtilLogic.ElapsedSeconds + seconds
+		log("[PlayerHit] 실드 " .. tostring(math.floor(ratio * 100)) .. "% 감쇄  "
+			.. tostring(seconds) .. "초")
+
+		local pc = self.Entity.PlayerComponent
+		if isvalid(pc) then
+			self:OnShielded(math.floor(ratio * 100), seconds, pc.UserId)
+		end
+	end
+
+	-- 실행공간을 비워둔다. 서버는 데미지 감쇄에, 클라는 표시에 쓴다.
+	-- 읽는 값이 @TargetUserSync라 주인 클라에도 같은 값이 있다.
+	method number GetDamageReduction()
+		-- 지금 받는 피해를 얼마나 깎는가. 실드가 없거나 만료면 0.
+		if self.ShieldRatio <= 0 then return 0 end
+		if _UtilLogic.ElapsedSeconds >= self.ShieldUntil then return 0 end
+		return self.ShieldRatio
+	end
+
+	@ExecSpace("Client")
+	method void OnShielded(integer percent, number seconds)
+		-- 당사자에게만 알린다 (OnRested·OnDied와 같은 규칙).
+		_GateNotice:ShowNotice("껍질에 숨었다",
+			tostring(seconds) .. "초간 받는 피해 " .. tostring(percent) .. "% 감소")
 	end
 
 	@ExecSpace("Client")
