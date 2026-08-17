@@ -225,9 +225,29 @@ script MonsterAttack extends AttackComponent
 		if stats ~= nil then def = stats:GetTotalDef() end
 
 		local damage = _CombatFormula:CalcSkillDamage(atk, def, nil)
+
+		-- 실드 감쇄 (T17-3b). **여기서** 깎는 이유: CalcDamage가 돌려주는 값이 곧
+		-- 화면에 뜨는 데미지 숫자다. OnHit에서 깎으면 숫자는 그대로인데 HP만 덜 닳아
+		-- "실드가 먹었는지"가 화면에서 안 읽힌다.
+		local reduceText = ""
+		---@type PlayerHit
+		local hit = defender:GetComponent("script.PlayerHit")
+		if hit ~= nil then
+			local reduction = hit:GetDamageReduction()
+			if reduction > 0 then
+				local before = damage
+				damage = math.floor(damage * (1 - reduction) + 0.5)
+				-- CombatFormula와 같은 규칙으로 최소 1을 보장한다. 0이 뜨면
+				-- "안 맞았다"로 보여서 실드가 무적처럼 읽힌다.
+				if damage < 1 then damage = 1 end
+				reduceText = "  [실드 " .. tostring(math.floor(reduction * 100)) .. "% : "
+					.. tostring(before) .. " → " .. tostring(damage) .. "]"
+			end
+		end
+
 		log("[MonsterAttack] " .. tostring(mon ~= nil and mon.DisplayName or "?")
 			.. " ATK=" .. tostring(atk) .. " vs 플레이어 DEF=" .. tostring(def)
-			.. " → 데미지 " .. tostring(damage))
+			.. " → 데미지 " .. tostring(damage) .. reduceText)
 		return damage
 	end
 
