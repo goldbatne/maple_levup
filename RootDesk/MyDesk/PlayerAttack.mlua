@@ -76,6 +76,17 @@ script PlayerAttack extends AttackComponent
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then return false end
 
+		-- 방어 스킬은 아직 효과가 없다 (T17-2는 데이터 계층까지, 효과는 T17-3).
+		--
+		-- 여기서 막지 않으면 실드 스킬이 **때리는 스킬로 나간다.** 계수가 0이라
+		-- CombatFormula가 기준 계수로 대체해 버려서, "실드를 눌렀는데 몬스터가 맞는"
+		-- 조용히 틀린 동작이 된다. 막아 두고 이유를 남기는 편이 낫다.
+		if skill.skill_kind == "defense" then
+			log_warning("[PlayerAttack] 방어 스킬의 효과는 아직 구현되지 않았다 (T17-3): ["
+				.. skill.name .. "] " .. skill.effect_type)
+			return false
+		end
+
 		-- 쿨다운 판정은 서버가 한다. 클라 HUD도 같은 값을 보고 버튼을 흐리지만,
 		-- 그건 안내일 뿐이고 실제로 막는 건 여기다 (개발 규칙 2).
 		local remain = self:GetCooldownRemain(skillId)
