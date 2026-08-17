@@ -124,6 +124,25 @@ script GameData extends Logic
                     -- 재사용 대기시간(초). 밸런스시트에 없는 값이라 계수에 비례해
                     -- 시작값을 정했다(계수 x 4 반올림, 3~5초). CSV에서 바로 조정 가능.
                     cooldown = self:ToNumber(row:GetItem("cooldown"), 0),
+
+                    -- ── 스킬 메타 (T17-2, 대표 지시 2026-08-16) ──
+                    -- 지금까지 스킬은 "계수가 다른 단일 타격" 하나뿐이었다.
+                    -- 무엇을 하는 스킬인지를 데이터가 들고 있어야 설명도 띄우고
+                    -- 판정도 갈라 쓸 수 있다.
+                    --
+                    -- skill_kind   attack / defense — 방어도 **같은 슬롯**을 먹는다
+                    --              (대표: "스킬이잖아?"). 분류는 표시와 판정 분기용이다.
+                    -- target_mode  single / area / self
+                    -- max_targets  multi·area에서 최대 몇을 때리나. 0 = 제한 없음
+                    -- effect_value 실드 감쇄율(0.4 = 40%) · 회복량 등 효과의 크기
+                    -- duration     효과 지속 시간(초). 즉발이면 0
+                    -- description  스킬을 눌렀을 때 보여 줄 한 줄
+                    skill_kind = self:ToText(row:GetItem("skill_kind")),
+                    target_mode = self:ToText(row:GetItem("target_mode")),
+                    max_targets = self:ToNumber(row:GetItem("max_targets"), 0),
+                    effect_value = self:ToNumber(row:GetItem("effect_value"), 0),
+                    duration = self:ToNumber(row:GetItem("duration"), 0),
+                    description = self:ToText(row:GetItem("description")),
                 }
             end
         end

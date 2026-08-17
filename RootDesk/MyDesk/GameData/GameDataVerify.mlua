@@ -87,6 +87,30 @@ script GameDataVerify extends Logic
                     .. string.format("%.2f", _CombatFormula:StackedCoefficient(skill.coefficient, stackMax)))
             end
         end
+
+        -- 스킬 메타 (T17-2). 분류가 비어 있으면 스킬 바·설명 UI가 조용히 잘못 그린다.
+        local attackCount = 0
+        local defenseCount = 0
+        for id, skill in pairs(_GameData.skills) do
+            if skill.skill_kind == "attack" then attackCount += 1
+            elseif skill.skill_kind == "defense" then defenseCount += 1
+            else
+                log_error("  [스킬메타] " .. id .. " 의 skill_kind가 비었거나 모르는 값: '"
+                    .. tostring(skill.skill_kind) .. "'")
+            end
+            if skill.description == "" then
+                log_warning("  [스킬메타] " .. id .. " 에 설명이 없다 — 설명 UI가 빈 칸으로 뜬다")
+            end
+        end
+        log("[스킬메타] 공격 " .. tostring(attackCount) .. " / 방어 " .. tostring(defenseCount)
+            .. "  (방어도 같은 슬롯을 먹는다 — 대표 지시 2026-08-16)")
+        for id, skill in pairs(_GameData.skills) do
+            log("  [스킬메타] " .. skill.name .. " [" .. skill.skill_kind .. "/" .. skill.effect_type
+                .. "] 대상=" .. skill.target_mode
+                .. (skill.effect_value > 0 and ("  효과값 " .. tostring(skill.effect_value)) or "")
+                .. (skill.duration > 0 and ("  " .. tostring(skill.duration) .. "초") or "")
+                .. "  \"" .. skill.description .. "\"")
+        end
     end
 
     @ExecSpace("ServerOnly")
