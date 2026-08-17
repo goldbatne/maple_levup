@@ -30,12 +30,22 @@ script EquipPanel extends Logic
     property ButtonComponent row4 = "8193ad7d-ded0-47b9-8e01-b04bf58e3208"
     property ButtonComponent row5 = "bd5d4a91-6994-4232-a221-c2754be55ada"
 
+    -- 설명 줄 (T17-4). 고른 스킬이 무엇을 하는지 한 줄로 보여 준다.
+    property TextGUIRendererComponent lblDesc = "3bca6c15-07a1-4280-8c5e-01ea32fe6c65"
+
     property any handlers = nil
     property any refreshTimer = nil
     property boolean isOpen = false
 
     -- 지금 고른 대상 슬롯. 1부터 시작한다.
     property integer selectedSlot = 1
+
+    -- 지금 설명을 보고 있는 스킬 (T17-4). 빈 문자열이면 아무것도 안 골랐다.
+    --
+    -- 왜 두 단계인가 (대표 지시 2026-08-16): 줄을 처음 누르면 **설명만** 뜨고,
+    -- 같은 줄을 한 번 더 눌러야 장착된다. 끼우기 전에 무엇인지 확인할 수 있어야 하고,
+    -- 스킬 바에는 **이미 장착한 것만** 올라와서 거기서는 확인할 방법이 없다.
+    property string selectedSkillId = ""
 
     -- 목록 줄 번호 -> skillId. Refresh가 매번 다시 만든다.
     property any rowSkillIds = nil
@@ -159,15 +169,66 @@ script EquipPanel extends Logic
 
     @ExecSpace("ClientOnly")
     method void ClickRow(integer index)
-        -- 고른 슬롯에 이 줄의 스킬을 끼운다. 검증은 서버가 한다.
+        -- 두 단계다 (T17-4): 처음 누르면 설명만 뜨고, 같은 줄을 다시 누르면 장착된다.
+        -- 검증은 서버가 한다.
         if self.rowSkillIds == nil then return end
         local skillId = self.rowSkillIds[index]
         if skillId == nil then return end
 
+        if self.selectedSkillId ~= skillId then
+            -- 다른 줄을 눌렀다 = 고르기만 한다. 여기서 장착하면 "확인하고 끼운다"가 사라진다.
+            self.selectedSkillId = skillId
+            local skill = _GameData:GetSkill(skillId)
+            log("[EquipPanel] 선택 " .. tostring(skillId)
+                .. (skill ~= nil and ("  \"" .. skill.description .. "\"") or ""))
+            self:Refresh()
+            return
+        end
+
         ---@type PlayerSkillSlots
         local slots = self:GetSlots()
         if slots == nil then return end
+        log("[EquipPanel] 장착 요청 슬롯 " .. tostring(self.selectedSlot) .. " = " .. skillId)
         slots:RequestEquip(self.selectedSlot, skillId)
+    end
+
+    @ExecSpace("ClientOnly")
+    method string KindLabel(table skill)
+        -- 화면에 보일 분류. 모르는 값은 그대로 — 데이터가 늘어나도 깨지지 않는다.
+        if skill.skill_kind == "attack" then return "공격" end
+        if skill.skill_kind == "defense" then return "방어" end
+        return skill.skill_kind
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RenderDesc()
+        -- 고른 스킬의 설명을 아래 줄에 그린다 (T17-4).
+        if not isvalid(self.lblDesc) then return end
+
+        if self.selectedSkillId == "" then
+            self.lblDesc.Text = "스킬을 누르면 설명이 나온다. 한 번 더 누르면 장착된다."
+            return
+        end
+
+        local skill = _GameData:GetSkill(self.selectedSkillId)
+        if skill == nil then
+            -- 표에서 사라진 스킬을 고른 상태로 남아 있을 수 있다 (몬스터 교체 등).
+            self.selectedSkillId = ""
+            self.lblDesc.Text = "스킬을 누르면 설명이 나온다. 한 번 더 누르면 장착된다."
+            return
+        end
+
+        local extra = ""
+        if skill.target_mode == "area" then
+            extra = "   범위 " .. string.format("%.1f", skill.range)
+        elseif skill.max_targets > 0 then
+            extra = "   대상 " .. tostring(math.floor(skill.max_targets))
+        end
+        if skill.cooldown > 0 then
+            extra = extra .. "   쿨 " .. string.format("%.0f", skill.cooldown) .. "초"
+        end
+
+        self.lblDesc.Text = "[" .. self:KindLabel(skill) .. "] " .. skill.description .. extra
     end
 
     @ExecSpace("ClientOnly")
@@ -236,16 +297,39 @@ script EquipPanel extends Logic
                     -- 중복이 실제로 세졌는지가 화면 어디에도 없다.
                     local owned = collection:GetOwnedCount(skillId)
                     local stackMax = math.floor(_GameData:GetBalance("skill_stack_max"))
+                    -- 계수는 **공격 스킬만** 보여 준다 (T17-4). 방어 스킬은 계수가 0이라
+                    -- 그대로 두면 "계수 0.00"이 떠서 약한 스킬처럼 읽힌다.
+                    -- 대신 방어는 효과값(감쇄율·회복량)을 적는다.
                     local coefText = ""
                     if skill ~= nil then
-                        coefText = "   계수 " .. string.format("%.2f",
-                            _CombatFormula:StackedCoefficient(skill.coefficient, owned))
+                        if skill.skill_kind == "defense" then
+                            if skill.effect_type == "shield" then
+                                coefText = "   피해 -" .. tostring(math.floor(skill.effect_value * 100)) .. "%"
+                            elseif skill.effect_type == "heal" then
+                                coefText = "   회복 " .. tostring(math.floor(skill.effect_value))
+                            end
+                        else
+                            coefText = "   계수 " .. string.format("%.2f",
+                                _CombatFormula:StackedCoefficient(skill.coefficient, owned))
+                        end
                     end
-                    btn.Entity.TextGUIRendererComponent.Text = name
-                        .. "   x" .. tostring(owned) .. "/" .. tostring(stackMax) .. coefText
+                    -- 분류를 같이 적는다 (T17-4). 공격인지 방어인지가 목록에서 바로 갈려야
+                    -- 슬롯 3칸에 무엇을 넣을지 고를 수 있다.
+                    local kindText = ""
+                    if skill ~= nil then kindText = "   [" .. self:KindLabel(skill) .. "]" end
+
+                    -- 고른 줄에 표시를 남긴다. 두 번째 누르면 장착이라는 것을 알려야 한다.
+                    local mark = ""
+                    if skillId == self.selectedSkillId then mark = "▶ " end
+
+                    btn.Entity.TextGUIRendererComponent.Text = mark .. name
+                        .. "   x" .. tostring(owned) .. "/" .. tostring(stackMax)
+                        .. coefText .. kindText
                 end
             end
         end
+
+        self:RenderDesc()
     end
 
 end
