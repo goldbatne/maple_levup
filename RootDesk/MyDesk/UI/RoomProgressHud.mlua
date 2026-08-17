@@ -1,0 +1,139 @@
+-- @클라이언트 (UI는 클라 전용. 모든 메서드에 개별로 @ExecSpace를 붙인다)
+--
+-- 지금 있는 방에서 **무엇을 얼마나 모아야 하는지**를 상시로 보여 준다 (T17-5).
+--
+-- 왜 필요한가 (대표 지시 2026-08-16): 방마다 다른 몬스터가 서고(T17-1) 중복을 5개까지
+-- 쌓게 되면서(T15), "이 방에서 뭘 더 얻어야 하는가"가 게임 안에서 보이지 않게 됐다.
+-- 가방 창과 장착 창을 각각 열어 머릿속으로 맞춰 봐야 알 수 있었다.
+--
+-- 분모는 전부 데이터에서 나온다 — 방의 몬스터가 떨구는 스킬 1종(RoomTable.monster_id →
+-- MonsterTable.drop_skill_id)과 그 몬스터의 드랍 아이템(ItemTable.drop_from 역인덱스).
+-- 그래서 몬스터를 바꾸면 이 창도 저절로 따라간다.
+--
+-- StatPanel / EquipPanel과 같은 이유로 @Logic이다 — UI 엔티티에 붙은 @Component는
+-- Server 계열 메서드를 가질 수 없다.
+
+@Logic
+script RoomProgressHud extends Logic
+
+    -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다.
+    property Entity panel = "fde51d55-3d93-46f0-ac89-1f406ce74eb6"
+    property TextGUIRendererComponent lblTitle = "e18727ea-a127-40d3-8030-88b809032e88"
+    property TextGUIRendererComponent lblRow1 = "23ddb549-3302-4b09-a73d-b789c7bd1b49"
+    property TextGUIRendererComponent lblRow2 = "6b16f4a0-0f60-4f8e-a470-4398d32cce86"
+    property TextGUIRendererComponent lblRow3 = "6ef92b95-16dd-4e0a-a49d-d6acd1388af5"
+
+    property any refreshTimer = nil
+
+    -- 갱신 주기(초). 값이 바뀌는 계기가 포획·드랍이라 촘촘할 필요가 없다.
+    property number refreshInterval = 0.5
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        log("[방진척] OnBeginPlay")
+        self.refreshTimer = _TimerService:SetTimerRepeat(function()
+            self:Refresh()
+        end, self.refreshInterval)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.refreshTimer ~= nil then
+            _TimerService:ClearTimer(self.refreshTimer)
+            self.refreshTimer = nil
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetRoom()
+        -- 지금 서 있는 방의 레코드. 맵 이름으로 역인덱스한다
+        -- (RoomCamera / RoomSpawner와 같은 방식 — 맵 이름과 map_name은 같아야 한다).
+        local me = _UserService.LocalPlayer
+        if me == nil then return nil end
+        local map = me.CurrentMap
+        if not isvalid(map) then return nil end
+        return _GameData:GetRoomByMapName(map.Name)
+    end
+
+    @ExecSpace("ClientOnly")
+    method string CountText(string label, string name, integer have, integer cap)
+        -- "스킬  뿔 들이받기   1/5" 꼴. 다 모았으면 눈에 띄게 표시한다 —
+        -- 이 창의 목적이 "더 얻을 것이 남았는가"라서 끝난 줄이 구분돼야 한다.
+        local text = label .. "  " .. name .. "   " .. tostring(have) .. "/" .. tostring(cap)
+        if have >= cap then text = text .. "  ✔" end
+        return text
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetRow(TextGUIRendererComponent lbl, string text)
+        if not isvalid(lbl) then return end
+        lbl.Text = text
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Refresh()
+        if not isvalid(self.panel) then return end
+
+        local room = self:GetRoom()
+        -- 몬스터가 없는 방(마을·시험장)에서는 보여 줄 것이 없다. 빈 창을 띄우면
+        -- "고장났나"로 보이므로 통째로 숨긴다.
+        if room == nil or room.monster_id == "" then
+            self.panel.Enable = false
+            return
+        end
+
+        local monster = _GameData:GetMonster(room.monster_id)
+        if monster == nil then
+            self.panel.Enable = false
+            return
+        end
+        self.panel.Enable = true
+
+        local me = _UserService.LocalPlayer
+        ---@type PlayerCollection
+        local collection = me:GetComponent("script.PlayerCollection")
+        ---@type PlayerInventory
+        local inventory = me:GetComponent("script.PlayerInventory")
+
+        self:SetRow(self.lblTitle, room.name .. "  —  " .. monster.name)
+
+        local rows = {}
+
+        -- 스킬 한 줄. 방의 몬스터가 떨구는 것은 언제나 하나다 (MonsterTable.drop_skill_id).
+        if monster.drop_skill_id ~= "" and collection ~= nil then
+            local skill = _GameData:GetSkill(monster.drop_skill_id)
+            local name = monster.drop_skill_id
+            if skill ~= nil then name = skill.name end
+            local cap = math.floor(_GameData:GetBalance("skill_stack_max"))
+            rows[#rows + 1] = self:CountText("스킬", name,
+                collection:GetOwnedCount(monster.drop_skill_id), cap)
+        end
+
+        -- 장비·소비 줄. 한 몬스터가 여럿을 떨굴 수 있다 (돌 정령은 목걸이 + 반지).
+        if inventory ~= nil then
+            local drops = _GameData:GetItemDropsOf(monster.id)
+            for i = 1, #drops do
+                local item = _GameData:GetItem(drops[i])
+                if item ~= nil then
+                    rows[#rows + 1] = self:CountText("아이템", item.name,
+                        inventory:GetCount(item.id), _GameData:GetItemStackCap(item.id))
+                end
+            end
+        end
+
+        -- 줄이 3개를 넘으면 마지막 줄에 몇 개가 더 있는지 적는다. 줄 수를 늘리는 대신
+        -- 이렇게 두는 이유: 텍스트 RectSize는 줄 수만큼 자라지 않아서, 넘친 글자가
+        -- 잘리지 않고 아래 UI 위에 그려진다 (함정 L023).
+        local labels = { self.lblRow1, self.lblRow2, self.lblRow3 }
+        for i = 1, 3 do
+            if i > #rows then
+                self:SetRow(labels[i], "")
+            elseif i == 3 and #rows > 3 then
+                self:SetRow(labels[i], "외 " .. tostring(#rows - 2) .. "종 더")
+            else
+                self:SetRow(labels[i], rows[i])
+            end
+        end
+    end
+
+end
