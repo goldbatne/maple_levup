@@ -146,6 +146,62 @@ script PlayerCollection extends Component
         return true
     end
 
+    @ExecSpace("ServerOnly")
+    method integer GrantNpcSkills(string monsterId)
+        -- 모험가 NPC를 격파했을 때의 지급 (T16-3c). 새로 들어온 개수를 돌려준다.
+        --
+        -- ## 포획과 규칙이 정반대라 경로 자체를 따로 둔다
+        --
+        --   TryCapture      확률(3% + LUK) · 5장까지 중복 강화 · 40킬 천장
+        --   GrantNpcSkills  **확정 100%** · **1장 고정** · 천장 없음
+        --
+        -- 대표 지시(2026-08-20): "확실히 뺏는다". 굉장히 강한 상대라 이겨 놓고
+        -- 확률에서 미끄러지면 좌절이 크다. 중복 강화가 없는 것은 NPC 스킬이
+        -- 포획물이 아니라 **뺏은 것**이기 때문이다 — 같은 것을 두 번 뺏을 수는 없다.
+        --
+        -- 이미 가진 스킬은 건너뛴다. 그래서 보스가 재입장마다 다시 서도
+        -- 두 번째 격파부터는 아무것도 안 들어온다(EXP와 아이템은 그대로 나온다).
+        local ids = _GameData:GetNpcSkillIds(monsterId)
+        if #ids == 0 then return 0 end
+
+        local granted = 0
+        local firstName = ""
+        for i = 1, #ids do
+            local skillId = ids[i]
+            local skill = _GameData:GetSkill(skillId)
+            if skill == nil then
+                log_warning("[PlayerCollection] NPC 보상에 없는 스킬: " .. skillId)
+                continue
+            end
+            if self:GetOwnedCount(skillId) > 0 then
+                log("[PlayerCollection] 이미 가진 NPC 스킬 — 건너뜀 [" .. skill.name .. "]")
+                continue
+            end
+            self.OwnedSkills[skillId] = 1
+            granted = granted + 1
+            if firstName == "" then firstName = skill.name end
+            log("[PlayerCollection] NPC 스킬 획득 [" .. skill.name .. "] "
+                .. tostring(math.floor(skill.tier)) .. "차")
+            _ProgressLog:Capture(self.Entity.PlayerComponent.UserId, monsterId, skillId, 1, false)
+        end
+
+        if granted > 0 then
+            self:MarkSave("NPC 스킬 획득")
+            self:OnNpcSkillsGranted(firstName, granted, self.Entity.PlayerComponent.UserId)
+        end
+        return granted
+    end
+
+    @ExecSpace("Client")
+    method void OnNpcSkillsGranted(string firstName, integer count)
+        -- 격파 보상 연출. 포획과 다른 파티클을 써서 "뺏었다"가 갈려 보이게 한다.
+        _ParticleService:PlayBasicParticleAttached(
+            BasicParticleType.StarVortex, self.Entity,
+            Vector3(0, 0, 0), 0, Vector3(1.6, 1.6, 1.6), false)
+        log("[PlayerCollection] (클라) NPC 스킬 " .. tostring(count) .. "개 획득 연출 ["
+            .. firstName .. (count > 1 and (" 외 " .. tostring(count - 1)) or "") .. "]")
+    end
+
     @ExecSpace("Client")
     method void OnCaptured(string skillName, integer ownedCount)
         -- 포획 성공 연출 (작업지시서 T5 요청 2). 판정은 서버, 연출은 클라.
