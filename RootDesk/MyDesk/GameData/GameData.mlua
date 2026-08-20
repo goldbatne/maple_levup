@@ -147,6 +147,19 @@ script GameData extends Logic
                     -- 기본 반경이라, 매번 1.0을 적어 넣으면 나중에 기본값을 바꿀 때
                     -- CSV를 전부 고쳐야 한다.
                     range = self:ToNumber(row:GetItem("range"), 0),
+
+                    -- ── 스킬 차수 (T16-4a, 설계 변경 2026-08-16) ──
+                    -- **보유는 아무 때나 가능하지만, 내 차수가 이 값 이상이어야 장착·사용한다.**
+                    -- 차수 = 환생 횟수 + 1 (1회차 = 1차). PlayerSkillSlots.GetTier가 유일한 창구다.
+                    --
+                    -- 왜 필요한가: 모험가 NPC가 직업군 스킬을 **한꺼번에** 준다(T16-3).
+                    -- 잠금이 없으면 1회차 플레이어가 상위 차수 스킬을 그대로 끼워
+                    -- 몬스터 계단도 보스 배율도 무의미해진다.
+                    --
+                    -- 기본값 1인 이유: 기존 9종은 전부 1차이고, 새 줄에서 tier를 빠뜨렸을 때
+                    -- **잠기는 쪽이 아니라 열리는 쪽**으로 틀리는 편이 안전하다 —
+                    -- 잠기면 "왜 안 끼워지지"가 되고 원인이 화면에 안 남는다.
+                    tier = self:ToNumber(row:GetItem("tier"), 1),
                     description = self:ToText(row:GetItem("description")),
                 }
             end

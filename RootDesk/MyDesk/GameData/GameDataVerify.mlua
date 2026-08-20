@@ -101,7 +101,21 @@ script GameDataVerify extends Logic
             if skill.description == "" then
                 log_warning("  [스킬메타] " .. id .. " 에 설명이 없다 — 설명 UI가 빈 칸으로 뜬다")
             end
+            -- 차수(T16-4a)는 1 이상이어야 한다. 0이나 음수면 "항상 열림"과 같아지는데,
+            -- 그건 tier를 빠뜨린 것과 구분이 안 돼 잠금이 조용히 사라진다.
+            if skill.tier < 1 then
+                log_error("  [스킬차수] " .. id .. " 의 tier가 1 미만이다: "
+                    .. tostring(skill.tier) .. " — 잠금이 무의미해진다")
+            end
         end
+        local tierCount = {}
+        for _, skill in pairs(_GameData.skills) do
+            local t = tostring(math.floor(skill.tier))
+            tierCount[t] = (tierCount[t] or 0) + 1
+        end
+        local tierText = ""
+        for t, n in pairs(tierCount) do tierText = tierText .. t .. "차 " .. tostring(n) .. "종  " end
+        log("[스킬차수] " .. tierText .. " (차수 = 환생 횟수 + 1 이상이어야 장착된다)")
         log("[스킬메타] 공격 " .. tostring(attackCount) .. " / 방어 " .. tostring(defenseCount)
             .. "  (방어도 같은 슬롯을 먹는다 — 대표 지시 2026-08-16)")
         for id, skill in pairs(_GameData.skills) do
