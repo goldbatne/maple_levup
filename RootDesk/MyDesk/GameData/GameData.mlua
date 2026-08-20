@@ -160,6 +160,16 @@ script GameData extends Logic
                     -- **잠기는 쪽이 아니라 열리는 쪽**으로 틀리는 편이 안전하다 —
                     -- 잠기면 "왜 안 끼워지지"가 되고 원인이 화면에 안 남는다.
                     tier = self:ToNumber(row:GetItem("tier"), 1),
+
+                    -- 원작 스킬 아이콘 RUID (T16-3a). 대표 지시: "UUID와 효과도 원작과 같아야 해".
+                    -- 값은 `msw-search`의 **스킬 리소스 팩**에서 얻는다 — 팩 id가 원작 스킬 id
+                    -- 그대로여서(예: 슬래시 블러스트 = skill/100.img/skill/1001005) 눈대중이 아니라
+                    -- id로 맞출 수 있다. 팩 안의 `icon` 요소가 이 값이다.
+                    --
+                    -- ⚠ 아직 어디서도 그리지 않는다. 장착 창은 글자만 쓰고 있고, 아이콘을 붙이려면
+                    -- `.ui`에 줄마다 Sprite를 넣어야 한다 — 그건 별도 태스크다. 지금은 **원작 UUID를
+                    -- 데이터에 확정해 두는 것**이 목적이다. 몬스터 스킬은 원작 대응이 없어 비어 있다.
+                    icon_ruid = self:ToText(row:GetItem("icon_ruid")),
                     description = self:ToText(row:GetItem("description")),
                 }
             end
@@ -187,6 +197,22 @@ script GameData extends Logic
                     -- 이름 규칙으로 엮지 않고 여기서 명시한다.
                     -- 아직 모델을 안 만든 몬스터는 비어 있고, 스포너가 건너뛴다.
                     model_id = self:ToText(row:GetItem("model_id")),
+
+                    -- 격파하면 **확실히** 넘어오는 스킬 목록 (T16-3, 대표 지시 2026-08-20).
+                    -- 파이프 구분이라 한 상대가 여러 개를 준다 — "다 얻고 거기서 고른다".
+                    --
+                    -- ## drop_skill_id와 물리적으로 갈라 둔 이유
+                    --
+                    -- 획득 규칙이 정반대다:
+                    --   drop_skill_id  = 포획. **확률**(3% + LUK)이고 5장까지 **중복 강화**된다.
+                    --   npc_skill_ids  = 격파. **확정**이고 **1장 고정**(중복 강화 없음).
+                    -- 한 칸에 섞으면 어느 규칙으로 굴릴지를 매번 다시 판단해야 하고,
+                    -- 그 판단이 두 곳에 생기는 순간 어긋난다. 그래서 칸부터 나눈다
+                    -- (전투는 GetTotalX / 게이트는 GetStatWithoutEquip과 같은 판단).
+                    --
+                    -- 시험 상대는 drop_skill_id가 비어 있어 `TryCapture`가 즉시 빠져나간다 —
+                    -- 포획 판정도 천장 카운터도 타지 않는다.
+                    npc_skill_ids = self:SplitIds(self:ToText(row:GetItem("npc_skill_ids"))),
                 }
             end
         end
@@ -439,6 +465,14 @@ script GameData extends Logic
     method table GetMonster(string id)
         -- 몬스터 레코드. 없으면 nil.
         return self.monsters[id]
+    end
+
+    method table GetNpcSkillIds(string monsterId)
+        -- 이 상대를 격파하면 확정으로 넘어오는 스킬 목록 (T16-3). 없으면 빈 배열.
+        -- 포획(drop_skill_id)과 섞이지 않게 창구를 따로 둔다 — LoadMonsters 주석 참고.
+        local record = self.monsters[monsterId]
+        if record == nil then return {} end
+        return record.npc_skill_ids
     end
 
     method table GetRoom(string id)
