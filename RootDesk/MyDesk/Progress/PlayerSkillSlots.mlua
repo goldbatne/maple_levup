@@ -196,8 +196,27 @@ script PlayerSkillSlots extends Component
         return true
     end
 
-    -- 실행공간을 비워둔다. 서버 스포너가 "세울까"를 묻고, 클라도 같은 값을 본다
-    -- (BossRoomsCleared / RebirthCount 둘 다 @TargetUserSync).
+    -- 실행공간을 비워둔다. 장착 판정은 서버가, 표시는 클라가 같은 값을 본다
+    -- (RebirthCount가 @TargetUserSync라 양쪽에서 같은 답이 나온다).
+    method integer GetTier()
+        -- 내 스킬 차수. **차수 = 환생 횟수 + 1**이라 1회차가 1차다 (설계 변경 2026-08-16).
+        --
+        -- 왜 별도 저장값을 두지 않는가: 차수가 환생 횟수에서 유도되는 값이라
+        -- 따로 저장하면 환생 처리에서 둘이 어긋날 자리가 생긴다. RebirthCount 하나만
+        -- 올리면 차수도 슬롯도 같이 따라온다.
+        --
+        -- ⚠ 슬롯 수(RecomputeSlotCount)와는 별개다. 슬롯 축 정정(보스 클리어 축 제거)은
+        -- T16-4b이고, 여기서는 건드리지 않는다.
+        return self.RebirthCount + 1
+    end
+
+    method boolean CanUseTier(string skillId)
+        -- 이 스킬을 지금 차수로 장착·사용할 수 있는가. 표에 없는 스킬은 false.
+        local skill = _GameData:GetSkill(skillId)
+        if skill == nil then return false end
+        return math.floor(skill.tier) <= self:GetTier()
+    end
+
     method boolean IsBossClearedThisRun(string roomId)
         -- 이번 회차에 이 보스방을 깼는가. 지난 회차 기록은 false다.
         if roomId == nil or roomId == "" then return false end
@@ -349,6 +368,16 @@ script PlayerSkillSlots extends Component
         local collection = self.Entity:GetComponent("script.PlayerCollection")
         if collection == nil or collection:GetOwnedCount(skillId) <= 0 then
             log_warning("[SkillSlots] 보유하지 않은 스킬: " .. skillId)
+            return false
+        end
+
+        -- 차수가 모자라면 못 끼운다 (T16-4a). **보유는 되지만 장착이 안 되는 것**이
+        -- 이 설계의 핵심이다 — 상위 차수 스킬을 미리 뺏어 두고 환생으로 여는 것이
+        -- 환생의 보상이 된다 (설계 변경 2026-08-16).
+        if self:CanUseTier(skillId) == false then
+            log_warning("[SkillSlots] 차수 부족: " .. skillId
+                .. " (스킬 " .. tostring(math.floor(skill.tier)) .. "차 / 내 차수 "
+                .. tostring(self:GetTier()) .. "차)")
             return false
         end
 

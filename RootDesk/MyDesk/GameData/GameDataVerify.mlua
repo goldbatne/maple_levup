@@ -58,18 +58,29 @@ script GameDataVerify extends Logic
         local total = 0
         local jobCount = 0
         local monsterCount = 0
+        local npcCount = 0
         local keyCount = 0
         for id, skill in pairs(_GameData.skills) do
             total += 1
             if skill.source == "job" then jobCount += 1 end
             if skill.source == "monster" then monsterCount += 1 end
+            if skill.source == "npc" then npcCount += 1 end
             if skill.is_key_skill then
                 keyCount += 1
                 log("  [열쇠스킬] " .. id .. " " .. skill.name .. " (" .. skill.effect_type .. ")")
             end
         end
         log("[스킬] 총 " .. tostring(total) .. "개 (직업 " .. tostring(jobCount)
-            .. " / 몬스터 " .. tostring(monsterCount) .. " / 열쇠 " .. tostring(keyCount) .. ")")
+            .. " / 몬스터 " .. tostring(monsterCount) .. " / NPC " .. tostring(npcCount)
+            .. " / 열쇠 " .. tostring(keyCount) .. ")")
+
+        -- NPC 스킬(T16-3)은 원작 아이콘 RUID를 들고 있어야 한다. 대표 지시가
+        -- "UUID와 효과도 원작과 같아야 해"라, 비어 있으면 그 약속이 깨진 것이다.
+        for id, skill in pairs(_GameData.skills) do
+            if skill.source == "npc" and skill.icon_ruid == "" then
+                log_warning("  [NPC스킬] " .. id .. " 에 원작 아이콘 RUID가 없다")
+            end
+        end
 
         -- 중복 강화 계수 (T15-2). 몬스터 스킬만 쌓이므로 그것만 적는다.
         -- 상한이나 보너스가 0으로 되돌아가도 에러가 나지 않아 로그로만 보인다.
@@ -81,7 +92,11 @@ script GameDataVerify extends Logic
         local monsterSkills = _GameData:GetMonsterSkillIds()
         for i = 1, #monsterSkills do
             local skill = _GameData:GetSkill(monsterSkills[i])
-            if skill ~= nil then
+            -- **source가 monster인 것만** 쌓인다 (T15-2). GetMonsterSkillIds는 slot_type으로
+            -- 고르므로 NPC 스킬(1장 고정)도 같이 걸린다 — 여기서 걸러내지 않으면
+            -- 로그가 "NPC 스킬도 만작 3.42배"라고 거짓말을 한다. 런타임 판정
+            -- (PlayerAttack.CalcDamage / TryCapture)은 이미 source로 갈라 두었다.
+            if skill ~= nil and skill.source == "monster" then
                 log("  [중복강화] " .. skill.name .. " (" .. skill.scaling_stat .. ")  계수 "
                     .. string.format("%.2f", skill.coefficient) .. " → 만작 "
                     .. string.format("%.2f", _CombatFormula:StackedCoefficient(skill.coefficient, stackMax)))
@@ -101,7 +116,21 @@ script GameDataVerify extends Logic
             if skill.description == "" then
                 log_warning("  [스킬메타] " .. id .. " 에 설명이 없다 — 설명 UI가 빈 칸으로 뜬다")
             end
+            -- 차수(T16-4a)는 1 이상이어야 한다. 0이나 음수면 "항상 열림"과 같아지는데,
+            -- 그건 tier를 빠뜨린 것과 구분이 안 돼 잠금이 조용히 사라진다.
+            if skill.tier < 1 then
+                log_error("  [스킬차수] " .. id .. " 의 tier가 1 미만이다: "
+                    .. tostring(skill.tier) .. " — 잠금이 무의미해진다")
+            end
         end
+        local tierCount = {}
+        for _, skill in pairs(_GameData.skills) do
+            local t = tostring(math.floor(skill.tier))
+            tierCount[t] = (tierCount[t] or 0) + 1
+        end
+        local tierText = ""
+        for t, n in pairs(tierCount) do tierText = tierText .. t .. "차 " .. tostring(n) .. "종  " end
+        log("[스킬차수] " .. tierText .. " (차수 = 환생 횟수 + 1 이상이어야 장착된다)")
         log("[스킬메타] 공격 " .. tostring(attackCount) .. " / 방어 " .. tostring(defenseCount)
             .. "  (방어도 같은 슬롯을 먹는다 — 대표 지시 2026-08-16)")
         for id, skill in pairs(_GameData.skills) do
@@ -139,6 +168,19 @@ script GameDataVerify extends Logic
                 .. " HP=" .. tostring(monster.hp) .. " DEF=" .. tostring(monster.def)
                 .. " EXP=" .. tostring(monster.exp) .. " 드랍=" .. monster.drop_skill_id
                 .. " [공식 " .. mark .. "]")
+
+            -- 격파 보상 스킬(T16-3)이 표에 실존하는지 본다. 없는 id를 적어 두면
+            -- 이겨 놓고 아무것도 안 들어오는 상태가 되는데, 그때는 원인이 안 남는다.
+            for i = 1, #monster.npc_skill_ids do
+                local sid = monster.npc_skill_ids[i]
+                local skill = _GameData:GetSkill(sid)
+                if skill == nil then
+                    log_error("  [NPC보상] " .. id .. " 가 없는 스킬을 준다: " .. sid)
+                else
+                    log("  [NPC보상] " .. monster.name .. " → [" .. skill.name .. "] "
+                        .. tostring(math.floor(skill.tier)) .. "차")
+                end
+            end
         end
     end
 

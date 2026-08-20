@@ -188,6 +188,19 @@ script EquipPanel extends Logic
         ---@type PlayerSkillSlots
         local slots = self:GetSlots()
         if slots == nil then return end
+
+        -- 차수가 모자라면 요청하지 않는다 (T16-4a). 서버도 같은 판정을 하지만
+        -- 여기서 막아야 "눌렀는데 아무 일도 안 난다"가 되지 않는다 —
+        -- SelectSlot의 잠긴 슬롯 처리와 같은 어법이다.
+        if slots:CanUseTier(skillId) == false then
+            local skill = _GameData:GetSkill(skillId)
+            log("[EquipPanel] 차수 부족으로 장착 거절 " .. skillId)
+            _GateNotice:ShowNotice("아직 쓸 수 없다",
+                "[" .. skill.name .. "]은(는) " .. tostring(math.floor(skill.tier))
+                .. "차 스킬이다. 지금 내 차수는 " .. tostring(slots:GetTier()) .. "차다.")
+            return
+        end
+
         log("[EquipPanel] 장착 요청 슬롯 " .. tostring(self.selectedSlot) .. " = " .. skillId)
         slots:RequestEquip(self.selectedSlot, skillId)
     end
@@ -260,7 +273,18 @@ script EquipPanel extends Logic
             extra = extra .. "   쿨 " .. string.format("%.0f", skill.cooldown) .. "초"
         end
 
-        self.lblDesc.Text = "[" .. self:KindLabel(skill) .. "] " .. skill.description .. statText .. extra
+        -- 잠긴 스킬은 **무엇이 부족한지**를 설명 줄에 적는다 (T16-4a).
+        -- 목록의 `🔒 2차` 표시만으로는 "몇 번 더 환생해야 하나"가 안 나온다.
+        local lockText = ""
+        ---@type PlayerSkillSlots
+        local slots = self:GetSlots()
+        if slots ~= nil and slots:CanUseTier(self.selectedSkillId) == false then
+            local need = math.floor(skill.tier) - slots:GetTier()
+            lockText = "   잠김 — 환생 " .. tostring(need) .. "회 더"
+        end
+
+        self.lblDesc.Text = "[" .. self:KindLabel(skill) .. "] " .. skill.description
+            .. lockText .. statText .. extra
     end
 
     @ExecSpace("ClientOnly")
@@ -352,13 +376,24 @@ script EquipPanel extends Logic
                     local kindText = ""
                     if skill ~= nil then kindText = "   [" .. self:KindLabel(skill) .. "]" end
 
+                    -- 차수를 적는다 (T16-4a). 1차는 안 적는다 — 대부분이 1차라
+                    -- 매 줄에 붙으면 글자만 늘고 갈리는 정보가 되지 못한다.
+                    -- 못 끼우는 줄에는 자물쇠를 붙여 **목록에서 바로** 갈리게 한다.
+                    local tierText = ""
+                    if skill ~= nil and math.floor(skill.tier) > 1 then
+                        tierText = "   " .. tostring(math.floor(skill.tier)) .. "차"
+                        if slots:CanUseTier(skillId) == false then
+                            tierText = "   [잠김] " .. tostring(math.floor(skill.tier)) .. "차"
+                        end
+                    end
+
                     -- 고른 줄에 표시를 남긴다. 두 번째 누르면 장착이라는 것을 알려야 한다.
                     local mark = ""
                     if skillId == self.selectedSkillId then mark = "▶ " end
 
                     btn.Entity.TextGUIRendererComponent.Text = mark .. name
                         .. "   x" .. tostring(owned) .. "/" .. tostring(stackMax)
-                        .. coefText .. kindText
+                        .. tierText .. coefText .. kindText
                 end
             end
         end
