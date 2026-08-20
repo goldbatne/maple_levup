@@ -168,6 +168,10 @@ script RoomMonster extends Component
                 local collection = killer:GetComponent("script.PlayerCollection")
                 if collection ~= nil then
                     collection:TryCapture(self.MonsterId)
+                    -- 모험가 NPC 격파 보상 (T16-3c). 포획과 **다른 경로**다 —
+                    -- 확정 100% · 1장 고정. 시험 상대는 drop_skill_id가 비어 있어
+                    -- 위 TryCapture가 즉시 빠져나가고, 여기서만 지급된다.
+                    collection:GrantNpcSkills(self.MonsterId)
                 end
 
                 -- 아이템 드랍 (T13-6). 판정과 스폰은 ItemDrop이 한다 —
