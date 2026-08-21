@@ -28,6 +28,17 @@ script PlayerSkillSlots extends Component
     @TargetUserSync property integer BossesCleared = 0
     @TargetUserSync property integer RebirthCount = 0
 
+    -- 지금까지 **환생한 레벨 중 최고치** (영구). 환생 보상의 유일한 근거다
+    -- (설계 변경 2026-08-21).
+    --
+    -- 왜 횟수가 아니라 최고 레벨인가: 보상이 횟수에 붙으면 Lv1에서 환생을 반복하는 것이
+    -- 최적 전략이 된다(몇 분이면 되니까). 최고 레벨에 붙으면 **더 깊이 갔다 돌아와야만**
+    -- 오르고, 같은 자리를 반복하는 것은 아무 의미가 없다.
+    --
+    -- 왜 "마지막 환생 레벨"이 아닌가: 실수로 얕게 환생했을 때 지금까지 쌓은 것이
+    -- 날아가면 안 된다. 기록은 내려가지 않는다.
+    @TargetUserSync property integer BestRebirthLevel = 0
+
     -- 개방된 구역. areaId -> 1. 환생 게이트가 이 값을 본다 (RoomGate.EvaluateRebirth).
     --
     -- 슬롯과 무관한 값이 왜 여기 있는가: 이 컴포넌트가 이미 **영구 진행 원장**
@@ -135,8 +146,14 @@ script PlayerSkillSlots extends Component
 
     @ExecSpace("ServerOnly")
     method void RecomputeSlotCount()
-        -- **슬롯 수 = 차수**, 상한에서 자른다 (T16-4b, 대표 지시 2026-08-20).
-        -- 1차 1칸 → 2차 2칸 → … → 5차 5칸.
+        -- **슬롯 수 = 차수 + 1**, 상한에서 자른다.
+        -- 0차 1칸 → 1차 2칸 → 2차 3칸 → 3차 4칸 → 4차 5칸 → 5차 5칸(상한).
+        --
+        -- +1인 이유 (2026-08-21): 시작이 0차가 되면서 그냥 `차수`로 두면 **시작 슬롯이
+        -- 0칸**이 된다. 스킬을 하나도 못 끼우는 상태로 게임이 시작되면 안 된다.
+        -- `max(차수, 1)`로 보정하지 않고 +1을 쓰는 것은, 그러면 0차와 1차가 둘 다 1칸이라
+        -- **첫 전직에 슬롯 보상이 없어지기** 때문이다. +1이면 전직마다 한 칸씩 열린다
+        -- (5차만 상한에 걸려 안 늘어난다).
         --
         -- ## 보스 클리어 축을 뺐다
         --
@@ -152,13 +169,13 @@ script PlayerSkillSlots extends Component
         local maxSlot = math.floor(_GameData:GetBalance("monster_slot_max"))
         if maxSlot < 1 then maxSlot = 1 end
 
-        local computed = self:GetTier()
+        local tier = self:GetTier()
+        local computed = tier + 1
         if computed > maxSlot then computed = maxSlot end
 
         if computed ~= self.MonsterSlotCount then
             log("[SkillSlots] 슬롯 " .. tostring(self.MonsterSlotCount) .. " → " .. tostring(computed)
-                .. "  (차수 " .. tostring(self:GetTier())
-                .. " = 환생 " .. tostring(self.RebirthCount) .. " + 1, 상한 " .. tostring(maxSlot) .. ")")
+                .. "  (차수 " .. tostring(tier) .. " + 1, 상한 " .. tostring(maxSlot) .. ")")
             self.MonsterSlotCount = computed
             self:TrimOverflow()
         end
@@ -203,15 +220,66 @@ script PlayerSkillSlots extends Component
     -- 실행공간을 비워둔다. 장착 판정은 서버가, 표시는 클라가 같은 값을 본다
     -- (RebirthCount가 @TargetUserSync라 양쪽에서 같은 답이 나온다).
     method integer GetTier()
-        -- 내 스킬 차수. **차수 = 환생 횟수 + 1**이라 1회차가 1차다 (설계 변경 2026-08-16).
+        -- 내 전직 차수. **레벨로 오른다** (설계 변경 2026-08-21, 대표 지시).
         --
-        -- 왜 별도 저장값을 두지 않는가: 차수가 환생 횟수에서 유도되는 값이라
-        -- 따로 저장하면 환생 처리에서 둘이 어긋날 자리가 생긴다. RebirthCount 하나만
-        -- 올리면 차수도 슬롯도 같이 따라온다.
+        --   Lv1~19 = 0차   Lv20 = 1차   Lv30 = 2차   Lv60 = 3차   Lv100 = 4차   Lv200 = 5차
         --
-        -- ⚠ 슬롯 수(RecomputeSlotCount)와는 별개다. 슬롯 축 정정(보스 클리어 축 제거)은
-        -- T16-4b이고, 여기서는 건드리지 않는다.
-        return self.RebirthCount + 1
+        -- ## 환생 횟수가 아니라 레벨인 이유
+        --
+        -- 환생이 "얼마든 가능"으로 바뀌면서 차수의 근거가 될 수 없어졌다. 환생을 반복하면
+        -- 차수가 공짜로 올라가기 때문이다. 대신 전직 레벨을 밟는 것이 차수의 근거가 된다.
+        --
+        -- ⚠ 파생: **환생하면 레벨이 1로 돌아가므로 차수도 0으로 떨어진다.** 상위 차수
+        -- 스킬은 보유한 채로 다시 잠긴다 — 잃는 것이 아니라 다시 여는 것이다.
+        --
+        -- 저장값을 따로 두지 않는 것은 예전과 같은 이유다: 레벨에서 유도되는 값이라
+        -- 따로 저장하면 레벨업·환생 처리에서 둘이 어긋날 자리가 생긴다.
+        ---@type PlayerStats
+        local stats = self.Entity:GetComponent("script.PlayerStats")
+        if stats == nil then return 0 end
+
+        local level = stats.Level
+        local tier = 0
+        -- 표에 있는 만큼만 센다. tier_level_N이 없으면 GetBalance가 0을 주므로 거기서 멈춘다.
+        for i = 1, 5 do
+            local need = _GameData:GetBalance("tier_level_" .. tostring(i))
+            if need <= 0 then break end
+            if level >= need then tier = i else break end
+        end
+        return tier
+    end
+
+    method integer NextTierLevel()
+        -- 다음 전직에 필요한 레벨. 이미 최고 차수면 0 (더 오를 데가 없다).
+        -- 잠긴 스킬에 "무엇이 부족한지"를 적을 때 쓴다.
+        -- `next`는 Lua 전역 함수 이름이라 지역 변수로 가리지 않는다.
+        local nextTier = self:GetTier() + 1
+        if nextTier > 5 then return 0 end
+        local need = _GameData:GetBalance("tier_level_" .. tostring(nextTier))
+        if need <= 0 then return 0 end
+        return math.floor(need)
+    end
+
+    method integer RebirthBonus()
+        -- 환생 보너스 단계. **5레벨당 1** (대표 지시 2026-08-21).
+        -- Lv5에서 환생 → 1, Lv10 → 2, Lv100 → 20.
+        --
+        -- 두 곳이 이 값을 쓴다:
+        --   레벨업당 스탯 포인트 = 기본 5 + 이 값        (PlayerStats.GrantLevelPoints)
+        --   방마다 몬스터 +N마리(상한 있음)               (RoomSpawner)
+        -- 한 창구에서 유도해야 둘이 어긋나지 않는다.
+        local unit = _GameData:GetBalance("rebirth_bonus_level_unit")
+        if unit <= 0 then return 0 end
+        return math.floor(self.BestRebirthLevel / unit)
+    end
+
+    method integer LevelForTier(integer tier)
+        -- 그 차수가 열리는 레벨. 0차는 처음부터라 1.
+        if tier <= 0 then return 1 end
+        if tier > 5 then return 0 end
+        local need = _GameData:GetBalance("tier_level_" .. tostring(tier))
+        if need <= 0 then return 0 end
+        return math.floor(need)
     end
 
     method boolean CanUseTier(string skillId)

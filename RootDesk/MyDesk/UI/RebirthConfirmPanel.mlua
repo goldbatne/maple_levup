@@ -34,17 +34,12 @@ script RebirthConfirmPanel extends Logic
     -- 직업 칸 4개(고정). 런타임에 엔티티를 만들지 않는다 — EquipPanel과 같은 방식이다.
     -- 버튼 엔티티 하나에 ButtonComponent와 TextGUIRendererComponent가 함께 있어서
     -- .Entity로 둘 다 닿는다. 그래서 칸마다 프로퍼티 하나면 된다.
-    property ButtonComponent jobBtn1 = "bd0dac3e-f0fd-4db7-874c-ebd795fc325e"
-    property ButtonComponent jobBtn2 = "07a0cdfd-6c7a-4e6b-a340-321d77303d07"
-    property ButtonComponent jobBtn3 = "7b31f4f0-7b78-4b5a-93a1-b6399a7d5183"
-    property ButtonComponent jobBtn4 = "e4bd3309-5544-4dd3-a04b-bf82a6b507a9"
+    -- 직업 선택은 폐기됐다 (설계 이력 2026-08-16). 그 자리에 환생 규칙 설명을 둔다.
+    property TextGUIRendererComponent ruleText = "10b1187d-9bad-4527-b994-091affebf5e8"
 
     property ButtonComponent btnConfirm = "2b44b656-3624-48f8-ac95-c478325ffb18"
     property ButtonComponent btnCancel = "6dbbfcbd-5bcf-4034-8965-47a850a0de44"
 
-    -- 지금 창에 뿌려진 직업 목록. index -> jobId. 빈 칸은 키가 없다.
-    property table jobIds = {}
-    property string selectedJob = ""
 
     property any handlers = {}
 
@@ -55,15 +50,9 @@ script RebirthConfirmPanel extends Logic
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         self.root.Enable = false
-        self.jobIds = {}
-        self.selectedJob = ""
         self.handlers = {}
         log("[RebirthConfirm] OnBeginPlay — 닫힌 채로 시작")
 
-        self:Bind(self.jobBtn1, function() self:SelectJobSlot(1) end)
-        self:Bind(self.jobBtn2, function() self:SelectJobSlot(2) end)
-        self:Bind(self.jobBtn3, function() self:SelectJobSlot(3) end)
-        self:Bind(self.jobBtn4, function() self:SelectJobSlot(4) end)
         self:Bind(self.btnConfirm, function() self:OnConfirm() end)
         self:Bind(self.btnCancel, function() self:Close() end)
     end
@@ -108,10 +97,10 @@ script RebirthConfirmPanel extends Logic
 
         self:FillLose(me)
         self:FillGain(me)
-        self:FillJobs(me)
+        self:FillRule(me)
 
         self.root.Enable = true
-        log("[RebirthConfirm] 열림  선택 직업=" .. self.selectedJob)
+        log("[RebirthConfirm] 열림")
     end
 
     @ExecSpace("ClientOnly")
@@ -155,14 +144,33 @@ script RebirthConfirmPanel extends Logic
         local parts = {}
         parts[#parts + 1] = "환생 " .. tostring(slots.RebirthCount + 1) .. "회차"
 
-        -- 슬롯은 차수에서 다시 계산한다 (RecomputeSlotCount와 **같은 식이어야 한다**).
-        -- 환생하면 RebirthCount가 +1이므로 차수도 +1이다 (T16-4b).
-        -- 실제로 늘 때만 적는다 — 상한에 걸려 그대로면 얻는 게 아니다.
-        local maxSlot = math.floor(_GameData:GetBalance("monster_slot_max"))
-        local after = slots.RebirthCount + 2   -- (환생 후 환생 횟수) + 1 = 차수
-        if after > maxSlot then after = maxSlot end
-        if after > slots.MonsterSlotCount then
-            parts[#parts + 1] = "몬스터 슬롯 " .. tostring(after) .. "개"
+        -- ## 환생 보상 = 성장 속도 (설계 변경 2026-08-21)
+        --
+        -- 지금 레벨이 최고 기록을 넘으면 레벨업당 스탯이 오른다. **넘을 때만** 적는다 —
+        -- 최고 기록 이하에서 환생하면 얻는 게 없고, 그 사실을 미리 보여줘야
+        -- "환생했는데 아무것도 안 늘었다"가 안 된다.
+        --
+        -- 식은 PlayerSkillSlots.RebirthBonus / PlayerStats.PointsPerLevel과 **같아야 한다.**
+        local unit = _GameData:GetBalance("rebirth_bonus_level_unit")
+        local basePoints = math.floor(_GameData:GetBalance("stat_points_per_level"))
+        local nowBonus = slots:RebirthBonus()
+        local afterBonus = nowBonus
+        if unit > 0 and stats.Level > slots.BestRebirthLevel then
+            afterBonus = math.floor(stats.Level / unit)
+        end
+
+        if afterBonus > nowBonus then
+            parts[#parts + 1] = "레벨업당 스탯 " .. tostring(basePoints + nowBonus)
+                .. " → " .. tostring(basePoints + afterBonus) .. "P"
+            local monsterCap = math.floor(_GameData:GetBalance("rebirth_monster_bonus_max"))
+            local nowMon = (nowBonus > monsterCap) and monsterCap or nowBonus
+            local afterMon = (afterBonus > monsterCap) and monsterCap or afterBonus
+            if afterMon > nowMon then
+                parts[#parts + 1] = "사냥방 몬스터 +" .. tostring(afterMon) .. "마리"
+            end
+        else
+            parts[#parts + 1] = "성장 보너스 그대로 (최고 기록 Lv"
+                .. tostring(slots.BestRebirthLevel) .. " 이하)"
         end
 
         -- 랜드마크. 원장(LandmarkClaimed)은 동기화되지 않아 못 본다.
@@ -190,80 +198,52 @@ script RebirthConfirmPanel extends Logic
     end
 
     ---------------------------------------------------------------
-    -- 직업 선택
+    -- 환생 규칙 안내
     ---------------------------------------------------------------
 
     @ExecSpace("ClientOnly")
-    method ButtonComponent JobSlot(integer index)
-        if index == 1 then return self.jobBtn1 end
-        if index == 2 then return self.jobBtn2 end
-        if index == 3 then return self.jobBtn3 end
-        if index == 4 then return self.jobBtn4 end
-        return nil
+    method void FillRule(Entity me)
+        -- 환생 규칙을 길게 적는다 (대표 지시 2026-08-21).
+        --
+        -- 왜 여기인가: 환생은 되돌릴 수 없고, 새 규칙은 "언제 환생하느냐"가 보상을
+        -- 정한다. 그 규칙을 모르고 누르면 손해를 보는데 화면 어디에도 설명이 없었다.
+        -- 예시를 같이 적는 이유는 floor(레벨/5)를 글로만 쓰면 안 읽히기 때문이다.
+        if not isvalid(self.ruleText) then return end
+
+        ---@type PlayerSkillSlots
+        local slots = me:GetComponent("script.PlayerSkillSlots")
+        local best = 0
+        if slots ~= nil then best = slots.BestRebirthLevel end
+
+        local unit = math.floor(_GameData:GetBalance("rebirth_bonus_level_unit"))
+        local base = math.floor(_GameData:GetBalance("stat_points_per_level"))
+        if unit < 1 then unit = 1 end
+
+        local nl = "\n"
+        self.ruleText.Text =
+            "환생은 언제든 할 수 있다. 레벨과 스탯은 1로 돌아가고," .. nl
+            .. "컬렉션 · 장비 · 보스 기록은 그대로 남는다." .. nl .. nl
+            .. "보상은 " .. tostring(unit) .. "레벨마다 하나씩 붙는다." .. nl
+            .. "레벨업할 때 받는 스탯이 기본 " .. tostring(base) .. "P에서 그만큼 늘고," .. nl
+            .. "사냥방에 몬스터도 그만큼 더 선다." .. nl .. nl
+            .. "   Lv" .. tostring(unit) .. "에서 환생 → 레벨업당 "
+            .. tostring(base + 1) .. "P" .. nl
+            .. "   Lv" .. tostring(unit * 2) .. "에서 환생 → 레벨업당 "
+            .. tostring(base + 2) .. "P" .. nl .. nl
+            .. "가장 깊이 갔던 기록만 센다. 지금 기록은 Lv" .. tostring(best) .. "이고," .. nl
+            .. "같은 자리에서 반복해도 오르지 않는다."
     end
-
-    @ExecSpace("ClientOnly")
-    method void FillJobs(Entity me)
-        -- 고를 수 있는 직업만 칸에 올린다. 판정은 _Rebirth가 갖고 있다.
-        self.jobIds = {}
-        local available = _Rebirth:GetAvailableJobs(me)
-        for i = 1, #available do
-            if i <= 4 then self.jobIds[i] = available[i] end
-        end
-        if #available > 4 then
-            log_warning("[RebirthConfirm] 직업 칸이 4개뿐인데 " .. tostring(#available)
-                .. "개가 열려 있다 — 칸을 늘려야 한다")
-        end
-
-        -- 기본 선택은 첫 칸. 아무것도 안 고른 채 확인을 누르는 상태를 없앤다.
-        self.selectedJob = self.jobIds[1] or ""
-        self:RefreshJobLabels()
-    end
-
-    @ExecSpace("ClientOnly")
-    method void RefreshJobLabels()
-        -- 선택 표시를 글자로 한다. 배경색을 바꾸면 ButtonComponent의
-        -- ColorTint 전이가 상태마다 덮어써서 선택이 사라져 보인다.
-        -- (EquipPanel에서 같은 이유로 [선택] 접두사를 썼다)
-        for i = 1, 4 do
-            local btn = self:JobSlot(i)
-            if btn ~= nil then
-                local id = self.jobIds[i]
-                if id == nil then
-                    btn.Entity.Enable = false
-                else
-                    btn.Entity.Enable = true
-                    local job = _GameData:GetJob(id)
-                    local name = (job ~= nil) and job.name or id
-                    local mark = (id == self.selectedJob) and "▶ " or "　"
-                    btn.Entity.TextGUIRendererComponent.Text = mark .. name
-                end
-            end
-        end
-    end
-
-    @ExecSpace("ClientOnly")
-    method void SelectJobSlot(integer index)
-        local id = self.jobIds[index]
-        if id == nil then return end
-        self.selectedJob = id
-        self:RefreshJobLabels()
-        log("[RebirthConfirm] 직업 선택 → " .. id)
-    end
-
     ---------------------------------------------------------------
     -- 확정
     ---------------------------------------------------------------
 
     @ExecSpace("ClientOnly")
     method void OnConfirm()
-        if self.selectedJob == "" then
-            _GateNotice:ShowNotice("직업을 고르시오", "회차마다 직업을 다시 고른다")
-            return
-        end
-        log("[RebirthConfirm] 확인 — 직업 " .. self.selectedJob)
+        -- 직업 선택이 없어졌으므로 빈 문자열을 보낸다. 서버(_Rebirth.Execute)가
+        -- 고를 수 있는 것으로 알아서 채운다 — 판정은 원래부터 서버에 있었다.
+        log("[RebirthConfirm] 확인")
         self:Close()
-        self:RequestRebirth(self.selectedJob)
+        self:RequestRebirth("")
     end
 
     @ExecSpace("Server")

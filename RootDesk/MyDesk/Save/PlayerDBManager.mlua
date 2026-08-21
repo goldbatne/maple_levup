@@ -190,6 +190,15 @@ script PlayerDBManager extends Component
         self:ApplyPerm(perm)
         self:ApplyRun(run)
 
+        -- 슬롯 수는 저장값을 쓰지 않고 **차수에서 다시 계산한다** (계산이 진실이다).
+        -- 반드시 ApplyRun **뒤**여야 한다 — 차수가 레벨에서 나오므로 레벨이 복원되기
+        -- 전에 부르면 항상 0차로 읽힌다 (ApplyPerm 주석 참고).
+        ---@type PlayerSkillSlots
+        local slotsAfterLoad = self.Entity:GetComponent("script.PlayerSkillSlots")
+        if slotsAfterLoad ~= nil then
+            slotsAfterLoad:RecomputeSlotCount()
+        end
+
         -- 모든 적용이 끝난 뒤에만 게이트를 연다.
         self.IsLoadSuccess = true
         log("[PlayerDB] 로드 완료")
@@ -249,6 +258,7 @@ script PlayerDBManager extends Component
         local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
         if slots ~= nil then
             slots.RebirthCount = perm.rebirth_count
+            slots.BestRebirthLevel = perm.best_rebirth_level
             for roomId, run in pairs(perm.bosses_cleared) do
                 -- 값은 플래그가 아니라 **마지막으로 깬 회차 번호**다. 그대로 복원해야
                 -- "이번 회차에 깼는가"가 맞는다 (안 그러면 보스가 영영 안 선다).
@@ -270,9 +280,12 @@ script PlayerDBManager extends Component
             slots.BossesCleared = cleared
             -- 키 배치 (T14-2). 빈 문자열이면 SkillBar가 자기 기본값을 쓴다.
             slots.KeyOrder = perm.key_order
-            -- 슬롯 수는 저장값을 그대로 쓰지 않고 두 축에서 다시 계산한다.
-            -- 저장된 monster_slot_count는 참고용이고, 계산이 진실이다.
-            slots:RecomputeSlotCount()
+            -- ⚠ 슬롯 계산은 **여기서 하지 않는다.** 차수가 레벨에서 나오게 되면서
+            -- (2026-08-21) 슬롯이 레벨에 의존하는데, 레벨은 ApplyRun이 복원한다.
+            -- 여기서 부르면 Level이 아직 1이라 **차수 0 · 슬롯 1칸**으로 계산되고,
+            -- 다시 접속할 때까지 그대로 남는다 (실측: Lv20인데 슬롯이 1칸이었다).
+            -- 두 Apply가 다 끝난 뒤 Load에서 한 번 부른다.
+            --
             -- 표에서 사라진 스킬이 장착된 채로 로드되는 것을 막는다 (T17-1).
             -- RecomputeSlotCount는 **슬롯 수가 바뀔 때만** TrimOverflow를 부르므로,
             -- 수가 그대로인 로드에서는 걸러지지 않는다. 여기서 한 번 더 확인한다.
@@ -600,6 +613,7 @@ script PlayerDBManager extends Component
         local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
         if slots ~= nil then
             perm.rebirth_count = slots.RebirthCount
+            perm.best_rebirth_level = slots.BestRebirthLevel
             perm.monster_slot_count = slots.MonsterSlotCount
             perm.key_order = slots.KeyOrder
 

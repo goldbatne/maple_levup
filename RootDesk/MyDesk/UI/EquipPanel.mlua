@@ -205,9 +205,11 @@ script EquipPanel extends Logic
         if slots:CanUseTier(skillId) == false then
             local skill = _GameData:GetSkill(skillId)
             log("[EquipPanel] 차수 부족으로 장착 거절 " .. skillId)
+            local needLevel = slots:LevelForTier(math.floor(skill.tier))
             _GateNotice:ShowNotice("아직 쓸 수 없다",
                 "[" .. skill.name .. "]은(는) " .. tostring(math.floor(skill.tier))
-                .. "차 스킬이다. 지금 내 차수는 " .. tostring(slots:GetTier()) .. "차다.")
+                .. "차 스킬이다. 지금 내 차수는 " .. tostring(slots:GetTier()) .. "차다."
+                .. (needLevel > 0 and ("  Lv" .. tostring(needLevel) .. "에 전직하면 열린다.") or ""))
             return
         end
 
@@ -289,8 +291,14 @@ script EquipPanel extends Logic
         ---@type PlayerSkillSlots
         local slots = self:GetSlots()
         if slots ~= nil and slots:CanUseTier(self.selectedSkillId) == false then
-            local need = math.floor(skill.tier) - slots:GetTier()
-            lockText = "   잠김 — 환생 " .. tostring(need) .. "회 더"
+            -- 차수는 레벨로 오른다(2026-08-21). "환생 N회 더"가 아니라 **몇 레벨이 필요한지**를
+            -- 적어야 다음에 뭘 해야 하는지가 바로 읽힌다.
+            local needLevel = slots:LevelForTier(math.floor(skill.tier))
+            if needLevel > 0 then
+                lockText = "   잠김 — Lv" .. tostring(needLevel) .. " 전직 필요"
+            else
+                lockText = "   잠김 — 차수 부족"
+            end
         end
 
         self.lblDesc.Text = "[" .. self:KindLabel(skill) .. "] " .. skill.description
@@ -386,11 +394,15 @@ script EquipPanel extends Logic
                     local kindText = ""
                     if skill ~= nil then kindText = "   [" .. self:KindLabel(skill) .. "]" end
 
-                    -- 차수를 적는다 (T16-4a). 1차는 안 적는다 — 대부분이 1차라
+                    -- 차수를 적는다. **0차는 안 적는다** — 몬스터 스킬이 전부 0차라
                     -- 매 줄에 붙으면 글자만 늘고 갈리는 정보가 되지 못한다.
                     -- 못 끼우는 줄에는 자물쇠를 붙여 **목록에서 바로** 갈리게 한다.
+                    --
+                    -- ⚠ 기준이 `> 1`이었다가 `> 0`으로 바뀌었다 (2026-08-21). 시작이 0차가
+                    -- 되면서 1차도 잠기는 값이 됐는데, 예전 조건으로는 1차 줄에 자물쇠가
+                    -- 안 붙어 **잠긴 줄이 멀쩡해 보였다**(실측에서 잡혔다).
                     local tierText = ""
-                    if skill ~= nil and math.floor(skill.tier) > 1 then
+                    if skill ~= nil and math.floor(skill.tier) > 0 then
                         tierText = "   " .. tostring(math.floor(skill.tier)) .. "차"
                         if slots:CanUseTier(skillId) == false then
                             tierText = "   [잠김] " .. tostring(math.floor(skill.tier)) .. "차"
