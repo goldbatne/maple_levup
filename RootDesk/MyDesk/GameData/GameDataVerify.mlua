@@ -116,11 +116,10 @@ script GameDataVerify extends Logic
             if skill.description == "" then
                 log_warning("  [스킬메타] " .. id .. " 에 설명이 없다 — 설명 UI가 빈 칸으로 뜬다")
             end
-            -- 차수(T16-4a)는 1 이상이어야 한다. 0이나 음수면 "항상 열림"과 같아지는데,
-            -- 그건 tier를 빠뜨린 것과 구분이 안 돼 잠금이 조용히 사라진다.
-            if skill.tier < 1 then
-                log_error("  [스킬차수] " .. id .. " 의 tier가 1 미만이다: "
-                    .. tostring(skill.tier) .. " — 잠금이 무의미해진다")
+            -- 차수는 0 이상이어야 한다. **0차 = 시작부터 사용 가능**이 정상값이다
+            -- (2026-08-21: 시작이 0차, 전직이 1~5차). 음수만 잘못된 값이다.
+            if skill.tier < 0 then
+                log_error("  [스킬차수] " .. id .. " 의 tier가 음수다: " .. tostring(skill.tier))
             end
         end
         local tierCount = {}
@@ -130,7 +129,12 @@ script GameDataVerify extends Logic
         end
         local tierText = ""
         for t, n in pairs(tierCount) do tierText = tierText .. t .. "차 " .. tostring(n) .. "종  " end
-        log("[스킬차수] " .. tierText .. " (차수 = 환생 횟수 + 1 이상이어야 장착된다)")
+        local ladder = ""
+        for i = 1, 5 do
+            local lv = _GameData:GetBalance("tier_level_" .. tostring(i))
+            if lv > 0 then ladder = ladder .. tostring(i) .. "차 Lv" .. tostring(math.floor(lv)) .. "  " end
+        end
+        log("[스킬차수] " .. tierText .. " (시작 0차 / 전직 " .. ladder .. ")")
         log("[스킬메타] 공격 " .. tostring(attackCount) .. " / 방어 " .. tostring(defenseCount)
             .. "  (방어도 같은 슬롯을 먹는다 — 대표 지시 2026-08-16)")
         for id, skill in pairs(_GameData.skills) do

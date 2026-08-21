@@ -166,6 +166,10 @@ script PlayerStats extends Component
             self:OnLevelUp(self.Level, self.Entity.PlayerComponent.UserId)
             self:MarkSave("레벨업")
             self:NoteHighestLevel()
+            -- 차수가 **레벨로** 오르므로(2026-08-21) 전직 레벨을 밟는 순간 슬롯이 열린다.
+            -- 여기서 안 부르면 다시 접속할 때까지 칸이 안 늘어난다 — 에러 없이 늦게 열려서
+            -- "전직했는데 아무 일도 없다"로 보인다.
+            self:RefreshTierRewards()
             _ProgressLog:LevelUp(self.Entity.PlayerComponent.UserId, self.Level)
         end
     end
@@ -197,6 +201,20 @@ script PlayerStats extends Component
             Vector3(0, 0, 0), 0, Vector3(1.5, 1.5, 1.5), false)
 
         log("[PlayerStats] (클라) 레벨 캡 도달 — 환생 가능 표시")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RefreshTierRewards()
+        -- 전직 차수가 레벨에서 나오므로(2026-08-21), 레벨이 오를 때마다 차수에 딸린
+        -- 것들을 다시 계산한다. 지금은 슬롯 하나뿐이지만 창구를 하나로 두어
+        -- 나중에 붙는 것(전직 연출·해금 알림)이 흩어지지 않게 한다.
+        --
+        -- PlayerStats가 PlayerSkillSlots를 부르는 방향인 이유: 레벨을 아는 쪽이
+        -- 여기다. 반대로 슬롯이 매 프레임 레벨을 폴링하면 언제 갱신되는지가 흐려진다.
+        ---@type PlayerSkillSlots
+        local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
+        if slots == nil then return end
+        slots:RecomputeSlotCount()
     end
 
     @ExecSpace("ServerOnly")
