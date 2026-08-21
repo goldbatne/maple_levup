@@ -19,8 +19,6 @@ script PlayerStats extends Component
     @TargetUserSync property integer StatLuk = 0
     @TargetUserSync property integer UnspentPoints = 0
 
-    @TargetUserSync property string CurrentJob = ""
-
     -- 레벨 캡에 닿았는가. 캡에서는 EXP를 더 받지 않고 "환생 가능"으로 표시한다.
     -- 클라가 표시에 쓰므로 동기화한다.
     @TargetUserSync property boolean CanRebirth = false
@@ -248,7 +246,6 @@ script PlayerStats extends Component
         self.StatDef = 0
         self.StatLuk = 0
         self.UnspentPoints = 0
-        self.CurrentJob = ""
         -- 환생하면 다시 Lv1이므로 캡 플래그도 내린다. 안 내리면 새 회차에서
         -- EXP가 한 톨도 안 들어온다.
         self.CanRebirth = false

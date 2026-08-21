@@ -61,7 +61,7 @@ script RebirthNpc extends Component
         log("[RebirthNpc] 확인 화면 열기")
 
         -- 여기서 바로 환생시키지 않는다. 되돌릴 수 없는 선택이라
-        -- 잃는 것 / 얻는 것 / 직업 선택을 보여주는 창을 한 단계 세운다 (기획서 4.5).
+        -- 잃는 것 / 얻는 것을 보여주는 창을 한 단계 세운다 (기획서 4.5).
         -- 실행은 그 창(RebirthConfirmPanel)이 서버에 요청한다.
         _RebirthConfirmPanel:Open()
     end

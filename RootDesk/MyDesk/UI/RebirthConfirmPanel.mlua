@@ -1,6 +1,6 @@
 -- @클라이언트 + @서버 (표시·선택은 클라, 환생 실행은 서버)
 --
--- 환생 확인 화면 (작업지시서 T7 요청 2: 잃는 것 / 얻는 것 / 직업 선택을 한 화면에).
+-- 환생 확인 화면 (작업지시서 T7 요청 2: 잃는 것 / 얻는 것을 한 화면에).
 --
 -- NPC를 눌렀는데 곧바로 환생해 버리면 되돌릴 수 없는 선택이 사고로 일어난다.
 -- 이 창이 그 사이에 선다 (기획서 4.5 "의도적으로 한 단계를 둔다").
@@ -18,8 +18,7 @@
 -- ## "얻는 것"은 이미 가진 것을 빼고 보여준다
 --
 -- 랜드마크 원장(LandmarkClaimed)은 동기화되지 않아 클라가 볼 수 없다. 대신
--- **결과**를 본다 — 직업이 이미 해금돼 있으면 "해금"이라 쓰지 않는다.
--- 2회차 이후 "마법사 해금"이 또 뜨는 거짓말을 막는다.
+-- **결과**를 본다 — 이미 열려 있는 구역을 "개방"이라 또 쓰지 않는다.
 
 @Logic
 script RebirthConfirmPanel extends Logic
@@ -31,10 +30,8 @@ script RebirthConfirmPanel extends Logic
     property TextGUIRendererComponent loseText = "18245ce8-7b73-47b5-ae3a-1b3184da59da"
     property TextGUIRendererComponent gainText = "644fd42f-052d-4767-838c-fa302c93e2e7"
 
-    -- 직업 칸 4개(고정). 런타임에 엔티티를 만들지 않는다 — EquipPanel과 같은 방식이다.
-    -- 버튼 엔티티 하나에 ButtonComponent와 TextGUIRendererComponent가 함께 있어서
-    -- .Entity로 둘 다 닿는다. 그래서 칸마다 프로퍼티 하나면 된다.
-    -- 직업 선택은 폐기됐다 (설계 이력 2026-08-16). 그 자리에 환생 규칙 설명을 둔다.
+    -- 예전에는 여기에 직업 칸 4개가 있었다. 직업 선택이 폐기되면서(2026-08-16)
+    -- 그 자리를 환생 규칙 설명이 물려받았다.
     --
     -- ⚠ `ruleText`(고정 설명)는 **스크립트가 채우지 않는다.** 글자는 `.ui`가 들고 있고
     -- Maker에서 직접 고친다. 코드가 채우는 것은 아래 `recordText`(살아 있는 숫자)뿐이다.
@@ -180,12 +177,8 @@ script RebirthConfirmPanel extends Logic
         -- 랜드마크. 원장(LandmarkClaimed)은 동기화되지 않아 못 본다.
         -- 대신 **결과**를 본다 — 이미 해금/개방된 것은 적지 않는다.
         for _, r in ipairs(_GameData:GetLandmarksAtLevel(stats.Level)) do
-            if r.reward_type == "job" then
-                if slots.UnlockedJobs[r.reward_value] == nil then
-                    local job = _GameData:GetJob(r.reward_value)
-                    parts[#parts + 1] = ((job ~= nil) and job.name or r.reward_value) .. " 해금"
-                end
-            elseif r.reward_type == "area" then
+            -- 직업 보상은 폐기됐다 (2026-08-16). 여기서 걸리지 않으므로 조용히 빠진다.
+            if r.reward_type == "area" then
                 if slots.UnlockedAreas[r.reward_value] == nil then
                     parts[#parts + 1] = r.reward_value .. " 개방"
                 end
@@ -239,16 +232,14 @@ script RebirthConfirmPanel extends Logic
 
     @ExecSpace("ClientOnly")
     method void OnConfirm()
-        -- 직업 선택이 없어졌으므로 빈 문자열을 보낸다. 서버(_Rebirth.Execute)가
-        -- 고를 수 있는 것으로 알아서 채운다 — 판정은 원래부터 서버에 있었다.
         log("[RebirthConfirm] 확인")
         self:Close()
-        self:RequestRebirth("")
+        self:RequestRebirth()
     end
 
     @ExecSpace("Server")
-    method void RequestRebirth(string jobId)
-        -- 클라 판정은 표시일 뿐이라 서버에서 조건과 직업을 다시 본다.
+    method void RequestRebirth()
+        -- 클라 판정은 표시일 뿐이라 서버에서 조건을 다시 본다.
         -- senderUserId는 서버가 채우는 값이라 위조할 수 없다.
         local player = _UserService:GetUserEntityByUserId(senderUserId)
         if player == nil then
@@ -263,7 +254,7 @@ script RebirthConfirmPanel extends Logic
         local fromLevel = 0
         if stats ~= nil then fromLevel = stats.Level end
 
-        if _Rebirth:Execute(player, jobId) == false then
+        if _Rebirth:Execute(player) == false then
             local gate = _Rebirth:Evaluate(player)
             self:OnRebirthFailed(gate.reason, senderUserId)
             return
@@ -271,19 +262,15 @@ script RebirthConfirmPanel extends Logic
 
         local count = 0
         if slots ~= nil then count = slots.RebirthCount end
-        local jobName = jobId
-        local job = _GameData:GetJob(jobId)
-        if job ~= nil then jobName = job.name end
-
-        self:OnRebirthDone(count, fromLevel, jobName, senderUserId)
+        self:OnRebirthDone(count, fromLevel, senderUserId)
     end
 
     @ExecSpace("Client")
-    method void OnRebirthDone(integer rebirthCount, integer fromLevel, string jobName)
+    method void OnRebirthDone(integer rebirthCount, integer fromLevel)
         -- 대상 userId는 선언부가 아니라 호출부 마지막 인자로 붙인다
         -- (첫 인자로 넘겼다가 [LEA-3032]로 실패한 적이 있다 — RoomPortal 주석 참고).
         _GateNotice:ShowNotice("환생 " .. tostring(rebirthCount) .. "회차",
-            "Lv" .. tostring(fromLevel) .. " 에서 " .. jobName .. " 으로 다시 시작한다")
+            "Lv" .. tostring(fromLevel) .. " 에서 다시 시작한다")
 
         -- 연출은 NPC가 아니라 **플레이어**에게 붙인다. 이 스크립트는 @Logic이라
         -- self.Entity가 없고, NPC 엔티티를 경로로 찾으면 맵 이름이 코드에 박힌다.
