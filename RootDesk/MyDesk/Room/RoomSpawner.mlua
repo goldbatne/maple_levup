@@ -214,9 +214,46 @@ script RoomSpawner extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method integer EffectiveCount()
+        -- 이 방의 실제 정원. **환생 보너스만큼 더 선다** (설계 변경 2026-08-21).
+        --
+        --   정원 = RoomTable.monster_count + min(환생 보너스, rebirth_monster_bonus_max)
+        --
+        -- 환생 보상이 스탯 성장률만이면 눈에 안 보인다(Lv20까지 가야 19P 차이).
+        -- 방이 빽빽해지는 것은 들어서는 순간 보이고, 방을 헤쳐나가는 것이 이 게임의
+        -- 코어라 보상이 코어를 직접 강화한다. EXP 총량도 같이 늘어 빨라진 성장과 맞물린다.
+        --
+        -- ⚠ **보스방은 제외한다.** 보스는 이미 배율 ×3이 붙어 한 판이 사건이다.
+        -- 히어로가 둘이 되면 사건이 아니라 사고가 된다(4대 → 2대에 죽는다).
+        --
+        -- ⚠ 상한을 두는 이유: 보너스는 `floor(최고환생레벨/5)`라 Lv100 환생이면 20이다.
+        -- r_04가 25마리가 되면 스폰 영역(28×16) 안에서 겹치고 AIChase 25개가 매 프레임 돈다.
+        --
+        -- 방(맵)은 하나인데 보너스는 사람마다 다르다. 지금 그 방에 있는 사람에게서
+        -- 읽는다 — 1인 플레이 전제이고, 여러 명이면 먼저 잡힌 사람 기준이 된다.
+        -- 정원을 OnBeginPlay에 고정하지 않고 리필마다 다시 재는 이유이기도 하다:
+        -- 환생하고 돌아오면 다음 리필부터 바로 반영된다.
+        if self.isBossRoom then return self.monsterCount end
+
+        local users = _UserService:GetUsersByMapName(self.Entity.Name)
+        if users == nil or #users == 0 then return self.monsterCount end
+
+        ---@type PlayerSkillSlots
+        local slots = users[1]:GetComponent("script.PlayerSkillSlots")
+        if slots == nil then return self.monsterCount end
+
+        local bonus = slots:RebirthBonus()
+        local cap = math.floor(_GameData:GetBalance("rebirth_monster_bonus_max"))
+        if cap < 0 then cap = 0 end
+        if bonus > cap then bonus = cap end
+        return self.monsterCount + bonus
+    end
+
+    @ExecSpace("ServerOnly")
     method void Refill()
         -- 정원에서 모자란 만큼만 채운다.
-        local missing = self.monsterCount - self:CountAlive()
+        local target = self:EffectiveCount()
+        local missing = target - self:CountAlive()
         if missing <= 0 then return end
         if self:ShouldSpawn() == false then return end
 
@@ -224,7 +261,10 @@ script RoomSpawner extends Component
             self:SpawnOne()
         end
         log("[RoomSpawner] " .. self.Entity.Name .. " 리필 +" .. tostring(missing)
-            .. "  (현재 " .. tostring(#self.spawned) .. "/" .. tostring(self.monsterCount) .. ")")
+            .. "  (현재 " .. tostring(#self.spawned) .. "/" .. tostring(target)
+            .. (target > self.monsterCount
+                and ("  기본 " .. tostring(self.monsterCount) .. " + 환생 "
+                     .. tostring(target - self.monsterCount)) or "") .. ")")
     end
 
     @ExecSpace("ServerOnly")

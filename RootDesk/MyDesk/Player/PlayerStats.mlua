@@ -217,12 +217,25 @@ script PlayerStats extends Component
         slots:RecomputeSlotCount()
     end
 
+    method integer PointsPerLevel()
+        -- 레벨업 한 번에 받는 스탯 포인트. **기본 5 + 환생 보너스** (설계 변경 2026-08-21).
+        -- Lv5에서 환생했으면 6, Lv10이면 7 … 5레벨당 +1.
+        --
+        -- 실행공간을 비워 두는 이유: 서버는 지급에, 클라는 환생 창의 안내 문구에 쓴다.
+        -- 두 곳이 각자 계산하면 창이 거짓말을 하게 된다.
+        local base = _GameData:GetBalance("stat_points_per_level")
+        ---@type PlayerSkillSlots
+        local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
+        local bonus = 0
+        if slots ~= nil then bonus = slots:RebirthBonus() end
+        return math.floor(base) + bonus
+    end
+
     @ExecSpace("ServerOnly")
     method void GrantLevelPoints(integer levels)
         -- 레벨업 시 포인트 지급 (T4에서 호출한다).
         if levels <= 0 then return end
-        local perLevel = _GameData:GetBalance("stat_points_per_level")
-        self.UnspentPoints = self.UnspentPoints + math.floor(levels * perLevel)
+        self.UnspentPoints = self.UnspentPoints + levels * self:PointsPerLevel()
     end
 
     @ExecSpace("ServerOnly")

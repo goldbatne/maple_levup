@@ -28,6 +28,17 @@ script PlayerSkillSlots extends Component
     @TargetUserSync property integer BossesCleared = 0
     @TargetUserSync property integer RebirthCount = 0
 
+    -- 지금까지 **환생한 레벨 중 최고치** (영구). 환생 보상의 유일한 근거다
+    -- (설계 변경 2026-08-21).
+    --
+    -- 왜 횟수가 아니라 최고 레벨인가: 보상이 횟수에 붙으면 Lv1에서 환생을 반복하는 것이
+    -- 최적 전략이 된다(몇 분이면 되니까). 최고 레벨에 붙으면 **더 깊이 갔다 돌아와야만**
+    -- 오르고, 같은 자리를 반복하는 것은 아무 의미가 없다.
+    --
+    -- 왜 "마지막 환생 레벨"이 아닌가: 실수로 얕게 환생했을 때 지금까지 쌓은 것이
+    -- 날아가면 안 된다. 기록은 내려가지 않는다.
+    @TargetUserSync property integer BestRebirthLevel = 0
+
     -- 개방된 구역. areaId -> 1. 환생 게이트가 이 값을 본다 (RoomGate.EvaluateRebirth).
     --
     -- 슬롯과 무관한 값이 왜 여기 있는가: 이 컴포넌트가 이미 **영구 진행 원장**
@@ -247,6 +258,19 @@ script PlayerSkillSlots extends Component
         local need = _GameData:GetBalance("tier_level_" .. tostring(nextTier))
         if need <= 0 then return 0 end
         return math.floor(need)
+    end
+
+    method integer RebirthBonus()
+        -- 환생 보너스 단계. **5레벨당 1** (대표 지시 2026-08-21).
+        -- Lv5에서 환생 → 1, Lv10 → 2, Lv100 → 20.
+        --
+        -- 두 곳이 이 값을 쓴다:
+        --   레벨업당 스탯 포인트 = 기본 5 + 이 값        (PlayerStats.GrantLevelPoints)
+        --   방마다 몬스터 +N마리(상한 있음)               (RoomSpawner)
+        -- 한 창구에서 유도해야 둘이 어긋나지 않는다.
+        local unit = _GameData:GetBalance("rebirth_bonus_level_unit")
+        if unit <= 0 then return 0 end
+        return math.floor(self.BestRebirthLevel / unit)
     end
 
     method integer LevelForTier(integer tier)
