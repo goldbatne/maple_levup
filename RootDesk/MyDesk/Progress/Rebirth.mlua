@@ -165,7 +165,10 @@ script Rebirth extends Logic
             log("[Rebirth] 최고 기록(" .. tostring(slots.BestRebirthLevel)
                 .. ") 이하라 보너스는 그대로다")
         end
-        slots:RecomputeSlotCount()
+        -- ⚠ 슬롯 재계산은 **여기서 하지 않는다.** 차수가 레벨에서 나오므로(T18-1)
+        -- 아직 옛 레벨인 이 시점에 부르면 칸이 남아 있는 것처럼 계산된다.
+        -- 레벨을 1로 되돌리는 ResetRun 뒤(4b)에 부른다 (실측: 차수 0인데 슬롯이 2칸이었다).
+        -- 로드 경로에서도 같은 순서 역전이 있었다 — PlayerDBManager.LoadFromDB 주석 참고.
 
         -- 3. 장착 비우기. 컬렉션(보유)은 영구지만 "이번 회차에 뭘 끼고 갈지"는
         --    회차마다 다시 고르는 선택이다 (SaveRunData 주석).
@@ -176,6 +179,9 @@ script Rebirth extends Logic
 
         -- 4. 회차 초기화. 영구 데이터는 건드리지 않는다.
         stats:ResetRun()
+
+        -- 4b. 이제서야 슬롯을 다시 센다. 레벨이 1로 내려갔으므로 차수 0 → 1칸이 된다.
+        slots:RecomputeSlotCount()
 
         -- 5. 고른 직업을 새 회차에 심는다. ResetRun이 CurrentJob을 ""로 비우므로
         --    반드시 그 뒤에 와야 한다. 직업 스킬은 저장하지 않고
