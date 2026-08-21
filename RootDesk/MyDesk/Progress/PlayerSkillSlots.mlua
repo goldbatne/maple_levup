@@ -4,7 +4,8 @@
 --
 --   직업 스킬 슬롯 : 고정. 직업 선택 시 자동 장착되고 항상 사용 가능.
 --                    몬스터 슬롯을 잠식하지 않는다. 플레이어가 끄고 켤 수 없다.
---   몬스터 스킬 슬롯: 시작 1개, 상한 3. 플레이어가 컬렉션에서 골라 끼운다.
+--   스킬 슬롯: **차수(= 환생 횟수 + 1)만큼, 상한 5** (T16-4b).
+--              몬스터 스킬과 NPC 스킬이 **합쳐서** 이 칸을 놓고 경쟁한다.
 --
 -- 두 슬롯은 저장 위치부터 다르다:
 --   직업 슬롯 = current_job에서 JobTable로 매번 유도한다 (별도 저장 없음).
@@ -134,21 +135,30 @@ script PlayerSkillSlots extends Component
 
     @ExecSpace("ServerOnly")
     method void RecomputeSlotCount()
-        -- 시작값 + 보스 축 + 환생 축, 상한에서 자른다.
-        -- 슬라이스 사다리: 시작 1 → 첫 보스 2 → 첫 환생 3 (기획서 4.3).
+        -- **슬롯 수 = 차수**, 상한에서 자른다 (T16-4b, 대표 지시 2026-08-20).
+        -- 1차 1칸 → 2차 2칸 → … → 5차 5칸.
         --
-        -- 누적값이 아니라 "매번 다시 계산"하는 이유: 축마다 +1씩 더하는 방식이면
-        -- 같은 보스를 두 번 클리어하거나 로드가 두 번 돌 때 슬롯이 계속 늘어난다.
-        local start = math.floor(_GameData:GetBalance("monster_slot_start"))
+        -- ## 보스 클리어 축을 뺐다
+        --
+        -- 원래는 `시작 + 보스클리어수 + 환생횟수`(상한 3)였다. 2026-08-16에 "슬롯은
+        -- 환생할 때만 +1"로 정해졌고, 이제 그것을 구현으로 굳힌다. 늘어나는 축이
+        -- **차수 하나뿐**이라 "환생하면 한 칸 열린다"가 흐려질 데가 없다.
+        --
+        -- BossesCleared는 지우지 않는다 — 환생 조건(`Rebirth.Evaluate`)이 누적
+        -- 클리어 수를 보고, 게이트(`HasEverClearedBoss`)도 원장을 본다. 슬롯 계산에서만 뺀다.
+        --
+        -- 누적값이 아니라 "매번 다시 계산"하는 이유는 그대로다: 축마다 +1씩 더하면
+        -- 로드가 두 번 돌 때 슬롯이 계속 늘어난다.
         local maxSlot = math.floor(_GameData:GetBalance("monster_slot_max"))
+        if maxSlot < 1 then maxSlot = 1 end
 
-        local computed = start + self.BossesCleared + self.RebirthCount
+        local computed = self:GetTier()
         if computed > maxSlot then computed = maxSlot end
 
         if computed ~= self.MonsterSlotCount then
             log("[SkillSlots] 슬롯 " .. tostring(self.MonsterSlotCount) .. " → " .. tostring(computed)
-                .. "  (시작 " .. tostring(start) .. " + 보스 " .. tostring(self.BossesCleared)
-                .. " + 환생 " .. tostring(self.RebirthCount) .. ", 상한 " .. tostring(maxSlot) .. ")")
+                .. "  (차수 " .. tostring(self:GetTier())
+                .. " = 환생 " .. tostring(self.RebirthCount) .. " + 1, 상한 " .. tostring(maxSlot) .. ")")
             self.MonsterSlotCount = computed
             self:TrimOverflow()
         end
@@ -156,8 +166,12 @@ script PlayerSkillSlots extends Component
 
     @ExecSpace("ServerOnly")
     method boolean ClearBoss(string roomId)
-        -- 보스방을 처음 클리어했을 때만 슬롯 축을 올린다.
-        -- 이미 잡은 보스면 아무것도 하지 않고 false (기획서 T6: 중복 지급 안 됨).
+        -- 보스방 클리어를 원장에 적는다.
+        --
+        -- ⚠ **더 이상 슬롯을 주지 않는다** (T16-4b). 슬롯은 차수(환생)로만 늘어난다.
+        -- 여기서 세는 `BossesCleared`는 **환생 조건**(`Rebirth.Evaluate`)이 읽고,
+        -- `BossRoomsCleared` 원장은 **보스 게이트**(`HasEverClearedBoss`)와
+        -- 스포너의 "이번 회차에 깼는가"가 읽는다. 둘 다 그대로 필요하다.
         if roomId == nil or roomId == "" then return false end
 
         local run = self.RebirthCount + 1
@@ -172,25 +186,15 @@ script PlayerSkillSlots extends Component
         self.BossRoomsCleared[roomId] = run
 
         if prev ~= nil then
-            -- 지난 회차에 깬 보스를 또 깼다. 슬롯 축은 이미 올라가 있어 다시 주지 않는다
-            -- (기획서 T6: 중복 지급 없음). 회차 표시만 갱신하고 끝낸다.
-            log("[SkillSlots] 보스 재클리어 " .. roomId .. " (" .. tostring(prev)
-                .. "회차에 이미 지급) — 슬롯 지급 없음")
+            -- 지난 회차에 깬 보스를 또 깼다. 누적 카운터는 이미 올라가 있어 다시 세지 않는다.
+            log("[SkillSlots] 보스 재클리어 " .. roomId .. " (" .. tostring(prev) .. "회차에 이미 기록)")
             self:MarkSavePerm("보스 재클리어")
             return true
         end
 
-        local before = self.MonsterSlotCount
         self.BossesCleared = self.BossesCleared + 1
-        self:RecomputeSlotCount()
-
         log("[SkillSlots] 보스 클리어 " .. roomId
-            .. "  슬롯 " .. tostring(before) .. " → " .. tostring(self.MonsterSlotCount))
-
-        -- 슬롯이 실제로 늘었을 때만 알린다. 상한(3)에 걸려 그대로면 축하할 게 없다.
-        if self.MonsterSlotCount > before then
-            self:OnSlotExpanded(self.MonsterSlotCount, self.Entity.PlayerComponent.UserId)
-        end
+            .. "  누적 " .. tostring(self.BossesCleared) .. "  (슬롯은 차수로만 늘어난다)")
 
         self:MarkSavePerm("보스 클리어")
         return true
