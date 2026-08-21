@@ -4023,6 +4023,91 @@
             "replaced_model_id": null
           }
         }
+      },
+      {
+        "id": "213722ce-c1a2-4db1-82b6-c411c4c1a2ef",
+        "path": "/maps/map04/HeroNpc",
+        "componentNames": "MOD.Core.TransformComponent,MOD.Core.AvatarStateAnimationComponent,MOD.Core.AvatarRendererComponent,MOD.Core.CostumeManagerComponent,MOD.Core.StateComponent,MOD.Core.TouchReceiveComponent,script.HeroNpc",
+        "jsonString": {
+          "name": "HeroNpc",
+          "path": "/maps/map04/HeroNpc",
+          "nameEditable": true,
+          "enable": true,
+          "visible": true,
+          "localize": false,
+          "displayOrder": 6,
+          "pathConstraints": "///",
+          "revision": 1,
+          "modelId": "heronpc",
+          "@components": [
+            {
+              "@type": "MOD.Core.TransformComponent",
+              "Position": {
+                "x": -11,
+                "y": 6,
+                "z": 0
+              },
+              "QuaternionRotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "w": 1
+              },
+              "Scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.AvatarStateAnimationComponent",
+              "Enable": true,
+              "IsLegacy": false
+            },
+            {
+              "@type": "MOD.Core.AvatarRendererComponent",
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.CostumeManagerComponent",
+              "Enable": true,
+              "UseCustomEquipOnly": true,
+              "CustomLongcoatEquip": "c92ab70d7a064aafaa34298c2e9890e3",
+              "CustomShoesEquip": "186a55d192d24b4da5201801422bebf7",
+              "CustomOneHandedWeaponEquip": "5c17efb794334d4980987edaace1f546",
+              "CustomHairEquip": "36456c66cf214497a4eadca005063289"
+            },
+            {
+              "@type": "MOD.Core.StateComponent",
+              "Enable": true,
+              "IsLegacy": false
+            },
+            {
+              "@type": "MOD.Core.TouchReceiveComponent",
+              "Enable": true,
+              "TouchArea": {
+                "$type": "MOD.Core.MODVector2, MOD.Core",
+                "x": 1.4,
+                "y": 1.4
+              }
+            },
+            {
+              "@type": "script.HeroNpc",
+              "Enable": true,
+              "TargetRoomId": "r_job_01",
+              "ChallengerMonsterId": "m_adv_hero"
+            }
+          ],
+          "@version": 1,
+          "origin": {
+            "type": "Model",
+            "entry_id": "heronpc",
+            "sub_entity_id": null,
+            "root_entity_id": "213722ce-c1a2-4db1-82b6-c411c4c1a2ef",
+            "replaced_model_id": null
+          }
+        }
       }
     ]
   }
