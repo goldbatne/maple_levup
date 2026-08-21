@@ -38,7 +38,7 @@ script KeyConfigPanel extends Logic
 
     property number refreshInterval = 0.3
 
-    -- 창이 보여줄 슬롯 수. SkillBar의 버튼 5개와 같다 (직업 최대 2 + 몬스터 상한 3).
+    -- 창이 보여줄 슬롯 수. SkillBar의 버튼 5개와 같다 (스킬 슬롯 상한 5 — T16-4b).
     property integer rowCount = 5
 
     @ExecSpace("ClientOnly")

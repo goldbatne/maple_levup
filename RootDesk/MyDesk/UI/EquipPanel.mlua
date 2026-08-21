@@ -3,7 +3,7 @@
 -- 몬스터 스킬 장착 화면. 컬렉션에서 골라 몬스터 슬롯에 끼운다.
 --
 -- 조작:
---   슬롯 3칸 중 하나를 눌러 대상 슬롯을 고르고, 아래 목록에서 스킬을 누르면 끼워진다.
+--   슬롯 5칸 중 하나를 눌러 대상 슬롯을 고르고, 아래 목록에서 스킬을 누르면 끼워진다.
 --   잠긴 슬롯(보유 슬롯 수 밖)은 눌러도 선택되지 않는다 — 사다리를 눈으로 보여주려고
 --   숨기지 않고 "잠김"으로 표시한다 (기획서 4.3 슬라이스 사다리).
 --
@@ -20,9 +20,13 @@ script EquipPanel extends Logic
     property ButtonComponent btnOpen = "6d0ce3ae-bcc6-43d2-b059-8336dde0b286"
     property ButtonComponent btnClose = "7b4070ca-a338-4ba6-b233-19ba986ea884"
 
+    -- 슬롯 5칸 (T16-4b). 늘어나는 축은 차수(환생) 하나뿐이라
+    -- 1차 1칸 → … → 5차 5칸이고, 보유 칸 밖은 "잠김"으로 보인다.
     property ButtonComponent slot1 = "109ed790-a0b5-4cb0-9222-c71224659efb"
     property ButtonComponent slot2 = "08c46b96-72e4-4c2c-a320-6005940c746f"
     property ButtonComponent slot3 = "409fe770-d1c2-4d95-a6ab-038468ae9f5d"
+    property ButtonComponent slot4 = "4b882c17-27a4-4491-b657-9707b7c184a8"
+    property ButtonComponent slot5 = "b78abcb6-04be-47f0-a5f7-63f911ee5efb"
 
     property ButtonComponent row1 = "df0d8a5f-b119-47a0-9794-917e2a3ebb8a"
     property ButtonComponent row2 = "68632e0f-50ff-4b6b-b320-712774abaf4a"
@@ -70,6 +74,8 @@ script EquipPanel extends Logic
         self.handlers.s1 = self.slot1.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(1) end)
         self.handlers.s2 = self.slot2.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(2) end)
         self.handlers.s3 = self.slot3.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(3) end)
+        self.handlers.s4 = self.slot4.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(4) end)
+        self.handlers.s5 = self.slot5.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(5) end)
 
         self.handlers.r1 = self.row1.Entity:ConnectEvent(ButtonClickEvent, function() self:ClickRow(1) end)
         self.handlers.r2 = self.row2.Entity:ConnectEvent(ButtonClickEvent, function() self:ClickRow(2) end)
@@ -93,6 +99,8 @@ script EquipPanel extends Logic
             if self.handlers.s1 ~= nil then self.slot1.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s1) end
             if self.handlers.s2 ~= nil then self.slot2.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s2) end
             if self.handlers.s3 ~= nil then self.slot3.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s3) end
+            if self.handlers.s4 ~= nil then self.slot4.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s4) end
+            if self.handlers.s5 ~= nil then self.slot5.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s5) end
             if self.handlers.r1 ~= nil then self.row1.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.r1) end
             if self.handlers.r2 ~= nil then self.row2.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.r2) end
             if self.handlers.r3 ~= nil then self.row3.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.r3) end
@@ -134,10 +142,12 @@ script EquipPanel extends Logic
 
     @ExecSpace("ClientOnly")
     method any GetSlotButton(integer index)
-        -- 프로퍼티를 배열처럼 쓰기 위한 창구. 3개뿐이라 분기로 충분하다.
+        -- 프로퍼티를 배열처럼 쓰기 위한 창구. 5개뿐이라 분기로 충분하다.
         if index == 1 then return self.slot1 end
         if index == 2 then return self.slot2 end
         if index == 3 then return self.slot3 end
+        if index == 4 then return self.slot4 end
+        if index == 5 then return self.slot5 end
         return nil
     end
 
@@ -302,7 +312,7 @@ script EquipPanel extends Logic
         -- 슬롯이 줄어드는 경우(환생 등)에 선택이 범위 밖으로 남지 않게 되돌린다.
         if self.selectedSlot > count then self.selectedSlot = 1 end
 
-        for i = 1, 3 do
+        for i = 1, 5 do
             local btn = self:GetSlotButton(i)
             if btn ~= nil then
                 local label = ""

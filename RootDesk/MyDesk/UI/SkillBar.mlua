@@ -12,7 +12,10 @@
 @Logic
 script SkillBar extends Logic
 
-    -- 버튼 5개 = 직업 최대 2 + 몬스터 상한 3. 남는 칸은 숨긴다.
+    -- 버튼 5개 = **스킬 슬롯 상한 5** (T16-4b). 남는 칸은 숨긴다.
+    -- 몬스터 스킬과 NPC 스킬이 **합쳐서** 이 5칸을 놓고 경쟁하므로 바는 한 줄이다
+    -- (설계 이력 2026-08-20 — 버튼을 둘로 가르자는 안은 철회됐다).
+    -- 예전 주석의 "직업 최대 2 + 몬스터 3"은 직업 선택이 폐기되면서 사라진 셈법이다.
     property ButtonComponent btn1 = "0a63288a-f25e-4500-84e1-c0536f0f1a4c"
     property ButtonComponent btn2 = "23d5cbc8-509f-4c29-a48f-1dba39bc5fc6"
     property ButtonComponent btn3 = "5812a82b-6c76-49b2-a525-4c7c8b072d5a"
@@ -36,8 +39,7 @@ script SkillBar extends Logic
     --
     -- 왜 문자열 한 줄인가: 나중에 키 재설정(T14-2)이 들어오면 저장된 설정으로
     -- **이 값만 덮어쓰면** 된다. 분기로 흩어 놓으면 재설정할 자리가 없어진다.
-    -- 슬롯은 현재 5개(직업 최대 2 + 몬스터 상한 3)이므로 Z~B까지 쓰이고,
-    -- N·M은 슬롯이 늘면 자동으로 이어 붙는다.
+    -- 슬롯 상한이 5라 Z~B까지 쓰이고, N·M은 상한이 더 늘면 이어 붙는다.
     property string keyOrder = "Z,X,C,V,B,N,M"
 
     -- 저장된 배치(PlayerSkillSlots.KeyOrder)가 있으면 그걸 쓴다. 지금 적용돼 있는 값을

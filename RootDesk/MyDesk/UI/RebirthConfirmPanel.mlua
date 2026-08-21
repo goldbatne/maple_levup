@@ -155,11 +155,11 @@ script RebirthConfirmPanel extends Logic
         local parts = {}
         parts[#parts + 1] = "환생 " .. tostring(slots.RebirthCount + 1) .. "회차"
 
-        -- 슬롯은 축에서 다시 계산한다 (RecomputeSlotCount와 같은 식).
+        -- 슬롯은 차수에서 다시 계산한다 (RecomputeSlotCount와 **같은 식이어야 한다**).
+        -- 환생하면 RebirthCount가 +1이므로 차수도 +1이다 (T16-4b).
         -- 실제로 늘 때만 적는다 — 상한에 걸려 그대로면 얻는 게 아니다.
-        local start = math.floor(_GameData:GetBalance("monster_slot_start"))
         local maxSlot = math.floor(_GameData:GetBalance("monster_slot_max"))
-        local after = start + slots.BossesCleared + (slots.RebirthCount + 1)
+        local after = slots.RebirthCount + 2   -- (환생 후 환생 횟수) + 1 = 차수
         if after > maxSlot then after = maxSlot end
         if after > slots.MonsterSlotCount then
             parts[#parts + 1] = "몬스터 슬롯 " .. tostring(after) .. "개"
