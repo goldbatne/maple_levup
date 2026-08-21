@@ -1,0 +1,120 @@
+-- @클라이언트 + @서버 (터치는 클라, 이동은 서버. 메서드마다 실행공간을 따로 붙인다)
+--
+-- 숨은 모험가 NPC (T16-3d). r_04 돌무덤 길에 서 있고, 말을 걸면 시험의 방으로 데려간다.
+--
+-- ## 왜 r_04인가 (대표 지시 2026-08-20)
+--
+-- 게이트 없이 갈 수 있는 **가장 안쪽 사냥방**이다. 1회차에도 걸어서 닿을 수 있으면서
+-- "안쪽까지 들어온 사람이 만나는 것"이 된다. 마을에 두면 찾기는 쉽지만 탐험 보상이 아니고,
+-- r_03(보스 게이트 뒤)에 두면 첫 보스를 잡기 전에는 아예 못 만난다.
+--
+-- ## 두 번 눌러야 들어간다
+--
+-- 시험의 방 히어로는 ATK가 보스 배율까지 붙어 **네 대면 죽는다**(T16-3b 실측).
+-- 한 번 스치기만 해도 끌려 들어가면 사고가 된다. 그래서 첫 터치는 경고만 띄우고,
+-- 같은 NPC를 한 번 더 눌러야 실제로 이동한다 — 장착 창의 "누르면 설명, 한 번 더 누르면
+-- 장착"과 같은 어법이다. 새 확인 창을 만들지 않고 _GateNotice를 그대로 쓴다.
+--
+-- ## TouchEvent는 누가 눌렀는지 알려주지 않는다
+--
+-- 터치한 사람의 클라에서 뜨는 이벤트라 _UserService.LocalPlayer가 곧 그 사람이다
+-- (RebirthNpc와 같은 이유). 그래서 안내는 클라에서 하고, 이동만 서버로 넘긴다.
+
+@Component
+script HeroNpc extends Component
+
+    -- 데려갈 방. RoomTable의 방 id다 — 맵 이름을 직접 박지 않는다.
+    -- 방을 옮기거나 맵을 갈아도 표만 고치면 되게 하려는 것이다.
+    property string TargetRoomId = "r_job_01"
+
+    -- 이 NPC가 소개하는 상대. 안내 문구에 쓰고, MonsterTable에서 이름을 읽는다.
+    property string ChallengerMonsterId = "m_adv_hero"
+
+    -- 경고를 띄운 뒤 이 시간 안에 다시 누르면 들어간다(초).
+    -- 지나면 다시 경고부터 — "아까 눌렀던 것" 때문에 모르고 끌려가지 않게 한다.
+    property number ConfirmWindowSeconds = 8
+
+    property any touchHandler = nil
+
+    -- 경고를 띄운 시각. 0이면 아직 안 눌렀다.
+    @HideFromInspector property number promptedAt = 0
+
+    method void OnBeginPlay()
+        -- 터치는 클라에서만 받는다. 서버에는 입력이 오지 않는다.
+        if self:IsClient() then
+            self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.OnTouch)
+            log("[HeroNpc] 터치 대기 (" .. tostring(self.Entity.Name) .. ")")
+        end
+    end
+
+    method void OnEndPlay()
+        if self.touchHandler ~= nil then
+            self.Entity:DisconnectEvent(TouchEvent, self.touchHandler)
+            self.touchHandler = nil
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method string ChallengerName()
+        -- 상대 이름. 표에 없으면 빈 문자열 — 문구에서 조용히 빠진다.
+        local monster = _GameData:GetMonster(self.ChallengerMonsterId)
+        if monster == nil then return "" end
+        return monster.name
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnTouch(TouchEvent event)
+        local me = _UserService.LocalPlayer
+        if me == nil then return end
+
+        local name = self:ChallengerName()
+        local now = _UtilLogic.ElapsedSeconds
+
+        -- 첫 터치(또는 시간이 지난 뒤) = 경고만.
+        if self.promptedAt <= 0 or (now - self.promptedAt) > self.ConfirmWindowSeconds then
+            self.promptedAt = now
+            log("[HeroNpc] 경고 표시 — 상대 " .. tostring(name))
+            _GateNotice:ShowNotice("시험을 받겠는가",
+                (name ~= "" and ("[" .. name .. "]이(가) 기다린다. ") or "")
+                .. "한 번 더 누르면 시험의 방으로 간다.")
+            return
+        end
+
+        -- 두 번째 터치 = 이동. 창구를 닫아 두 번 연속으로 안 들어가게 한다.
+        self.promptedAt = 0
+        log("[HeroNpc] 시험의 방으로 이동 요청")
+        self:RequestEnter()
+    end
+
+    @ExecSpace("Server")
+    method void RequestEnter()
+        -- 클라 요청 진입점. senderUserId는 서버가 채우므로 위조할 수 없다.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if player == nil then
+            log_warning("[HeroNpc] 요청자를 찾지 못했다: " .. tostring(senderUserId))
+            return
+        end
+        self:SendToTrial(player)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SendToTrial(Entity player)
+        -- 방 표에서 목적지를 읽는다. 도착 좌표까지 표가 들고 있어야
+        -- 맵을 바꿨을 때 좌표만 남아 엉뚱한 데로 떨어지는 일이 없다.
+        local room = _GameData:GetRoom(self.TargetRoomId)
+        if room == nil then
+            log_error("[HeroNpc] RoomTable에 없는 방: " .. tostring(self.TargetRoomId))
+            return
+        end
+        if room.map_name == "" then
+            log_error("[HeroNpc] 방에 맵이 없다: " .. self.TargetRoomId)
+            return
+        end
+
+        log("[HeroNpc] 이동 " .. self.TargetRoomId .. " (" .. room.map_name .. ") "
+            .. tostring(room.portal_x) .. "," .. tostring(room.portal_y))
+        _TeleportService:TeleportToMapPosition(player,
+            Vector3(room.portal_x, room.portal_y, 0), room.map_name)
+    end
+
+end
