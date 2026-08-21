@@ -103,8 +103,8 @@
             {
               "@type": "MOD.Core.UIGroupComponent",
               "DefaultShow": true,
-              "GroupOrder": 1,
-              "GroupType": 1,
+              "GroupOrder": 30,
+              "GroupType": 2,
               "Enable": true
             },
             {
@@ -398,11 +398,11 @@
               "MobileOnly": false,
               "OffsetMax": {
                 "x": 380,
-                "y": 450
+                "y": 490
               },
               "OffsetMin": {
                 "x": -380,
-                "y": -450
+                "y": -490
               },
               "Pivot": {
                 "x": 0.5,
@@ -410,7 +410,7 @@
               },
               "RectSize": {
                 "x": 760,
-                "y": 900
+                "y": 980
               },
               "UIMode": 1,
               "UIScale": {
@@ -1701,11 +1701,11 @@
               "MobileOnly": false,
               "OffsetMax": {
                 "x": -20,
-                "y": -790
+                "y": -870
               },
               "OffsetMin": {
                 "x": -340,
-                "y": -886
+                "y": -966
               },
               "Pivot": {
                 "x": 0.5,
@@ -1724,7 +1724,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": -180,
-                "y": -790
+                "y": -870
               },
               "Position": {
                 "x": 0,
@@ -1939,11 +1939,11 @@
               "MobileOnly": false,
               "OffsetMax": {
                 "x": 340,
-                "y": -790
+                "y": -870
               },
               "OffsetMin": {
                 "x": 20,
-                "y": -886
+                "y": -966
               },
               "Pivot": {
                 "x": 0.5,
@@ -1962,7 +1962,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": 180,
-                "y": -790
+                "y": -870
               },
               "Position": {
                 "x": 0,
@@ -2181,7 +2181,7 @@
               },
               "OffsetMin": {
                 "x": -350,
-                "y": -680
+                "y": -690
               },
               "Pivot": {
                 "x": 0.5,
@@ -2189,7 +2189,7 @@
               },
               "RectSize": {
                 "x": 700,
-                "y": 280
+                "y": 290
               },
               "UIMode": 1,
               "UIScale": {
@@ -2201,6 +2201,194 @@
               "anchoredPosition": {
                 "x": 0,
                 "y": -400
+              },
+              "Position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "QuaternionRotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "w": 1
+              },
+              "Scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SpriteGUIRendererComponent",
+              "AnimClipPlayType": 0,
+              "EndFrameIndex": 2147483647,
+              "ImageRUID": {
+                "DataId": ""
+              },
+              "IgnoreMapLayerCheck": false,
+              "LocalPosition": {
+                "x": 0,
+                "y": 0
+              },
+              "LocalScale": {
+                "x": 1,
+                "y": 1
+              },
+              "MaterialId": "",
+              "OrderInLayer": 0,
+              "OverrideSorting": false,
+              "PlayRate": 1,
+              "PreserveSprite": 0,
+              "SortingLayer": "UI",
+              "StartFrameIndex": 0,
+              "Color": {
+                "r": 0.10196078431372549,
+                "g": 0.10196078431372549,
+                "b": 0.10196078431372549,
+                "a": 0
+              },
+              "DropShadow": false,
+              "DropShadowAngle": 120,
+              "DropShadowColor": {
+                "r": 0,
+                "g": 0,
+                "b": 0,
+                "a": 0.72
+              },
+              "DropShadowDistance": 3,
+              "FillAmount": 1,
+              "FillCenter": true,
+              "FillClockWise": true,
+              "FillMethod": 0,
+              "FillOrigin": 0,
+              "FlipX": false,
+              "FlipY": false,
+              "FrameColumn": 1,
+              "FrameRate": 0,
+              "FrameRow": 1,
+              "Outline": false,
+              "OutlineColor": {
+                "r": 0,
+                "g": 0,
+                "b": 0,
+                "a": 1
+              },
+              "OutlineWidth": 3,
+              "RaycastTarget": false,
+              "Type": 0,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.TextGUIRendererComponent",
+              "BestFit": false,
+              "ConstraintX": 100,
+              "ConstraintY": 100,
+              "Font": "Default",
+              "FontColor": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+              },
+              "FontSize": 22,
+              "FontStyle": 0,
+              "HorizontalAlignment": 1,
+              "IgnoreMapLayerCheck": false,
+              "MaxSize": 40,
+              "MinSize": 10,
+              "OrderInLayer": 0,
+              "OutlineColor": {
+                "r": 0,
+                "g": 0,
+                "b": 0,
+                "a": 1
+              },
+              "OutlineWidth": 0,
+              "Overflow": 0,
+              "OverrideSorting": false,
+              "Padding": {
+                "left": 0,
+                "right": 0,
+                "top": 0,
+                "bottom": 0
+              },
+              "SizeFit": false,
+              "SortingLayer": "UI",
+              "Text": "환생은 언제든 할 수 있다. 레벨과 스탯은 1로 돌아가고,\n컬렉션 · 장비 · 보스 기록은 그대로 남는다.\n\n보상은 5레벨마다 하나씩 붙는다.\n레벨업할 때 받는 스탯이 그만큼 늘고,\n사냥방에 몬스터도 그만큼 더 선다.\n\n가장 깊이 갔던 기록만 센다.\n같은 자리에서 반복해도 오르지 않는다.",
+              "Underlay": false,
+              "UseConstraintX": false,
+              "UseConstraintY": false,
+              "VerticalAlignment": 256,
+              "Enable": true
+            }
+          ],
+          "@version": 1
+        }
+      },
+      {
+        "id": "c9a0cda5-fa1f-4829-99d7-e9570ddc6540",
+        "path": "/ui/RebirthConfirm/Root/Window/RecordText",
+        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.TextGUIRendererComponent",
+        "jsonString": {
+          "name": "RecordText",
+          "path": "/ui/RebirthConfirm/Root/Window/RecordText",
+          "nameEditable": true,
+          "enable": true,
+          "visible": true,
+          "localize": true,
+          "displayOrder": 13,
+          "pathConstraints": "/////",
+          "revision": 0,
+          "origin": {
+            "type": "Model",
+            "entry_id": "UITextGUIRenderer",
+            "sub_entity_id": null,
+            "root_entity_id": null,
+            "replaced_model_id": null
+          },
+          "modelId": "uitextguirenderer",
+          "@components": [
+            {
+              "@type": "MOD.Core.UITransformComponent",
+              "ActivePlatform": 255,
+              "AlignmentOption": 3,
+              "AnchorsMax": {
+                "x": 0.5,
+                "y": 1
+              },
+              "AnchorsMin": {
+                "x": 0.5,
+                "y": 1
+              },
+              "MobileOnly": false,
+              "OffsetMax": {
+                "x": 350,
+                "y": -700
+              },
+              "OffsetMin": {
+                "x": -350,
+                "y": -760
+              },
+              "Pivot": {
+                "x": 0.5,
+                "y": 1
+              },
+              "RectSize": {
+                "x": 700,
+                "y": 60
+              },
+              "UIMode": 1,
+              "UIScale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "UIVersion": 2,
+              "anchoredPosition": {
+                "x": 0,
+                "y": -700
               },
               "Position": {
                 "x": 0,
