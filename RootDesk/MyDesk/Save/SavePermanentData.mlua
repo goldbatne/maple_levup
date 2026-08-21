@@ -30,7 +30,6 @@ script SavePermanentData
     -- 랜드마크는 "그 레벨에서 환생해야" 지급되므로 수령 여부를 따로 기록한다 (기획서 4.5).
     property table landmark_claimed = {}   -- level -> true
     property table unlocked_areas = {}     -- areaId -> true
-    property table unlocked_jobs = {}      -- jobId -> true (시작 직업은 제외)
 
     -- 슬롯 확장 2축. 보스 클리어(T6, 공간 축)와 환생 횟수(T7, 회차 축)가
     -- 같은 값을 중복으로 올리지 않도록 슬롯 수 자체를 영구 데이터로 들고 간다 (기획서 4.3).
@@ -65,7 +64,6 @@ script SavePermanentData
         self.highest_level = 1
         self.landmark_claimed = {}
         self.unlocked_areas = {}
-        self.unlocked_jobs = {}
         self.monster_slot_count = startingSlotCount
         self.bosses_cleared = {}
         self.key_order = ""
@@ -101,7 +99,6 @@ script SavePermanentData
         if self:HasAny(self.species_kills) then body["species_kills"] = self.species_kills end
         if self:HasAny(self.landmark_claimed) then body["landmark_claimed"] = self.landmark_claimed end
         if self:HasAny(self.unlocked_areas) then body["unlocked_areas"] = self.unlocked_areas end
-        if self:HasAny(self.unlocked_jobs) then body["unlocked_jobs"] = self.unlocked_jobs end
         if self:HasAny(self.bosses_cleared) then body["bosses_cleared"] = self.bosses_cleared end
         -- 기본값을 쓰는 계정은 아예 넣지 않는다. 바이트를 아끼기도 하지만,
         -- 더 중요한 건 "설정을 건드린 적 있는가"가 값의 유무로 남는다는 것이다.
@@ -125,7 +122,6 @@ script SavePermanentData
         self.highest_level = body["highest_level"] or 1
         self.landmark_claimed = body["landmark_claimed"] or {}
         self.unlocked_areas = body["unlocked_areas"] or {}
-        self.unlocked_jobs = body["unlocked_jobs"] or {}
         self.monster_slot_count = body["monster_slot_count"] or self.monster_slot_count
         self.bosses_cleared = body["bosses_cleared"] or {}
         self.key_order = body["key_order"] or ""

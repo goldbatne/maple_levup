@@ -7,7 +7,7 @@
 -- ## 키를 둘로 나눈 이유
 --
 --   Perm  환생해도 남는 것 (컬렉션·천장·슬롯 수·보스 원장·환생 횟수)
---   Run   환생하면 초기화되는 것 (레벨·경험치·스탯·직업·장착·현재 방)
+--   Run   환생하면 초기화되는 것 (레벨·경험치·스탯·장착·현재 방)
 --
 -- T7 환생은 Run 키만 새로 쓰고 Perm은 손대지 않는다. 한 키에 몰아넣으면
 -- 환생할 때마다 영구 데이터를 통째로 다시 쓰게 되고, 그 쓰기가 실패하면
@@ -268,9 +268,6 @@ script PlayerDBManager extends Component
             for areaId, _ in pairs(perm.unlocked_areas) do
                 slots.UnlockedAreas[areaId] = 1
             end
-            for jobId, _ in pairs(perm.unlocked_jobs) do
-                slots.UnlockedJobs[jobId] = 1
-            end
             -- 보스 개수는 원장에서 다시 센다. 개수를 따로 저장하면 원장과 어긋날 수 있고,
             -- 어긋나면 슬롯 수가 틀어진다 — 원장 하나만 진실로 둔다.
             local cleared = 0
@@ -335,7 +332,6 @@ script PlayerDBManager extends Component
             stats.StatDef = run.stat_def
             stats.StatLuk = run.stat_luk
             stats.UnspentPoints = run.unspent_points
-            stats.CurrentJob = run.current_job
             -- 캡 플래그는 저장하지 않고 레벨에서 다시 판정한다.
             -- 저장해두면 캡 수치를 조정했을 때 옛 플래그가 남아 어긋난다.
             stats.CanRebirth = _LevelCurve:IsAtCap(run.level)
@@ -477,7 +473,7 @@ script PlayerDBManager extends Component
         -- 스로틀을 건너뛰고 지금 당장, 블로킹으로 쓴다. 환생이 이걸 부른다.
         --
         -- 왜 스로틀을 쓰지 않는가 (작업지시서 T7 요청 1 — 원자적 처리):
-        -- 환생은 Perm(환생 횟수·구역·직업)과 Run(레벨 초기화)을 **동시에** 바꾼다.
+        -- 환생은 Perm(환생 횟수·구역)과 Run(레벨 초기화)을 **동시에** 바꾼다.
         -- 스로틀에 맡기면 그 사이에 앱이 죽었을 때 회차만 초기화되고 영구는
         -- 안 써진 반쪽 상태가 남는다.
         --
@@ -629,12 +625,6 @@ script PlayerDBManager extends Component
                 if slots.UnlockedAreas[areaId] ~= nil then areas[areaId] = 1 end
             end
             perm.unlocked_areas = areas
-
-            local jobs = {}
-            for _, jobId in ipairs(_GameData:GetAllJobIds()) do
-                if slots.UnlockedJobs[jobId] ~= nil then jobs[jobId] = 1 end
-            end
-            perm.unlocked_jobs = jobs
         end
 
         ---@type PlayerInventory
@@ -680,7 +670,6 @@ script PlayerDBManager extends Component
             run.stat_def = stats.StatDef
             run.stat_luk = stats.StatLuk
             run.unspent_points = stats.UnspentPoints
-            run.current_job = stats.CurrentJob
         end
 
         ---@type PlayerSkillSlots

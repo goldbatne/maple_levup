@@ -108,30 +108,15 @@ script RoomGate extends Logic
     end
 
     method boolean HasSkill(Entity player, string skillId)
-        -- 이 스킬을 지금 쓸 수 있는가.
+        -- 이 스킬을 **보유**하고 있는가 (장착 여부는 묻지 않는다).
         --
-        -- 직업 스킬과 몬스터 스킬을 **둘 다** 본다. 열쇠 스킬이 직업 스킬일 수 있기
-        -- 때문이다 — r_03의 열쇠가 실제로 s_job_war_02(돌진, 전사 직업 스킬)이다.
-        -- 컬렉션(OwnedSkills)에는 몬스터 스킬만 쌓이므로 컬렉션만 보면
-        -- 전사가 돌진을 들고도 문을 못 여는 일이 생긴다.
-        ---@type PlayerSkillSlots
-        local slots = player:GetComponent("script.PlayerSkillSlots")
-        if slots ~= nil then
-            local jobSkills = slots:GetJobSkills()
-            if jobSkills ~= nil then
-                for i = 1, #jobSkills do
-                    if jobSkills[i] == skillId then return true end
-                end
-            end
-        end
-
+        -- 예전에는 직업 스킬도 같이 봤다 — r_03의 열쇠가 직업 스킬(돌진)이었기 때문이다.
+        -- 직업이 폐기되고(2026-08-16) r_03의 열쇠도 보스 게이트로 바뀌면서(T16-3)
+        -- 볼 것은 컬렉션 하나가 됐다. 컬렉션에는 몬스터 스킬과 NPC 스킬이 다 쌓인다.
         ---@type PlayerCollection
         local collection = player:GetComponent("script.PlayerCollection")
-        if collection ~= nil and collection:GetOwnedCount(skillId) > 0 then
-            return true
-        end
-
-        return false
+        if collection == nil then return false end
+        return collection:GetOwnedCount(skillId) > 0
     end
 
     method table EvaluateKey(Entity player, table room)

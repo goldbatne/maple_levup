@@ -16,7 +16,6 @@ script GameData extends Logic
     property table skills = {}      -- id(string)    -> 스킬 레코드
     property table monsters = {}    -- id(string)    -> 몬스터 레코드
     property table rooms = {}       -- id(string)    -> 방 레코드
-    property table jobs = {}        -- id(string)    -> 직업 레코드
     property table landmarks = {}   -- level(number) -> 보상 레코드 배열
     property table roomsByMap = {}  -- mapName(string) -> roomId(string) 역인덱스
     property string startRoomId = ""  -- is_start가 켜진 방. 환생 복귀 지점 (T7)
@@ -26,7 +25,7 @@ script GameData extends Logic
     property table itemsByDropper = {}  -- monsterId(string) -> 아이템 id 배열
 
     method void OnBeginPlay()
-        -- 월드 세션 시작 시 8개 데이터셋을 한 번만 읽어 캐시한다.
+        -- 월드 세션 시작 시 데이터셋을 한 번만 읽어 캐시한다.
         self:LoadAll()
     end
 
@@ -78,12 +77,11 @@ script GameData extends Logic
     ---------------------------------------------------------------
 
     method void LoadAll()
-        -- 8개 데이터셋을 캐시한다. 하나가 없어도 나머지는 계속 로드한다.
+        -- 데이터셋을 캐시한다. 하나가 없어도 나머지는 계속 로드한다.
         self:LoadBalance()
         self:LoadSkills()
         self:LoadMonsters()
         self:LoadRooms()
-        self:LoadJobs()
         self:LoadLandmarks()
         self:LoadAreas()
         self:LoadItems()
@@ -104,7 +102,7 @@ script GameData extends Logic
     end
 
     method void LoadSkills()
-        -- 직업/몬스터 스킬 공통 테이블 (source로 구분).
+        -- 몬스터/NPC 스킬 공통 테이블 (source로 구분).
         local dataSet = self:GetDataSet("SkillTable")
         if dataSet == nil then return end
         local rows = dataSet:GetAllRow()
@@ -391,25 +389,6 @@ script GameData extends Logic
         end
     end
 
-    method void LoadJobs()
-        -- skill_ids는 파이프 구분 → 배열. 직업 전용 슬롯에 자동 장착될 스킬 목록이다.
-        local dataSet = self:GetDataSet("JobTable")
-        if dataSet == nil then return end
-        local rows = dataSet:GetAllRow()
-        for i = 1, #rows do
-            local row = rows[i]
-            local id = self:ToText(row:GetItem("id"))
-            if id ~= "" then
-                self.jobs[id] = {
-                    id = id,
-                    name = self:ToText(row:GetItem("name")),
-                    skill_ids = self:SplitIds(row:GetItem("skill_ids")),
-                    inherit_skill_id = self:ToText(row:GetItem("inherit_skill_id")),
-                    is_starter = self:ToBoolean(row:GetItem("is_starter")),
-                }
-            end
-        end
-    end
 
     method void LoadLandmarks()
         -- 같은 레벨에 여러 행이 올 수 있다 (슬라이스 Lv30은 3축 동시 지급).
@@ -484,10 +463,6 @@ script GameData extends Logic
         return self.rooms[id]
     end
 
-    method table GetJob(string id)
-        -- 직업 레코드. 없으면 nil.
-        return self.jobs[id]
-    end
 
     method table GetArea(string id)
         -- 지역 레코드. 없으면 nil.
@@ -640,15 +615,6 @@ script GameData extends Logic
         return ids
     end
 
-    method table GetAllJobIds()
-        -- JobTable의 모든 직업 id. 해금된 직업 목록의 키 공간이다 (T7).
-        local ids = {}
-        for id, _ in pairs(self.jobs) do
-            ids[#ids + 1] = id
-        end
-        table.sort(ids)
-        return ids
-    end
 
     method table GetAllRoomIds()
         -- RoomTable의 모든 방 id. 보스 클리어 원장의 키 공간이다.

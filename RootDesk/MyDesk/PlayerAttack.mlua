@@ -126,7 +126,7 @@ script PlayerAttack extends AttackComponent
 
 	@ExecSpace("ServerOnly")
 	method boolean UseSkill(integer activeIndex)
-		-- GetActiveSkills()의 순번으로 쏜다. 호출부는 직업/몬스터 슬롯을 구분하지 않는다
+		-- GetActiveSkills()의 순번으로 쏜다. 호출부는 스킬의 출처를 구분하지 않는다
 		-- (작업지시서 T5 요청 3: 사용 인터페이스는 통일).
 		---@type PlayerSkillSlots
 		local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
