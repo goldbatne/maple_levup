@@ -12,9 +12,10 @@ rebirth_monster_bonus_max,5,환생으로 방마다 늘어나는 몬스터 상한
 boss_skill_interval,3,보스가 자기 스킬을 시도하는 주기(초) - 실제 발동은 스킬별 쿨다운이 다시 거른다
 skill_effect_height,0.5,스킬 이펙트를 붙이는 높이(월드 유닛) - 엔티티 원점이 발밑이라 몸통 높이로 올린다
 skill_sfx_volume,0.6,스킬 시전 소리 크기 (0~1)
-projectile_seconds,0.35,투사체가 목적지까지 날아가는 시간(초) - 길면 데미지 숫자가 먼저 뜨고 바위가 나중에 닿는다
+projectile_seconds,0.35,투사체가 날아가는 시간(초). 데미지도 이 시간 뒤에 들어간다 - 길수록 비켜설 시간이 늘어난다
 projectile_arc_height,0.6,투사체 포물선 최고점 높이(월드 유닛) - 0이면 직선으로 날아간다
 projectile_spin_seconds,0.6,투사체가 한 바퀴 도는 데 걸리는 시간(초) - 0이면 안 돈다
+projectile_hit_radius,0.8,투사체가 닿는 순간 판정하는 반경(월드 유닛) - 던진 자리가 아니라 바위가 떨어진 자리를 기준으로 한다
 exp_base,20,Lv1 필요 EXP
 exp_ratio,1.12,필요 EXP 레벨당 공비
 monster_exp_base,5,Lv1 몬스터 EXP

@@ -57,6 +57,9 @@ script SkillEffect extends Logic
     method void PlayProjectile(string skillId, Entity caster, Vector3 targetPos)
         -- 날아가는 그림 (T19-3). `projectile_ruid`가 비어 있으면 아무것도 안 한다.
         --
+        -- **그림만 담당한다.** 데미지는 던진 쪽이 같은 비행 시간짜리 타이머로 건다
+        -- (T19-4 — MonsterAttack.ResolveThrowHit / PlayerAttack.ResolveThrowHit).
+        --
         -- 이펙트(PlayCast)와 달리 **서버에서 엔티티를 스폰한다.** 스폰된 엔티티는
         -- 저절로 복제되므로 클라마다 RPC를 보낼 필요가 없고, 날아가는 동안의 위치도
         -- 엔진이 맞춰 준다. 매 프레임 좌표를 RPC로 보내면 그게 낭비다.
