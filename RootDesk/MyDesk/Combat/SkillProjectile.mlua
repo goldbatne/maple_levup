@@ -1,0 +1,81 @@
+-- @서버 (스폰과 이동은 서버. 클라는 복제된 엔티티를 보기만 한다)
+--
+-- 날아가는 스킬 투사체 (T19-3, 대표 지시 2026-08-23: "골렘 바위 던지기잖아 uuid중에
+-- 바위를 찾아서 던지는 형태로 가면 좋을거 같아보이네").
+--
+-- ## 판정은 이미 끝났다 — 이건 연출이다
+--
+-- 데미지는 스킬을 쓰는 순간 서버가 이미 넣었다(MonsterAttack.CastSkill의 Attack).
+-- 이 엔티티는 **아무것도 때리지 않는다.** 때리게 만들면 판정 지점이 둘로 갈라지고,
+-- 날아가는 도중에 대상이 죽거나 방을 나가는 경우를 따로 다뤄야 한다.
+--
+-- 그래서 도착까지 걸리는 시간은 짧게 잡는다(기본 0.25초). 길면 숫자가 먼저 뜨고
+-- 바위가 나중에 닿아 "맞고 나서 날아온다"가 눈에 보인다.
+--
+-- ## Body가 없다
+--
+-- msw-combat-system 1-6: Body 없는 엔티티는 TransformComponent:Translate로 직접 옮긴다.
+-- Body를 달면 타일 충돌에 걸려 벽에 막히고, 물리가 매 프레임 위치를 덮어쓴다.
+--
+-- ⚠ 타이머가 아니라 **OnUpdate(delta)**로 옮긴다. 타이머(0.1초)로 옮기면 10Hz라
+--   순간이동처럼 끊겨 보인다 (같은 문서의 금지 패턴).
+
+@Component
+script SkillProjectile extends Component
+
+    -- 목적지(월드 좌표)와 남은 시간. 서버가 스폰 직후 채운다.
+    @HideFromInspector property Vector3 TargetPos = Vector3(0, 0, 0)
+    @HideFromInspector property number FlightLeft = 0
+    @HideFromInspector property number FlightTotal = 0
+    @HideFromInspector property Vector3 StartPos = Vector3(0, 0, 0)
+
+    -- 한 바퀴 도는 데 걸리는 시간(초). 0이면 안 돈다.
+    @HideFromInspector property number SpinSeconds = 0
+
+    @ExecSpace("ServerOnly")
+    method void Launch(Vector3 fromPos, Vector3 toPos, number seconds, number spinSeconds)
+        -- 스폰한 쪽이 바로 부른다. 여기서부터 OnUpdate가 옮기기 시작한다.
+        if seconds <= 0 then seconds = 0.25 end
+        self.StartPos = fromPos
+        self.TargetPos = toPos
+        self.FlightTotal = seconds
+        self.FlightLeft = seconds
+        self.SpinSeconds = spinSeconds
+        self.Entity.TransformComponent.WorldPosition = fromPos
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnUpdate(number delta)
+        -- 아직 Launch를 안 받았으면 가만히 있는다 (스폰 프레임에 한 번 걸린다).
+        if self.FlightTotal <= 0 then return end
+
+        self.FlightLeft = self.FlightLeft - delta
+        if self.FlightLeft <= 0 then
+            -- 도착. 남겨 두면 바위가 대상 위에 계속 얹혀 있다.
+            self.Entity:Destroy()
+            return
+        end
+
+        -- 지나온 비율로 위치를 정한다. 속도를 누적하지 않는 이유: 프레임이 튀어도
+        -- **도착 지점이 정확히 목적지**가 된다. 누적이면 조금씩 어긋난다.
+        local t = 1 - (self.FlightLeft / self.FlightTotal)
+        local transform = self.Entity.TransformComponent
+        if not isvalid(transform) then return end
+
+        local x = self.StartPos.x + (self.TargetPos.x - self.StartPos.x) * t
+        local y = self.StartPos.y + (self.TargetPos.y - self.StartPos.y) * t
+
+        -- 던진 것처럼 보이게 포물선을 얹는다. 직선으로만 가면 미끄러지는 느낌이라
+        -- "던졌다"가 아니라 "밀려갔다"로 읽힌다. 최고점은 중간(t=0.5)이다.
+        local arc = _GameData:GetBalance("projectile_arc_height")
+        y = y + arc * 4 * t * (1 - t)
+
+        transform.WorldPosition = Vector3(x, y, self.StartPos.z)
+
+        -- 돌면서 날아간다. 바위가 굴러가는 느낌을 준다.
+        if self.SpinSeconds > 0 then
+            transform.ZRotation = transform.ZRotation - (360 * delta / self.SpinSeconds)
+        end
+    end
+
+end
