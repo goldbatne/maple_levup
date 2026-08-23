@@ -34,6 +34,14 @@ script RoomMonster extends Component
     @Sync property string DisplayName = ""
     @Sync @HideFromInspector property boolean IsDead = false
 
+    -- 실드 (T19-1). 보스가 자기 방어 스킬(히어로의 아이언 바디)을 쓰면 걸린다.
+    -- 플레이어 쪽 PlayerHit.ShieldRatio/ShieldUntil과 **같은 모양**으로 맞춰 뒀다 —
+    -- 받는 피해를 깎는 규칙이 양쪽에서 다르면 읽는 사람이 매번 두 번 확인해야 한다.
+    --
+    -- @TargetUserSync가 아니라 @Sync인 이유: 몬스터는 주인이 없다.
+    @Sync @HideFromInspector property number ShieldRatio = 0
+    @Sync @HideFromInspector property number ShieldUntil = 0
+
     @ExecSpace("ServerOnly")
     method string MapName()
         -- 이 몬스터가 서 있는 맵 이름. 방 레코드를 역인덱스할 때 쓴다
@@ -42,6 +50,48 @@ script RoomMonster extends Component
         local map = self.Entity.CurrentMap
         if map == nil then return "" end
         return map.Name
+    end
+
+    method boolean IsBossRoom()
+        -- 지금 서 있는 방이 보스방인가. **방이 정한다** — 몬스터에 보스 플래그를 두면
+        -- 같은 종을 다른 방에 배치할 때 데이터가 두 곳으로 갈라진다 (GrantBossReward와 같은 판단).
+        --
+        -- 캐시하지 않고 부를 때마다 조회하는 이유: OnBeginPlay에서 계산해 두면
+        -- **컴포넌트 실행 순서에 의존**하게 된다. MonsterAttack이 이 값을 읽는데
+        -- 둘 중 누가 먼저 OnBeginPlay를 도는지는 보장되지 않는다.
+        --
+        -- 실행공간을 비워둔다 — 서버는 배율·스킬 판정에, 클라는 표시에 쓸 수 있다.
+        local map = self.Entity.CurrentMap
+        if map == nil then return false end
+
+        local room = _GameData:GetRoomByMapName(map.Name)
+        if room == nil then return false end
+        return room.room_type == "boss"
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyShield(number ratio, number seconds)
+        -- 보스가 자기 방어 스킬을 썼을 때 걸린다 (T19-1).
+        -- 겹쳐 쌓지 않고 덮어쓴다 — PlayerHit.ApplyShield와 같은 규칙이다.
+        if ratio <= 0 or seconds <= 0 then return end
+
+        -- 상한 0.9. 1.0이 들어오면 **보스가 무적**이 되어 잡을 수 없는 방이 된다.
+        -- 데이터 오타 한 번으로 게임이 막히는 자리라 코드에서 자른다.
+        if ratio > 0.9 then
+            log_warning("[RoomMonster] 실드 감쇄율이 너무 크다(" .. tostring(ratio) .. ") — 0.9로 자른다")
+            ratio = 0.9
+        end
+
+        self.ShieldRatio = ratio
+        self.ShieldUntil = _UtilLogic.ElapsedSeconds + seconds
+    end
+
+    -- 실행공간을 비워둔다. 서버는 데미지 감쇄에 쓰고, 읽는 값이 @Sync라 클라도 같다.
+    method number GetDamageReduction()
+        -- 이 몬스터가 지금 받는 피해를 얼마나 깎는가. 실드가 없거나 만료면 0.
+        if self.ShieldRatio <= 0 then return 0 end
+        if _UtilLogic.ElapsedSeconds >= self.ShieldUntil then return 0 end
+        return self.ShieldRatio
     end
 
     @ExecSpace("ServerOnly")
@@ -84,7 +134,7 @@ script RoomMonster extends Component
         -- 배율을 스탯별로 나눠 둔 이유: **ATK만 따로 낮출 일이 온다.** ATK 3배는
         -- 플레이어 DEF 10 기준 피격 242 = 4대에 죽는 수치다(i-frame 1초라 약 4초).
         -- 세다고 느껴지면 boss_atk_multiplier부터 내린다 — HP·EXP는 그대로 두고.
-        local isBoss = (room ~= nil and room.room_type == "boss")
+        local isBoss = self:IsBossRoom()
         if isBoss then
             self.MaxHp = self.MaxHp * _GameData:GetBalance("boss_hp_multiplier")
             self.Def = self.Def * _GameData:GetBalance("boss_def_multiplier")
@@ -94,6 +144,8 @@ script RoomMonster extends Component
 
         self.Hp = self.MaxHp
         self.IsDead = false
+        self.ShieldRatio = 0
+        self.ShieldUntil = 0
 
         log("[RoomMonster] 스폰 " .. record.name .. "(" .. self.MonsterId .. ")"
             .. " Lv" .. tostring(level)
@@ -206,6 +258,10 @@ script RoomMonster extends Component
         self.Entity:SetVisible(true)
         self.Entity:SetEnable(true)
         self.Hp = self.MaxHp
+        -- 실드를 지운다. 죽는 순간 걸려 있던 감쇄가 살아난 몸에 남으면
+        -- 리스폰 직후 한동안 안 아픈 몬스터가 된다.
+        self.ShieldRatio = 0
+        self.ShieldUntil = 0
 
         local stateComp = self.Entity.StateComponent
         -- DEAD에서는 IDLE로만 나올 수 있다 (DEAD 락 — animation-state.md §4.5).
