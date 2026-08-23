@@ -1,0 +1,133 @@
+-- @서버 (스폰과 움직임은 서버. 클라는 복제된 엔티티를 보기만 한다)
+--
+-- 직접 만든 스킬 시전 이펙트 (T21-1, 대표 지시 2026-08-23: "이펙트도 직접 만들어보자").
+--
+-- ## 왜 애니메이션 클립이 아니라 한 장짜리 그림인가
+--
+-- `asset_create_account_resource_storage_item`이 받는 category가
+-- **sprite / audioclip / avataritem뿐이다.** animationclip은 올릴 길이 없다.
+-- 그래서 `_EffectService:PlayEffectAttached`(클립 재생)를 쓸 수 없고,
+-- **한 장을 띄워 놓고 이 스크립트가 움직인다** — 커지고, 옅어지고, 돌고, 흐른다.
+--
+-- 여러 장을 올려 프레임을 갈아끼우는 길도 있지만(SpriteRUID 교체는 T11-1에서 쓴 방법),
+-- 4종 x 5장 = 20장을 올려야 하고 그림마다 프레임 수를 따로 관리해야 한다.
+-- 한 장 + 움직임이 싸고, 그림을 고칠 때도 한 장만 다시 올리면 된다.
+--
+-- ## Body가 없다
+--
+-- SkillProjectile과 같은 이유다 — Body를 달면 타일에 막히고 물리가 매 프레임
+-- 위치를 덮어쓴다. 이동은 타이머가 아니라 `OnUpdate(delta)`로 한다.
+--
+-- ## 판정과 무관하다
+--
+-- 여기서 아무것도 안 그려져도 데미지는 이미 서버에서 들어갔다.
+-- SkillEffect가 **판정이 성공한 뒤에만** 부른다 (T19-2의 규칙 그대로).
+
+@Component
+script SkillCastEffect extends Component
+
+    -- 남은 시간 / 전체 시간. Play가 채운다.
+    @HideFromInspector property number Life = 0
+    @HideFromInspector property number LifeTotal = 0
+
+    -- 어떻게 움직일지. SkillTable.effect_style이 정한다.
+    @HideFromInspector property string Style = ""
+
+    -- 흐르는 방향(초당 월드 단위). pierce/cloud만 쓴다.
+    @HideFromInspector property Vector3 Drift = Vector3(0, 0, 0)
+
+    @ExecSpace("ServerOnly")
+    method void Play(string style, number seconds, Vector3 drift)
+        -- 스폰한 쪽이 바로 부른다. 여기서부터 OnUpdate가 움직인다.
+        if seconds <= 0 then seconds = 0.4 end
+        self.Style = style
+        self.LifeTotal = seconds
+        self.Life = seconds
+        self.Drift = drift
+        -- 첫 프레임부터 제 크기로 보이게 미리 한 번 적용한다. 안 하면 스폰 프레임에
+        -- 원본 크기(1.0)로 한 번 번쩍인다.
+        self:Apply(0)
+    end
+
+    method void Apply(number t)
+        -- t = 0(막 나왔다) ~ 1(사라진다). 스타일마다 크기·투명도·회전이 다르다.
+        --
+        -- 수치를 GameBalance로 빼지 않은 이유: 이건 밸런스가 아니라 **그림의 정의**다.
+        -- 고리가 커지며 옅어지는 것은 "푸른 껍질이 어떻게 생겼나"의 일부고,
+        -- 그림을 다시 그리면 같이 바뀐다. 데이터로 빼면 둘이 따로 논다.
+        local transform = self.Entity.TransformComponent
+        if not isvalid(transform) then return end
+        local sprite = self.Entity.SpriteRendererComponent
+
+        local scale = 1.0
+        local alpha = 1.0
+        local spin = 0.0
+
+        -- ⚠ 크기는 **캐릭터(약 1.4 유닛)보다 커야 보인다.** 처음에 0.7~1.5로 뒀더니
+        --   그림 96px = 1유닛이라 사람만 해서 연출로 안 읽혔다 (실측).
+        --
+        -- ⚠ **투명도는 끝에서만 뺀다.** 처음에 `1 - t`나 `1 - t²`로 처음부터 옅어지게
+        --   했더니 뜨자마자 배경에 묻혀 "번쩍했나?" 수준이 됐다 (실측). 0.4초짜리
+        --   연출은 **보이는 시간이 짧아서** 대부분을 불투명하게 둬야 눈에 남는다.
+        local fadeFrom = 0.6
+        if self.Style == "burst" then
+            -- 부딪히는 충격: 확 커진다. 조금 돌려 같은 그림이 반복돼 보이지 않게 한다.
+            scale = 0.8 + 1.9 * t
+            spin = 90 * t
+        elseif self.Style == "ring" then
+            -- 감싸는 방어막: 천천히 커진다. 안 돈다 — 돌면 고리가 어지럽다.
+            scale = 1.0 + 1.3 * t
+            fadeFrom = 0.5
+        elseif self.Style == "cloud" then
+            -- 퍼지는 구름: 크게 부풀며 오래 남는다.
+            scale = 1.1 + 1.4 * t
+            fadeFrom = 0.55
+        elseif self.Style == "pierce" then
+            -- 꿰뚫는 획: 앞으로 나간다. 커지는 폭이 작아야 "찌른다"로 읽힌다.
+            scale = 1.4 + 0.6 * t
+            fadeFrom = 0.65
+        else
+            scale = 1.0
+        end
+
+        if t > fadeFrom then alpha = 1.0 - (t - fadeFrom) / (1.0 - fadeFrom) end
+
+        transform.Scale = Vector3(scale, scale, 1)
+        if spin ~= 0 then transform.ZRotation = spin end
+
+        if isvalid(sprite) then
+            local c = sprite.Color
+            sprite.Color = Color(c.r, c.g, c.b, alpha)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnUpdate(number delta)
+        -- 아직 Play를 안 받았으면 가만히 있는다 (스폰 프레임에 한 번 걸린다).
+        if self.LifeTotal <= 0 then return end
+
+        self.Life = self.Life - delta
+        if self.Life <= 0 then
+            -- 남겨 두면 이펙트가 방에 쌓인다.
+            self.Entity:Destroy()
+            return
+        end
+
+        -- 지나온 비율로 정한다. 속도를 누적하지 않는 이유는 SkillProjectile과 같다 —
+        -- 프레임이 튀어도 끝나는 모습이 항상 같다.
+        local t = 1 - (self.Life / self.LifeTotal)
+        self:Apply(t)
+
+        if self.Drift.x ~= 0 or self.Drift.y ~= 0 then
+            local transform = self.Entity.TransformComponent
+            if isvalid(transform) then
+                local p = transform.WorldPosition
+                transform.WorldPosition = Vector3(
+                    p.x + self.Drift.x * delta,
+                    p.y + self.Drift.y * delta,
+                    p.z)
+            end
+        end
+    end
+
+end

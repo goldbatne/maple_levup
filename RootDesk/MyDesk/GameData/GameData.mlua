@@ -189,6 +189,19 @@ script GameData extends Logic
                     -- 기본값 1.0인 이유: 빠뜨렸을 때 정사각으로 그려지는 편이 0(안 그려짐)보다 낫다.
                     icon_ratio = self:ToNumber(row:GetItem("icon_ratio"), 1.0),
 
+                    -- 이펙트를 어떻게 움직일지 (T21-1). 비어 있으면 `effect_ruid`가
+                    -- **원작 애니메이션 클립**이고 `_EffectService`가 그대로 재생한다.
+                    -- 채워져 있으면 `effect_ruid`는 **우리가 그린 스프라이트 한 장**이고
+                    -- `SkillCastEffect`가 커지고·옅어지고·흐르게 만든다.
+                    --   burst  부딪히는 충격 (확 커졌다 사라진다)
+                    --   ring   감싸는 방어막 (천천히 커지며 옅어진다)
+                    --   cloud  퍼지는 구름 (부풀어 오래 남는다)
+                    --   pierce 꿰뚫는 획 (앞으로 나가며 늘어난다)
+                    --
+                    -- 왜 컬럼을 나눴나: 한 칸에 섞으면 "이 RUID가 클립인지 그림인지"를
+                    -- 런타임에 알 방법이 없다. 클립 자리에 그림을 넣으면 **에러 없이 안 뜬다**.
+                    effect_style = self:ToText(row:GetItem("effect_style")),
+
                     -- ── 원작 이펙트·사운드 (T19-2, 대표 지시 2026-08-23) ──
                     -- 아이콘과 **같은 팩**에서 꺼낸다. 팩 하나가 icon / effect / hit /
                     -- _audio/Use / _audio/Hit를 다 들고 있어서, 아이콘 RUID로

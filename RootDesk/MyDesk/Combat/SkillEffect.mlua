@@ -43,6 +43,13 @@ script SkillEffect extends Logic
         local map = caster.CurrentMap
         if map == nil then return end
 
+        -- 직접 만든 이펙트는 **서버가 엔티티를 스폰한다** (T21-1). 스폰된 엔티티는
+        -- 저절로 복제되므로 사람마다 RPC를 보낼 필요가 없다 — 투사체와 같은 방식이다.
+        -- 원작 클립(_EffectService)만 클라마다 한 번씩 띄운다.
+        if skill.effect_style ~= "" then
+            self:SpawnOwnEffect(skill, caster, flipX, map)
+        end
+
         local users = _UserService:GetUsersByMapName(map.Name)
         if users == nil then return end
         for i = 1, #users do
@@ -51,6 +58,60 @@ script SkillEffect extends Logic
                 self:ShowCast(skillId, caster, flipX, pc.UserId)
             end
         end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SpawnOwnEffect(table skill, Entity caster, boolean flipX, Entity map)
+        -- 우리가 그린 이펙트 한 장을 띄운다. 움직임은 SkillCastEffect가 맡는다.
+        if skill.effect_ruid == "" then return end
+
+        local pos = caster.TransformComponent.WorldPosition
+        local h = _GameData:GetBalance("skill_effect_height")
+
+        -- 앞으로 나가는 획(pierce)은 시전자 몸에서 겹치면 뭘 찌르는지 안 보인다.
+        -- 바라보는 쪽으로 조금 밀어 둔다. 나머지는 몸에서 터진다.
+        local dir = 1
+        if flipX then dir = -1 end
+        local ahead = 0
+        local drift = Vector3(0, 0, 0)
+        if skill.effect_style == "pierce" then
+            ahead = 0.45 * dir
+            drift = Vector3(2.2 * dir, 0, 0)
+        elseif skill.effect_style == "cloud" then
+            -- 포자는 위로 떠오른다.
+            drift = Vector3(0, 0.5, 0)
+        end
+
+        local at = Vector3(pos.x + ahead, pos.y + h, pos.z)
+
+        -- ⚠ parent에 nil을 넘기면 런타임 에러다 (개발 규칙 · platform.md 8).
+        local entity = _SpawnService:SpawnByModelId("skillcasteffect", "SkillCastEffect", at, map)
+        if not isvalid(entity) then
+            log_warning("[SkillEffect] 이펙트 스폰 실패: " .. skill.name)
+            return
+        end
+
+        local sprite = entity.SpriteRendererComponent
+        if isvalid(sprite) then
+            -- 그림은 스킬마다 다르다. 모델의 기본 SpriteRUID를 여기서 갈아끼운다.
+            sprite.SpriteRUID = skill.effect_ruid
+            -- 우리 그림도 **오른쪽을 향해** 그려져 있다(원작 클립과 같은 규칙).
+            sprite.FlipX = flipX
+        end
+
+        ---@type SkillCastEffect
+        local fx = entity:GetComponent("script.SkillCastEffect")
+        if fx == nil then
+            log_warning("[SkillEffect] 이펙트에 SkillCastEffect가 없다")
+            entity:Destroy()
+            return
+        end
+        fx:Play(skill.effect_style, _GameData:GetBalance("skill_effect_seconds"), drift)
+
+        -- 0.4초라 스크린샷으로 잡기 어렵다. 로그로 증거를 남긴다
+        -- (verify-checklist 2b: 짧은 연출은 만든 자리에 로그를 둔다).
+        log("[이펙트] " .. skill.name .. " (" .. skill.effect_style .. ")  "
+            .. string.format("%.1f,%.1f", at.x, at.y) .. (flipX and "  ←" or "  →"))
     end
 
     @ExecSpace("ServerOnly")
@@ -116,7 +177,10 @@ script SkillEffect extends Logic
         local skill = _GameData:GetSkill(skillId)
         if skill == nil then return end
 
-        if skill.effect_ruid ~= "" then
+        -- 직접 만든 이펙트는 서버가 이미 엔티티로 띄웠다 (SpawnOwnEffect).
+        -- 여기서 또 띄우면 안 된다 — `PlayEffectAttached`는 **애니메이션 클립**을 받는데
+        -- 우리 RUID는 스프라이트라 **에러 없이 아무것도 안 뜬다**. 조용한 실패라 더 나쁘다.
+        if skill.effect_ruid ~= "" and skill.effect_style == "" then
             -- 시전자에게 **붙여서** 재생한다(PlayEffect가 아니라 PlayEffectAttached).
             -- 고정 좌표로 띄우면 시전 중에 움직이는 보스와 이펙트가 따로 논다.
             --
