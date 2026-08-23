@@ -46,6 +46,19 @@ script MonsterAttack extends AttackComponent
 	@HideFromInspector
 	property Vector2 PositionOffset = Vector2(0,0)
 
+	-- 보스 스킬 (T19-1, 대표 지시 2026-08-23: "보스 몬스터들은 얻는 스킬을 사용하는게
+	-- 좋을거 같아"). 이기면 뺏는 스킬을 상대가 먼저 보여 준다 — 무엇을 얻는지가
+	-- 설명이 아니라 맞아 보는 것으로 전해진다.
+	--
+	-- 상태는 전부 `self._T`에 둔다(bossSkills / skillReadyAt / skillInterval /
+	-- nextSkillAt / monster). 서버만 쓰고 클라가 볼 이유가 없어서다 —
+	-- 플레이어 쪽 SkillReadyAt이 @TargetUserSync인 것은 HUD가 쿨다운을 그려야 하기 때문이다.
+
+	-- 이번 한 방이 때릴 수 있는 대상 수. PlayerAttack과 같은 방식이다 —
+	-- 엔진에 "최대 타격 수"가 없어 IsAttackTarget 훅에서 예산을 깎는 수밖에 없다.
+	@HideFromInspector property boolean hitLimited = false
+	@HideFromInspector property integer hitBudget = 0
+
 	@ExecSpace("ServerOnly")
 	method void OnBeginPlay()
 		-- Sprite size drives the attack box; load async, then start the repeat.
@@ -64,6 +77,11 @@ script MonsterAttack extends AttackComponent
 		end
 
 		self.Shape = BoxShape(Vector2.zero, Vector2.one, 0)
+
+		-- 보스 스킬은 스프라이트 갈래보다 **앞에서** 건다. 아래 아바타 분기가 return으로
+		-- 빠져나가기 때문에 뒤에 두면 히어로(아바타)만 스킬을 안 쓴다 — 정작 스킬을
+		-- 가장 많이 가진 상대다.
+		self:StartBossSkills(monster)
 
 		-- ATTACK 상태는 등록하지 않는다. 등록해서 ChangeState로 가는 길을 먼저 만들었는데
 		-- AIChase가 0.1초 만에 되돌려서 못 쓴다 (PlayAttackPose 주석 참고).
@@ -115,6 +133,185 @@ script MonsterAttack extends AttackComponent
 			_TimerService:ClearTimer(self.attackTimerId)
 			self.attackTimerId = 0
 		end
+		-- 보스 스킬은 별도 타이머가 없다 — 평타 타이머 위에서 돌기 때문에
+		-- 위의 attackTimerId 하나를 지우면 같이 멎는다 (StartBossSkills 주석).
+	end
+
+	---------------------------------------------------------------
+	-- 보스 스킬 (T19-1)
+	---------------------------------------------------------------
+
+	method table UsableSkillIds()
+		-- 이 몬스터가 쓸 스킬 목록. **새 컬럼을 만들지 않고 "주는 것"에서 그대로 유도한다** —
+		-- 대표 지시가 "얻는 스킬을 사용"이므로 둘이 같아야 하고, 칸을 따로 두면
+		-- 언젠가 어긋나 "안 주는 스킬을 쓰는 보스"가 생긴다.
+		--
+		--   npc_skill_ids  격파 지급 (히어로 계보 5종)   → 있으면 이쪽
+		--   drop_skill_id  포획 지급 (돌 정령 바위 던지기) → 없으면 이쪽
+		--
+		-- 팔라딘·다크나이트가 붙어도 CSV만 채우면 따라온다.
+		local npcSkills = _GameData:GetNpcSkillIds(self:MonsterIdOf())
+		if #npcSkills > 0 then return npcSkills end
+
+		local record = _GameData:GetMonster(self:MonsterIdOf())
+		if record == nil then return {} end
+		if record.drop_skill_id == "" then return {} end
+		return { record.drop_skill_id }
+	end
+
+	method string MonsterIdOf()
+		-- 이 엔티티의 MonsterTable id. RoomMonster가 소유한 값이라 거기서 읽는다.
+		---@type RoomMonster
+		local monster = self.Entity:GetComponent("script.RoomMonster")
+		if monster == nil then return "" end
+		return monster.MonsterId
+	end
+
+	@ExecSpace("ServerOnly")
+	method void StartBossSkills(RoomMonster monster)
+		-- 보스방의 몬스터만 스킬을 쓴다 (대표 선택 2026-08-23: 히어로 + 돌 정령).
+		--
+		-- 왜 종이 아니라 **방**으로 가르나: 돌 정령을 나중에 일반 사냥방에 세울 수 있다.
+		-- 종에 플래그를 달면 그때 초반 방이 조용히 어려워진다. 보스 배율(T16-1)이
+		-- 방으로 갈리는 것과 같은 기준이다.
+		if monster:IsBossRoom() == false then return end
+
+		local skillIds = self:UsableSkillIds()
+		if #skillIds == 0 then return end
+
+		local interval = _GameData:GetBalance("boss_skill_interval")
+		if interval <= 0 then return end
+
+		-- ## 스킬은 별도 타이머가 아니라 **평타 타이머 위**에서 돈다
+		--
+		-- 처음에는 스킬 전용 타이머를 따로 돌렸다. 그랬더니 **6번 중 3번이 아무 데미지도
+		-- 안 났다** (실측). 원인은 i-frame이다 — 플레이어 무적 시간이 1초인데 보스 평타는
+		-- 0.5초마다 나가므로, 스킬이 자기 평타가 만들어 둔 무적 구간에 떨어져 씹힌다.
+		-- 에러도 로그도 없이 "스킬을 썼는데 안 아픈" 상태가 된다.
+		--
+		-- 그래서 스킬을 평타와 **같은 틱**에 태우고, 스킬을 쓴 틱은 평타를 건너뛴다.
+		-- 한 틱에 한 방만 나가므로 자기 평타와 겹칠 자리가 없어진다.
+		-- 겸사겸사 DPS도 묶인다 — 스킬이 평타에 **더해지는** 게 아니라 **대신 나간다**.
+		self._T.bossSkills = skillIds
+		self._T.skillReadyAt = {}        -- skillId -> 다시 쓸 수 있는 시각
+		self._T.skillInterval = interval
+		self._T.nextSkillAt = 0
+		self._T.monster = monster
+
+		local names = ""
+		for i = 1, #skillIds do
+			local s = _GameData:GetSkill(skillIds[i])
+			names = names .. (i > 1 and " / " or "") .. (s ~= nil and s.name or skillIds[i])
+		end
+		log("[보스스킬] " .. monster.DisplayName .. " 준비 — " .. tostring(#skillIds)
+			.. "종 [" .. names .. "]  " .. string.format("%.1f", interval) .. "초마다 시도")
+	end
+
+	@ExecSpace("ServerOnly")
+	method boolean TryUseSkill()
+		-- 이번 평타 틱을 스킬로 바꿔 쓸지. 실제로 나갔으면 true(= 평타를 건너뛴다).
+		if self._T.bossSkills == nil then return false end
+		if _UtilLogic.ElapsedSeconds < self._T.nextSkillAt then return false end
+
+		local monster = self._T.monster
+		if monster == nil or monster.IsDead then return false end
+
+		-- 방이 비어 있으면 시도하지 않는다.
+		--
+		-- ⚠ 이 가드가 없으면 **아무도 없는 방에서 보스가 혼자 실드를 두른다** (실측:
+		--   플레이어가 마을로 돌아간 뒤에도 12초 간격으로 아이언 바디가 계속 걸렸다).
+		--   공격 스킬은 맞은 사람이 0명이라 저절로 걸러지지만, 실드는 대상이 필요 없어
+		--   그냥 성공한다. 그러면 돌아왔을 때 이미 방어막을 두른 보스를 만나고,
+		--   쿨다운도 빈 방에서 헛돈다.
+		local map = self.Entity.CurrentMap
+		if map == nil then return false end
+		local users = _UserService:GetUsersByMapName(map.Name)
+		if users == nil or #users == 0 then return false end
+
+		-- 쿨다운이 돌지 않은 것 중 하나를 무작위로 쓴다.
+		--
+		-- 순서대로 돌리지 않는 이유: 5종을 순환하면 패턴이 외워져 두 번째 판부터
+		-- 사건이 아니게 된다. 무작위면 매번 다르게 맞는다.
+		local ready = {}
+		for _, id in ipairs(self._T.bossSkills) do
+			local readyAt = self._T.skillReadyAt[id]
+			if readyAt == nil or _UtilLogic.ElapsedSeconds >= readyAt then
+				ready[#ready + 1] = id
+			end
+		end
+		if #ready == 0 then return false end
+
+		local skillId = ready[_UtilLogic:RandomIntegerRange(1, #ready)]
+		local skill = _GameData:GetSkill(skillId)
+		if skill == nil then
+			log_warning("[보스스킬] SkillTable에 없는 스킬: " .. tostring(skillId))
+			return false
+		end
+
+		if self:CastSkill(monster, skill) == false then return false end
+
+		-- **닿았을 때만** 대가를 치른다. 사거리 밖이거나 무적 구간이라 아무도 못 맞혔으면
+		-- 쿨다운도 주기도 걸지 않고 다음 틱에 다시 시도한다 — 안 그러면 플레이어가
+		-- 멀리 서 있는 동안 5종이 전부 헛돌아 붙었을 때 쓸 스킬이 없어진다.
+		if skill.cooldown > 0 then
+			self._T.skillReadyAt[skillId] = _UtilLogic.ElapsedSeconds + skill.cooldown
+		end
+		self._T.nextSkillAt = _UtilLogic.ElapsedSeconds + self._T.skillInterval
+		return true
+	end
+
+	@ExecSpace("ServerOnly")
+	method boolean CastSkill(RoomMonster monster, table skill)
+		-- 실제 발동. **실제로 뭔가 일어났을 때만** true.
+		if skill.skill_kind == "defense" then
+			if skill.effect_type ~= "shield" then
+				-- 회복(heal)은 아직 몬스터 쪽에 없다. 조용히 넘기면 "쿨다운은 도는데
+				-- 아무 일도 안 나는 스킬"이 되므로 한 줄 남긴다.
+				log_warning("[보스스킬] 몬스터가 쓸 수 없는 방어 효과라 건너뛴다: ["
+					.. skill.name .. "] " .. tostring(skill.effect_type))
+				return false
+			end
+			monster:ApplyShield(skill.effect_value, skill.duration)
+			log("[보스스킬] " .. monster.DisplayName .. " [" .. skill.name .. "] 실드 "
+				.. tostring(math.floor(skill.effect_value * 100)) .. "% / "
+				.. tostring(skill.duration) .. "초")
+			return true
+		end
+
+		local transform = self.Entity.TransformComponent
+		if not isvalid(transform) then return false end
+		local worldPosition = transform.WorldPosition
+
+		-- range가 0이면 몸 크기 상자 대신 플레이어 기본 반경을 쓴다. 스킬은 평타보다
+		-- 멀리 닿아야 "스킬을 맞았다"가 되고, 안 그러면 붙어 있을 때만 나가는 두 번째 평타다.
+		local radius = skill.range
+		if radius <= 0 then radius = _GameData:GetBalance("player_attack_range") end
+		local shape = CircleShape(Vector2(worldPosition.x, worldPosition.y + 0.5), radius)
+
+		self.hitLimited = (skill.max_targets > 0)
+		self.hitBudget = math.floor(skill.max_targets)
+
+		-- ⚠ 평타는 AttackFast인데 여기만 Attack이다. **맞았는지 알아야 하기 때문**이다 —
+		--   AttackFast는 판정 테이블을 만들지 않아 void를 돌려준다(성능용). 스킬은
+		--   빗나갔을 때 쿨다운을 안 걸어야 하므로 맞은 대상 목록이 필요하다.
+		--   보스는 방에 하나뿐이라 테이블을 만드는 비용은 문제가 되지 않는다.
+		local hits = self:Attack(shape, skill.id, CollisionGroups.Player)
+
+		-- 다음 평타가 예산에 걸리지 않게 바로 푼다. Attack은 동기적으로 후보를
+		-- 다 훑고 돌아오므로 여기서 풀어도 이번 판정에는 영향이 없다.
+		self.hitLimited = false
+
+		if hits == nil or #hits == 0 then
+			-- 사거리 밖이거나 플레이어가 무적 구간(i-frame)이다. 나간 것으로 치지 않는다.
+			return false
+		end
+
+		log("[보스스킬] " .. monster.DisplayName .. " [" .. skill.name
+			.. "] 계수=" .. tostring(skill.coefficient)
+			.. " 반경=" .. string.format("%.2f", radius)
+			.. " 대상=" .. (skill.max_targets > 0 and ("최대 " .. tostring(math.floor(skill.max_targets))) or "제한 없음")
+			.. " → " .. tostring(#hits) .. "명 명중")
+		return true
 	end
 
 	method string ClipForState(string stateName)
@@ -177,6 +374,10 @@ script MonsterAttack extends AttackComponent
 	end
 
 	method void AttackNear()
+		-- 보스는 이번 틱을 스킬로 바꿔 쓸 수 있다 (T19-1). 스킬이 나갔으면 평타는 쉰다 —
+		-- 한 틱에 두 방이 나가면 스킬이 자기 평타의 i-frame에 씹힌다 (StartBossSkills 주석).
+		if self:TryUseSkill() then return end
+
 		-- Recompute the rotated/scaled attack box each tick before AttackFast.
 		local transformComponent = self.Entity.TransformComponent
 		
@@ -245,7 +446,13 @@ script MonsterAttack extends AttackComponent
 		local stats = defender:GetComponent("script.PlayerStats")
 		if stats ~= nil then def = stats:GetTotalDef() end
 
-		local damage = _CombatFormula:CalcSkillDamage(atk, def, nil)
+		-- attackInfo에 스킬 id가 실려 오면 그 계수를, 평타(nil)면 기준 계수를 쓴다 (T19-1).
+		--
+		-- ⚠ 몬스터에는 스탯이 Atk 하나뿐이라 **스킬의 scaling_stat은 무시된다.**
+		--   지금 보스가 쓰는 스킬(히어로 계보 5종 · 바위 던지기)이 전부 ATK라 어긋나지
+		--   않지만, INT/LUK 계수 스킬을 보스에게 주면 조용히 ATK로 계산된다.
+		--   그때는 몬스터에도 계수 스탯을 만들어야 한다 — CSV만 고치면 안 된다.
+		local damage = _CombatFormula:CalcSkillDamage(atk, def, attackInfo)
 
 		-- 실드 감쇄 (T17-3b). **여기서** 깎는 이유: CalcDamage가 돌려주는 값이 곧
 		-- 화면에 뜨는 데미지 숫자다. OnHit에서 깎으면 숫자는 그대로인데 HP만 덜 닳아
@@ -266,7 +473,14 @@ script MonsterAttack extends AttackComponent
 			end
 		end
 
+		local skillText = "평타"
+		if attackInfo ~= nil and attackInfo ~= "" then
+			local sk = _GameData:GetSkill(attackInfo)
+			skillText = "[" .. (sk ~= nil and sk.name or attackInfo) .. "]"
+		end
+
 		log("[MonsterAttack] " .. tostring(mon ~= nil and mon.DisplayName or "?")
+			.. " " .. skillText
 			.. " ATK=" .. tostring(atk) .. " vs 플레이어 DEF=" .. tostring(def)
 			.. " → 데미지 " .. tostring(damage) .. reduceText)
 		return damage
@@ -274,11 +488,20 @@ script MonsterAttack extends AttackComponent
 
 	method boolean IsAttackTarget(Entity defender, string attackInfo)
 		-- Restrict the attack to Player entities; delegate to base rules.
+		--
+		-- ⚠ 부모 AttackComponent.IsAttackTarget에는 @ExecSpace가 없다 — 붙이면 LEA-3014.
 		if isvalid(defender.PlayerComponent) == false then
 			return false
 		end
-		
-		return __base:IsAttackTarget(defender, attackInfo)
+
+		if __base:IsAttackTarget(defender, attackInfo) == false then return false end
+
+		-- 대상 수 제한 (T19-1). 평타는 hitLimited=false라 그대로 통과한다.
+		if self.hitLimited == false then return true end
+		if self.hitBudget <= 0 then return false end
+
+		self.hitBudget = self.hitBudget - 1
+		return true
 	end
 
 end
