@@ -253,8 +253,9 @@ script PlayerSkillSlots extends Component
     end
 
     method integer RebirthBonus()
-        -- 환생 보너스 단계. **5레벨당 1** (대표 지시 2026-08-21).
-        -- Lv5에서 환생 → 1, Lv10 → 2, Lv100 → 20.
+        -- 환생 보너스 단계. **10레벨당 1** (대표 지시 2026-08-23 — 처음엔 5였다).
+        -- Lv10에서 환생 → 1, Lv20 → 2, Lv100 → 10.
+        -- 5레벨 단위는 스탯이 너무 빨리 불었다 (대표 판정: "스텟이 조금 과한거 같아보였어").
         --
         -- 두 곳이 이 값을 쓴다:
         --   레벨업당 스탯 포인트 = 기본 5 + 이 값        (PlayerStats.GrantLevelPoints)
