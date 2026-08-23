@@ -37,6 +37,20 @@ script EquipPanel extends Logic
     -- 설명 줄 (T17-4). 고른 스킬이 무엇을 하는지 한 줄로 보여 준다.
     property TextGUIRendererComponent lblDesc = "3bca6c15-07a1-4280-8c5e-01ea32fe6c65"
 
+    -- 출처 탭 (T20-2, 대표 지시 2026-08-23: "몬스터랑 전직 캐릭터의 스킬만
+    -- 분리해서 볼 수 있도록").
+    --
+    -- **왜 필요했나**: 목록이 5줄뿐인데 보유 스킬이 9~10개다. 후보를 id 순으로 훑는데
+    -- `s_hero_*`가 `s_mon_*`보다 알파벳 앞이라 **5줄이 전부 히어로로 채워지고
+    -- 몬스터 스킬이 한 줄도 안 나왔다** (대표 발견). 스크롤이 없어 나머지는 볼 방법이 없다.
+    -- 출처로 가르면 각 5개씩이라 지금 줄 수에 딱 들어간다.
+    property ButtonComponent tabMonster = "9097cfbc-fa7b-4ee2-820d-4c0e152399e2"
+    property ButtonComponent tabNpc = "077421e4-6fd7-47b2-9b98-4dd729d00083"
+    property TextGUIRendererComponent lblOwned = "e37e5106-faea-4342-924b-6e130fcbad8e"
+
+    -- 지금 보고 있는 출처. SkillTable.source 값 그대로다 ("monster" / "npc").
+    property string currentSource = "monster"
+
     property any handlers = nil
     property any refreshTimer = nil
     property boolean isOpen = false
@@ -77,6 +91,9 @@ script EquipPanel extends Logic
         self.handlers.s4 = self.slot4.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(4) end)
         self.handlers.s5 = self.slot5.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(5) end)
 
+        self.handlers.tm = self.tabMonster.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSource("monster") end)
+        self.handlers.tn = self.tabNpc.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSource("npc") end)
+
         self.handlers.r1 = self.row1.Entity:ConnectEvent(ButtonClickEvent, function() self:ClickRow(1) end)
         self.handlers.r2 = self.row2.Entity:ConnectEvent(ButtonClickEvent, function() self:ClickRow(2) end)
         self.handlers.r3 = self.row3.Entity:ConnectEvent(ButtonClickEvent, function() self:ClickRow(3) end)
@@ -101,6 +118,8 @@ script EquipPanel extends Logic
             if self.handlers.s3 ~= nil then self.slot3.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s3) end
             if self.handlers.s4 ~= nil then self.slot4.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s4) end
             if self.handlers.s5 ~= nil then self.slot5.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s5) end
+            if self.handlers.tm ~= nil then self.tabMonster.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.tm) end
+            if self.handlers.tn ~= nil then self.tabNpc.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.tn) end
             if self.handlers.r1 ~= nil then self.row1.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.r1) end
             if self.handlers.r2 ~= nil then self.row2.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.r2) end
             if self.handlers.r3 ~= nil then self.row3.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.r3) end
@@ -175,6 +194,87 @@ script EquipPanel extends Logic
         end
         self.selectedSlot = index
         self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SelectSource(string source)
+        -- 보고 있는 출처를 바꾼다 (T20-2).
+        --
+        -- 고른 스킬은 지운다. 안 지우면 안 보이는 탭의 스킬이 선택된 채로 남아,
+        -- 다른 탭에서 아무 줄이나 두 번 누르면 **엉뚱한 스킬이 끼워진다**
+        -- (두 번째 클릭이 "같은 줄인가"를 skillId로 판단하기 때문).
+        if self.currentSource == source then return end
+        self.currentSource = source
+        self.selectedSkillId = ""
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method string SourceLabel(string source)
+        -- 화면에 보일 출처 이름. 데이터 값(monster/npc)을 그대로 쓰지 않는다 —
+        -- "npc"는 플레이어가 모르는 말이다.
+        if source == "monster" then return "몬스터" end
+        if source == "npc" then return "모험가" end
+        return source
+    end
+
+    @ExecSpace("ClientOnly")
+    method table OwnedIdsOf(string source)
+        -- 그 출처에서 **보유한** 스킬 id 목록.
+        --
+        -- OwnedSkills(SyncTable)를 직접 순회하지 않고 후보를 훑는 이유는
+        -- GameData.GetMonsterSkillIds 주석 참고 (순서 안정성 + 확인된 API만 사용).
+        local out = {}
+        ---@type PlayerCollection
+        local collection = self:GetCollection()
+        if collection == nil then return out end
+
+        local candidates = _GameData:GetMonsterSkillIds()
+        for i = 1, #candidates do
+            local id = candidates[i]
+            local skill = _GameData:GetSkill(id)
+            if skill ~= nil and skill.source == source and collection:GetOwnedCount(id) > 0 then
+                out[#out + 1] = id
+            end
+        end
+        return out
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RenderTabs()
+        -- 지금 보고 있는 탭을 밝게 칠하고, 각 탭에 **보유 개수**를 적는다.
+        --
+        -- 개수를 적는 이유: 안 보고 있는 쪽에 뭐가 있는지 알 수 없으면 탭을 누를
+        -- 이유가 생기지 않는다. "모험가 5"가 보이면 눌러 본다.
+        local monsterCount = #self:OwnedIdsOf("monster")
+        local npcCount = #self:OwnedIdsOf("npc")
+
+        self:PaintTab(self.tabMonster, "몬스터", monsterCount, self.currentSource == "monster")
+        self:PaintTab(self.tabNpc, "모험가", npcCount, self.currentSource == "npc")
+
+        if isvalid(self.lblOwned) then
+            self.lblOwned.Text = "보유한 스킬"
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PaintTab(ButtonComponent tab, string label, integer count, boolean active)
+        -- 탭 한 칸을 그린다. 고른 쪽만 밝고, 나머지는 창 배경과 비슷하게 가라앉는다.
+        if not isvalid(tab) then return end
+
+        local text = tab.Entity.TextGUIRendererComponent
+        if isvalid(text) then
+            text.Text = label .. "  " .. tostring(count)
+        end
+
+        local sprite = tab.Entity.SpriteGUIRendererComponent
+        if isvalid(sprite) then
+            if active then
+                sprite.Color = Color(0.22, 0.30, 0.46, 1)
+            else
+                sprite.Color = Color(0.11, 0.12, 0.16, 1)
+            end
+        end
     end
 
     @ExecSpace("ClientOnly")
@@ -253,6 +353,12 @@ script EquipPanel extends Logic
         if not isvalid(self.lblDesc) then return end
 
         if self.selectedSkillId == "" then
+            -- 빈 탭이면 줄이 하나도 안 보인다. 이유를 안 적으면 고장으로 읽힌다 (T20-2).
+            if self.rowSkillIds ~= nil and #self.rowSkillIds == 0 then
+                self.lblDesc.Text = self:SourceLabel(self.currentSource)
+                    .. " 스킬은 아직 하나도 없다. 다른 탭을 눌러 보라."
+                return
+            end
             self.lblDesc.Text = "스킬을 누르면 설명이 나온다. 한 번 더 누르면 장착된다."
             return
         end
@@ -343,16 +449,20 @@ script EquipPanel extends Logic
             end
         end
 
-        -- 보유한 몬스터 스킬만 줄로 만든다.
-        -- OwnedSkills(SyncTable)를 직접 순회하지 않고 후보를 훑는 이유는
-        -- GameData.GetMonsterSkillIds 주석 참고 (순서 안정성 + 확인된 API만 사용).
-        self.rowSkillIds = {}
-        local candidates = _GameData:GetMonsterSkillIds()
-        for i = 1, #candidates do
-            local id = candidates[i]
-            if collection:GetOwnedCount(id) > 0 then
-                self.rowSkillIds[#self.rowSkillIds + 1] = id
-            end
+        -- 지금 고른 탭의 스킬만 줄로 만든다 (T20-2).
+        --
+        -- 예전에는 출처를 안 가리고 전부 넣었다. 줄이 5개뿐인데 보유가 9~10개라
+        -- **뒤쪽이 조용히 잘려 나갔고**, 하필 id 순서상 히어로가 앞이라 몬스터 스킬이
+        -- 한 줄도 안 나왔다. 가르면 각 5개씩이라 지금 줄 수에 들어간다.
+        self:RenderTabs()
+        self.rowSkillIds = self:OwnedIdsOf(self.currentSource)
+
+        -- ⚠ 한 출처가 5개를 넘으면 여전히 잘린다. 팔라딘·다크나이트가 붙으면
+        --   모험가 쪽이 15종이 되므로 그때는 아이콘 격자나 페이지가 필요하다
+        --   (대표 설계 2026-08-23 — "일단은" 탭까지만).
+        if #self.rowSkillIds > 5 then
+            log_warning("[EquipPanel] " .. self:SourceLabel(self.currentSource) .. " 스킬이 "
+                .. tostring(#self.rowSkillIds) .. "개인데 줄은 5개다 — 뒤가 잘린다")
         end
 
         for i = 1, 5 do
