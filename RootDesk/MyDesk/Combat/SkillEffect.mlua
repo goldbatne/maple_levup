@@ -53,6 +53,57 @@ script SkillEffect extends Logic
         end
     end
 
+    @ExecSpace("ServerOnly")
+    method void PlayProjectile(string skillId, Entity caster, Vector3 targetPos)
+        -- 날아가는 그림 (T19-3). `projectile_ruid`가 비어 있으면 아무것도 안 한다.
+        --
+        -- 이펙트(PlayCast)와 달리 **서버에서 엔티티를 스폰한다.** 스폰된 엔티티는
+        -- 저절로 복제되므로 클라마다 RPC를 보낼 필요가 없고, 날아가는 동안의 위치도
+        -- 엔진이 맞춰 준다. 매 프레임 좌표를 RPC로 보내면 그게 낭비다.
+        if skillId == "" then return end
+        if not isvalid(caster) then return end
+
+        local skill = _GameData:GetSkill(skillId)
+        if skill == nil or skill.projectile_ruid == "" then return end
+
+        local map = caster.CurrentMap
+        if map == nil then return end
+
+        local from = caster.TransformComponent.WorldPosition
+        local h = _GameData:GetBalance("skill_effect_height")
+        from = Vector3(from.x, from.y + h, from.z)
+        local to = Vector3(targetPos.x, targetPos.y + h, from.z)
+
+        -- ⚠ parent에 nil을 넘기면 런타임 에러다 (개발 규칙 · platform.md 8).
+        local entity = _SpawnService:SpawnByModelId("skillprojectile", "SkillProjectile", from, map)
+        if not isvalid(entity) then
+            log_warning("[SkillEffect] 투사체 스폰 실패: " .. skillId)
+            return
+        end
+
+        -- 그림은 스킬마다 다르다. 모델의 기본 SpriteRUID를 여기서 갈아끼운다 —
+        -- 스킬 종류만큼 .model을 만들지 않기 위해서다.
+        local sprite = entity.SpriteRendererComponent
+        if isvalid(sprite) then sprite.SpriteRUID = skill.projectile_ruid end
+
+        ---@type SkillProjectile
+        local proj = entity:GetComponent("script.SkillProjectile")
+        if proj == nil then
+            log_warning("[SkillEffect] 투사체에 SkillProjectile이 없다")
+            entity:Destroy()
+            return
+        end
+        proj:Launch(from, to,
+            _GameData:GetBalance("projectile_seconds"),
+            _GameData:GetBalance("projectile_spin_seconds"))
+
+        -- 날아가는 그림은 0.35초라 스크린샷으로 잡기 어렵다. 로그로 증거를 남긴다
+        -- (verify-checklist 2b: 짧은 연출은 만든 자리와 사라지는 자리에 로그를 짝지어 둔다).
+        log("[투사체] " .. skill.name .. "  "
+            .. string.format("%.1f,%.1f", from.x, from.y) .. " → "
+            .. string.format("%.1f,%.1f", to.x, to.y))
+    end
+
     @ExecSpace("Client")
     method void ShowCast(string skillId, Entity caster, boolean flipX)
         -- 실제 재생. 판정과 무관한 연출 전용 경로다 — 여기서 아무것도 못 그려도

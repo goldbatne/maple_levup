@@ -321,6 +321,13 @@ script MonsterAttack extends AttackComponent
 		end
 		_SkillEffect:PlayCast(skill.id, self.Entity, flip)
 
+		-- 던지는 스킬이면 바위가 날아간다 (T19-3). 맞은 대상 자리로 보낸다 —
+		-- 데미지는 이미 들어갔으므로 이건 순전히 그림이다.
+		if isvalid(firstHit) and isvalid(firstHit.Entity) then
+			_SkillEffect:PlayProjectile(skill.id, self.Entity,
+				firstHit.Entity.TransformComponent.WorldPosition)
+		end
+
 		log("[보스스킬] " .. monster.DisplayName .. " [" .. skill.name
 			.. "] 계수=" .. tostring(skill.coefficient)
 			.. " 반경=" .. string.format("%.2f", radius)
