@@ -272,6 +272,8 @@ script MonsterAttack extends AttackComponent
 				return false
 			end
 			monster:ApplyShield(skill.effect_value, skill.duration)
+			-- 방어 스킬은 대상이 없다. 자기 몸에 걸리는 연출이라 방향을 안 뒤집는다.
+			_SkillEffect:PlayCast(skill.id, self.Entity, false)
 			log("[보스스킬] " .. monster.DisplayName .. " [" .. skill.name .. "] 실드 "
 				.. tostring(math.floor(skill.effect_value * 100)) .. "% / "
 				.. tostring(skill.duration) .. "초")
@@ -303,8 +305,21 @@ script MonsterAttack extends AttackComponent
 
 		if hits == nil or #hits == 0 then
 			-- 사거리 밖이거나 플레이어가 무적 구간(i-frame)이다. 나간 것으로 치지 않는다.
+			-- **이펙트도 안 띄운다** — 안 맞은 스킬이 화면에는 터지면 무적 구간이
+			-- 버그처럼 읽힌다.
 			return false
 		end
+
+		-- 원작 이펙트·소리 (T19-2). 맞은 게 확인된 뒤에만 띄운다.
+		-- 방향은 **맞은 대상 쪽**으로 잡는다. 몬스터가 지금 어디를 보고 있는지는
+		-- 아바타냐 스프라이트냐에 따라 읽는 곳이 달라지는데(아바타는 Scale.x를 안 뒤집는다),
+		-- 맞은 대상의 좌표는 어느 쪽이든 같은 방법으로 안다.
+		local flip = false
+		local firstHit = hits[1]
+		if isvalid(firstHit) and isvalid(firstHit.Entity) then
+			flip = (firstHit.Entity.TransformComponent.WorldPosition.x < worldPosition.x)
+		end
+		_SkillEffect:PlayCast(skill.id, self.Entity, flip)
 
 		log("[보스스킬] " .. monster.DisplayName .. " [" .. skill.name
 			.. "] 계수=" .. tostring(skill.coefficient)

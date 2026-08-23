@@ -78,6 +78,22 @@ script GameDataVerify extends Logic
             end
         end
 
+        -- 시전 이펙트 (T19-2). 없으면 스킬을 써도 화면에 아무 일도 안 일어난다 —
+        -- 에러가 아니라 **조용히 밋밋해지는** 실패라 여기서 세어 둔다.
+        local withEffect = 0
+        local noEffect = ""
+        for id, skill in pairs(_GameData.skills) do
+            if skill.effect_ruid ~= "" then
+                withEffect = withEffect + 1
+            else
+                noEffect = noEffect .. (noEffect == "" and "" or ", ") .. id
+            end
+        end
+        log("[스킬이펙트] " .. tostring(withEffect) .. "/" .. tostring(total) .. "종에 시전 이펙트가 있다")
+        if noEffect ~= "" then
+            log_warning("  [스킬이펙트] 이펙트 없음: " .. noEffect)
+        end
+
         -- 중복 강화 계수 (T15-2). 몬스터 스킬만 쌓이므로 그것만 적는다.
         -- 상한이나 보너스가 0으로 되돌아가도 에러가 나지 않아 로그로만 보인다.
         local stackMax = math.floor(_GameData:GetBalance("skill_stack_max"))
