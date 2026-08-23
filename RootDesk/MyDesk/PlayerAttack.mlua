@@ -159,6 +159,10 @@ script PlayerAttack extends AttackComponent
 		-- 계수 0이 기준 계수(1.2)로 대체돼 **실드가 때리는 스킬로 나간다.**
 		if skill.skill_kind == "defense" then
 			if self:UseDefenseSkill(skill) == false then return false end
+			-- 연출은 효과가 실제로 걸린 뒤에만 (T19-2). 만피라 회복이 안 됐는데
+			-- 이펙트만 터지면 "썼는데 안 먹었다"가 화면에서 안 읽힌다.
+			-- 방어 스킬은 자기 몸에 걸리는 연출이라 방향을 안 뒤집는다.
+			_SkillEffect:PlayCast(skillId, self.Entity, false)
 			if skill.cooldown > 0 then
 				self.SkillReadyAt[skillId] = _UtilLogic.ElapsedSeconds + skill.cooldown
 			end
@@ -188,6 +192,15 @@ script PlayerAttack extends AttackComponent
 			.. "  대상=" .. (self.hitLimited and (skill.target_mode .. " 최대 " .. tostring(self.hitBudget))
 				or (skill.target_mode .. " 제한 없음")))
 		self:AttackFast(shape, skillId, CollisionGroups.Monster)
+
+		-- 원작 이펙트·소리 (T19-2). 판정 뒤에 부른다 — 앞에 두면 판정이 에러로 죽었을 때
+		-- 이펙트만 나가서 "때린 것 같은데 안 아픈" 화면이 된다.
+		--
+		-- 방향은 **바라보는 쪽**이다. 판정 자체는 플레이어 중심 원형이라 방향이 없지만
+		-- (UseSkill 위 주석), 이펙트는 한쪽으로 뻗는 그림이라 등 뒤로 나가면 어색하다.
+		local ctrl = self.Entity.PlayerControllerComponent
+		local flip = isvalid(ctrl) and ctrl.LookDirectionX < 0
+		_SkillEffect:PlayCast(skillId, self.Entity, flip)
 
 		-- 쐈으면 쿨다운을 건다. cooldown이 0이면 걸지 않는다 (데이터로 끌 수 있게).
 		if skill.cooldown > 0 then
