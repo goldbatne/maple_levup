@@ -14,6 +14,10 @@ script PlayerAttack extends AttackComponent
 	@HideFromInspector property boolean hitLimited = false
 	@HideFromInspector property integer hitBudget = 0
 
+	-- 이번 한 방에 얹을 돌진 보너스 (T21-2). 0이면 없다.
+	-- hitLimited/hitBudget과 같은 방식 — 한 방 앞에서 걸고 바로 지운다.
+	@HideFromInspector property number dashBonus = 0
+
 	-- skillId -> 다시 쓸 수 있게 되는 시각(월드 경과초). 비어 있으면 즉시 사용 가능.
 	--
 	-- @TargetUserSync인 이유: 판정은 서버가 하지만 HUD도 남은 시간을 그려야 한다.
@@ -186,6 +190,12 @@ script PlayerAttack extends AttackComponent
 			return self:ThrowSkill(skillId, skill, worldPosition, radius)
 		end
 
+		-- 돌진하는 스킬은 **도착해서** 아프다 (T21-2). 던지는 스킬과 같은 꼴이다 —
+		-- 연출이 끝나는 자리에서 판정한다.
+		if skill.dash_distance > 0 then
+			return self:DashSkill(skillId, skill, radius)
+		end
+
 		local shape = CircleShape(Vector2(worldPosition.x, worldPosition.y + 0.5), radius)
 
 		-- 대상 수 예산을 이 한 방에만 걸어 둔다. IsAttackTarget이 이걸 깎는다.
@@ -245,6 +255,106 @@ script PlayerAttack extends AttackComponent
 			.. string.format("%.1f,%.1f", toPos.x, toPos.y)
 			.. "  " .. string.format("%.2f", flight) .. "초 뒤 착탄")
 		return true
+	end
+
+	@ExecSpace("ServerOnly")
+	method boolean DashSkill(string skillId, table skill, number radius)
+		-- 가고 있는 쪽으로 빠르게 돌진하고, **도착한 자리에서** 더 아프게 때린다 (T21-2).
+		--
+		-- 방향은 **지금 몸이 가고 있는 쪽**이다 (대표 정정: "원하는 위치란 가고 있는
+		-- 방향쪽으로 말이지"). 자동 조준을 주지 않는 이유는 던지는 스킬과 같다 —
+		-- 방향키로 겨누는 것이 이 게임의 조작이다.
+		--
+		-- 서 있으면 속도가 0이라 방향이 없다. 그때는 **바라보는 쪽**으로 나간다.
+		-- 안 그러면 멈춰서 쓰면 아무 일도 안 일어나 "먹통"으로 보인다.
+		local dir = Vector2(0, 0)
+		local body = self.Entity.KinematicbodyComponent
+		if isvalid(body) then
+			local v = body.MoveVelocity
+			local len = math.sqrt(v.x * v.x + v.y * v.y)
+			if len > 0.01 then dir = Vector2(v.x / len, v.y / len) end
+		end
+		if dir.x == 0 and dir.y == 0 then
+			local ctrl = self.Entity.PlayerControllerComponent
+			local look = 1
+			if isvalid(ctrl) and ctrl.LookDirectionX < 0 then look = -1 end
+			dir = Vector2(look, 0)
+		end
+
+		local seconds = _GameData:GetBalance("skill_dash_seconds")
+		if seconds <= 0 then seconds = 0.2 end
+
+		-- InputSpeed는 월드 유닛/초가 아니다. 맵 종류마다 환산이 달라
+		-- (platform.md 10: RectTile은 1.2로 나눈다) 그 몫을 상수로 뺐다.
+		-- 환산이 조금 틀려도 **판정은 틀리지 않는다** — 도착한 자리에서 재기 때문에
+		-- 오차는 "얼마나 멀리 갔나"에만 남는다.
+		local speed = skill.dash_distance / seconds * _GameData:GetBalance("skill_dash_speed_scale")
+
+		-- 움직이는 것은 클라다 (실측: 서버 MoveToDirection은 0.00). 그 사람에게만 보낸다.
+		_PlayerDash:Begin(dir.x, dir.y, seconds, speed, self.Entity.PlayerComponent.UserId)
+
+		-- ⚠ **서버가 보는 플레이어 좌표를 믿으면 안 된다.** 움직이는 것은 클라라
+		--   서버 쪽 좌표가 크게 늦는다 (실측: 실제 도착 -3.42 / -2.90인데 판정 시각에
+		--   서버는 두 번 다 -1.4였다). 기다려도 안 따라온다 — 0.15초를 더 줘도 같았다.
+		--   그래서 **도착 지점을 계산해서** 그 자리에서 잰다. 벽에 막히면 실제로는
+		--   덜 갔을 수 있지만, 막힌 방향에는 어차피 때릴 것이 없다.
+		local transform = self.Entity.TransformComponent
+		local from = transform.WorldPosition
+		local toPos = Vector3(
+			from.x + dir.x * skill.dash_distance,
+			from.y + dir.y * skill.dash_distance,
+			from.z)
+
+		local maxTargets = skill.max_targets
+		_TimerService:SetTimerOnce(function()
+			self:ResolveDashHit(skillId, toPos, radius, maxTargets)
+		end, seconds)
+
+		-- 쿨다운은 **떠나는 순간** 건다. 도착해서 걸면 벽에 막혀 못 간 경우에
+		-- 공짜로 다시 쓸 수 있다 (던지는 스킬을 던진 순간에 거는 것과 같은 이유).
+		if skill.cooldown > 0 then
+			self.SkillReadyAt[skillId] = _UtilLogic.ElapsedSeconds + skill.cooldown
+		end
+
+		log("[PlayerAttack] [" .. skill.name .. "] 돌진 방향 "
+			.. string.format("%.2f,%.2f", dir.x, dir.y)
+			.. "  거리 " .. string.format("%.1f", skill.dash_distance)
+			.. "  " .. string.format("%.2f", seconds) .. "초 뒤 판정")
+		return true
+	end
+
+	@ExecSpace("ServerOnly")
+	method void ResolveDashHit(string skillId, Vector3 pos, number radius, number maxTargets)
+		-- 돌진이 끝나는 순간의 판정. 출발한 자리가 아니라 **도착할 자리**를 본다.
+		-- 좌표를 인자로 받는 이유는 위 DashSkill 주석 참고 — 서버가 보는 플레이어
+		-- 위치는 이 시점에 아직 출발점 근처다.
+		if not isvalid(self.Entity) then return end
+
+		local skill = _GameData:GetSkill(skillId)
+		if skill == nil then return end
+
+		self.hitLimited = (maxTargets > 0)
+		self.hitBudget = math.floor(maxTargets)
+		-- 부딪힌 만큼 더 아프다. CalcDamage가 이 값을 읽어 계수를 올린다 —
+		-- hitLimited/hitBudget과 같은 방식이다 (한 방에만 걸고 바로 지운다).
+		self.dashBonus = _GameData:GetBalance("skill_dash_damage_bonus")
+
+		-- 몇 명 맞았는지가 로그에 남아야 "돌진했는데 허공이었다"가 보인다.
+		local hits = self:Attack(
+			CircleShape(Vector2(pos.x, pos.y + 0.5), radius), skillId, CollisionGroups.Monster)
+
+		self.hitLimited = false
+		self.dashBonus = 0
+
+		-- 부딪히는 충격은 **도착해서** 터진다. 출발할 때 터지면 아무것도 없는 자리에서 번쩍인다.
+		local ctrl = self.Entity.PlayerControllerComponent
+		local flip = isvalid(ctrl) and ctrl.LookDirectionX < 0
+		_SkillEffect:PlayCast(skillId, self.Entity, flip)
+
+		local n = 0
+		if hits ~= nil then n = #hits end
+		log("[돌진] " .. skill.name .. "  도착 " .. string.format("%.1f,%.1f", pos.x, pos.y)
+			.. "  반경 " .. string.format("%.2f", radius) .. " → " .. tostring(n) .. "명")
 	end
 
 	@ExecSpace("ServerOnly")
@@ -364,6 +474,12 @@ script PlayerAttack extends AttackComponent
 					end
 				end
 			end
+		end
+
+		-- 돌진해서 부딪힌 한 방은 더 아프다 (T21-2). 계수에 얹는 이유는 중복 강화와 같다 —
+		-- 데미지 산술은 CombatFormula 한 곳에만 두고, 여기서는 **계수만** 만든다.
+		if self.dashBonus > 0 then
+			coefficient = coefficient * (1 + self.dashBonus)
 		end
 
 		local damage = _CombatFormula:CalcDamage(power, def, coefficient)
