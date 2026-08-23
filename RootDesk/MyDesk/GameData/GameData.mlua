@@ -193,8 +193,10 @@ script GameData extends Logic
                     -- 비어 있으면 안 날린다 — 대부분의 스킬은 시전자 자리에서 터지는
                     -- 이펙트로 충분하고, "던진다"가 그림에 있어야 하는 스킬만 채운다.
                     --
-                    -- ⚠ **판정과 무관하다.** 데미지는 스킬을 쓰는 순간 이미 들어갔고
-                    -- 이 투사체는 아무것도 때리지 않는다 (SkillProjectile 상단 주석).
+                    -- ⚠ **이 값이 비어 있는지가 판정 방식을 가른다** (T19-4).
+                    -- 채워져 있으면 던지는 스킬이 되어 **바위가 닿는 순간** 아프고,
+                    -- 비어 있으면 시전자 자리에서 즉시 판정한다.
+                    -- 갈리는 곳은 MonsterAttack.CastSkill / PlayerAttack.UseSkill 한 줄씩이다.
                     projectile_ruid = self:ToText(row:GetItem("projectile_ruid")),
                     description = self:ToText(row:GetItem("description")),
                 }
