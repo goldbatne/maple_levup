@@ -189,6 +189,11 @@ script GameData extends Logic
                     -- 기본값 1.0인 이유: 빠뜨렸을 때 정사각으로 그려지는 편이 0(안 그려짐)보다 낫다.
                     icon_ratio = self:ToNumber(row:GetItem("icon_ratio"), 1.0),
 
+                    -- 돌진 거리(월드 유닛). 0이면 제자리에서 때린다 (T21-2).
+                    -- 0보다 크면 **가고 있는 쪽으로 돌진하고 도착한 자리에서** 판정한다.
+                    -- 던지는 스킬(`projectile_ruid`)과 같은 꼴 — 연출이 끝나는 자리가 판정 자리다.
+                    dash_distance = self:ToNumber(row:GetItem("dash_distance"), 0),
+
                     -- 이펙트를 어떻게 움직일지 (T21-1). 비어 있으면 `effect_ruid`가
                     -- **원작 애니메이션 클립**이고 `_EffectService`가 그대로 재생한다.
                     -- 채워져 있으면 `effect_ruid`는 **우리가 그린 스프라이트 한 장**이고

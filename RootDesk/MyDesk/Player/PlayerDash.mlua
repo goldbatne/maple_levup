@@ -1,0 +1,97 @@
+-- @클라이언트 (플레이어 이동은 클라가 쥔다)
+--
+-- 돌진 스킬의 **움직임**만 담당한다 (T21-2, 대표 지시 2026-08-23:
+-- "몸통 박치기 스킬 있잖아 원하는 위치에 빠르게 돌진해서 추가 데미지를 주도록").
+-- 방향은 대표 정정으로 **가고 있는 쪽**이다.
+--
+-- ## 왜 클라인가 (실측)
+--
+-- 서버에서 `MovementComponent:MoveToDirection`을 0.4초 동안 불러도
+-- **플레이어가 1cm도 안 움직인다** (실측: 이동거리 0.00). 같은 코드를 클라에서
+-- 돌리면 움직인다 (실측: 10.5 유닛). 플레이어 이동은 클라가 쥐고 있다.
+--
+-- MoveInputGuard가 `movement:Stop()`을 클라에서 부르는 것과 같은 이유다.
+--
+-- ## 데미지는 여기서 안 준다
+--
+-- 판정은 서버(`PlayerAttack.ResolveDashHit`)가 **돌진이 끝나는 시각에** 도착 지점에서
+-- 한다. 개발 규칙 2 — 데미지 계산은 반드시 서버. 여기는 그림만 옮긴다.
+--
+-- ⚠ 타이머가 아니라 `OnUpdate(delta)`로 민다. 타이머(0.05초)면 20Hz라
+--   순간이동처럼 끊긴다 (msw-combat-system 1-6의 금지 패턴).
+--
+-- @Component이 아니라 @Logic인 이유: 플레이어 엔티티에 붙이면 맵을 옮길 때
+-- 돌진 중이던 상태가 같이 사라져 InputSpeed를 못 되돌린다. MoveInputGuard와 같은 판단.
+
+@Logic
+script PlayerDash extends Logic
+
+    property boolean dashing = false
+    property number dashLeft = 0
+    property Vector2 dashDir = Vector2(0, 0)
+
+    -- 돌진 전 InputSpeed. 끝나면 이 값으로 되돌린다.
+    -- ⚠ 안 되돌리면 **그 회차 내내 빠르게 걷는다.** 눈에 잘 안 띄는 고장이라
+    --   OnEndPlay에서도 한 번 더 되돌린다.
+    property number savedSpeed = 0
+
+    @ExecSpace("Client")
+    method void Begin(number dirX, number dirY, number seconds, number speed)
+        -- 서버가 스킬을 승인하면 그 사람의 클라만 부른다.
+        if seconds <= 0 then return end
+
+        local player = _UserService.LocalPlayer
+        if player == nil then return end
+        local movement = player.MovementComponent
+        if not isvalid(movement) then return end
+
+        -- 이미 돌진 중이면 속도를 겹쳐 저장하지 않는다. 겹치면 원래 속도를 잃는다.
+        if not self.dashing then self.savedSpeed = movement.InputSpeed end
+
+        self.dashDir = Vector2(dirX, dirY)
+        self.dashLeft = seconds
+        self.dashing = true
+        movement.InputSpeed = speed
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnUpdate(number delta)
+        if not self.dashing then return end
+
+        self.dashLeft = self.dashLeft - delta
+        if self.dashLeft <= 0 then
+            self:Finish()
+            return
+        end
+
+        local player = _UserService.LocalPlayer
+        if player == nil then self:Finish() return end
+        local movement = player.MovementComponent
+        if not isvalid(movement) then self:Finish() return end
+
+        -- 매 프레임 다시 밀어야 한다. 한 번만 부르면 다음 프레임에 입력이 덮어쓴다.
+        movement:MoveToDirection(self.dashDir, 0)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Finish()
+        -- 속도를 되돌리고 멈춘다. 안 멈추면 돌진 방향으로 계속 미끄러진다.
+        self.dashing = false
+        self.dashLeft = 0
+
+        local player = _UserService.LocalPlayer
+        if player == nil then return end
+        local movement = player.MovementComponent
+        if not isvalid(movement) then return end
+
+        if self.savedSpeed > 0 then movement.InputSpeed = self.savedSpeed end
+        movement:Stop()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- 돌진 중에 세션이 끝나도 속도는 되돌려 둔다.
+        if self.dashing then self:Finish() end
+    end
+
+end
