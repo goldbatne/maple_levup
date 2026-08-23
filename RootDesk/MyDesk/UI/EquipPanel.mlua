@@ -80,6 +80,11 @@ script EquipPanel extends Logic
 
     property number refreshInterval = 0.3
 
+    -- 아이콘을 넣을 상자 (T20-4). 그림은 이 안에 **비율을 지킨 채** 들어간다.
+    -- 칸(150x126)에서 위 10px을 띄우고 아래 이름표(48px)를 뺀 나머지다.
+    property number iconBoxW = 56
+    property number iconBoxH = 60
+
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         -- 버튼을 연결하고 닫힌 상태로 시작한다.
@@ -454,6 +459,31 @@ script EquipPanel extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method void FitIcon(any iconTransform, number ratio)
+        -- 그림의 가로/세로 비를 지킨 채 아이콘 상자에 채워 넣는다 (T20-4).
+        --
+        -- 왜 `PreserveSprite`를 안 쓰나: AspectOnly(1)가 바로 이 일을 하지만
+        -- **위치를 스프라이트 자신의 pivot으로 잡아** 칸 밖으로 밀어낸다
+        -- (T17-4c에서 아이템 아이콘이 같은 이유로 어긋났고, T20-4에서 다시 실측했다 —
+        -- 그림이 칸 위로 반쯤 튀어나오고, pivot을 가운데로 옮기면 아예 사라졌다).
+        -- 그래서 stretch(None)로 두고 **상자 쪽을 그림 비율에 맞춘다.**
+        --
+        -- 왜 `SetNativeSize()`로 재지 않나: 그 값은 **다음 프레임에** RectSize에 들어온다
+        -- (실측: 999x999를 심고 부른 직후 999x999, 0.1초 뒤 27x38). 늦게 재려고
+        -- 타이머를 걸었더니 자원이 아직 안 올라온 첫 회에 18x18을 물어 **캐시가 오염됐고**,
+        -- 그 뒤로 계속 정사각으로 그려졌다. 재는 값이 RectSize 하나라 입력과 출력이
+        -- 같은 칸을 쓰는 것이 원인이라, 아예 데이터로 옮겼다 (`SkillTable.icon_ratio`).
+        if ratio <= 0 then return end
+        local w = self.iconBoxH * ratio
+        local h = self.iconBoxH
+        if w > self.iconBoxW then
+            w = self.iconBoxW
+            h = self.iconBoxW / ratio
+        end
+        iconTransform.RectSize = Vector2(w, h)
+    end
+
+    @ExecSpace("ClientOnly")
     method void RenderCell(integer index, PlayerCollection collection, PlayerSkillSlots slots)
         -- 격자 한 칸을 그린다 (T20-3). 칸에는 **아이콘과 이름만** 둔다 —
         -- 개수·계수·쿨·잠김 사유는 눌렀을 때 아래 상세로 간다
@@ -485,6 +515,11 @@ script EquipPanel extends Logic
                 else
                     icon.Color = Color(1, 1, 1, 1)
                 end
+
+                -- 그림마다 비율이 다르다 (T20-4). 몬스터 카드는 세로로 길고(28x40)
+                -- 원작 스킬 아이콘은 정사각(32x32)이라, 한 크기에 밀어 넣으면
+                -- 카드가 두 배로 뚱뚱해진다 — 대표가 "이상하게 나온다"고 한 것이 이것이다.
+                self:FitIcon(iconEntity.UITransformComponent, skill.icon_ratio)
             end
         end
 
