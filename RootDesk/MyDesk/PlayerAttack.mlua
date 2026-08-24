@@ -119,17 +119,23 @@ script PlayerAttack extends AttackComponent
 	end
 
 	@ExecSpace("Server")
-	method void RequestUseSkill(integer activeIndex)
+	method void RequestUseSkill(integer activeIndex, number aimX, number aimY)
 		-- 클라 버튼 → 서버. senderUserId는 서버가 채우므로 위조할 수 없다.
 		if senderUserId ~= self.Entity.PlayerComponent.UserId then
 			log_warning("[PlayerAttack] 남의 스킬 사용 시도 차단: " .. tostring(senderUserId))
 			return
 		end
-		self:UseSkill(activeIndex)
+		-- 조준 방향은 클라가 실어 보낸다 (T22-1). 서버는 입력을 모르고,
+		-- 몸의 속도로 읽으려 했더니 항상 0이었다 (실측).
+		--
+		-- 위조 걱정은 없다 — 이 값이 하는 일은 **어느 쪽으로 돌진하나**뿐이고,
+		-- 거리·피해·쿨다운은 전부 서버가 데이터에서 읽는다. 방향을 조작해 봐야
+		-- 자기가 원하는 쪽으로 3.5유닛 가는 것이고, 그건 원래 되는 일이다.
+		self:UseSkill(activeIndex, aimX, aimY)
 	end
 
 	@ExecSpace("ServerOnly")
-	method boolean UseSkill(integer activeIndex)
+	method boolean UseSkill(integer activeIndex, number aimX, number aimY)
 		-- GetActiveSkills()의 순번으로 쏜다. 호출부는 스킬의 출처를 구분하지 않는다
 		-- (작업지시서 T5 요청 3: 사용 인터페이스는 통일).
 		---@type PlayerSkillSlots
@@ -193,7 +199,7 @@ script PlayerAttack extends AttackComponent
 		-- 돌진하는 스킬은 **도착해서** 아프다 (T21-2). 던지는 스킬과 같은 꼴이다 —
 		-- 연출이 끝나는 자리에서 판정한다.
 		if skill.dash_distance > 0 then
-			return self:DashSkill(skillId, skill, radius)
+			return self:DashSkill(skillId, skill, radius, aimX, aimY)
 		end
 
 		local shape = CircleShape(Vector2(worldPosition.x, worldPosition.y + 0.5), radius)
@@ -258,23 +264,22 @@ script PlayerAttack extends AttackComponent
 	end
 
 	@ExecSpace("ServerOnly")
-	method boolean DashSkill(string skillId, table skill, number radius)
+	method boolean DashSkill(string skillId, table skill, number radius, number aimX, number aimY)
 		-- 가고 있는 쪽으로 빠르게 돌진하고, **도착한 자리에서** 더 아프게 때린다 (T21-2).
 		--
-		-- 방향은 **지금 몸이 가고 있는 쪽**이다 (대표 정정: "원하는 위치란 가고 있는
-		-- 방향쪽으로 말이지"). 자동 조준을 주지 않는 이유는 던지는 스킬과 같다 —
-		-- 방향키로 겨누는 것이 이 게임의 조작이다.
+		-- 방향은 **클라가 재서 보낸 8방향**이다 (T22-1, 대표 지시 "8방향으로 통일해줘").
 		--
-		-- 서 있으면 속도가 0이라 방향이 없다. 그때는 **바라보는 쪽**으로 나간다.
-		-- 안 그러면 멈춰서 쓰면 아무 일도 안 일어나 "먹통"으로 보인다.
-		local dir = Vector2(0, 0)
-		local body = self.Entity.KinematicbodyComponent
-		if isvalid(body) then
-			local v = body.MoveVelocity
-			local len = math.sqrt(v.x * v.x + v.y * v.y)
-			if len > 0.01 then dir = Vector2(v.x / len, v.y / len) end
-		end
-		if dir.x == 0 and dir.y == 0 then
+		-- ⚠ 원래는 서버에서 `KinematicbodyComponent.MoveVelocity`를 읽었는데
+		--   **그 값이 항상 0이다** (실측). 그래서 상하좌우조차 제대로 안 나오고
+		--   늘 바라보는 쪽으로만 나갔다 — 대표가 "상하좌우밖에 안 된다"고 한 것이 이것이다.
+		--   입력은 클라에만 있으므로 방향도 클라가 정해야 한다 (PlayerAimInput).
+		local dir = Vector2(aimX, aimY)
+		local len = math.sqrt(dir.x * dir.x + dir.y * dir.y)
+		if len > 0.01 then
+			dir = Vector2(dir.x / len, dir.y / len)
+		else
+			-- 서 있고 이동 이력도 없으면 **바라보는 쪽**으로 나간다.
+			-- 안 그러면 멈춰서 쓰면 아무 일도 안 일어나 "먹통"으로 보인다.
 			local ctrl = self.Entity.PlayerControllerComponent
 			local look = 1
 			if isvalid(ctrl) and ctrl.LookDirectionX < 0 then look = -1 end

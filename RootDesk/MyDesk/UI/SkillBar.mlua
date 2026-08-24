@@ -351,7 +351,12 @@ script SkillBar extends Logic
         ---@type PlayerAttack
         local atk = me:GetComponent("script.PlayerAttack")
         if atk == nil then return end
-        atk:RequestUseSkill(activeIndex)
+
+        -- 조준 방향을 **여기서 재서 같이 보낸다** (T22-1).
+        -- 서버는 입력을 모른다 — 돌진 방향을 서버에서 몸의 속도로 읽으려 했더니
+        -- 항상 0이었다 (실측). 누른 순간의 방향은 누른 쪽만 안다.
+        local aim = _PlayerAimInput:GetAim8()
+        atk:RequestUseSkill(activeIndex, aim.x, aim.y)
     end
 
     @ExecSpace("ClientOnly")
