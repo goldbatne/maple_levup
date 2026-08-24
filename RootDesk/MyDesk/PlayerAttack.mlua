@@ -22,7 +22,13 @@ script PlayerAttack extends AttackComponent
 	--
 	-- @TargetUserSync인 이유: 판정은 서버가 하지만 HUD도 남은 시간을 그려야 한다.
 	-- 서버만 들고 있으면 클라가 매번 물어봐야 하고, 클라만 들고 있으면 위조된다.
+	-- 이 값은 **서버 시계**의 시각이고 서버 판정에만 쓴다.
 	@TargetUserSync property SyncTable<string, number> SkillReadyAt
+
+	-- 같은 쿨다운을 **클라 시계**로 다시 적은 것. 스킬 바 표시만 이걸 본다.
+	-- 왜 갈랐는지는 GetCooldownRemain 주석에 있다. 저장하지 않는다 —
+	-- 몇 초짜리라 재접속하면 어차피 끝나 있다.
+	property table clientReadyAt = {}
 
 	@ExecSpace("ServerOnly")
 	method void OnBeginPlay()
@@ -173,9 +179,7 @@ script PlayerAttack extends AttackComponent
 			-- 이펙트만 터지면 "썼는데 안 먹었다"가 화면에서 안 읽힌다.
 			-- 방어 스킬은 자기 몸에 걸리는 연출이라 방향을 안 뒤집는다.
 			_SkillEffect:PlayCast(skillId, self.Entity, false)
-			if skill.cooldown > 0 then
-				self.SkillReadyAt[skillId] = _UtilLogic.ElapsedSeconds + skill.cooldown
-			end
+			self:StartCooldown(skillId, skill.cooldown)
 			return true
 		end
 
@@ -226,9 +230,7 @@ script PlayerAttack extends AttackComponent
 		_SkillEffect:PlayCast(skillId, self.Entity, flip)
 
 		-- 쐈으면 쿨다운을 건다. cooldown이 0이면 걸지 않는다 (데이터로 끌 수 있게).
-		if skill.cooldown > 0 then
-			self.SkillReadyAt[skillId] = _UtilLogic.ElapsedSeconds + skill.cooldown
-		end
+		self:StartCooldown(skillId, skill.cooldown)
 		return true
 	end
 
@@ -287,9 +289,7 @@ script PlayerAttack extends AttackComponent
 		--   2) 비행 중에는 아직 안 걸려 있어 **연타로 계속 던질 수 있다**
 		-- ⚠ 2번이 실제로 났다 (대표 발견 2026-08-24: "바위 던지기가 쿨타임이 없더라고").
 		--   이 갈래만 쿨다운을 안 걸고 return 했다 — 일반 공격·방어·돌진은 전부 걸고 있었다.
-		if skill.cooldown > 0 then
-			self.SkillReadyAt[skillId] = _UtilLogic.ElapsedSeconds + skill.cooldown
-		end
+		self:StartCooldown(skillId, skill.cooldown)
 
 		log("[PlayerAttack] [" .. skill.name .. "] 던짐 "
 			.. string.format("%.2f,%.2f", dx, dy)
@@ -397,9 +397,7 @@ script PlayerAttack extends AttackComponent
 
 		-- 쿨다운은 **떠나는 순간** 건다. 도착해서 걸면 벽에 막혀 못 간 경우에
 		-- 공짜로 다시 쓸 수 있다 (던지는 스킬을 던진 순간에 거는 것과 같은 이유).
-		if skill.cooldown > 0 then
-			self.SkillReadyAt[skillId] = _UtilLogic.ElapsedSeconds + skill.cooldown
-		end
+		self:StartCooldown(skillId, skill.cooldown)
 
 		log("[PlayerAttack] [" .. skill.name .. "] 돌진 방향 "
 			.. string.format("%.2f,%.2f", dir.x, dir.y)
@@ -472,12 +470,43 @@ script PlayerAttack extends AttackComponent
 	-- (T5-4 GetActiveSkills, T5-5 GetOwnedCount와 같은 판단)
 	method number GetCooldownRemain(string skillId)
 		-- 남은 재사용 대기시간(초). 지금 쓸 수 있으면 0.
-		local readyAt = self.SkillReadyAt[skillId]
+		--
+		-- ⚠ 서버와 클라가 **다른 표**를 본다. `_UtilLogic.ElapsedSeconds`가 두 쪽에서
+		--   다르기 때문이다 (실측 2026-08-24: 차이가 1.3초 / 10초 / 94초로 **일정하지도
+		--   않다**). 서버가 적은 절대 시각을 클라에서 빼면 남은 시간이 그만큼 틀리고,
+		--   차이가 크면 **늘 0으로 읽혀 스킬 바에 쿨다운이 아예 안 그려진다** (실측).
+		--   그래서 서버는 `StartCooldown`에서 **길이(초)**만 넘기고 클라가 자기 시계로 센다.
+		local readyAt = nil
+		if self:IsClient() then
+			readyAt = self.clientReadyAt[skillId]
+		else
+			readyAt = self.SkillReadyAt[skillId]
+		end
 		if readyAt == nil then return 0 end
 
 		local remain = readyAt - _UtilLogic.ElapsedSeconds
 		if remain <= 0 then return 0 end
 		return remain
+	end
+
+	@ExecSpace("ServerOnly")
+	method void StartCooldown(string skillId, number cooldown)
+		-- 쿨다운을 거는 **유일한 창구**. 스킬이 나간 갈래마다 이걸 부른다.
+		--
+		-- 왜 한 곳으로 모았나: 전에는 갈래마다(일반·방어·던지기·돌진) 같은 두 줄을
+		-- 손으로 적었고, **던지기 갈래에서 빠뜨려 바위 던지기가 무한 연타됐다**
+		-- (T23-1, 대표 발견). 갈래가 늘 때마다 다시 빠뜨릴 자리가 생기므로 창구를 하나로 둔다.
+		if cooldown <= 0 then return end
+		self.SkillReadyAt[skillId] = _UtilLogic.ElapsedSeconds + cooldown
+		-- 클라에는 **길이**를 보낸다. 시각을 보내면 시계 차이만큼 틀린다.
+		self:OnCooldownStarted(skillId, cooldown, self.Entity.PlayerComponent.UserId)
+	end
+
+	@ExecSpace("Client")
+	method void OnCooldownStarted(string skillId, number cooldown)
+		-- 서버가 쿨다운을 걸었다고 알려 준다. 길이만 받아 **클라 시계**로 다시 적는다.
+		if cooldown <= 0 then return end
+		self.clientReadyAt[skillId] = _UtilLogic.ElapsedSeconds + cooldown
 	end
 
 	method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
