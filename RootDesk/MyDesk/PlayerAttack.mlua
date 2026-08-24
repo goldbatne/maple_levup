@@ -193,7 +193,7 @@ script PlayerAttack extends AttackComponent
 		-- 던지는 스킬은 **닿을 때** 아프다 (T19-4). 보스 쪽과 같은 규칙이라
 		-- 같은 스킬을 누가 쓰든 화면에서 같은 일이 일어난다.
 		if skill.projectile_ruid ~= "" then
-			return self:ThrowSkill(skillId, skill, worldPosition, radius)
+			return self:ThrowSkill(skillId, skill, worldPosition, radius, aimX, aimY)
 		end
 
 		-- 돌진하는 스킬은 **도착해서** 아프다 (T21-2). 던지는 스킬과 같은 꼴이다 —
@@ -233,21 +233,45 @@ script PlayerAttack extends AttackComponent
 	end
 
 	@ExecSpace("ServerOnly")
-	method boolean ThrowSkill(string skillId, table skill, Vector3 fromPos, number radius)
+	method boolean ThrowSkill(string skillId, table skill, Vector3 fromPos, number radius, number aimX, number aimY)
 		-- 던져서 **닿을 때** 아프게 한다 (T19-4). 몬스터 쪽 MonsterAttack.ThrowSkill과
 		-- 같은 규칙이다 — 같은 스킬을 누가 쓰든 화면에서 같은 일이 일어나야 한다.
 		--
-		-- 다만 조준 방식이 다르다. 몬스터는 사거리 안의 사람을 고르지만, 플레이어는
-		-- **바라보는 방향으로 사거리만큼** 던진다 — 자동 조준을 주면 방향키로 겨누는
-		-- 재미가 사라지고, 판정이 원래 플레이어 중심 원형이라 방향이라는 개념이 없었다.
-		local dir = 1
+		-- 조준은 **조준한 쪽의 가장 가까운 몬스터**다 (T23-2, 대표 선택 2026-08-24).
+		--
+		-- ⚠ 원래는 "바라보는 방향으로 **사거리만큼**" 던졌는데, T19-5에서 사거리를
+		--   3.5 → 10.5로 올리면서 이 스킬이 사실상 못 쓰게 됐다: 바위가 **항상 정확히
+		--   10.5유닛 자리**에 떨어지고 착탄 반경이 0.8이라, 몬스터가 10.5±0.8에 서 있어야만
+		--   맞았다. **바로 옆의 몬스터는 절대 안 맞는다.** (대표 발견: "좌우로만 바위가
+		--   날아가고 몬스터가 맞지 않는거 같아")
+		--
+		-- 자동 조준이 아니다 — **방향은 여전히 내가 겨눈다.** 겨눈 45도 부채꼴 안에서만
+		-- 고르므로 엉뚱한 쪽의 몬스터는 잡히지 않는다. 사라진 것은 "거리까지 맞춰야 하는"
+		-- 부분뿐이고, 그건 재미가 아니라 사고였다.
 		if radius <= 0 then radius = _GameData:GetBalance("player_attack_range") end
 
-		local ctrl = self.Entity.PlayerControllerComponent
-		if isvalid(ctrl) and ctrl.LookDirectionX < 0 then dir = -1 end
+		-- 방향: 클라가 재서 보낸 8방향 (T22-1). 0이면 바라보는 쪽으로 물러난다.
+		local dx, dy = aimX, aimY
+		local len = math.sqrt(dx * dx + dy * dy)
+		if len > 0.01 then
+			dx, dy = dx / len, dy / len
+		else
+			local ctrl = self.Entity.PlayerControllerComponent
+			dx, dy = 1, 0
+			if isvalid(ctrl) and ctrl.LookDirectionX < 0 then dx = -1 end
+		end
 
-		local toPos = Vector3(fromPos.x + dir * radius, fromPos.y, fromPos.z)
-		_SkillEffect:PlayCast(skillId, self.Entity, dir < 0)
+		-- 겨눈 부채꼴 안에서 가장 가까운 몬스터를 고른다. 없으면 최대 사거리로 날아가
+		-- 빗나간다 — 빈 쪽으로 던지면 헛치는 것이 맞다.
+		local target = self:PickThrowTarget(fromPos, dx, dy, radius)
+		local toPos = nil
+		if target ~= nil then
+			toPos = Vector3(target.x, target.y, fromPos.z)
+		else
+			toPos = Vector3(fromPos.x + dx * radius, fromPos.y + dy * radius, fromPos.z)
+		end
+
+		_SkillEffect:PlayCast(skillId, self.Entity, dx < 0)
 		_SkillEffect:PlayProjectile(skillId, self.Entity, toPos)
 
 		-- 바위와 **같은 시간**을 쓴다. 갈라지면 숫자와 그림이 어긋난다.
@@ -267,10 +291,56 @@ script PlayerAttack extends AttackComponent
 			self.SkillReadyAt[skillId] = _UtilLogic.ElapsedSeconds + skill.cooldown
 		end
 
-		log("[PlayerAttack] [" .. skill.name .. "] 던짐 → "
+		log("[PlayerAttack] [" .. skill.name .. "] 던짐 "
+			.. string.format("%.2f,%.2f", dx, dy)
+			.. (target ~= nil and " → 조준 " or " → 허공 ")
 			.. string.format("%.1f,%.1f", toPos.x, toPos.y)
 			.. "  " .. string.format("%.2f", flight) .. "초 뒤 착탄")
 		return true
+	end
+
+	@ExecSpace("ServerOnly")
+	method any PickThrowTarget(Vector3 fromPos, number dirX, number dirY, number radius)
+		-- 겨눈 부채꼴 안에서 **가장 가까운** 몬스터 좌표를 돌려준다. 없으면 nil.
+		--
+		-- 부채꼴 반각은 데이터다 (`projectile_aim_degrees`, 기본 22.5도).
+		-- 22.5도인 이유: 조준이 8방향 격자라 22.5도면 **평면이 정확히 8등분**된다 —
+		-- 어느 몬스터든 여덟 방향 중 정확히 한 쪽에만 속한다. 겹치지도 비지도 않는다.
+		--
+		-- 몬스터 목록은 방의 RoomSpawner가 이미 들고 있다 (`spawned`). 따로 훑지 않는 이유는
+		-- 그것이 스폰의 단일 원장이기 때문이다 — 여기서 별도로 모으면 두 목록이 어긋난다.
+		local map = self.Entity.CurrentMap
+		if map == nil then return nil end
+		---@type RoomSpawner
+		local spawner = map:GetComponent("script.RoomSpawner")
+		if spawner == nil then return nil end
+
+		local halfAngle = _GameData:GetBalance("projectile_aim_degrees")
+		if halfAngle <= 0 then halfAngle = 22.5 end
+		local minDot = math.cos(math.rad(halfAngle))
+
+		local bestPos = nil
+		local bestDist = radius + 1
+		for i = 1, #spawner.spawned do
+			local e = spawner.spawned[i]
+			if isvalid(e) then
+				local mon = e:GetComponent("script.RoomMonster")
+				-- 죽은 것은 잠깐 남아 있다 (파괴 전). 그쪽으로 던지면 허공에 떨어진다.
+				if mon ~= nil and mon.IsDead == false then
+					local p = e.TransformComponent.WorldPosition
+					local tx, ty = p.x - fromPos.x, p.y - fromPos.y
+					local dist = math.sqrt(tx * tx + ty * ty)
+					if dist > 0.01 and dist <= radius and dist < bestDist then
+						-- 방향이 맞는지: 단위벡터끼리의 내적이 곧 사잇각의 코사인이다.
+						if (tx / dist) * dirX + (ty / dist) * dirY >= minDot then
+							bestDist = dist
+							bestPos = p
+						end
+					end
+				end
+			end
+		end
+		return bestPos
 	end
 
 	@ExecSpace("ServerOnly")
