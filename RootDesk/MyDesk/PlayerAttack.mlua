@@ -257,6 +257,16 @@ script PlayerAttack extends AttackComponent
 			self:ResolveThrowHit(skillId, toPos, maxTargets)
 		end, flight)
 
+		-- 쿨다운은 **던지는 순간** 건다 (설계 이력 2026-08-23).
+		-- 닿을지는 0.35초 뒤에 정해지므로 착탄 시각에 걸면 두 가지가 깨진다:
+		--   1) 빗나가면 공짜로 다시 던지게 되어 "비켜서기"가 무의미해진다
+		--   2) 비행 중에는 아직 안 걸려 있어 **연타로 계속 던질 수 있다**
+		-- ⚠ 2번이 실제로 났다 (대표 발견 2026-08-24: "바위 던지기가 쿨타임이 없더라고").
+		--   이 갈래만 쿨다운을 안 걸고 return 했다 — 일반 공격·방어·돌진은 전부 걸고 있었다.
+		if skill.cooldown > 0 then
+			self.SkillReadyAt[skillId] = _UtilLogic.ElapsedSeconds + skill.cooldown
+		end
+
 		log("[PlayerAttack] [" .. skill.name .. "] 던짐 → "
 			.. string.format("%.1f,%.1f", toPos.x, toPos.y)
 			.. "  " .. string.format("%.2f", flight) .. "초 뒤 착탄")
