@@ -1,0 +1,107 @@
+-- @클라이언트 (입력은 클라만 안다)
+--
+-- 스킬이 "어느 쪽으로" 나갈지를 정하는 유일한 창구 (T22-1, 대표 지시 2026-08-24:
+-- "몸통박치기를 쓸때 상하좌우밖에 이동이 안되서... 360도 전체 이동되도록",
+-- 정정 "8방향으로 통일해줘").
+--
+-- ## 왜 필요한가
+--
+-- 돌진 방향을 서버에서 `KinematicbodyComponent.MoveVelocity`로 읽고 있었는데,
+-- 그 값이 **항상 0으로 온다** (실측). 게다가 서버는 입력을 모른다.
+-- 그래서 방향은 **입력이 있는 클라**에서 정해 서버로 실어 보낸다.
+--
+-- ## 어떻게 8방향을 보장하나
+--
+-- 두 갈래를 순서대로 본다:
+--   1. **눌린 방향키를 직접 센다** (PC). 두 개가 같이 눌리면 대각선이 나온다 —
+--      엔진이 입력을 4방향으로 눌러 버리든 말든 우리 손으로 만드니 확실하다.
+--   2. 키가 없으면 **마지막 이동 입력**을 쓴다 (모바일). 조이스틱은 키보드가 없어
+--      1번이 항상 비고, `ChangedMovementInputEvent`가 유일한 창구다.
+--
+-- 어느 쪽이든 마지막에 **45도 격자로 스냅**한다. 모바일 조이스틱은 아날로그라
+-- 그냥 두면 360도가 되는데, 대표 결정이 "8방향으로 통일"이다 —
+-- 기기가 달라도 조작감이 같아야 한다.
+
+@Logic
+script PlayerAimInput extends Logic
+
+    -- 마지막으로 들어온 이동 입력 방향. 멈춰 서도 지우지 않는다 —
+    -- 서 있을 때 스킬을 쓰면 "마지막으로 가던 쪽"으로 나가는 게 자연스럽다.
+    property number lastX = 0
+    property number lastY = 0
+
+    property any moveHandler = nil
+
+    -- 방향키 이름. SkillBar.reservedKeys와 같은 값을 본다 —
+    -- 거기서 예약해 둔 키가 곧 이동 키다.
+    property string keyRight = "RightArrow"
+    property string keyLeft = "LeftArrow"
+    property string keyUp = "UpArrow"
+    property string keyDown = "DownArrow"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- 이동 입력은 MovementComponent가 바뀔 때마다 쏴 준다.
+        -- 키보드든 모바일 조이스틱이든 **같은 이벤트로** 들어온다.
+        local player = _UserService.LocalPlayer
+        if player == nil then return end
+        local movement = player.MovementComponent
+        if not isvalid(movement) then
+            log_warning("[PlayerAimInput] MovementComponent가 없다 — 조준은 바라보는 쪽만 쓴다")
+            return
+        end
+        self.moveHandler = player:ConnectEvent(ChangedMovementInputEvent, function(event)
+            local d = event.Direction
+            if d.x ~= 0 or d.y ~= 0 then
+                self.lastX = d.x
+                self.lastY = d.y
+            end
+        end)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.moveHandler ~= nil then
+            local player = _UserService.LocalPlayer
+            if player ~= nil then
+                player:DisconnectEvent(ChangedMovementInputEvent, self.moveHandler)
+            end
+            self.moveHandler = nil
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean Held(string name)
+        -- 모르는 키 이름이면 [LEA-3021]을 던진다 (SkillBar.KeyCodeOf와 같은 함정).
+        -- 여기서도 pcall로 감싼다.
+        local code = nil
+        local ok = pcall(function() code = KeyboardKey.CastFrom(name) end)
+        if not ok or code == nil then return false end
+        return _InputService:IsKeyPressed(code)
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetAim8()
+        -- 지금 조준하는 방향을 45도 격자에 맞춰 돌려준다. 없으면 (0,0).
+        local x, y = 0, 0
+
+        -- 1) 눌린 방향키 (PC). 두 개가 같이 눌리면 여기서 대각선이 만들어진다.
+        if self:Held(self.keyRight) then x = x + 1 end
+        if self:Held(self.keyLeft) then x = x - 1 end
+        if self:Held(self.keyUp) then y = y + 1 end
+        if self:Held(self.keyDown) then y = y - 1 end
+
+        -- 2) 키가 없으면 마지막 이동 입력 (모바일 조이스틱)
+        if x == 0 and y == 0 then
+            x, y = self.lastX, self.lastY
+        end
+
+        if x == 0 and y == 0 then return Vector2(0, 0) end
+
+        -- 45도 격자로 스냅. 모바일 아날로그도 여기서 8방향이 된다.
+        local step = math.pi / 4
+        local angle = math.floor(math.atan(y, x) / step + 0.5) * step
+        return Vector2(math.cos(angle), math.sin(angle))
+    end
+
+end
