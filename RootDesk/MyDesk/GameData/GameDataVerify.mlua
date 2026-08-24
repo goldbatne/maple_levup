@@ -353,8 +353,14 @@ script GameDataVerify extends Logic
                 log_warning("  [아이템] " .. item.id .. " 는 소비인데 slot이 채워져 있다: " .. item.slot)
             end
 
-            if item.drop_from ~= "" and _GameData:GetMonster(item.drop_from) == nil then
-                log_error("  [아이템] " .. item.id .. " 가 없는 몬스터에서 떨어진다: " .. item.drop_from)
+            -- drop_from은 세 꼴이다 (T23-5): 한 마리 / 파이프로 여럿 / `*`(전체).
+            -- `*`는 종을 안 가리므로 검사할 몬스터가 없다.
+            if item.drop_from ~= "" and item.drop_from ~= "*" then
+                for one in string.gmatch(item.drop_from, "([^|]+)") do
+                    if _GameData:GetMonster(one) == nil then
+                        log_error("  [아이템] " .. item.id .. " 가 없는 몬스터에서 떨어진다: " .. one)
+                    end
+                end
             end
 
             if item.icon_ruid == "" then
