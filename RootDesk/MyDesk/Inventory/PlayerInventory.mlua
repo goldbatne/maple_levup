@@ -40,6 +40,24 @@ script PlayerInventory extends Component
     -- "슬롯이 몇 개이고 무엇인가"를 물어볼 곳이 따로 필요하다.
     property string equipSlots = "weapon,armor,accessory"
 
+    -- 소비 아이템을 다시 쓸 수 있게 되는 시각(초). **종류별이 아니라 하나다** (T23-3).
+    --
+    -- 종류별로 두면 물약을 두 종류 들고 번갈아 마셔 쿨다운을 없앨 수 있다 —
+    -- 지금은 소비가 1종뿐이라 차이가 없지만, 종류가 느는 순간 조용히 뚫린다.
+    --
+    -- 이 값은 **서버 시계**의 시각이고 서버 판정에만 쓴다.
+    @TargetUserSync property number ItemReadyAt = 0
+
+    -- 같은 쿨다운을 **클라 시계**로 다시 적은 것. 퀵슬롯 표시만 이걸 본다.
+    --
+    -- ⚠ 왜 갈랐나: `_UtilLogic.ElapsedSeconds`가 **서버와 클라에서 다르다** (실측
+    --   2026-08-24: 같은 순간 클라 1184.23 / 서버 1189.98 — 클라가 약 1.3초 앞섰다).
+    --   서버가 적은 절대 시각을 클라에서 그대로 빼면 남은 시간이 그만큼 틀린다 —
+    --   3초 쿨이 화면에서 1초로 보였다(실측). 오차는 고정도 아니다.
+    --   그래서 서버는 **길이(초)**만 알려 주고, 클라가 자기 시계로 다시 센다.
+    -- 저장하지 않는다 — 3초짜리라 재접속하면 어차피 끝나 있다.
+    property number clientReadyAt = 0
+
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
         -- 로드는 PlayerDBManager가 한다 (T8과 같은 이유로 여기서 초기화하지 않는다 —
@@ -162,6 +180,26 @@ script PlayerInventory extends Component
         self:UseItem(itemId)
     end
 
+    method number GetItemCooldownRemain()
+        -- 소비 아이템을 다시 쓸 수 있을 때까지 남은 초. 0이면 지금 쓸 수 있다.
+        --
+        -- ExecSpace를 안 붙인다 — 서버는 판정에, 클라는 퀵슬롯 표시에 쓴다.
+        -- 다만 **읽는 시각이 서로 다른 시계**라 값을 갈라 둔다 (위 프로퍼티 주석).
+        local readyAt = self.ItemReadyAt
+        if self:IsClient() then readyAt = self.clientReadyAt end
+        local remain = readyAt - _UtilLogic.ElapsedSeconds
+        if remain < 0 then return 0 end
+        return remain
+    end
+
+    @ExecSpace("Client")
+    method void OnCooldownStarted(number seconds)
+        -- 서버가 쿨다운을 걸었다고 알려 준다. **길이만** 받아서 클라 시계로 다시 적는다.
+        -- 절대 시각을 받으면 시계 차이만큼 틀린다 (clientReadyAt 주석 참고).
+        if seconds <= 0 then return end
+        self.clientReadyAt = _UtilLogic.ElapsedSeconds + seconds
+    end
+
     @ExecSpace("ServerOnly")
     method boolean UseItem(string itemId)
         -- 소비 아이템을 쓴다. 효과가 실제로 들어갔을 때만 개수를 줄인다.
@@ -179,6 +217,17 @@ script PlayerInventory extends Component
         end
         if self:GetCount(itemId) <= 0 then
             log_warning("[Inventory] 가지고 있지 않은 아이템을 쓰려 한다: " .. itemId)
+            return false
+        end
+
+        -- 쿨다운 (T23-3, 대표 지시 "포션도 쿨타임이 있으면 좋을거 같아 한 3초정도").
+        --
+        -- **개수를 줄이기 전에, 회복보다도 먼저** 본다. 뒤에 두면 만피 판정을 먼저
+        -- 지나며 "쓰지 않았다" 알림이 뜨는데, 실제 이유는 쿨다운이라 화면이 거짓말을 한다.
+        local remain = self:GetItemCooldownRemain()
+        if remain > 0 then
+            log("[Inventory] 쿨다운 중 " .. record.name .. " "
+                .. string.format("%.1f", remain) .. "초 남음")
             return false
         end
 
@@ -200,8 +249,17 @@ script PlayerInventory extends Component
             end
         end
 
-        -- 효과가 들어갔으니 이제 하나 줄인다.
+        -- 효과가 들어갔으니 이제 하나 줄이고 쿨다운을 건다.
+        --
+        -- **효과가 실제로 들어간 뒤에만** 건다. 만피라 안 마신 경우까지 걸면
+        -- 아무 일도 안 일어난 채로 3초를 잠기게 된다.
         self:RemoveItem(itemId, 1)
+        local cooldown = _GameData:GetBalance("potion_cooldown")
+        if cooldown > 0 then
+            self.ItemReadyAt = _UtilLogic.ElapsedSeconds + cooldown
+            -- 클라에는 **길이**를 보낸다. 시각을 보내면 시계 차이만큼 틀린다.
+            self:OnCooldownStarted(cooldown, self.Entity.PlayerComponent.UserId)
+        end
         log("[Inventory] 사용 " .. record.name .. "  회복 " .. tostring(healed)
             .. "  남은 개수 " .. tostring(self:GetCount(itemId)))
         self:OnUsed(record.name, math.floor(healed), self.Entity.PlayerComponent.UserId)

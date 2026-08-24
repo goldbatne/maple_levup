@@ -188,12 +188,30 @@ script ItemQuickSlotBar extends Logic
         end
 
         local item = _GameData:GetItem(itemId)
+
+        -- 쿨다운 중이면 아이콘을 어둡게 깔고 남은 초를 숫자 자리에 띄운다 (T23-3).
+        --
+        -- 개수 대신 초를 보여 주는 이유: 못 쓰는 3초 동안 알고 싶은 것은 "몇 개 남았나"가
+        -- 아니라 "언제 쓸 수 있나"다. 개수는 쿨이 풀리면 바로 돌아온다.
+        -- 아이콘을 어둡게 하는 것은 원작 메이플과 같은 표시라 설명이 필요 없다.
+        local remain = inv:GetItemCooldownRemain()
+        local onCooldown = (remain > 0)
+
         if icon ~= nil and isvalid(icon) and item ~= nil and item.icon_ruid ~= "" then
             icon.Enable = true
             icon.SpriteGUIRendererComponent.ImageRUID = DataRef(item.icon_ruid)
+            if onCooldown then
+                icon.SpriteGUIRendererComponent.Color = Color(0.35, 0.35, 0.35, 1)
+            else
+                icon.SpriteGUIRendererComponent.Color = Color(1, 1, 1, 1)
+            end
         end
         if countLabel ~= nil and isvalid(countLabel) then
-            countLabel.TextGUIRendererComponent.Text = tostring(inv:GetCount(itemId))
+            if onCooldown then
+                countLabel.TextGUIRendererComponent.Text = tostring(math.ceil(remain)) .. "초"
+            else
+                countLabel.TextGUIRendererComponent.Text = tostring(inv:GetCount(itemId))
+            end
         end
     end
 

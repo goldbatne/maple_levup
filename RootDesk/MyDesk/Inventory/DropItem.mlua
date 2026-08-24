@@ -139,7 +139,13 @@ script DropItem extends Component
         if item ~= nil then name = item.name end
         log("[Drop] 획득 " .. name .. " x" .. tostring(added))
 
-        self:OnPicked(name, added, player.PlayerComponent.UserId)
+        -- 소비 아이템은 알리지 않는다 (T23-5, 대표 지시 "맵에서 포션 드랍되는 내역은
+        -- 출력되지 않도록"). 포션이 **모든 몬스터**에서 나오게 되면서 배너가 사냥
+        -- 내내 뜨게 됐다 — 그러면 정작 알려야 할 장비 드랍(2~5%)이 그 사이에 묻힌다.
+        -- 알림의 값어치는 희소성에서 나온다.
+        if item == nil or item.item_type ~= "consume" then
+            self:OnPicked(name, added, player.PlayerComponent.UserId)
+        end
         self:Cleanup()
         self.Entity:Destroy()
     end
