@@ -259,6 +259,7 @@ script PlayerDBManager extends Component
         if slots ~= nil then
             slots.RebirthCount = perm.rebirth_count
             slots.BestRebirthLevel = perm.best_rebirth_level
+            slots.BestTier = perm.best_tier
             for roomId, run in pairs(perm.bosses_cleared) do
                 -- 값은 플래그가 아니라 **마지막으로 깬 회차 번호**다. 그대로 복원해야
                 -- "이번 회차에 깼는가"가 맞는다 (안 그러면 보스가 영영 안 선다).
@@ -610,6 +611,7 @@ script PlayerDBManager extends Component
         if slots ~= nil then
             perm.rebirth_count = slots.RebirthCount
             perm.best_rebirth_level = slots.BestRebirthLevel
+            perm.best_tier = slots.BestTier
             perm.monster_slot_count = slots.MonsterSlotCount
             perm.key_order = slots.KeyOrder
 
