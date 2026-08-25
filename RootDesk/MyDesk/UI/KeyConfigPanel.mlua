@@ -17,6 +17,8 @@ script KeyConfigPanel extends Logic
 
     -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다.
     property Entity panel = "08542b88-003f-49f6-af03-4ee99dbf1b02"
+    -- 여는 버튼은 화면에서 제거됐다 (2026-08-25). UUID는 이제 가리키는 엔티티가 없어
+    -- `isvalid`가 false이고, `Bind`가 그걸 막는다. 되살릴 때를 위해 남겨 둔다.
     property ButtonComponent openBtn = "aa841996-bd35-44de-a434-f1cb47944d6c"
     property ButtonComponent closeBtn = "ed5af98d-dd94-4f6a-9fbc-180e5ade74c7"
     property ButtonComponent resetBtn = "417e7556-fa44-4325-83bf-4b1a7c5afe0e"
@@ -46,7 +48,9 @@ script KeyConfigPanel extends Logic
         self:Hide()
         log("[KeyConfig] OnBeginPlay — 닫힌 채로 시작")
 
-        self:Bind(self.openBtn, function() self:Open() end)
+        -- 여는 버튼은 없앴다 (대표 지시 2026-08-25: *"키 설정은 없어도 될거 같아"*).
+        -- 창과 스크립트는 남겨 둔다 — 키 배치 저장·적용은 스킬 바가 계속 쓰고 있고,
+        -- 되살리려면 `.ui`에 버튼 하나를 다시 놓고 `openBtn`을 물리면 된다.
         self:Bind(self.closeBtn, function() self:Hide() end)
         self:Bind(self.resetBtn, function() self:ResetToDefault() end)
 
