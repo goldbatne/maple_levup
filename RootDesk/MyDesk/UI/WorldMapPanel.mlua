@@ -1,0 +1,367 @@
+-- @클라이언트 (읽기만 한다. 아무것도 바꾸지 않으므로 서버가 할 일이 없다)
+--
+-- 지역의 방 구성을 보여 주는 지도 창 (T23-10, 대표 지시 2026-08-25:
+-- *"area로 가면 각 맵의 구성을 표시해주는 해당 월드의 맵 보기ui를 넣어주면 좋을거 같아보이네"*).
+--
+-- ## 지도는 데이터에서 그린다. 손으로 배치하지 않는다
+--
+-- `RoomTable`의 `conn_north/south/east/west`가 이미 방들의 이웃 관계를 들고 있다.
+-- 그 연결을 **너비 우선으로 훑어 격자 좌표**를 매기고, 그 좌표대로 칸을 놓는다.
+-- 방을 추가하면 CSV 한 줄로 지도에 나타난다 — 여기를 고칠 일이 없다.
+--
+-- ## 잠김 표시는 진짜 게이트에 물어본다
+--
+-- `_RoomGate:Evaluate`를 그대로 부른다. 여기서 조건을 다시 해석하면 판정 규칙이
+-- 두 곳에 생겨 언젠가 어긋난다 — 지도에는 열려 보이는데 문은 막혀 있는 식이다.
+-- (RoomGate 상단 주석이 같은 이유로 실행공간을 비워 뒀다.)
+--
+-- ## 칸은 미리 만들어 두고 재사용한다
+--
+-- `.ui`는 정적이라 방 수만큼 칸을 만들 수 없다. 넉넉한 수를 미리 두고 필요한 만큼만
+-- 켠다 (`EquipPanel`의 아이콘 격자와 같은 방식). 넘치면 경고를 남긴다 —
+-- 조용히 잘리면 "지도에 방이 빠졌다"를 아무도 눈치채지 못한다.
+
+@Logic
+script WorldMapPanel extends Logic
+
+    -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다.
+    property Entity root = "71b910cb-c0cc-4d1d-a0bb-d75a228d4ab2"
+    property Entity board = "7edf6ff2-6ac4-4893-8ba1-eb2527ad30fc"
+    property TextGUIRendererComponent titleText = "4bd9db3a-18a1-43e4-bc24-24afc623b78d"
+    property TextGUIRendererComponent hintText = "673fb3c7-f2b9-4b0e-bde8-e1014c74fae3"
+    property ButtonComponent btnOpen = "aec9d77d-3da3-4f22-aebb-36cb96da74be"
+    property ButtonComponent btnClose = "b489bd2f-5191-46aa-aeee-46dd164d0f0d"
+
+    property any openHandler = nil
+    property any closeHandler = nil
+
+    -- 칸·연결선 풀 크기. `.ui`에 만들어 둔 개수와 같아야 한다.
+    property integer cellMax = 12
+    property integer linkMax = 16
+
+    -- 격자 한 칸이 차지하는 화면 크기와 간격(픽셀).
+    property number cellW = 190
+    property number cellH = 140
+    property number gapX = 40
+    property number gapY = 34
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self:Hide()
+        log("[WorldMap] OnBeginPlay — 닫힌 채로 시작")
+
+        if isvalid(self.btnOpen) then
+            self.openHandler = self.btnOpen.Entity:ConnectEvent(ButtonClickEvent, function()
+                self:Open()
+            end)
+        end
+        if isvalid(self.btnClose) then
+            self.closeHandler = self.btnClose.Entity:ConnectEvent(ButtonClickEvent, function()
+                self:Hide()
+            end)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.openHandler ~= nil and isvalid(self.btnOpen) then
+            self.btnOpen.Entity:DisconnectEvent(ButtonClickEvent, self.openHandler)
+            self.openHandler = nil
+        end
+        if self.closeHandler ~= nil and isvalid(self.btnClose) then
+            self.btnClose.Entity:DisconnectEvent(ButtonClickEvent, self.closeHandler)
+            self.closeHandler = nil
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        -- ⚠ 암막이 딸린 창이라 반드시 닫아 두어야 한다 (T23-8에서 겪었다).
+        if isvalid(self.root) then self.root.Enable = false end
+    end
+
+    ---------------------------------------------------------------
+    -- 지도 만들기
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method any CurrentRoom()
+        -- 지금 서 있는 방. 맵 이름으로 역인덱스한다 (RoomProgressHud와 같은 방식).
+        local me = _UserService.LocalPlayer
+        if me == nil then return nil end
+        local map = me.CurrentMap
+        if map == nil then return nil end
+        return _GameData:GetRoomByMapName(map.Name)
+    end
+
+    @ExecSpace("ClientOnly")
+    method any LayoutRooms(string areaId, string startRoomId)
+        -- 연결을 너비 우선으로 훑어 방마다 격자 좌표를 매긴다.
+        -- 돌려주는 것: { ids = {...}, gx = {id->x}, gy = {id->y} }
+        --
+        -- 같은 지역의 방만 담는다. 마을(area_id 없음)은 지역 지도에 넣지 않는다 —
+        -- 마을은 모든 지역의 출입구라 어느 지역 지도에 그려도 거짓말이 된다.
+        local gx = {}
+        local gy = {}
+        local ids = {}
+        local queue = { startRoomId }
+        gx[startRoomId] = 0
+        gy[startRoomId] = 0
+        table.insert(ids, startRoomId)
+
+        -- ⚠ 연결은 `conn_*` 컬럼이 아니라 **`room.connections.north/...`**에 접혀 있다
+        --   (GameData.LoadRooms가 4컬럼을 한 테이블로 묶는다). 컬럼 이름으로 읽으면
+        --   전부 nil이 되어 **모든 방이 "연결 없음"으로 떨어진다** (실측: 6개 중 5개가
+        --   한 줄에 늘어섰다).
+        local dirs = { "north", "south", "east", "west" }
+        local dx = { 0, 0, 1, -1 }
+        local dy = { 1, -1, 0, 0 }
+
+        local head = 1
+        while head <= #queue do
+            local id = queue[head]
+            head = head + 1
+            local room = _GameData:GetRoom(id)
+            if room ~= nil then
+                for i = 1, 4 do
+                    local nextId = _GameData:GetRoomConnection(id, dirs[i])
+                    if nextId ~= nil and nextId ~= "" and gx[nextId] == nil then
+                        local nextRoom = _GameData:GetRoom(nextId)
+                        -- 다른 지역·마을로는 뻗지 않는다.
+                        if nextRoom ~= nil and nextRoom.area_id == areaId then
+                            gx[nextId] = gx[id] + dx[i]
+                            gy[nextId] = gy[id] + dy[i]
+                            table.insert(ids, nextId)
+                            table.insert(queue, nextId)
+                        end
+                    end
+                end
+            end
+        end
+
+        -- 연결이 끊긴 방(예: 시험의 방 — NPC로만 간다)도 지도에 세운다.
+        -- 안 그리면 "그 방이 없는 것"처럼 보인다. 격자 아래 한 줄에 붙인다.
+        local loose = 0
+        local allIds = _GameData:GetAllRoomIds()
+        for i = 1, #allIds do
+            local id = allIds[i]
+            local room = _GameData:GetRoom(id)
+            if room ~= nil and room.area_id == areaId and gx[id] == nil then
+                gx[id] = loose
+                gy[id] = -2
+                loose = loose + 1
+                table.insert(ids, id)
+            end
+        end
+
+        return { ids = ids, gx = gx, gy = gy }
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Open()
+        local me = _UserService.LocalPlayer
+        if me == nil then return end
+
+        local here = self:CurrentRoom()
+        local areaId = ""
+        if here ~= nil then areaId = here.area_id end
+
+        -- 마을처럼 지역이 없는 곳에서는 **가장 최근에 있던 지역**을 알 길이 없다.
+        -- 기본 지역(첫 지역)을 보여 준다 — 빈 창을 띄우는 것보다 낫다.
+        if areaId == nil or areaId == "" then
+            areaId = "area_01"
+        end
+
+        local area = _GameData:GetArea(areaId)
+        local areaName = areaId
+        local entry = ""
+        if area ~= nil then
+            areaName = area.name
+            entry = area.entry_room_id
+        end
+        if entry == nil or entry == "" then
+            log_warning("[WorldMap] " .. areaId .. " 의 entry_room_id가 비어 있다 — 지도를 못 그린다")
+            return
+        end
+
+        if isvalid(self.titleText) then self.titleText.Text = areaName end
+
+        local layout = self:LayoutRooms(areaId, entry)
+        self:Draw(me, layout, here)
+
+        if isvalid(self.root) then self.root.Enable = true end
+        log("[WorldMap] 열림 — " .. areaName .. "  방 " .. tostring(#layout.ids) .. "개")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Draw(Entity me, any layout, any here)
+        -- 격자 좌표를 화면 좌표로 옮겨 칸을 채운다.
+        local ids = layout.ids
+        local gx = layout.gx
+        local gy = layout.gy
+
+        -- 격자 범위를 재서 가운데로 모은다. 방이 늘어도 창 한가운데 남는다.
+        local minX, maxX, minY, maxY = 0, 0, 0, 0
+        for i = 1, #ids do
+            local x = gx[ids[i]]
+            local y = gy[ids[i]]
+            if i == 1 or x < minX then minX = x end
+            if i == 1 or x > maxX then maxX = x end
+            if i == 1 or y < minY then minY = y end
+            if i == 1 or y > maxY then maxY = y end
+        end
+        local midX = (minX + maxX) / 2
+        local midY = (minY + maxY) / 2
+
+        local stepX = self.cellW + self.gapX
+        local stepY = self.cellH + self.gapY
+
+        local shown = 0
+        for i = 1, #ids do
+            if shown >= self.cellMax then
+                log_warning("[WorldMap] 칸이 모자란다 — " .. tostring(#ids)
+                    .. "개 중 " .. tostring(self.cellMax) .. "개만 그린다. `.ui`의 칸을 늘릴 것")
+                break
+            end
+            shown = shown + 1
+            local id = ids[i]
+            local px = (gx[id] - midX) * stepX
+            local py = (gy[id] - midY) * stepY
+            self:FillCell(shown, id, px, py, me, here)
+        end
+
+        for i = shown + 1, self.cellMax do
+            local cell = self:GetCell(i)
+            if cell ~= nil and isvalid(cell) then cell.Enable = false end
+        end
+
+        self:DrawLinks(layout, midX, midY, stepX, stepY)
+
+        if isvalid(self.hintText) then
+            self.hintText.Text = "●  지금 여기        ◆  보스        노란 글씨  잠긴 문"
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void FillCell(integer index, string roomId, number px, number py, Entity me, any here)
+        local cell = self:GetCell(index)
+        if cell == nil or not isvalid(cell) then return end
+        cell.Enable = true
+        cell.UITransformComponent.anchoredPosition = Vector2(px, py)
+
+        local room = _GameData:GetRoom(roomId)
+        if room == nil then return end
+
+        -- 이름 줄: 지금 있는 방과 보스방을 기호로 가른다. 색만으로 가르면
+        -- 색약인 사람에게 안 보이고, 스크린샷으로도 구분이 안 된다.
+        local mark = ""
+        if here ~= nil and here.id == roomId then mark = "● " end
+        if room.room_type == "boss" then mark = mark .. "◆ " end
+
+        local nameText = cell:GetChildByName("Name", false)
+        if nameText ~= nil and isvalid(nameText) then
+            nameText.TextGUIRendererComponent.Text = mark .. room.name
+        end
+
+        -- 몬스터 줄: 무엇이 몇 마리 사는지. 지도를 보는 이유의 절반이 이것이다.
+        local subText = cell:GetChildByName("Sub", false)
+        if subText ~= nil and isvalid(subText) then
+            local line = ""
+            if room.monster_id ~= nil and room.monster_id ~= "" then
+                local mon = _GameData:GetMonster(room.monster_id)
+                local monName = room.monster_id
+                if mon ~= nil then monName = mon.name end
+                line = monName
+                if room.monster_count > 0 then
+                    line = line .. " x" .. tostring(math.floor(room.monster_count))
+                end
+            elseif room.room_type == "town" then
+                line = "마을"
+            else
+                line = "-"
+            end
+            subText.TextGUIRendererComponent.Text = line
+        end
+
+        -- 잠김 줄: 진짜 게이트에 물어본다 (이 파일 상단 주석 참고).
+        local lockText = cell:GetChildByName("Lock", false)
+        if lockText ~= nil and isvalid(lockText) then
+            local gate = _RoomGate:Evaluate(me, room)
+            if gate.passed then
+                lockText.TextGUIRendererComponent.Text = ""
+            else
+                -- ⚠ 이모지를 쓰지 않는다. 폰트에 없으면 □로 깨진다 (실측 — 자물쇠 이모지가
+                --   그랬다). 기호는 ●◆ 처럼 기본 폰트에 있는 것만 쓴다.
+                lockText.TextGUIRendererComponent.Text = "잠김 · " .. gate.reason
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void DrawLinks(any layout, number midX, number midY, number stepX, number stepY)
+        -- 이웃한 방 사이에 짧은 막대를 놓는다. 선이 있어야 "길"로 읽힌다.
+        --
+        -- 같은 쌍을 두 번 긋지 않기 위해 **동쪽·북쪽만** 본다 —
+        -- 서쪽·남쪽은 상대편에서 이미 그린 것이다.
+        local ids = layout.ids
+        local gx = layout.gx
+        local gy = layout.gy
+        local used = 0
+
+        for i = 1, #ids do
+            local id = ids[i]
+            local room = _GameData:GetRoom(id)
+            if room ~= nil then
+                local pairs2 = {
+                    { _GameData:GetRoomConnection(id, "east"), 1, 0 },
+                    { _GameData:GetRoomConnection(id, "north"), 0, 1 },
+                }
+                for k = 1, 2 do
+                    local other = pairs2[k][1]
+                    if other ~= nil and other ~= "" and gx[other] ~= nil and used < self.linkMax then
+                        -- 격자에서 실제로 붙어 있을 때만 긋는다. 데이터가 어긋나
+                        -- 멀리 떨어진 두 방이 이어져 있으면 선이 허공을 가로지른다.
+                        if gx[other] - gx[id] == pairs2[k][2] and gy[other] - gy[id] == pairs2[k][3] then
+                            used = used + 1
+                            local link = self:GetLink(used)
+                            if link ~= nil and isvalid(link) then
+                                local cx = ((gx[id] + gx[other]) / 2 - midX) * stepX
+                                local cy = ((gy[id] + gy[other]) / 2 - midY) * stepY
+                                link.Enable = true
+                                local ut = link.UITransformComponent
+                                ut.anchoredPosition = Vector2(cx, cy)
+                                if pairs2[k][2] == 1 then
+                                    ut.RectSize = Vector2(self.gapX + 8, 6)
+                                else
+                                    ut.RectSize = Vector2(6, self.gapY + 8)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        for i = used + 1, self.linkMax do
+            local link = self:GetLink(i)
+            if link ~= nil and isvalid(link) then link.Enable = false end
+        end
+    end
+
+    ---------------------------------------------------------------
+    -- 풀 조회 (이름으로 찾는다 — 프로퍼티를 12+16개 두지 않는다)
+    ---------------------------------------------------------------
+
+    @ExecSpace("ClientOnly")
+    method any GetCell(integer index)
+        if not isvalid(self.board) then return nil end
+        return self.board:GetChildByName("Cell" .. tostring(index), false)
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetLink(integer index)
+        if not isvalid(self.board) then return nil end
+        return self.board:GetChildByName("Link" .. tostring(index), false)
+    end
+
+end
