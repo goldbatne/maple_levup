@@ -16,11 +16,11 @@ script SkillBar extends Logic
     -- 몬스터 스킬과 NPC 스킬이 **합쳐서** 이 5칸을 놓고 경쟁하므로 바는 한 줄이다
     -- (설계 이력 2026-08-20 — 버튼을 둘로 가르자는 안은 철회됐다).
     -- 예전 주석의 "직업 최대 2 + 몬스터 3"은 직업 선택이 폐기되면서 사라진 셈법이다.
-    property ButtonComponent btn1 = "0a63288a-f25e-4500-84e1-c0536f0f1a4c"
-    property ButtonComponent btn2 = "23d5cbc8-509f-4c29-a48f-1dba39bc5fc6"
-    property ButtonComponent btn3 = "5812a82b-6c76-49b2-a525-4c7c8b072d5a"
-    property ButtonComponent btn4 = "859b8d35-9ca4-4021-8fee-b811c2f070f7"
-    property ButtonComponent btn5 = "40a98c07-d9f0-4eea-9c79-f2201613b0da"
+    property ButtonComponent btn1 = "29dcc056-6437-486f-bb75-0422b52770d4"
+    property ButtonComponent btn2 = "d2b01c50-4d80-4323-b70f-7b34ec9a819e"
+    property ButtonComponent btn3 = "0bbe42ed-0239-45b6-95cb-b519640aa36c"
+    property ButtonComponent btn4 = "fedc284e-e3fd-42f1-8b88-16c2ddb68e1b"
+    property ButtonComponent btn5 = "06da7116-e093-4e94-b92e-5e67c09176ee"
 
     property any handler1 = nil
     property any handler2 = nil
@@ -38,9 +38,16 @@ script SkillBar extends Logic
     --   2) `GetActiveSkills`는 **구멍 난 목록**을 줄 수 있다(3번 칸만 찬 경우).
     --      번호대로 놓으면 그 구멍이 화면에 빈자리로 그대로 남는다.
     -- 그래서 "찬 칸만 순서대로, 오른쪽 끝부터" 채운다.
-    -- 값은 `.ui`의 스킬 버튼과 같은 규격이다 (칸 128 + 사이 12).
+    -- 값은 `.ui`의 스킬 버튼과 같은 규격이다 (칸 122 + 사이 10 — T24-7에서
+    -- MSW 프리셋 "스킬퀵슬롯" 규격으로 맞췄다).
     property number slotRightX = -20
-    property number slotStepX = 140
+    property number slotStepX = 132
+
+    -- 아이콘을 넣을 상자 (T24-7). 그림은 이 안에 **비율을 지킨 채** 들어간다.
+    -- 칸(122x122)에서 아래 이름표(26)와 여백을 뺀 나머지다.
+    -- EquipPanel과 같은 방식이고 같은 함정을 피한다 — `FitIcon` 주석 참조.
+    property number iconBoxW = 72
+    property number iconBoxH = 72
 
     ---------------------------------------------------------------
     -- 키보드 입력 (T14-1)
@@ -371,6 +378,79 @@ script SkillBar extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method void FitIcon(any iconTransform, number ratio)
+        -- 그림의 가로/세로 비를 지킨 채 아이콘 상자에 채워 넣는다.
+        -- EquipPanel.FitIcon과 같은 계산이고, 같은 이유로 엔진 기능을 안 쓴다:
+        --   · `PreserveSprite=AspectOnly`는 비율은 지키지만 **위치를 스프라이트
+        --     자신의 pivot으로 잡아** 칸 밖으로 밀어낸다 (T17-4c · T20-4 실측).
+        --   · `SetNativeSize()`는 **다음 프레임에야** RectSize에 들어오고, 자원이
+        --     아직 안 올라온 첫 회에는 엉뚱한 값을 문다 (T20-6 실측).
+        -- 그래서 비율은 데이터(`SkillTable.icon_ratio`)에서 읽는다.
+        if ratio <= 0 then return end
+        local w = self.iconBoxH * ratio
+        local h = self.iconBoxH
+        if w > self.iconBoxW then
+            w = self.iconBoxW
+            h = self.iconBoxW / ratio
+        end
+        iconTransform.RectSize = Vector2(w, h)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RenderSlot(Entity slot, integer index, string skillId)
+        -- 칸 하나를 그린다 (T24-7). 아이콘 · 이름 · 키 · 남은 쿨다운 넷을
+        -- **자식 엔티티**로 나눠 그린다 — 예전에는 이 넷을 글자 한 줄에 이어
+        -- 붙였는데, 아이콘을 넣을 자리가 없었다.
+        local skill = _GameData:GetSkill(skillId)
+        local remain = self:GetCooldownRemain(skillId)
+
+        local iconEntity = slot:GetChildByName("Icon", false)
+        if iconEntity ~= nil and skill ~= nil then
+            local icon = iconEntity.SpriteGUIRendererComponent
+            if isvalid(icon) then
+                icon.ImageRUID = skill.icon_ruid
+                -- 쿨 중에는 아이콘을 어둡게 죽인다. 숫자만 띄우면 판이 바쁠 때
+                -- 눈에 안 들어온다 (EquipPanel이 잠긴 스킬을 죽이는 것과 같은 방식).
+                if remain > 0 then
+                    icon.Color = Color(0.42, 0.42, 0.48, 1)
+                else
+                    icon.Color = Color(1, 1, 1, 1)
+                end
+                -- 그림마다 비율이 다르다. 한 크기에 밀어 넣으면 찌그러진다 (T20-6).
+                self:FitIcon(iconEntity.UITransformComponent, skill.icon_ratio)
+            end
+        end
+
+        local nameEntity = slot:GetChildByName("Name", false)
+        if nameEntity ~= nil then
+            local name = skillId
+            if skill ~= nil then name = skill.name end
+            nameEntity.TextGUIRendererComponent.Text = name
+        end
+
+        local keyEntity = slot:GetChildByName("Key", false)
+        if keyEntity ~= nil then
+            -- 어떤 키인지 보여준다. 수동 조작이라 키를 모르면 칸이 있어도
+            -- 쓸 방법을 알 수 없다. 모바일에는 키보드가 없어 비운다.
+            local keyText = ""
+            if self.showKeyHint and Environment:IsPCPlatform() then
+                keyText = self:KeyNameFor(index)
+            end
+            keyEntity.TextGUIRendererComponent.Text = keyText
+        end
+
+        local coolEntity = slot:GetChildByName("Cool", false)
+        if coolEntity ~= nil then
+            -- 판정은 서버가 한다. 여기서는 "왜 안 나가는지"만 알린다 (개발 규칙 2).
+            if remain > 0 then
+                coolEntity.TextGUIRendererComponent.Text = tostring(math.ceil(remain))
+            else
+                coolEntity.TextGUIRendererComponent.Text = ""
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
     method void Refresh()
         -- 서버와 같은 GetActiveSkills를 부른다. 목록 규칙이 한 곳에만 있게 하려는 것이다.
         ---@type PlayerSkillSlots
@@ -411,24 +491,7 @@ script SkillBar extends Logic
                         end
                     end
 
-                    local skill = _GameData:GetSkill(skillId)
-                    local label = skillId
-                    if skill ~= nil then label = skill.name end
-
-                    -- 어떤 키인지 보여준다. 수동 조작이라 키를 모르면 슬롯이 있어도
-                    -- 쓸 방법을 알 수 없다. 모바일에는 키보드가 없어 붙이지 않는다.
-                    if self.showKeyHint and Environment:IsPCPlatform() then
-                        local keyName = self:KeyNameFor(i)
-                        if keyName ~= "" then label = label .. " [" .. keyName .. "]" end
-                    end
-
-                    -- 쿨다운 중이면 남은 초를 함께 보여준다. 판정은 서버가 하고
-                    -- 여기서는 "왜 안 나가는지"만 알린다 (개발 규칙 2).
-                    local remain = self:GetCooldownRemain(skillId)
-                    if remain > 0 then
-                        label = label .. "\n" .. tostring(math.ceil(remain)) .. "초"
-                    end
-                    btn.Entity.TextGUIRendererComponent.Text = label
+                    self:RenderSlot(btn.Entity, i, skillId)
                 end
             end
         end
