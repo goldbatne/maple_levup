@@ -293,6 +293,16 @@ script MonsterAttack extends AttackComponent
 		local radius = skill.range
 		if radius <= 0 then radius = _GameData:GetBalance("player_attack_range") end
 
+		-- 보스가 쓸 때는 반경을 깎는다 (T25-3, 대표 지시 "범위 3분의 2").
+		--
+		-- **왜 여기서만 깎나**: `SkillTable`의 `range`는 플레이어와 보스가 **같이 쓴다.**
+		-- CSV를 줄이면 대표가 뺏어서 쓸 히어로 스킬까지 같이 좁아진다.
+		-- 깎아야 하는 쪽은 보스뿐이라 쓰는 자리에서 곱한다.
+		--
+		-- 왜 필요한가: 사냥방은 28x16 = 448칸인데 시험의 방(mapjob)은 **16x9 = 144칸**이다.
+		-- 사냥방 기준으로 잡은 반경 6.0을 그대로 쓰면 판정이 방의 78%를 덮어 못 피한다.
+		radius = radius * _GameData:GetBalance("boss_skill_range_multiplier")
+
 		-- 던지는 스킬은 여기서 갈라진다 (T19-4, 대표 지시 2026-08-23:
 		-- "돌만 던져서 캐릭터에 갈때 데미지 들어가는거로").
 		-- **판정 시점이 다르다** — 바위가 닿을 때 아프다.
@@ -566,6 +576,23 @@ script MonsterAttack extends AttackComponent
 		--   않지만, INT/LUK 계수 스킬을 보스에게 주면 조용히 ATK로 계산된다.
 		--   그때는 몬스터에도 계수 스탯을 만들어야 한다 — CSV만 고치면 안 된다.
 		local damage = _CombatFormula:CalcSkillDamage(atk, def, attackInfo)
+
+		-- 스킬로 때린 것이면 보스 배율을 깎는다 (T25-3, 대표 지시 "데미지 4분의 1").
+		--
+		-- 평타는 안 깎는다 — 여기서 줄여야 하는 것은 **스킬이 평타보다 훨씬 아픈 것**이지
+		-- 보스의 기본 화력이 아니다. 보스 ATK는 이미 `boss_atk_multiplier`로 x3이라,
+		-- 그 위에 스킬 계수(최대 2.3)까지 그대로 곱하면 두 대에 죽는다 —
+		-- 스킬을 뺏으러 온 사람이 스킬을 못 얻는다.
+		--
+		-- ⚠ **플레이어가 같은 스킬을 쓸 때는 안 깎인다.** `SkillTable`은 양쪽이 공유하므로
+		--   CSV 계수를 줄이면 플레이어 쪽 히어로 스킬이 자동 공격(1.2)보다 약해진다.
+		if attackInfo ~= nil and attackInfo ~= "" and _GameData:GetSkill(attackInfo) ~= nil then
+			local m = _GameData:GetBalance("boss_skill_damage_multiplier")
+			if m > 0 and m < 1 then
+				damage = math.floor(damage * m + 0.5)
+				if damage < 1 then damage = 1 end
+			end
+		end
 
 		-- 실드 감쇄 (T17-3b). **여기서** 깎는 이유: CalcDamage가 돌려주는 값이 곧
 		-- 화면에 뜨는 데미지 숫자다. OnHit에서 깎으면 숫자는 그대로인데 HP만 덜 닳아
