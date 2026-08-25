@@ -1343,6 +1343,84 @@
           ],
           "@version": 1
         }
+      },
+      {
+        "id": "c58fbcc8-796b-45e7-b546-bdedfedff9f5",
+        "path": "/maps/maptown/GoddessNpc",
+        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TouchReceiveComponent,script.GoddessNpc",
+        "jsonString": {
+          "name": "GoddessNpc",
+          "path": "/maps/maptown/GoddessNpc",
+          "nameEditable": true,
+          "enable": true,
+          "visible": true,
+          "localize": false,
+          "displayOrder": 6,
+          "pathConstraints": "///",
+          "revision": 1,
+          "modelId": "goddessnpc",
+          "@components": [
+            {
+              "@type": "MOD.Core.TransformComponent",
+              "Position": {
+                "x": 3,
+                "y": 3,
+                "z": 0
+              },
+              "QuaternionRotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "w": 1
+              },
+              "Scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SpriteRendererComponent",
+              "SpriteRUID": "1fca678a35024ed2a1890b213cc10842",
+              "Color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+              },
+              "DrawMode": 0,
+              "FlipX": false,
+              "FlipY": false,
+              "PlayRate": 1,
+              "OrderInLayer": 2,
+              "StartFrameIndex": 0,
+              "EndFrameIndex": 2147483647,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.TouchReceiveComponent",
+              "Enable": true,
+              "TouchArea": {
+                "$type": "MOD.Core.MODVector2, MOD.Core",
+                "x": 1.8,
+                "y": 2.4
+              }
+            },
+            {
+              "@type": "script.GoddessNpc",
+              "Enable": true
+            }
+          ],
+          "@version": 1,
+          "origin": {
+            "type": "Model",
+            "entry_id": "goddessnpc",
+            "sub_entity_id": null,
+            "root_entity_id": "c58fbcc8-796b-45e7-b546-bdedfedff9f5",
+            "replaced_model_id": null
+          }
+        }
       }
     ]
   }
