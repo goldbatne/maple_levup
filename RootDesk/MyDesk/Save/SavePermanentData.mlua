@@ -26,6 +26,8 @@ script SavePermanentData
     -- highest_level과 다른 값이다: 저건 "도달한 최고 레벨"이고, 이건 "그 레벨에서
     -- **환생을 했는가**"다. Lv100까지 갔어도 환생하지 않았으면 0이다.
     property integer best_rebirth_level = 0
+    -- 지금까지 밟은 전직 차수의 최고치. 환생해도 유지된다 (T23-7).
+    property integer best_tier = 0
 
     -- 랜드마크는 "그 레벨에서 환생해야" 지급되므로 수령 여부를 따로 기록한다 (기획서 4.5).
     property table landmark_claimed = {}   -- level -> true
@@ -61,6 +63,7 @@ script SavePermanentData
         self.species_kills = {}
         self.rebirth_count = 0
         self.best_rebirth_level = 0
+        self.best_tier = 0
         self.highest_level = 1
         self.landmark_claimed = {}
         self.unlocked_areas = {}
@@ -92,6 +95,7 @@ script SavePermanentData
         body["schema_version"] = self.schema_version
         body["rebirth_count"] = self.rebirth_count
         body["best_rebirth_level"] = self.best_rebirth_level
+        body["best_tier"] = self.best_tier
         body["highest_level"] = self.highest_level
         body["monster_slot_count"] = self.monster_slot_count
 
@@ -119,6 +123,7 @@ script SavePermanentData
         self.rebirth_count = body["rebirth_count"] or 0
         -- 옛 저장에는 없다. 0이면 보너스도 0이라 기존 플레이어는 그대로 시작한다.
         self.best_rebirth_level = body["best_rebirth_level"] or 0
+        self.best_tier = body["best_tier"] or 0
         self.highest_level = body["highest_level"] or 1
         self.landmark_claimed = body["landmark_claimed"] or {}
         self.unlocked_areas = body["unlocked_areas"] or {}
