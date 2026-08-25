@@ -109,12 +109,18 @@ script RoomProgressHud extends Logic
                 collection:GetOwnedCount(monster.drop_skill_id), cap)
         end
 
-        -- 장비·소비 줄. 한 몬스터가 여럿을 떨굴 수 있다 (돌 정령은 목걸이 + 반지).
+        -- 장비 줄. 한 몬스터가 여럿을 떨굴 수 있다 (돌 정령은 목걸이 + 반지).
+        --
+        -- **소비 아이템은 세지 않는다** (대표 지시 2026-08-25: *"드랍 UI에 아직 포션의
+        -- 내역이 출력되고 있네 저거 없애고 기본으로 드랍되게"*).
+        -- 포션은 T23-5에서 `drop_from=*`가 되어 **모든 몬스터가 떨군다** — 방마다 늘 뜨는
+        -- 줄이라 진척도가 아니고, 정작 모아야 할 장비(2~5%)를 3줄 제한 밖으로 밀어낸다.
+        -- 여기는 "이 방에서 뭘 더 모아야 하나"를 적는 자리다. 포션은 모으는 것이 아니라 쓰는 것이다.
         if inventory ~= nil then
             local drops = _GameData:GetItemDropsOf(monster.id)
             for i = 1, #drops do
                 local item = _GameData:GetItem(drops[i])
-                if item ~= nil then
+                if item ~= nil and item.item_type ~= "consume" then
                     rows[#rows + 1] = self:CountText("아이템", item.name,
                         inventory:GetCount(item.id), _GameData:GetItemStackCap(item.id))
                 end
