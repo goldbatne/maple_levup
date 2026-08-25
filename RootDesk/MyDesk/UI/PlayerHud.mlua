@@ -13,11 +13,14 @@
 script PlayerHud extends Logic
 
     -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다. 손으로 드래그 연결하지 않는다.
-    property UITransformComponent hpFill = "f7db0102-edf9-4875-97fb-121cb12ad608"
-    property TextGUIRendererComponent hpText = "e3525c1c-551a-497d-ad95-2e944cdfb848"
-    property UITransformComponent expFill = "71ee3dc6-235e-4855-b01f-28eedbf2e908"
-    property TextGUIRendererComponent expText = "91e92614-3747-4da2-9036-5ceae14f8dba"
-    property TextGUIRendererComponent levelText = "38b18212-4cb1-4dde-8a9a-6b496af6fd40"
+    property UITransformComponent hpFill = "b2d6bc99-b524-464b-924a-e247cbed2c27"
+    property TextGUIRendererComponent hpText = "37cdbcad-6051-4b46-ae25-ba5527ad597d"
+    property UITransformComponent expFill = "236e885b-49f5-4738-a5d4-bc71890ba54c"
+    property TextGUIRendererComponent expText = "b8297891-094a-42c9-afff-e727080b389c"
+    property TextGUIRendererComponent levelText = "b8696b33-55c8-4af6-a336-b9bf54a0f2ea"
+    -- 닉네임. 한 번만 채우면 되므로 Refresh가 아니라 OnBeginPlay에서 넣는다
+    -- (MSW 프리셋 상태창 `UIMyInfo`도 같은 방식이다).
+    property TextGUIRendererComponent nameText = "d96c227c-e616-48fb-b562-257c348d2c43"
 
     -- 게이지 원래 폭. RectSize를 줄여서 채움을 표현하므로 최대 폭을 기억해야 한다.
     @HideFromInspector property number hpFullWidth = 0
@@ -30,6 +33,12 @@ script PlayerHud extends Logic
         -- 최대 폭을 처음 한 번만 저장해 둔다.
         if isvalid(self.hpFill) then self.hpFullWidth = self.hpFill.RectSize.x end
         if isvalid(self.expFill) then self.expFullWidth = self.expFill.RectSize.x end
+        -- 닉네임은 바뀌지 않으므로 여기서 한 번만 채운다.
+        local me = _UserService.LocalPlayer
+        if isvalid(self.nameText) and isvalid(me) and isvalid(me.PlayerComponent) then
+            self.nameText.Text = me.PlayerComponent.Nickname
+        end
+
         log("[PlayerHud] OnBeginPlay  HP폭=" .. tostring(self.hpFullWidth)
             .. " EXP폭=" .. tostring(self.expFullWidth))
 
