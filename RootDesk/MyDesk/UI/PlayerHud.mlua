@@ -13,14 +13,14 @@
 script PlayerHud extends Logic
 
     -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다. 손으로 드래그 연결하지 않는다.
-    property UITransformComponent hpFill = "7fa1333e-a379-45be-b9aa-38ff26a5226f"
-    property TextGUIRendererComponent hpText = "ae55ba56-93da-4e37-8b32-2d7dd9a3f3bd"
-    property UITransformComponent expFill = "2902f5a2-e534-4d4c-95bf-cfab1517ab1e"
-    property TextGUIRendererComponent expText = "ff471d09-85b7-4c98-9bea-ce0c70abc632"
-    property TextGUIRendererComponent levelText = "d9b36d2f-68d9-479c-a8e9-a82885db174a"
+    property UITransformComponent hpFill = "b2d6bc99-b524-464b-924a-e247cbed2c27"
+    property TextGUIRendererComponent hpText = "37cdbcad-6051-4b46-ae25-ba5527ad597d"
+    property UITransformComponent expFill = "236e885b-49f5-4738-a5d4-bc71890ba54c"
+    property TextGUIRendererComponent expText = "b8297891-094a-42c9-afff-e727080b389c"
+    property TextGUIRendererComponent levelText = "b8696b33-55c8-4af6-a336-b9bf54a0f2ea"
     -- 닉네임. 한 번만 채우면 되므로 Refresh가 아니라 OnBeginPlay에서 넣는다
     -- (MSW 프리셋 상태창 `UIMyInfo`도 같은 방식이다).
-    property TextGUIRendererComponent nameText = "b6412977-84e3-4f51-a300-bf536cb3f288"
+    property TextGUIRendererComponent nameText = "d96c227c-e616-48fb-b562-257c348d2c43"
 
     -- 게이지 원래 폭. RectSize를 줄여서 채움을 표현하므로 최대 폭을 기억해야 한다.
     @HideFromInspector property number hpFullWidth = 0
