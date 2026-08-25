@@ -1,0 +1,112 @@
+-- @클라이언트 (읽기만 한다. 아무것도 바꾸지 않으므로 서버가 할 일이 없다)
+--
+-- 여신의 전직 안내 창 (T23-9b, 대표 지시 2026-08-25:
+-- *"메시지가 뜨는게 아니라 환생 창처럼 나와주면 좋겠네"*).
+--
+-- ## 배너에서 창으로 바꾼 이유
+--
+-- 배너(`GateNotice`)는 2.5초 뒤 스스로 사라진다. "잠겼다" 같은 **한 줄 통보**에는 맞지만,
+-- 전직 안내는 **읽고 판단하는 정보**라 사라지면 다시 말을 걸어야 한다.
+-- 환생 창과 같은 어법으로 두어 "마을 NPC가 여는 창"이라는 결이 맞는다.
+--
+-- ## 열릴 스킬 이름은 적지 않는다 (대표 지시)
+--
+-- *"앞으로 만들어낼 전직이 얼마나 많은데 하나하나 알려줄 수는 없을테니까
+-- 스킬 창에만 알려주는게 좋을거 같아보이네"*
+--
+-- 차수·직업이 늘수록 이 창이 목록으로 변해 간다. **무엇이 열리는지는 스킬 창의 일**이고
+-- (거기엔 이미 `[잠김] N차` 표시가 있다), 여신은 **언제 열리는지**만 말한다.
+--
+-- ## 규칙 문구는 `.ui`에 정적으로 둔다
+--
+-- `RuleText`는 스크립트가 채우지 않는다 — 대표가 Maker에서 직접 고칠 수 있어야 한다
+-- (환생 창의 `RuleText`와 같은 판단, T18-3). 스크립트가 채우는 것은 **살아 있는 숫자**뿐이다.
+
+@Logic
+script GoddessPanel extends Logic
+
+    -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다.
+    property Entity root = "3d601637-f0d7-4bff-871d-ed1aa67ba846"
+    property TextGUIRendererComponent tierText = "6e05c5e2-8451-414a-abb4-596f70715e72"
+    property TextGUIRendererComponent slotText = "8f0bb102-c7f2-4c51-b41f-09bff641caab"
+    property TextGUIRendererComponent nextText = "15a953c3-f5c8-4b7e-848f-fe8d73c3d814"
+    property ButtonComponent btnClose = "0c20e331-1653-4943-818b-839dd514602f"
+
+    property any closeHandler = nil
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        -- 창은 닫힌 채로 시작한다. 루트 그룹은 켜 두고 **안쪽(root)만** 끈다 —
+        -- 그룹을 끄면 이 스크립트의 OnBeginPlay가 아예 안 돈다 (builder-protocol-ui §3.9).
+        self:Hide()
+        log("[GoddessPanel] OnBeginPlay — 닫힌 채로 시작")
+
+        if isvalid(self.btnClose) then
+            self.closeHandler = self.btnClose.Entity:ConnectEvent(ButtonClickEvent, function()
+                self:Hide()
+            end)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.closeHandler ~= nil and isvalid(self.btnClose) then
+            self.btnClose.Entity:DisconnectEvent(ButtonClickEvent, self.closeHandler)
+            self.closeHandler = nil
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Hide()
+        -- ⚠ 암막이 딸린 창이라 **반드시 닫아 두어야 한다.** 켜진 채로 남으면 최상단
+        --   그룹의 전체 화면 레이캐스트가 화면 전체의 클릭을 먹는다 (T23-8에서 겪었다).
+        if isvalid(self.root) then self.root.Enable = false end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Open()
+        -- 지금 값을 읽어 채우고 연다. 창이 떠 있는 동안 값이 변할 일은 없다
+        -- (레벨업은 창을 닫고 사냥해야 일어난다) — 그래서 폴링하지 않는다.
+        local me = _UserService.LocalPlayer
+        if me == nil then return end
+
+        ---@type PlayerSkillSlots
+        local slots = me:GetComponent("script.PlayerSkillSlots")
+        ---@type PlayerStats
+        local stats = me:GetComponent("script.PlayerStats")
+        if slots == nil or stats == nil then return end
+
+        local tier = slots:GetTier()
+        if isvalid(self.tierText) then
+            if tier <= 0 then
+                self.tierText.Text = "아직 전직 전"
+            else
+                self.tierText.Text = tostring(tier) .. "차"
+            end
+        end
+
+        if isvalid(self.slotText) then
+            self.slotText.Text = tostring(slots.MonsterSlotCount) .. "칸"
+        end
+
+        if isvalid(self.nextText) then
+            local needLevel = slots:NextTierLevel()
+            if needLevel <= 0 then
+                -- 최고 차수. 더 오를 데가 없다는 것을 분명히 말해 준다 —
+                -- 안 그러면 "다음이 언제지"를 계속 찾게 된다.
+                self.nextText.Text = "마지막 차수까지 왔다"
+            else
+                local remain = needLevel - stats.Level
+                if remain < 0 then remain = 0 end
+                local line = "Lv" .. tostring(needLevel)
+                if remain > 0 then line = line .. "  (" .. tostring(remain) .. " 남음)" end
+                self.nextText.Text = line
+            end
+        end
+
+        if isvalid(self.root) then self.root.Enable = true end
+        log("[GoddessPanel] 열림 — " .. tostring(tier) .. "차 / 슬롯 "
+            .. tostring(slots.MonsterSlotCount))
+    end
+
+end
