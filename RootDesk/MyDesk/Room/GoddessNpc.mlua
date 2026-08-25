@@ -6,28 +6,20 @@
 -- ## 전직을 시키지 않는다. 알려 줄 뿐이다
 --
 -- 차수는 **레벨로 저절로 오른다**(Lv20·30·60·100·200 — `PlayerSkillSlots.GetTier`).
--- 여신이 하는 일은 "지금 몇 차인지 / 다음은 언제인지 / 그때 무엇이 열리는지"를
--- 말해 주는 것뿐이다. 여기서 전직을 실행하면 판정 규칙이 두 곳에 생겨 언젠가 어긋난다
+-- 여신이 하는 일은 "지금 몇 차인지 / 다음은 언제인지"를 말해 주는 것뿐이다.
+-- 여기서 전직을 실행하면 판정 규칙이 두 곳에 생겨 언젠가 어긋난다
 -- (RebirthNpc가 환생을 직접 실행하지 않는 것과 같은 판단).
 --
--- ## 환생해도 차수는 유지된다
+-- ## 이 스크립트는 문구를 만들지 않는다
 --
--- 전직 퀘스트는 한 번만 하면 된다 (T23-7). 그래서 안내 문구도 "환생하면 다시 잠긴다"가
--- 아니라 **"환생해도 그대로다"**로 적는다. 이 두 줄이 어긋나면 여신이 거짓말을 한다.
---
--- ## 왜 클라 전용인가
---
--- 읽는 값이 전부 @TargetUserSync(`BestTier`·`MonsterSlotCount`·`Level`)라 클라에서
--- 같은 답이 나온다. 서버를 왕복하면 눌렀는데 한 박자 뒤에 답이 온다.
--- **아무것도 바꾸지 않으므로** 위조 걱정도 없다 — 틀린 안내를 자기 화면에 띄울 뿐이다.
+-- 터치를 받아 **창을 열기만** 한다 (T23-9b, 대표 지시 *"환생 창처럼 나와주면 좋겠네"*).
+-- 무엇을 보여 줄지는 `UI/GoddessPanel`이 정한다 — 문구를 두 곳에서 만들면 언젠가
+-- 어긋난다. RebirthNpc → RebirthConfirmPanel과 같은 꼴이다.
 
 @Component
 script GoddessNpc extends Component
 
     property any touchHandler = nil
-
-    -- 한 번에 보여 줄 잠긴 스킬 이름 수. 다 적으면 배너가 넘친다.
-    property integer lockedPreview = 3
 
     method void OnBeginPlay()
         -- 터치는 클라에서만 받는다. 서버에는 입력이 오지 않는다.
@@ -48,91 +40,14 @@ script GoddessNpc extends Component
     method void OnTouch(TouchEvent event)
         -- 누른 사람의 클라에서만 뜨는 이벤트라 LocalPlayer가 곧 그 사람이다
         -- (RebirthNpc와 같은 이유로 TouchEvent의 주인을 따로 묻지 않는다).
+        --
+        -- 여기서는 창을 열기만 한다. 무엇을 보여 줄지는 창(GoddessPanel)이 정한다 —
+        -- 문구를 두 곳에서 만들면 언젠가 어긋난다 (RebirthNpc → RebirthConfirmPanel과 같은 꼴).
         local me = _UserService.LocalPlayer
         if me == nil then return end
 
-        ---@type PlayerSkillSlots
-        local slots = me:GetComponent("script.PlayerSkillSlots")
-        ---@type PlayerStats
-        local stats = me:GetComponent("script.PlayerStats")
-        if slots == nil or stats == nil then return end
-
-        local tier = slots:GetTier()
-        local needLevel = slots:NextTierLevel()
-
-        local title = tostring(tier) .. "차"
-        if tier == 0 then title = "아직 전직 전" end
-
-        local body = self:BuildMessage(slots, stats, tier, needLevel)
-        log("[GoddessNpc] 안내 — " .. title .. " / " .. body)
-        _GateNotice:ShowNotice(title, body)
-    end
-
-    @ExecSpace("ClientOnly")
-    method string BuildMessage(any slots, any stats, integer tier, integer needLevel)
-        -- 배너 한 줄에 담을 안내문을 만든다.
-        --
-        -- 순서: 지금 상태 → 다음 전직 → 그때 열리는 것. 플레이어가 묻는 순서 그대로다.
-        ---@type PlayerSkillSlots
-        local s = slots
-
-        local slotCount = s.MonsterSlotCount
-        local msg = "슬롯 " .. tostring(slotCount) .. "칸"
-
-        if needLevel <= 0 then
-            -- 최고 차수. 더 오를 데가 없다는 것을 분명히 말해 준다 —
-            -- 안 그러면 "다음이 언제지"를 계속 찾게 된다.
-            return msg .. "  ·  마지막 차수까지 왔다. 더 오를 곳은 없다"
-        end
-
-        local remain = needLevel - stats.Level
-        if remain < 0 then remain = 0 end
-        msg = msg .. "  ·  다음 전직 Lv" .. tostring(needLevel)
-        if remain > 0 then
-            msg = msg .. " (" .. tostring(remain) .. " 남음)"
-        end
-
-        -- 다음 차수에서 풀리는 스킬을 이름으로 보여 준다. "슬롯이 는다"보다
-        -- "이게 열린다"가 훨씬 구체적이다.
-        local names = self:LockedSkillNames(tier + 1)
-        if names ~= "" then
-            msg = msg .. "  ·  그때 열림: " .. names
-        else
-            msg = msg .. "  ·  슬롯이 한 칸 더 열린다"
-        end
-        return msg
-    end
-
-    @ExecSpace("ClientOnly")
-    method string LockedSkillNames(integer atTier)
-        -- 그 차수가 되면 풀리는 **내가 이미 가진** 스킬 이름들.
-        --
-        -- 안 가진 스킬은 적지 않는다 — 없는 것을 미리 알려 주면 안내가 아니라 스포일러가
-        -- 되고, 목록이 길어져 정작 내 것이 안 보인다.
-        local me = _UserService.LocalPlayer
-        if me == nil then return "" end
-        ---@type PlayerCollection
-        local col = me:GetComponent("script.PlayerCollection")
-        if col == nil then return "" end
-
-        local out = ""
-        local shown = 0
-        local ids = _GameData:GetAllSkillIds()
-        for i = 1, #ids do
-            local id = ids[i]
-            local skill = _GameData:GetSkill(id)
-            if skill ~= nil and math.floor(skill.tier) == atTier then
-                if col:GetOwnedCount(id) > 0 then
-                    if shown >= self.lockedPreview then
-                        return out .. " 외"
-                    end
-                    if out ~= "" then out = out .. ", " end
-                    out = out .. skill.name
-                    shown = shown + 1
-                end
-            end
-        end
-        return out
+        log("[GoddessNpc] 전직 안내 창 열기")
+        _GoddessPanel:Open()
     end
 
 end
