@@ -31,6 +31,17 @@ script SkillBar extends Logic
 
     property number refreshInterval = 0.3
 
+    -- 보이는 칸을 **오른쪽 구석에 붙여** 늘어놓는다 (T24-3, 대표 지시
+    -- *"스킬 우측으로 빼줄래?"*). 자리를 스크립트가 정하는 이유가 둘 있다:
+    --   1) 슬롯 수가 차수에 따라 1~5로 변한다. `.ui`에 5칸을 고정으로 박아 두면
+    --      1칸일 때 버튼 하나가 화면 가운데쯤에 외따로 떠서 물약과 멀어진다.
+    --   2) `GetActiveSkills`는 **구멍 난 목록**을 줄 수 있다(3번 칸만 찬 경우).
+    --      번호대로 놓으면 그 구멍이 화면에 빈자리로 그대로 남는다.
+    -- 그래서 "찬 칸만 순서대로, 오른쪽 끝부터" 채운다.
+    -- 값은 `.ui`의 스킬 버튼과 같은 규격이다 (칸 128 + 사이 12).
+    property number slotRightX = -20
+    property number slotStepX = 140
+
     ---------------------------------------------------------------
     -- 키보드 입력 (T14-1)
     ---------------------------------------------------------------
@@ -370,6 +381,15 @@ script SkillBar extends Logic
         self:SyncKeyOrderFromSave()
 
         local active = slots:GetActiveSkills()
+
+        -- 몇 칸이 차 있는지 먼저 센다. 자리를 오른쪽 끝부터 채우려면
+        -- **전체 개수를 알아야** 첫 칸의 자리가 정해진다.
+        local filled = 0
+        for i = 1, 5 do
+            if active[i] ~= nil then filled = filled + 1 end
+        end
+
+        local placed = 0
         for i = 1, 5 do
             local btn = self:GetButton(i)
             if btn ~= nil then
@@ -379,6 +399,18 @@ script SkillBar extends Logic
                     btn.Entity:SetVisible(false)
                 else
                     btn.Entity:SetVisible(true)
+
+                    -- 오른쪽 끝에서 왼쪽으로 채운다. 마지막 칸이 구석(slotRightX)에 온다.
+                    placed = placed + 1
+                    local rt = btn.Entity.UITransformComponent
+                    if rt ~= nil then
+                        local x = self.slotRightX - (filled - placed) * self.slotStepX
+                        if rt.anchoredPosition.x ~= x then
+                            -- 값이 같을 때도 쓰면 매 0.3초마다 레이아웃이 다시 돈다.
+                            rt.anchoredPosition = Vector2(x, rt.anchoredPosition.y)
+                        end
+                    end
+
                     local skill = _GameData:GetSkill(skillId)
                     local label = skillId
                     if skill ~= nil then label = skill.name end
