@@ -288,6 +288,30 @@
 - 진행 중: **T25 전직 스킬 원작 대조** (지시서 밖, 2026-08-26 대표 지시:
   *"전직 스킬들이 지금 제대로 원작에 맞게 작동하는지 알고 싶어 설명으로는 조금
   다른거 같거든"*).
+  **T25-4 히어로 공격 모션 ✅** (T16-3b에서 "별도 태스크"로 남겨 둔 것.
+  히어로가 **아무 동작 없이** 때리고 있었다 — 아바타 몬스터라 기존 방식이 안 통했다.
+  실측: 때릴 때 `swingO1`, 끝나면 상태에 맞춰 `walk1`/`stand1`로 복귀) /
+  다음: 대표 플레이 판정
+  - **왜 안 나오고 있었나**: `PlayAttackPose`가 `SpriteRendererComponent`를 갈아끼우는
+    방식인데 **아바타 몬스터에는 그 컴포넌트가 아예 없어** 첫 줄에서 물러났다.
+  - **`ActionStateChangedEvent`를 몸 엔티티로 직접 보낸다.** 상태머신(ChangeState)은
+    스프라이트 몬스터와 같은 이유로 못 쓴다 — AIChase가 매 프레임 IDLE/MOVE를 되쓴다.
+    `BodyActionStateChangeEvent`도 안 쓴다: 그건 14개 내장 상태를 거치는데,
+    그러면 `AvatarStateAnimationComponent`가 다시 개입해 AIChase와 같이 지워진다.
+  - ⚠⚠ **끝나면 직접 되돌려야 한다.** `Onetime`은 한 번 재생하고 **마지막 프레임에서
+    멈춘다** — 안 되돌리면 검을 뻗은 채로 굳는다. 그리고 **`AvatarStateAnimationComponent`가
+    대신 고쳐 주지 않는다**: 실측에서 공격이 도는 동안에도 셀렉터는 계속 `Walk|MOVE`였다.
+    우리 이벤트가 셀렉터를 거치지 않고 몸으로 바로 가기 때문에 **상태가 안 바뀌고,
+    저쪽은 다시 보낼 일이 없다.** 되돌리는 것은 우리 몫이다.
+  - ⚠ **`GetBodyEntity()`는 ClientOnly다.** 서버에서 부르면 nil이라 재생은 클라에서 한다.
+    방에 있는 사람에게만 보낸다 (`SkillEffect.PlayCast`와 같은 방식).
+  - ⚠ **`PartsActionName`을 비우면 몸만 움직이고 무기가 그 자리에 멈춘다.**
+    `CoreActionName`과 같은 값을 넣는다.
+  - **동작 이름은 무기가 정한다**: 한손검 `swingO1/O2/O3`·`stabO1/O2`,
+    두손검 `swingT*`, 활 `shoot1`. 히어로는 모험가 히어로 소드(한손)라 `swingO1`이다.
+    종별로 갈 수 있게 `.model`에서 바꾸는 프로퍼티(`AvatarAttackAction`)로 뒀다.
+  - 실측 로그: `[swingO1] 1회` → 쫓아오는 중이면 `[walk1] 반복`, 붙어 있으면 `[stand1] 반복`.
+    화면에서 히어로가 검을 휘두르는 자세로 그려지는 것도 확인했다.
   **T25-3 보스 스킬만 깎는다 ✅** (대표 지시: *"범위 3분의 2, 데미지를 4분의 1로 줄이자
   … 한방 맞고 뻗는데 히어로한테? 이러면 스킬 못얻지"*.
   `boss_skill_range_multiplier` 0.667 · `boss_skill_damage_multiplier` 0.25 신설.
