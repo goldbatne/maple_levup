@@ -13,6 +13,22 @@ script MonsterAttack extends AttackComponent
 	@MinValue(0)
 	property number AttackPoseSeconds = 0.4
 
+	-- 아바타 몬스터가 때릴 때 쓸 **그림 이름** (T25-4). 스프라이트 몬스터의
+	-- ActionSheet "ATTACK" 자리에 해당한다 — 종별로 `.model`에서 갈아 끼운다.
+	--
+	-- 무기에 따라 이름이 다르다: 한손검 `swingO1/O2/O3`·`stabO1/O2`,
+	-- 두손검 `swingT1/T2/T3`, 활 `shoot1`. 히어로는 **모험가 히어로 소드(한손)**라 swingO1이다.
+	-- 무기 없는 몸에는 공격 클립 자체가 없어 `alert` 말고는 나올 것이 없다.
+	property string AvatarAttackAction = "swingO1"
+
+	-- 공격이 끝나면 되돌아갈 동작. `Onetime`은 마지막 프레임에서 멈추므로
+	-- 안 되돌리면 검을 뻗은 채로 굳는다.
+	property string AvatarWalkAction = "walk1"
+	property string AvatarIdleAction = "stand1"
+
+	@MinValue(0)
+	property number AvatarAttackPlayRate = 1.33
+
 	@HideFromInspector
 	property any Shape = nil
 
@@ -468,8 +484,15 @@ script MonsterAttack extends AttackComponent
 		local sc = self.Entity.StateComponent
 		if isvalid(sc) and sc.CurrentStateName == "DEAD" then return end
 
+		-- 아바타 몬스터(히어로 — T16-3b)는 여기서 갈라진다. SpriteRendererComponent가
+		-- 아예 없어서 위의 "그림을 갈아끼운다"가 성립하지 않는다 (T25-4).
 		local sprite = self.Entity.SpriteRendererComponent
-		if not isvalid(sprite) then return end
+		if not isvalid(sprite) then
+			if isvalid(self.Entity.AvatarRendererComponent) then
+				self:PlayAvatarAttackPose()
+			end
+			return
+		end
 
 		local attackRuid = self:ClipForState("ATTACK")
 		if attackRuid == "" then return end
@@ -494,6 +517,96 @@ script MonsterAttack extends AttackComponent
 			local back = self:ClipForState(cur)
 			if back ~= "" then sp.SpriteRUID = back end
 		end, self.AttackPoseSeconds)
+	end
+
+	@ExecSpace("ServerOnly")
+	method void PlayAvatarAttackPose()
+		-- 아바타 몬스터의 공격 모션 (T25-4).
+		--
+		-- **왜 상태(ChangeState)로 안 하나**: 스프라이트 몬스터와 같은 이유다 —
+		-- AIChase가 매 프레임 IDLE/MOVE를 다시 써서 ATTACK 자세가 한두 프레임에 사라진다.
+		--
+		-- **왜 `BodyActionStateChangeEvent`가 아니라 `ActionStateChangedEvent`인가**:
+		-- 전자는 14개 내장 상태(Attack 등)를 거치는데, 그러면 `AvatarStateAnimationComponent`가
+		-- 다시 개입해 무기별 클립을 고른다 — AIChase가 상태를 되돌릴 때 같이 지워진다.
+		-- 후자는 **그림 이름을 몸에 직접** 보내므로 상태머신을 타지 않는다.
+		-- (스프라이트 몬스터에서 SpriteRUID를 직접 갈아끼운 것과 같은 판단이다.)
+		if self.poseUntil > 0 then return end   -- 이미 자세 중이면 겹쳐 걸지 않는다
+		local sc = self.Entity.StateComponent
+		if isvalid(sc) and sc.CurrentStateName == "DEAD" then return end
+
+		self.poseUntil = 1
+		self:SendAvatarAction(self.AvatarAttackAction, false)
+
+		-- 끝나면 지금 상태에 맞는 동작으로 **되돌린다.**
+		--
+		-- ⚠ 안 되돌리면 마지막 프레임에서 굳는다. `Onetime`은 한 번 재생하고 **멈추기**
+		--   때문이다. 스프라이트 몬스터 쪽이 자세 뒤에 `ClipForState`로 되돌리는 것과 같다.
+		--
+		-- ⚠⚠ **`AvatarStateAnimationComponent`가 대신 고쳐 주지 않는다.** 실측:
+		--   공격이 도는 동안에도 셀렉터는 계속 `Walk|MOVE`였다 — 우리 이벤트가
+		--   셀렉터를 거치지 않고 몸의 스프라이트로 바로 가기 때문이다. 상태가 안 바뀌니
+		--   저쪽은 다시 보낼 일이 없고, 되돌리는 것은 우리 몫이다.
+		_TimerService:SetTimerOnce(function()
+			self.poseUntil = 0
+			if not isvalid(self.Entity) then return end
+			local s = self.Entity.StateComponent
+			local cur = isvalid(s) and s.CurrentStateName or "IDLE"
+			if cur == "DEAD" then return end
+			local back = self.AvatarIdleAction
+			if cur == "MOVE" then back = self.AvatarWalkAction end
+			self:SendAvatarAction(back, true)
+		end, self.AttackPoseSeconds)
+	end
+
+	@ExecSpace("ServerOnly")
+	method void SendAvatarAction(string actionName, boolean loop)
+		-- 그 방에 있는 사람에게만 보낸다 (SkillEffect.PlayCast와 같은 방식).
+		-- Multicast를 쓰면 다른 맵 사람의 클라에는 이 엔티티가 없어 조용히 nil이 된다.
+		if actionName == "" then return end
+		local map = self.Entity.CurrentMap
+		if map == nil then return end
+		local users = _UserService:GetUsersByMapName(map.Name)
+		if users == nil then return end
+
+		if self.poseLogLeft > 0 then
+			self.poseLogLeft = self.poseLogLeft - 1
+			log("[MonsterAttack] 아바타 동작 [" .. actionName .. "] "
+				.. (loop and "반복" or "1회") .. " (" .. tostring(self.Entity.Name)
+				.. ")  받는 사람 " .. tostring(#users) .. "명")
+		end
+
+		for i = 1, #users do
+			local pc = users[i].PlayerComponent
+			if isvalid(pc) then
+				self:ShowAvatarAction(actionName, loop, pc.UserId)
+			end
+		end
+	end
+
+	@ExecSpace("Client")
+	method void ShowAvatarAction(string actionName, boolean loop)
+		-- 실제 재생. 연출 전용이라 여기서 아무것도 못 그려도 데미지는 이미 들어갔다.
+		--
+		-- ⚠ `GetBodyEntity()`는 ClientOnly다 — 서버에서 부르면 nil이라 여기서만 부른다.
+		-- ⚠ 이벤트는 **아바타 루트가 아니라 몸 엔티티**로 보내야 한다 (msw-avatar).
+		-- ⚠ `PartsActionName`을 비우면 몸만 움직이고 **무기가 그 자리에 멈춘다.**
+		local renderer = self.Entity.AvatarRendererComponent
+		if not isvalid(renderer) then return end
+		local body = renderer:GetBodyEntity()
+		if not isvalid(body) then return end
+
+		local event = ActionStateChangedEvent()
+		event.CoreActionName = actionName
+		event.PartsActionName = actionName
+		event.PlayRate = self.AvatarAttackPlayRate
+		if loop then
+			event.PlayRate = 1
+			event.PlayType = SpriteAnimClipPlayType.Loop
+		else
+			event.PlayType = SpriteAnimClipPlayType.Onetime
+		end
+		body:SendEvent(event)
 	end
 
 	method void AttackNear()
