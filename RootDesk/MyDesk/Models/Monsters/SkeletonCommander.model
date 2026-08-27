@@ -1,7 +1,7 @@
 {
   "Id": "",
   "GameId": "",
-  "EntryKey": "model://mithrilmutae",
+  "EntryKey": "model://skeletoncommander",
   "ContentType": "x-mod/model",
   "Content": "",
   "Usage": 0,
@@ -14,9 +14,9 @@
     "Use": "Json",
     "Json": {
       "Version": 1,
-      "Name": "MithrilMutae",
+      "Name": "SkeletonCommander",
       "BaseModelId": null,
-      "Id": "mithrilmutae",
+      "Id": "skeletoncommander",
       "Components": [
         "MOD.Core.TransformComponent",
         "MOD.Core.StateAnimationComponent",
@@ -81,10 +81,11 @@
           },
           "Value": {
             "$type": "MOD.Core.MODSyncDictionary`2[[System.String, mscorlib],[System.String, mscorlib]], MOD.Core",
-            "stand": "b06abb18fb52476d8bc7bdd5e46abe19",
-            "move": "679e977d594e4392a9848f0e16571aa0",
-            "hit": "af0cfa2f179746a6b444ff335594b878",
-            "die": "d326521fe8b649348e6e875f8d6a8377"
+            "stand": "ed882269a5d543318ad73e7032632960",
+            "move": "94003c3d90dd4fd4866c725b29704169",
+            "attack": "791b405fbab44bf1a914043ca29a1848",
+            "hit": "fcdeaaece999433587fd7a953758ae8e",
+            "die": "2d11a182fb8948aa91fa9000118eb9bf"
           }
         },
         {
@@ -141,7 +142,7 @@
             "$type": "MODNativeType",
             "type": "System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
-          "Value": "b06abb18fb52476d8bc7bdd5e46abe19"
+          "Value": "ed882269a5d543318ad73e7032632960"
         },
         {
           "TargetType": "MOD.Core.SpriteRendererComponent",
@@ -215,8 +216,8 @@
           },
           "Value": {
             "$type": "MOD.Core.MODVector2, MOD.Core",
-            "x": 0.68,
-            "y": 0.61
+            "x": 1.2,
+            "y": 1.33
           }
         },
         {
@@ -229,7 +230,7 @@
           "Value": {
             "$type": "MOD.Core.MODVector2, MOD.Core",
             "x": 0,
-            "y": 0.305
+            "y": 0.665
           }
         },
         {
@@ -296,7 +297,7 @@
             "$type": "MODNativeType",
             "type": "System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
-          "Value": "m_mithril_mutae"
+          "Value": "m_skeleton_commander"
         },
         {
           "TargetType": "script.RoomMonster",
