@@ -35,6 +35,10 @@ script PlayerStats extends Component
         log("[PlayerStats] 초기화  Lv=" .. tostring(self.Level)
             .. "  미분배P=" .. tostring(self.UnspentPoints)
             .. "  ATK총합=" .. tostring(self:GetTotalAtk()))
+
+        -- 기본값(STR 0)으로 한 번 맞춰 둔다. 세이브가 있으면 PlayerDBManager가
+        -- 복원 직후 다시 부른다 — 여기서 부르는 것은 신규 계정과 순서 사고 대비다.
+        self:ApplyMaxHp()
     end
 
     ---------------------------------------------------------------
@@ -85,6 +89,10 @@ script PlayerStats extends Component
             .. " DEF=" .. tostring(self.StatDef) .. " LUK=" .. tostring(self.StatLuk)
             .. "  남은P=" .. tostring(self.UnspentPoints)
             .. "  ATK총합=" .. tostring(self:GetTotalAtk()))
+
+        -- STR을 찍었으면 최대 HP가 바뀐다. 분배 직후 바로 반영해야
+        -- "찍었는데 체력이 그대로"로 보이지 않는다.
+        self:ApplyMaxHp()
 
         self:MarkSave("분배 확정")
         return true
@@ -249,6 +257,101 @@ script PlayerStats extends Component
         -- 환생하면 다시 Lv1이므로 캡 플래그도 내린다. 안 내리면 새 회차에서
         -- EXP가 한 톨도 안 들어온다.
         self.CanRebirth = false
+
+        -- STR이 0으로 돌아갔으니 최대 HP도 기본치로 내린다. 안 내리면 환생 후에도
+        -- 예전 STR로 부풀린 HP가 남는다 — 회차 초기화의 의미가 사라진다.
+        self:ApplyMaxHp()
+    end
+
+    ---------------------------------------------------------------
+    -- 새 스탯 이름으로 읽는 창구 (T27, 대표 승인 2026-08-27)
+    ---------------------------------------------------------------
+    --
+    -- 스탯이 ATK/INT/DEF/LUK → **STR/DEX/INT/LUK**으로 바뀌었다. 담는 그릇은 그대로다:
+    --
+    --   StatAtk → STR (물리 공격력 + HP)
+    --   StatDef → DEX (방어력 + 물리 공격력)
+    --   StatInt → INT (마법 공격력)
+    --   StatLuk → LUK (물리 공격력 + 공속 + 회피 + 이속)
+    --
+    -- 프로퍼티 이름을 아직 안 바꾼 이유: 저장 키가 `stat_atk` 계열이고
+    -- `ItemTable.stat_type` · `SkillTable.scaling_stat` · 스탯 창 · RoomGate가 전부
+    -- 그 문자열을 쓴다. **이름 변경은 마이그레이션이 필요한 별도 단계다.**
+    -- 그때까지 새 코드는 아래 창구만 쓴다 — 이름을 바꿀 때 여기 네 줄만 고치면 된다.
+
+    method integer GetStr()
+        -- 분배한 STR 포인트.
+        return self.StatAtk
+    end
+
+    method integer GetDex()
+        -- 분배한 DEX 포인트.
+        return self.StatDef
+    end
+
+    method integer GetIntStat()
+        -- 분배한 INT 포인트. `GetTotalInt`(파생 수치)와 이름이 겹치지 않게 Stat을 붙였다.
+        return self.StatInt
+    end
+
+    method integer GetLukStat()
+        -- 분배한 LUK 포인트.
+        return self.StatLuk
+    end
+
+    ---------------------------------------------------------------
+    -- 최대 HP (T27-1)
+    ---------------------------------------------------------------
+
+    method number GetMaxHp()
+        -- 최대 HP = 기본 + STR x STR당 HP.
+        --
+        -- **이것이 T26-6에서 막힌 벽을 푸는 자리다.** 지금까지 플레이어 HP는
+        -- DefaultPlayer.model의 1000 고정이었고 레벨로 자라지 않았다. 몬스터 ATK는
+        -- `24 x 1.08^(lv-1)`로 자라는데 받는 쪽이 그대로라, Lv34 이상 보스는
+        -- `boss_atk_multiplier=3`에서 **무조건 한 방**이었다.
+        --
+        -- 실행공간을 비워 둔다: 서버는 실제 적용에, 클라는 스탯 창 표시에 쓴다.
+        -- 읽는 값이 @TargetUserSync라 양쪽 결과가 같다.
+        local base = _GameData:GetBalance("player_base_hp")
+        local perPoint = _GameData:GetBalance("str_hp_per_point")
+        return base + self:GetStr() * perPoint
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyMaxHp()
+        -- 계산한 최대 HP를 PlayerComponent에 실제로 적용한다.
+        --
+        -- **늘어난 만큼 현재 HP도 같이 올린다.** 안 올리면 STR을 찍은 순간
+        -- 최대치만 늘고 체력 비율이 떨어져 "찍었는데 더 위험해졌다"가 된다.
+        -- 포인트는 유한하고 되돌릴 수 없으므로 회복 악용이 되지 않는다.
+        --
+        -- 줄어드는 경우(환생으로 STR이 0이 될 때)는 현재 HP를 상한에 맞춰 자른다.
+        -- 안 자르면 최대치를 넘는 HP가 남아 HUD 게이지가 100%를 넘어 그려진다.
+        local pc = self.Entity.PlayerComponent
+        if not isvalid(pc) then return end
+
+        local newMax = math.floor(self:GetMaxHp() + 0.5)
+        if newMax < 1 then newMax = 1 end
+
+        local oldMax = pc.MaxHp
+        if newMax == oldMax then return end
+
+        pc.MaxHp = newMax
+
+        if newMax > oldMax then
+            -- 죽어 있는 동안에는 올리지 않는다. Respawn()이 알아서 채운다.
+            if not pc:IsDead() then
+                pc.Hp = pc.Hp + (newMax - oldMax)
+            end
+        elseif pc.Hp > newMax then
+            pc.Hp = newMax
+        end
+
+        log("[PlayerStats] 최대 HP " .. tostring(oldMax) .. " → " .. tostring(newMax)
+            .. "  (STR " .. tostring(self:GetStr()) .. " x "
+            .. tostring(_GameData:GetBalance("str_hp_per_point")) .. ")"
+            .. "  현재 HP=" .. tostring(pc.Hp))
     end
 
     ---------------------------------------------------------------
