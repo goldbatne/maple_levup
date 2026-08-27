@@ -392,23 +392,9 @@ script PlayerStats extends Component
         return base * (1 + self:GetTotalLuk() * perPoint)
     end
 
-    method number GetEvadeRate()
-        -- 회피율 = LUK x LUK당 회피 (상한 `player_evade_max`).
-        --
-        -- **상한이 반드시 필요하다.** 선형이라 LUK 500이면 1.0 = 무적이 된다
-        -- (실드 감쇄 0.9 상한 · 공격 주기 하한과 같은 이유). 0.6이면 LUK 300에서 닿는다.
-        --
-        -- ⚠ **이건 "덜 맞는다"가 아니라 "아예 안 맞는다"다.** 실드(GetDamageReduction)는
-        --   피해를 깎고 회피는 판정 자체를 없앤다 — 둘이 곱해지지 않게 갈라 둔 이유다.
-        --
-        -- 실행공간을 비워 둔다: 서버는 판정에, 클라는 스탯 창 표시에 쓴다.
-        local perPoint = _GameData:GetBalance("luk_evade_per_point")
-        local maxRate = _GameData:GetBalance("player_evade_max")
-        local rate = self:GetTotalLuk() * perPoint
-        if rate > maxRate then rate = maxRate end
-        if rate < 0 then rate = 0 end
-        return rate
-    end
+    -- 회피(GetEvadeRate)는 **폐기됐다** (2026-08-27 대표 지시). T28이 세운
+    -- "동레벨 3대에 잡고 12대 맞으면 죽는다"는 읽히는 숫자에 난수를 꽂기 때문이다.
+    -- 되살리려면 PlayerHit.IsHitTarget 주석을 먼저 읽을 것.
 
     @ExecSpace("ServerOnly")
     method void ApplySpeeds()
