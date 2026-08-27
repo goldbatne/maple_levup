@@ -41,11 +41,9 @@ dex_atk_per_point,2,DEX 1P당 물리 공격력 - 0으로 두면 DEX 올인이 �
 int_matk_per_point,5,INT 1P당 마법 공격력 - STR의 물리 공격력과 같은 값이라 물리/마법이 대칭이다
 luk_atk_per_point,2,LUK 1P당 물리 공격력 - 대표 원안은 20이었으나 그러면 LUK이 유일해가 된다(공격력 최고치에 속도·회피까지 얹힌다). 2로 낮춰 LUK을 딜 1등이 아니라 승수 스탯으로 돌린다
 luk_attack_speed_per_point,0.002,LUK 1P당 공격 주기 단축(초)
-luk_evade_per_point,0.002,LUK 1P당 회피율 - 대표 원안 0.0001은 1000P를 부어도 10%라 죽은 수치였다
 luk_move_speed_per_point,0.001,LUK 1P당 이동 속도 배수 증가
 player_base_hp,1000,분배 전 최대 HP - 지금까지 DefaultPlayer.model의 maxHp에만 있던 값을 데이터로 끌어냈다
 player_attack_interval_min,0.25,공격 주기 하한(초) - 공속이 선형이라 상한이 없으면 초당 수백 번이 된다
-player_evade_max,0.6,회피율 상한 - 1.0이면 무적이 된다(실드 감쇄 0.9 상한과 같은 이유)
 player_base_move_speed,2.4,LUK 0일 때의 MovementComponent.InputSpeed (T27-3). ⚠ **DefaultPlayer.model의 speed/InputSpeed와 같은 값이어야 한다** - 지금은 둘 다 2.4다. 런타임에는 PlayerStats.ApplySpeeds가 이 값으로 덮어쓰므로 실질 정본은 여기다. InputSpeed는 월드 유닛/초가 아니라 맵 종류마다 환산이 다른 계수다(RectTile은 1.2로 나눈다)
 atk_alloc_ratio,0.6,ATK 분배 비중 (기준 빌드)
 player_attack_range,1.0,기본 공격 근접 판정 반경(월드 유닛) - 시트 외 구현 상수

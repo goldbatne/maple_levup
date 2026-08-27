@@ -192,59 +192,25 @@ script PlayerHit extends HitComponent
 		--   붙이지 않아도 호출 경로가 서버 히트 파이프라인이라 판정은 서버에서 돈다.
 		local currentTime = _UtilLogic.ElapsedSeconds
 
-		-- 1) i-frame 안이면 무조건 안 맞는다.
+		-- i-frame 안이면 안 맞는다. 그 밖에는 무조건 맞는다.
+		--
+		-- ## 회피는 없다 (2026-08-27 대표 지시로 폐기)
+		--
+		-- T27-4에서 LUK 회피(LUK x 0.002, 상한 0.6)를 여기 넣었다가 뺐다.
+		-- **T28 설계와 부딪히기 때문이다**: T28은 몬스터 곡선을 "동레벨 3대에 잡고
+		-- 12대 맞으면 죽는다"로 다시 세웠고, 그 값어치가 **난이도가 읽힌다**는 것이었다
+		-- (방의 `monster_level`·`monster_count`가 난이도 전부를 정한다).
+		-- 회피는 그 "몇 대"에 정확히 난수를 꽂는다 — 상한에서 12대가 30대가 되고
+		-- 매번 다르다. 방을 세울 때 몇 대짜리인지 말할 수 없게 된다.
+		--
+		-- **덜 맞게 하고 싶으면 실드(`GetDamageReduction`)를 쓸 것.** 그쪽은 피해를
+		-- 깎을 뿐이라 "몇 대"가 그대로 계산되고, 상한 0.9도 이미 걸려 있다.
 		if self.LastHitTime + self.ImmuneCooldown >= currentTime then
-			return false
-		end
-
-		-- 2) 회피 굴림 (T27-4).
-		--
-		-- ⚠⚠ **회피는 i-frame을 소모하지 않는다.** LastHitTime을 갱신하면 피한 것만으로
-		--   1초짜리 무적을 공짜로 얻어, 회피율 60%가 실제로는 60%보다 훨씬 단단해진다.
-		--   피했으면 바로 다음 공격에 다시 노출되는 것이 맞다.
-		--
-		-- ⚠ 순서가 중요하다. i-frame을 먼저 보는 이유는 이미 무적인 동안 굴리면
-		--   회피 확률이 실제 피격 수보다 훨씬 많이 굴려져 통계가 뜻을 잃기 때문이다.
-		if self:RollEvade() then
 			return false
 		end
 
 		self.LastHitTime = currentTime
 		return true
-	end
-
-	method boolean RollEvade()
-		-- 이번 한 대를 피했는가. 스탯이 없으면(=아직 붙기 전) 그냥 맞는다.
-		---@type PlayerStats
-		local stats = self.Entity:GetComponent("script.PlayerStats")
-		if stats == nil then return false end
-
-		local rate = stats:GetEvadeRate()
-		if rate <= 0 then return false end
-		if _UtilLogic:RandomDouble() >= rate then return false end
-
-		-- 화면에 안 보이면 "몬스터가 때렸는데 아무 일도 없다"가 되어 고장으로 읽힌다.
-		-- 데미지 숫자가 아예 안 뜨는 판정이라 대신 알려 줄 것이 필요하다.
-		--
-		-- 서버에서만 띄운다 — IsHitTarget은 ExecSpace=All이라 양쪽에서 돌 수 있고,
-		-- 그대로 두면 흙먼지가 두 번 터진다.
-		if self:IsServer() then
-			local pc = self.Entity.PlayerComponent
-			if isvalid(pc) then
-				self:ShowEvade(pc.UserId)
-			end
-			log("[PlayerHit] 회피! (회피율 " .. tostring(math.floor(rate * 1000 + 0.5) / 10) .. "%)")
-		end
-		return true
-	end
-
-	@ExecSpace("Client")
-	method void ShowEvade()
-		-- 피한 자리에 흙먼지를 한 번 터뜨린다. isLoop=false라 알아서 사라진다 —
-		-- RemoveParticle로 치울 대상이 아니다 (레벨업 연출과 같은 방식).
-		_ParticleService:PlayBasicParticleAttached(
-			BasicParticleType.DustExplosion, self.Entity,
-			Vector3(0, 0.4, 0), 0, Vector3(0.6, 0.6, 0.6), false)
 	end
 
 end
