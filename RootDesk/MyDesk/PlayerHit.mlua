@@ -10,8 +10,22 @@
 @Component
 script PlayerHit extends HitComponent
 
+	-- i-frame. **정본은 `GameBalance.player_iframe_seconds`다** (T33-1, 규칙 3).
+	-- 이 프로퍼티는 CSV를 못 읽었을 때의 대비값으로만 남는다 —
+	-- 실제로 쓰는 값은 `GetImmuneCooldown()`이 돌려준다.
 	@MinValue(0)
 	property number ImmuneCooldown = 1
+
+	method number GetImmuneCooldown()
+		-- 한 대 맞고 다음 대까지의 무적 시간(초).
+		--
+		-- CSV로 옮긴 이유: **이 값이 전투 설계의 단위**다. T28이 "동레벨 12대 맞으면
+		-- 죽는다"로 곡선을 세울 때 i-frame 1초를 전제로 "대수 = 초"라고 읽었다.
+		-- 그런 값이 코드에만 있으면 밸런스를 CSV로 못 굴린다.
+		local seconds = _GameData:GetBalance("player_iframe_seconds")
+		if seconds <= 0 then return self.ImmuneCooldown end
+		return seconds
+	end
 
 	@HideFromInspector
 	property number LastHitTime = 0
@@ -205,7 +219,7 @@ script PlayerHit extends HitComponent
 		--
 		-- **덜 맞게 하고 싶으면 실드(`GetDamageReduction`)를 쓸 것.** 그쪽은 피해를
 		-- 깎을 뿐이라 "몇 대"가 그대로 계산되고, 상한 0.9도 이미 걸려 있다.
-		if self.LastHitTime + self.ImmuneCooldown >= currentTime then
+		if self.LastHitTime + self:GetImmuneCooldown() >= currentTime then
 			return false
 		end
 
