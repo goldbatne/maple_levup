@@ -336,6 +336,11 @@ script PlayerDBManager extends Component
             -- 캡 플래그는 저장하지 않고 레벨에서 다시 판정한다.
             -- 저장해두면 캡 수치를 조정했을 때 옛 플래그가 남아 어긋난다.
             stats.CanRebirth = _LevelCurve:IsAtCap(run.level)
+
+            -- 최대 HP도 STR에서 다시 판정한다 (T27-1). 저장하지 않는 이유는 캡
+            -- 플래그와 같다 — 계수(`str_hp_per_point`)를 조정했을 때 옛 값이 남으면
+            -- 세이브가 있는 계정만 다른 HP로 논다.
+            stats:ApplyMaxHp()
         end
 
         ---@type PlayerSkillSlots

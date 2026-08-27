@@ -33,7 +33,19 @@ player_base_atk,10,기본 ATK (분배 전)
 player_base_int,10,기본 INT (분배 전) - ATK와 대칭. 첫 1P부터 계열 선택이 성립하게 (T10-1b)
 player_base_def,10,기본 DEF (분배 전) - ATK와 대칭. 피격 감쇄는 T10-3
 player_base_luk,0,기본 LUK (분배 전) - 0을 유지한다. 10을 주면 기본 포획률이 3%가 아니라 4%가 되어 기획서 4.8과 어긋난다
-atk_per_stat_point,1,스탯 1P당 ATK
+atk_per_stat_point,1,스탯 1P당 ATK - 구 설계(4스탯이 한 계수를 공유). T27 스탯 재설계로 아래 계수들이 대체한다. 아직 GetStatWithoutEquip이 읽고 있어 남겨 둔다
+str_atk_per_point,5,STR 1P당 물리 공격력 (T27 대표 승인 2026-08-27)
+str_hp_per_point,50,STR 1P당 최대 HP - **이 값이 T26-6의 벽을 푼다.** 지금까지 플레이어 HP는 1000 고정이라 Lv34 이상 보스가 무조건 한 방이었다
+dex_def_per_point,10,DEX 1P당 방어력
+dex_atk_per_point,2,DEX 1P당 물리 공격력 - 0으로 두면 DEX 올인이 딜 1이 되어 게임이 멈춘다(구 DEF 빌드가 그랬다)
+int_matk_per_point,5,INT 1P당 마법 공격력 - STR의 물리 공격력과 같은 값이라 물리/마법이 대칭이다
+luk_atk_per_point,2,LUK 1P당 물리 공격력 - 대표 원안은 20이었으나 그러면 LUK이 유일해가 된다(공격력 최고치에 속도·회피까지 얹힌다). 2로 낮춰 LUK을 딜 1등이 아니라 승수 스탯으로 돌린다
+luk_attack_speed_per_point,0.002,LUK 1P당 공격 주기 단축(초)
+luk_evade_per_point,0.002,LUK 1P당 회피율 - 대표 원안 0.0001은 1000P를 부어도 10%라 죽은 수치였다
+luk_move_speed_per_point,0.001,LUK 1P당 이동 속도 배수 증가
+player_base_hp,1000,분배 전 최대 HP - 지금까지 DefaultPlayer.model의 maxHp에만 있던 값을 데이터로 끌어냈다
+player_attack_interval_min,0.25,공격 주기 하한(초) - 공속이 선형이라 상한이 없으면 초당 수백 번이 된다
+player_evade_max,0.6,회피율 상한 - 1.0이면 무적이 된다(실드 감쇄 0.9 상한과 같은 이유)
 atk_alloc_ratio,0.6,ATK 분배 비중 (기준 빌드)
 player_attack_range,1.0,기본 공격 근접 판정 반경(월드 유닛) - 시트 외 구현 상수
 player_attack_interval,1.0,자동 공격 주기(초) - 시트 외 구현 상수
