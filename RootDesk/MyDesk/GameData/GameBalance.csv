@@ -48,6 +48,7 @@ player_base_move_speed,2.4,LUK 0일 때의 MovementComponent.InputSpeed (T27-3).
 atk_alloc_ratio,0.6,ATK 분배 비중 (기준 빌드)
 player_attack_range,1.0,기본 공격 근접 판정 반경(월드 유닛) - 시트 외 구현 상수
 player_attack_interval,1.0,자동 공격 주기(초) - 시트 외 구현 상수
+player_iframe_seconds,1.0,한 대 맞고 다음 대까지의 무적 시간(초) - T33-1에서 PlayerHit.ImmuneCooldown 프로퍼티에서 옮겨 왔다. **이 값이 전투 설계의 단위다**: T28이 "동레벨 12대 맞으면 죽는다"로 곡선을 세울 때 i-frame 1초를 전제로 "대수 = 초"라고 읽었다. 여기를 바꾸면 그 계산이 통째로 움직인다
 portal_reenter_guard,0.7,포탈 통과 직후 재진입 무시 시간(초) - 시트 외 구현 상수
 skill_coefficient_base,1.2,기준 스킬 계수 - 데미지 = 계수 x ATK^2 / (ATK+DEF)
 monster_hp_base,144,Lv1 몬스터 HP - 이제 공비가 아니라 레벨당 증가량과 짝이다 (HP = base + per_level x (lv-1)) / **2026-08-27 T28: 기하급수 -> 선형.** 플레이어 스탯이 T27에서 레벨에 선형이 되어(1P당 +5 고정) 기하급수 몬스터와 딱 한 번(Lv55 근처)만 교차했다 - 아래는 전부 한 방
