@@ -191,17 +191,19 @@ script GameDataVerify extends Logic
     @ExecSpace("ServerOnly")
     method void VerifyMonsters()
         -- 테이블 값 vs 밸런스시트 공식. 어긋나면 시트와 코드가 갈라진 것이므로 즉시 드러내야 한다.
+        -- HP/DEF는 선형(base + per_level x step), EXP만 기하급수로 남는다 (T28, 2026-08-27).
+        -- EXP를 안 바꾼 이유: 필요 EXP 곡선(exp_ratio 1.12)이 기하급수라 그쪽을 따라가야 한다.
         local hpBase = _GameData:GetBalance("monster_hp_base")
-        local hpRatio = _GameData:GetBalance("monster_hp_ratio")
+        local hpPerLevel = _GameData:GetBalance("monster_hp_per_level")
         local defBase = _GameData:GetBalance("monster_def_base")
-        local defRatio = _GameData:GetBalance("monster_def_ratio")
+        local defPerLevel = _GameData:GetBalance("monster_def_per_level")
         local expBase = _GameData:GetBalance("monster_exp_base")
         local expRatio = _GameData:GetBalance("monster_exp_ratio")
 
         for id, monster in pairs(_GameData.monsters) do
             local step = monster.level - 1
-            local hpExpected = math.floor(hpBase * hpRatio ^ step + 0.5)
-            local defExpected = math.floor(defBase * defRatio ^ step * 10 + 0.5) / 10
+            local hpExpected = math.floor(hpBase + hpPerLevel * step + 0.5)
+            local defExpected = math.floor((defBase + defPerLevel * step) * 10 + 0.5) / 10
             local expExpected = math.floor(expBase * expRatio ^ step + 0.5)
 
             local mark = "일치"

@@ -47,33 +47,37 @@ script LevelCurve extends Logic
     end
 
     method number MonsterHpAtLevel(integer level)
-        -- 시트 공식: 몬스터 HP = base x ratio^(lv-1).
+        -- 공식: 몬스터 HP = base + per_level x (lv-1).  **선형이다** (T28, 2026-08-27).
         -- 방이 몬스터 레벨을 덮어쓸 때(RoomTable.monster_level) 여기서 다시 계산한다.
         -- MonsterTable의 확정값은 그 몬스터의 기본 레벨에서만 맞기 때문이다.
+        --
+        -- 원래는 base x ratio^(lv-1)인 기하급수였다. T27에서 플레이어 스탯이
+        -- 레벨에 선형이 되면서(1P당 +5 고정) 두 곡선이 딱 한 번만 교차하게 됐다 —
+        -- 교차점(Lv55 근처) 아래는 전부 한 방, 위는 전부 불가능이라
+        -- base를 조절해도 교차점이 좌우로 움직일 뿐 모양은 안 고쳐진다.
         if level < 1 then level = 1 end
         local base = _GameData:GetBalance("monster_hp_base")
-        local ratio = _GameData:GetBalance("monster_hp_ratio")
-        return math.floor(base * (ratio ^ (level - 1)) + 0.5)
+        local perLevel = _GameData:GetBalance("monster_hp_per_level")
+        return math.floor(base + perLevel * (level - 1) + 0.5)
     end
 
     method number MonsterDefAtLevel(integer level)
-        -- 시트 공식: 몬스터 DEF = base x ratio^(lv-1). HP와 달리 소수 첫째까지 남긴다
-        -- (MonsterTable의 6.8 같은 값과 어긋나지 않게 — GameDataVerify가 대조한다).
+        -- 공식: 몬스터 DEF = base + per_level x (lv-1). HP와 달리 소수 첫째까지 남긴다
+        -- (MonsterTable의 값과 어긋나지 않게 — GameDataVerify가 대조한다).
         if level < 1 then level = 1 end
         local base = _GameData:GetBalance("monster_def_base")
-        local ratio = _GameData:GetBalance("monster_def_ratio")
-        return math.floor(base * (ratio ^ (level - 1)) * 10 + 0.5) / 10
+        local perLevel = _GameData:GetBalance("monster_def_per_level")
+        return math.floor((base + perLevel * (level - 1)) * 10 + 0.5) / 10
     end
 
     method number MonsterAtkAtLevel(integer level)
-        -- 몬스터 공격력. 시트 v0.2에 없는 값이라 초안으로 뒀다가
-        -- **2026-08-13 실플레이로 확정했다** (T10-3c: "데미지는 괜찮았다").
+        -- 몬스터 공격력 = base + per_level x (lv-1).
         -- MonsterTable에 atk 컬럼이 없어서 곡선으로만 유도한다 — 종별로 다르게 하려면
         -- 컬럼을 추가해야 한다. HP/DEF와 같은 모양으로 뒀다.
         if level < 1 then level = 1 end
         local base = _GameData:GetBalance("monster_atk_base")
-        local ratio = _GameData:GetBalance("monster_atk_ratio")
-        return math.floor(base * (ratio ^ (level - 1)) + 0.5)
+        local perLevel = _GameData:GetBalance("monster_atk_per_level")
+        return math.floor(base + perLevel * (level - 1) + 0.5)
     end
 
     method integer KillsToLevel(integer level)
