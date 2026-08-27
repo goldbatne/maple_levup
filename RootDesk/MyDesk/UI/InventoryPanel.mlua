@@ -160,13 +160,20 @@ script InventoryPanel extends Logic
         -- 어긋나서 "장비가 안 먹는다"로 읽힌다.
         --
         -- 회복량(heal_hp)은 곱하지 않는다. 한 번에 하나씩 마시므로 개당이 맞다.
+        -- ⚠ **표의 숫자를 그대로 쓰면 안 된다** (T30). `ItemTable`의 스탯 컬럼은 이제
+        --   **스탯 포인트 상당**이고 실제로 얹히는 값은 계수를 곱한 것이다
+        --   (무쇠 검 5 → 물리 공격력 +25). 표의 5를 그대로 띄우면 가방은 "+25"라고
+        --   하는데 스탯 창은 +125로 늘어 "장비가 이상하다"로 읽힌다.
+        --   그래서 **스탯 창과 같은 창구**(`GetItemStackedStatBonus`)에서 값을 받는다.
         if count < 1 then count = 1 end
-        if item.stat_all > 0 then return "올스탯+" .. tostring(item.stat_all * count) end
+        -- 올스탯만 포인트로 적는다. 수치가 넷 다 달라(물공 +15 / 방어 +30 …) 한 줄에
+        -- 다 쓰면 줄을 넘고, 이 아이템의 값어치는 "모든 스탯 몇 P"가 가장 잘 나른다.
+        if item.stat_all > 0 then return "올스탯+" .. tostring(item.stat_all * count) .. "P" end
         local out = ""
-        if item.stat_atk > 0 then out = out .. " ATK+" .. tostring(item.stat_atk * count) end
-        if item.stat_int > 0 then out = out .. " INT+" .. tostring(item.stat_int * count) end
-        if item.stat_def > 0 then out = out .. " DEF+" .. tostring(item.stat_def * count) end
-        if item.stat_luk > 0 then out = out .. " LUK+" .. tostring(item.stat_luk * count) end
+        if item.stat_atk > 0 then out = out .. " 물리공격력+" .. tostring(math.floor(_GameData:GetItemStackedStatBonus(item.id, "ATK", count) + 0.5)) end
+        if item.stat_int > 0 then out = out .. " 마법공격력+" .. tostring(math.floor(_GameData:GetItemStackedStatBonus(item.id, "INT", count) + 0.5)) end
+        if item.stat_def > 0 then out = out .. " 방어력+" .. tostring(math.floor(_GameData:GetItemStackedStatBonus(item.id, "DEF", count) + 0.5)) end
+        if item.stat_luk > 0 then out = out .. " LUK+" .. tostring(math.floor(_GameData:GetItemStackedStatBonus(item.id, "LUK", count) + 0.5)) end
         if item.heal_hp > 0 then out = out .. " HP회복 " .. tostring(item.heal_hp) end
         if out == "" then return "" end
         return string.sub(out, 2)
