@@ -51,18 +51,18 @@ player_attack_range,1.0,기본 공격 근접 판정 반경(월드 유닛) - 시�
 player_attack_interval,1.0,자동 공격 주기(초) - 시트 외 구현 상수
 portal_reenter_guard,0.7,포탈 통과 직후 재진입 무시 시간(초) - 시트 외 구현 상수
 skill_coefficient_base,1.2,기준 스킬 계수 - 데미지 = 계수 x ATK^2 / (ATK+DEF)
-monster_hp_base,30,Lv1 몬스터 HP
-monster_hp_ratio,1.09,몬스터 HP 공비
-monster_def_base,5,Lv1 몬스터 DEF
-monster_def_ratio,1.08,몬스터 DEF 공비
-monster_atk_base,24,Lv1 몬스터 ATK - 시트 v0.2에 없던 값이라 초안으로 뒀다가 2026-08-13 실플레이로 확정(T10-3c). Lv1 슬라임이 DEF10 플레이어에게 20 데미지 = HP1000을 50대에 (i-frame 1초라 50초)
-monster_atk_ratio,1.08,몬스터 ATK 공비 - DEF와 같은 기울기. 2026-08-13 실플레이로 확정(T10-3c)
+monster_hp_base,144,Lv1 몬스터 HP - 이제 공비가 아니라 레벨당 증가량과 짝이다 (HP = base + per_level x (lv-1)) / **2026-08-27 T28: 기하급수 -> 선형.** 플레이어 스탯이 T27에서 레벨에 선형이 되어(1P당 +5 고정) 기하급수 몬스터와 딱 한 번(Lv55 근처)만 교차했다 - 아래는 전부 한 방, 위는 전부 불가능
+monster_hp_per_level,34.2,몬스터 HP 레벨당 증가량 - 동레벨 몬스터를 3대에 잡는 값(대표 선택 2026-08-27). 플레이어 물리 공격력의 1.8배가 되도록 맞췄다
+monster_def_base,80,Lv1 몬스터 DEF - **동레벨 플레이어의 물리 공격력과 같게** 뒀다. 데미지가 계수 x A²/(A+D)라 D=A면 딜이 정확히 절반이 되어 방어력이 의미를 갖는다 (D가 A보다 훨씬 작으면 방어력이 무의미해진다)
+monster_def_per_level,19,몬스터 DEF 레벨당 증가량 - 플레이어 물리 공격력 기울기와 같다
+monster_atk_base,157,Lv1 몬스터 ATK - 2026-08-13 실플레이로 확정했던 24는 플레이어 HP가 1000 고정이던 시절 값이다(T10-3c). T27에서 HP가 STR로 자라며 기준이 통째로 바뀌었다 / **2026-08-27 T28: 기하급수 -> 선형.** 플레이어 스탯이 T27에서 레벨에 선형이 되어(1P당 +5 고정) 기하급수 몬스터와 딱 한 번(Lv55 근처)만 교차했다 - 아래는 전부 한 방, 위는 전부 불가능
+monster_atk_per_level,11.5,몬스터 ATK 레벨당 증가량 - 동레벨 몬스터에게 12대 맞으면 죽는 값(대표 선택 2026-08-27). i-frame이 1초라 12대 = 12초다
 drop_luk_multiplier,0.005,LUK 1P당 드랍률 배율 증가분 - 드랍률 = drop_rate x (1 + LUK x 이 값). LUK 100이면 1.5배. 초안(T13-6). 포획처럼 정액으로 두면 2% 희귀템이 LUK 100에서 7%가 되어 최종 목표템이 희귀하지 않게 된다
 drop_despawn_seconds,30,바닥에 떨어진 아이템이 사라지는 시간(초) - 초안
 drop_pickup_range,0.9,아이템을 줍는 반경(월드 유닛) - 플레이어 공격 반경 1.0보다 살짝 좁게. 초안
 boss_hp_multiplier,3,보스방(room_type=boss) 몬스터의 HP 배율 (T16-1 대표 지시). Lv15 골렘 100 -> 301
-boss_def_multiplier,3,보스 DEF 배율. 14.7 -> 44. 플레이어 데미지가 약 23% 줄어든다
-boss_atk_multiplier,3,보스 ATK 배율. 70.5 -> 211 = 플레이어 DEF 10 기준 피격 74 -> 242로 4대에 죽는다. **가장 먼저 조절될 값** - 세다고 느껴지면 여기부터 낮춘다
+boss_def_multiplier,1,보스 DEF 배율 - **2026-08-27 T28에서 3 -> 1.** DEF 배율은 싸움을 길게 만들고 ATK 배율은 위험하게 만드는데 **둘이 곱해진다** - 이 겹침이 T26-6에서 대표가 보스에게 진 진짜 이유다. 보스의 무게는 HP 배율(x3)이 지고 DEF는 안 건드린다
+boss_atk_multiplier,1.5,보스 ATK 배율 - **2026-08-27 T28에서 3 -> 1.5** (대표 선택). 스텀피 Lv26 기준 7.4대에 잡고 7.5대 버틴다 = 아슬아슬한 대등 승부. **여전히 가장 먼저 조절될 값** - 세다고 느껴지면 여기부터 낮춘다
 boss_exp_multiplier,3,보스 EXP 배율. 19 -> 57. 보스가 재입장마다 다시 서므로 왕복 시간에 값하는 보상이 필요하다
 capture_base_rate,0.03,기본 포획 확률 3%
 capture_luk_bonus,0.001,LUK 1P당 포획 보정 +0.1%p
