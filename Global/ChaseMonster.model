@@ -25,11 +25,9 @@
         "MOD.Core.MovementComponent",
         "MOD.Core.HitComponent",
         "MOD.Core.DamageSkinSpawnerComponent",
-        "script.Monster",
         "MOD.Core.KinematicbodyComponent",
         "MOD.Core.SideviewbodyComponent",
-        "script.MonsterAttack",
-        "script.StateChaseMonster"
+        "script.MonsterAttack"
       ],
       "Properties": [
         {
@@ -143,15 +141,6 @@
             "$type": "MOD.Core.Physics.CollisionGroup, MOD.Core",
             "Id": "8992acd1e8cd45838db6f10a7b41df09"
           }
-        },
-        {
-          "TargetType": "script.StateChaseMonster",
-          "Name": "StateSetId",
-          "ValueType": {
-            "$type": "MODNativeType",
-            "type": "System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
-          },
-          "Value": "stateset://0e43c0d3-1ffe-413a-b4a7-187be9d87526"
         }
       ],
       "EventLinks": [],
