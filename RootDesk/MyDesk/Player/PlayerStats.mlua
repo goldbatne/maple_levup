@@ -394,52 +394,88 @@ script PlayerStats extends Component
     end
 
     method number GetStatWithoutEquip(string stat)
-        -- 장비를 빼고 본 스탯 (기본값 + 분배분). **수치 게이트가 이걸 쓴다.**
+        -- 장비를 빼고 본 **전투 수치** (기본값 + 분배분). **수치 게이트가 이걸 쓴다.**
         --
         -- 왜 나눠 두는가 (대표 지시 2026-08-12): 게이트는 "성장했는가"를 묻는
         -- 문이다. 장비를 세면 좋은 장비 하나로 문이 열려, 문이 재는 것이
         -- 성장이 아니라 운이 된다. 반대로 전투는 장비를 세는 게 당연하다.
         -- 그래서 전투용(GetTotalX)과 게이트용(이 함수)을 물리적으로 갈라 둔다.
-        local perPoint = _GameData:GetBalance("atk_per_stat_point")
+        --
+        -- ## T27-2: 한 스탯 = 한 수치가 아니게 됐다
+        --
+        -- 예전에는 네 스탯이 `atk_per_stat_point`(=1) 하나를 공유해서 "ATK 스탯 = ATK 수치"였다.
+        -- 이제는 **여러 스탯이 한 수치에 모인다**:
+        --
+        --   물리 공격력 = STR x 5 + DEX x 2 + LUK x 2
+        --   마법 공격력 = INT x 5
+        --   방어력      = DEX x 10
+        --
+        -- 그래서 인자 `stat`은 이제 **스탯 이름이 아니라 수치 이름**이다
+        -- ("ATK" = 물리 공격력, "INT" = 마법 공격력, "DEF" = 방어력).
+        -- 문자열을 그대로 둔 이유는 `ItemTable.stat_type` · `SkillTable.scaling_stat` ·
+        -- `RoomGate.gate_key`가 전부 이 값을 쓰기 때문이다 — 이름 변경은 별도 단계다.
         if stat == "ATK" then
-            return _GameData:GetBalance("player_base_atk") + self.StatAtk * perPoint
+            return _GameData:GetBalance("player_base_atk")
+                + self:GetStr() * _GameData:GetBalance("str_atk_per_point")
+                + self:GetDex() * _GameData:GetBalance("dex_atk_per_point")
+                + self:GetLukStat() * _GameData:GetBalance("luk_atk_per_point")
         end
         if stat == "INT" then
-            return _GameData:GetBalance("player_base_int") + self.StatInt * perPoint
+            return _GameData:GetBalance("player_base_int")
+                + self:GetIntStat() * _GameData:GetBalance("int_matk_per_point")
         end
         if stat == "DEF" then
-            return _GameData:GetBalance("player_base_def") + self.StatDef * perPoint
+            return _GameData:GetBalance("player_base_def")
+                + self:GetDex() * _GameData:GetBalance("dex_def_per_point")
         end
         if stat == "LUK" then
-            return _GameData:GetBalance("player_base_luk") + self.StatLuk * perPoint
+            -- LUK만 **수치가 아니라 분배한 포인트 그대로**다. 포획률(기획서 4.8)과
+            -- 드랍률(T13-6)이 "LUK 몇 P인가"를 묻기 때문이다.
+            -- LUK이 전투에 기여하는 몫은 위 "ATK"에 이미 들어가 있다 — 여기서 또 세면
+            -- 두 번 들어간다.
+            return _GameData:GetBalance("player_base_luk") + self:GetLukStat()
         end
         return 0
     end
 
     method number GetTotalAtk()
-        -- 데미지 공식(T3)이 쓰는 값. 기본 ATK + 분배 P x P당 상승분 + 장비(T13-4).
+        -- **물리 공격력.** 데미지 공식(T3)이 쓰는 값 = 기본 + STR·DEX·LUK 기여 + 장비(T13-4).
+        --
+        -- T27-2: 세 스탯이 여기로 모인다. STR(5)이 주축이고 DEX(2)·LUK(2)이 얹힌다 —
+        -- **어느 스탯을 찍어도 딜이 0이 되지 않게** 하려는 것이다. 예전에는 DEF나 LUK에
+        -- 몰빵하면 딜이 1~3이라 게임이 멈췄다.
         return self:GetStatWithoutEquip("ATK") + self:GetEquipBonus("ATK")
     end
 
     method number GetTotalInt()
-        -- ATK와 대칭으로 기본값을 준다 (T10-1b). 기본 ATK만 10이던 시절에는
-        -- INT를 11P 넘게 찍어야 비로소 기본 공격을 가져갔다 — INT 빌드의 첫
-        -- 두세 레벨이 죽어 있었다. 둘이 같은 출발선에 서야 첫 1P부터 선택이 된다.
+        -- **마법 공격력.** T27-2에서 의미가 바뀌었다 — 예전에는 "INT 스탯 수치"였고
+        -- 지금은 INT 포인트가 만드는 마법 공격력이다 (INT x 5).
+        --
+        -- 물리(STR x 5)와 계수가 같다. 물리/마법이 대칭이라 첫 1P부터 계열 선택이
+        -- 성립한다 — T10-1b에서 기본값을 10으로 맞춘 것과 같은 이유다.
+        --
+        -- 메서드 이름을 GetTotalMatk로 안 바꾼 이유: 부르는 곳이 PlayerAttack ·
+        -- 스탯 창 · EquipPanel에 걸쳐 있고, 이름 정리는 저장 마이그레이션과 함께
+        -- 별도 단계로 묶여 있다.
         return self:GetStatWithoutEquip("INT") + self:GetEquipBonus("INT")
     end
 
     method number GetTotalDef()
-        -- 마찬가지로 ATK와 대칭. 피격 감쇄는 MonsterAttack이 이 값을 읽는다 (T10-3).
+        -- **방어력.** DEX가 만든다 (DEX x 10). 피격 감쇄는 MonsterAttack이 이 값을 읽는다.
         return self:GetStatWithoutEquip("DEF") + self:GetEquipBonus("DEF")
     end
 
     method number GetTotalLuk()
-        -- LUK만 기본값 0이다. 10을 주면 GetCaptureRate의 하한이 3%가 아니라 4%가 되어
-        -- 기획서 4.8("확률 = 3% + LUK x 0.1%p")과 어긋난다. 바꾸려면 시트의
-        -- capture_base_rate와 함께 정해야 한다 — 그래서 키만 만들어 두고 0으로 뒀다.
+        -- **LUK 포인트.** 다른 셋과 달리 이것만 전투 수치가 아니라 분배량 그대로다.
         --
-        -- 장비 LUK은 여기 포함되므로 **포획률에도 얹힌다.** 의도한 것이다 —
-        -- 기획서 4.7이 LUK을 포획·드랍·일부 스킬 계수의 스탯으로 정의한다.
+        -- 포획률(기획서 4.8 "3% + LUK x 0.1%p")과 드랍률(T13-6)이 포인트 수를 묻는다.
+        -- LUK이 전투에 기여하는 몫(+2 물리 공격력)은 GetTotalAtk에 이미 들어 있으므로
+        -- 여기서 또 세면 두 번 들어간다.
+        --
+        -- 기본값이 0인 이유는 그대로다: 10을 주면 포획률 하한이 3%가 아니라 4%가 되어
+        -- 기획서 4.8과 어긋난다.
+        --
+        -- 장비 LUK은 여기 포함되므로 **포획률에도 얹힌다** (기획서 4.7).
         return self:GetStatWithoutEquip("LUK") + self:GetEquipBonus("LUK")
     end
 

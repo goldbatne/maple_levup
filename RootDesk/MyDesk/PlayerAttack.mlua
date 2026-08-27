@@ -544,9 +544,19 @@ script PlayerAttack extends AttackComponent
 			if statName == "INT" then
 				power = stats:GetTotalInt()
 			elseif statName == "LUK" then
-				-- LUK 계수 스킬 (T10-4 결정). LUK 기본값은 0이라 안 찍으면 데미지도 0이다 —
-				-- 그게 의도다. 투자한 사람만 쓰는 스킬이 된다 (포자 살포와 같은 성질).
-				power = stats:GetTotalLuk()
+				-- ⚠ T27-2부터 **LUK은 계수 스탯이 아니다.**
+				--
+				-- 2026-08-08에 LUK을 일부 몬스터 스킬의 계수 스탯으로 쓰기로 했던 것은
+				-- "LUK을 찍으면 포획만 빨라지고 전투력이 그대로"라는 문제 때문이었다.
+				-- 스탯 재설계로 **LUK이 물리 공격력에 직접 +2씩 기여**하게 되면서
+				-- 그 이유가 사라졌다 — LUK 빌드는 이제 평범한 경로로 딜을 낸다.
+				--
+				-- 그리고 GetTotalLuk은 이제 전투 수치가 아니라 **분배한 포인트 수**다.
+				-- 그걸 계수 스탯으로 쓰면 데미지가 조용히 1/5로 떨어진다.
+				-- SkillTable에서 LUK 계수는 전부 ATK로 옮겼으므로 여기 오면 데이터가 낡은 것이다.
+				log_warning("[PlayerAttack] scaling_stat=LUK은 T27-2에서 폐기됐다 (LUK은 이제"
+					.. " 물리 공격력에 직접 기여한다) — ATK로 계산한다: " .. tostring(attackInfo))
+				power = stats:GetTotalAtk()
 			elseif statName == "ATK" then
 				power = stats:GetTotalAtk()
 			else
