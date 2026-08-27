@@ -18,14 +18,14 @@ script StatPanel extends Logic
     property TextGUIRendererComponent levelValue = "1a693159-0075-40ec-b3e7-c826e5b70bce"
     property TextGUIRendererComponent expValue = "8e7e9ddd-4b9c-4f43-9e0e-e97be8eff308"
     property TextGUIRendererComponent pointsValue = "1207d1b0-3c67-4d43-83a1-7484603bae17"
-    property TextGUIRendererComponent atkValue = "d89964d9-86bb-4b94-9429-afaa852ffcf3"
+    property TextGUIRendererComponent strValue = "d89964d9-86bb-4b94-9429-afaa852ffcf3"
     property TextGUIRendererComponent intValue = "9a3ad85c-00d9-47aa-932c-4e241f240aa3"
-    property TextGUIRendererComponent defValue = "8fc70e58-9a62-4ba2-8530-81bb0749f3b3"
+    property TextGUIRendererComponent dexValue = "8fc70e58-9a62-4ba2-8530-81bb0749f3b3"
     property TextGUIRendererComponent lukValue = "ff737980-48e9-4e66-af5b-bb9345a41120"
 
-    property ButtonComponent btnAtk = "7165efe6-9663-494f-82b4-94eb19f674bc"
+    property ButtonComponent btnStr = "7165efe6-9663-494f-82b4-94eb19f674bc"
     property ButtonComponent btnInt = "60be35ac-85ca-48b1-91be-22d0c9ef694e"
-    property ButtonComponent btnDef = "cd8feafc-5091-4000-8358-d4dd8dd38074"
+    property ButtonComponent btnDex = "cd8feafc-5091-4000-8358-d4dd8dd38074"
     property ButtonComponent btnLuk = "1bcce54f-3d59-41c2-90fb-1677c664ce82"
 
     -- 여닫기. 창을 닫으면 다시 열 수단이 필요한데 모바일에는 키보드가 없다.
@@ -35,9 +35,9 @@ script StatPanel extends Logic
     property ButtonComponent btnOpen = "544b05c4-c955-4531-b06c-1a61a6c876ee"
 
     -- ── 이벤트 핸들러 (OnEndPlay에서 반드시 해제) ──
-    property any handlerAtk = nil
+    property any handlerStr = nil
     property any handlerInt = nil
-    property any handlerDef = nil
+    property any handlerDex = nil
     property any handlerLuk = nil
     property any handlerClose = nil
     property any handlerOpen = nil
@@ -53,14 +53,14 @@ script StatPanel extends Logic
     method void OnBeginPlay()
         log("[StatPanel] OnBeginPlay")
 
-        self.handlerAtk = self.btnAtk.Entity:ConnectEvent(ButtonClickEvent, function()
-            self:Allocate("ATK")
+        self.handlerStr = self.btnStr.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:Allocate("STR")
         end)
         self.handlerInt = self.btnInt.Entity:ConnectEvent(ButtonClickEvent, function()
             self:Allocate("INT")
         end)
-        self.handlerDef = self.btnDef.Entity:ConnectEvent(ButtonClickEvent, function()
-            self:Allocate("DEF")
+        self.handlerDex = self.btnDex.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:Allocate("DEX")
         end)
         self.handlerLuk = self.btnLuk.Entity:ConnectEvent(ButtonClickEvent, function()
             self:Allocate("LUK")
@@ -94,9 +94,9 @@ script StatPanel extends Logic
     @ExecSpace("ClientOnly")
     method void OnEndPlay()
         -- 연결한 것은 전부 해제한다 (스크립트 리로드 시 누수 방지).
-        if self.handlerAtk ~= nil then self.btnAtk.Entity:DisconnectEvent(ButtonClickEvent, self.handlerAtk) end
+        if self.handlerStr ~= nil then self.btnStr.Entity:DisconnectEvent(ButtonClickEvent, self.handlerStr) end
         if self.handlerInt ~= nil then self.btnInt.Entity:DisconnectEvent(ButtonClickEvent, self.handlerInt) end
-        if self.handlerDef ~= nil then self.btnDef.Entity:DisconnectEvent(ButtonClickEvent, self.handlerDef) end
+        if self.handlerDex ~= nil then self.btnDex.Entity:DisconnectEvent(ButtonClickEvent, self.handlerDex) end
         if self.handlerLuk ~= nil then self.btnLuk.Entity:DisconnectEvent(ButtonClickEvent, self.handlerLuk) end
         if self.handlerClose ~= nil then self.btnClose.Entity:DisconnectEvent(ButtonClickEvent, self.handlerClose) end
         if self.handlerOpen ~= nil then self.btnOpen.Entity:DisconnectEvent(ButtonClickEvent, self.handlerOpen) end
@@ -143,9 +143,9 @@ script StatPanel extends Logic
         -- "분배값 (총합)" 꼴. 총합에는 기본값과 **장비분**이 들어 있다 (T13-4).
         -- 네 스탯을 같은 꼴로 맞춘 이유: ATK만 총합을 보여주던 동안 장비를 껴도
         -- DEF·LUK 줄은 숫자가 그대로여서 "장비가 안 먹었다"로 보였다.
-        self.atkValue.Text = self:StatText(stats.StatAtk, stats:GetTotalAtk())
+        self.strValue.Text = self:StatText(stats.StatStr, stats:GetTotalAtk())
         self.intValue.Text = self:StatText(stats.StatInt, stats:GetTotalInt())
-        self.defValue.Text = self:StatText(stats.StatDef, stats:GetTotalDef())
+        self.dexValue.Text = self:StatText(stats.StatDex, stats:GetTotalDef())
         self.lukValue.Text = self:StatText(stats.StatLuk, stats:GetTotalLuk())
     end
 

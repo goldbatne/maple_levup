@@ -24,7 +24,7 @@
           "enable": true,
           "visible": true,
           "localize": true,
-          "displayOrder": 6,
+          "displayOrder": 5,
           "pathConstraints": "//",
           "revision": 0,
           "origin": {
@@ -425,6 +425,11 @@
                 "x": 0,
                 "y": 0
               },
+              "Rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
               "Position": {
                 "x": 0,
                 "y": 0,
@@ -441,6 +446,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -570,9 +576,14 @@
                 "x": 0,
                 "y": -5
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 0,
+                "y": 435,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -586,6 +597,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -632,17 +644,19 @@
               "Enable": true
             },
             {
+              "@type": "MOD.Core.SpriteGUIRendererComponent",
               "ImageRUID": {
                 "DataId": "e5a52f08de84b204eb9cc2df8e1e539a"
               },
-              "Type": 1,
+              "OverrideSorting": false,
               "Color": {
                 "r": 0.109803922,
                 "g": 0.109803922,
                 "b": 0.109803922,
                 "a": 1
               },
-              "@type": "MOD.Core.SpriteGUIRendererComponent"
+              "Type": 1,
+              "Enable": true
             }
           ],
           "@version": 1
@@ -711,9 +725,14 @@
                 "x": -24,
                 "y": -10
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 236,
+                "y": 430,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -727,6 +746,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -887,6 +907,157 @@
         }
       },
       {
+        "id": "a7ec6352-bd04-4cc4-b387-609da67cd414",
+        "path": "/ui/StatGroup/Window/BtnClose/XIcon",
+        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
+        "jsonString": {
+          "name": "XIcon",
+          "path": "/ui/StatGroup/Window/BtnClose/XIcon",
+          "nameEditable": true,
+          "enable": true,
+          "visible": true,
+          "localize": true,
+          "displayOrder": 0,
+          "pathConstraints": "/////",
+          "revision": 0,
+          "origin": {
+            "type": "Model",
+            "entry_id": "UISprite",
+            "sub_entity_id": null,
+            "root_entity_id": null,
+            "replaced_model_id": null
+          },
+          "modelId": "uisprite",
+          "@components": [
+            {
+              "@type": "MOD.Core.UITransformComponent",
+              "ActivePlatform": 255,
+              "AlignmentOption": 0,
+              "AnchorsMax": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "AnchorsMin": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "MobileOnly": false,
+              "OffsetMax": {
+                "x": 20,
+                "y": 20
+              },
+              "OffsetMin": {
+                "x": -20,
+                "y": -20
+              },
+              "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "RectSize": {
+                "x": 40,
+                "y": 40
+              },
+              "UIMode": 1,
+              "UIScale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "UIVersion": 2,
+              "anchoredPosition": {
+                "x": 0,
+                "y": 0
+              },
+              "Rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": -44,
+                "y": -44,
+                "z": 0
+              },
+              "QuaternionRotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "w": 1
+              },
+              "Scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "ZRotation": 0,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SpriteGUIRendererComponent",
+              "AnimClipPlayType": 0,
+              "EndFrameIndex": 2147483647,
+              "IgnoreMapLayerCheck": false,
+              "ImageRUID": {
+                "DataId": "a1530cf1cd486f343b91ccb90573afdf"
+              },
+              "LocalPosition": {
+                "x": 0,
+                "y": 0
+              },
+              "LocalScale": {
+                "x": 1,
+                "y": 1
+              },
+              "MaterialId": "",
+              "OrderInLayer": 0,
+              "OverrideSorting": false,
+              "PlayRate": 1,
+              "PreserveSprite": 0,
+              "SortingLayer": "UI",
+              "StartFrameIndex": 0,
+              "Color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+              },
+              "DropShadow": false,
+              "DropShadowAngle": 120,
+              "DropShadowColor": {
+                "r": 0,
+                "g": 0,
+                "b": 0,
+                "a": 0.72
+              },
+              "DropShadowDistance": 3,
+              "FillAmount": 1,
+              "FillCenter": true,
+              "FillClockWise": true,
+              "FillMethod": 0,
+              "FillOrigin": 0,
+              "FlipX": false,
+              "FlipY": false,
+              "FrameColumn": 1,
+              "FrameRate": 0,
+              "FrameRow": 1,
+              "Outline": false,
+              "OutlineColor": {
+                "r": 0,
+                "g": 0,
+                "b": 0,
+                "a": 1
+              },
+              "OutlineWidth": 3,
+              "RaycastTarget": false,
+              "Type": 1,
+              "Enable": true
+            }
+          ],
+          "@version": 1
+        }
+      },
+      {
         "id": "7ca69cf5-dc53-4655-8158-1b194591199b",
         "path": "/ui/StatGroup/Window/Row0",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
@@ -949,9 +1120,14 @@
                 "x": 0,
                 "y": -164
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 0,
+                "y": 276,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -965,6 +1141,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -1482,9 +1659,14 @@
                 "x": 0,
                 "y": -260
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 0,
+                "y": 180,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -1498,6 +1680,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -2015,9 +2198,14 @@
                 "x": 0,
                 "y": -356
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 0,
+                "y": 84,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -2031,6 +2219,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -2548,9 +2737,14 @@
                 "x": 0,
                 "y": -452
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 0,
+                "y": -12,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -2564,6 +2758,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -2753,7 +2948,7 @@
               },
               "SizeFit": false,
               "SortingLayer": "UI",
-              "Text": "ATK",
+              "Text": "STR",
               "Underlay": false,
               "UseConstraintX": false,
               "UseConstraintY": false,
@@ -3325,9 +3520,14 @@
                 "x": 0,
                 "y": -548
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 0,
+                "y": -108,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -3341,6 +3541,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -4102,9 +4303,14 @@
                 "x": 0,
                 "y": -644
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 0,
+                "y": -204,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -4118,6 +4324,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -4307,7 +4514,7 @@
               },
               "SizeFit": false,
               "SortingLayer": "UI",
-              "Text": "DEF",
+              "Text": "DEX",
               "Underlay": false,
               "UseConstraintX": false,
               "UseConstraintY": false,
@@ -4879,9 +5086,14 @@
                 "x": 0,
                 "y": -740
               },
-              "Position": {
+              "Rotation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+              },
+              "Position": {
+                "x": 0,
+                "y": -300,
                 "z": 0
               },
               "QuaternionRotation": {
@@ -4895,6 +5107,7 @@
                 "y": 1,
                 "z": 1
               },
+              "ZRotation": 0,
               "Enable": true
             },
             {
@@ -5587,151 +5800,6 @@
               "UseConstraintX": false,
               "UseConstraintY": false,
               "VerticalAlignment": 512,
-              "Enable": true
-            }
-          ],
-          "@version": 1
-        }
-      },
-      {
-        "id": "a7ec6352-bd04-4cc4-b387-609da67cd414",
-        "path": "/ui/StatGroup/Window/BtnClose/XIcon",
-        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
-        "jsonString": {
-          "name": "XIcon",
-          "path": "/ui/StatGroup/Window/BtnClose/XIcon",
-          "nameEditable": true,
-          "enable": true,
-          "visible": true,
-          "localize": true,
-          "displayOrder": 0,
-          "pathConstraints": "/////",
-          "revision": 0,
-          "origin": {
-            "type": "Model",
-            "entry_id": "UISprite",
-            "sub_entity_id": null,
-            "root_entity_id": null,
-            "replaced_model_id": null
-          },
-          "modelId": "uisprite",
-          "@components": [
-            {
-              "@type": "MOD.Core.UITransformComponent",
-              "ActivePlatform": 255,
-              "AlignmentOption": 0,
-              "AnchorsMax": {
-                "x": 0.5,
-                "y": 0.5
-              },
-              "AnchorsMin": {
-                "x": 0.5,
-                "y": 0.5
-              },
-              "MobileOnly": false,
-              "OffsetMax": {
-                "x": 20,
-                "y": 20
-              },
-              "OffsetMin": {
-                "x": -20,
-                "y": -20
-              },
-              "Pivot": {
-                "x": 0.5,
-                "y": 0.5
-              },
-              "RectSize": {
-                "x": 40,
-                "y": 40
-              },
-              "UIMode": 1,
-              "UIScale": {
-                "x": 1,
-                "y": 1,
-                "z": 1
-              },
-              "UIVersion": 2,
-              "anchoredPosition": {
-                "x": 0,
-                "y": 0
-              },
-              "Position": {
-                "x": 0,
-                "y": 0,
-                "z": 0
-              },
-              "QuaternionRotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "w": 1
-              },
-              "Scale": {
-                "x": 1,
-                "y": 1,
-                "z": 1
-              },
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.SpriteGUIRendererComponent",
-              "AnimClipPlayType": 0,
-              "EndFrameIndex": 2147483647,
-              "ImageRUID": {
-                "DataId": "a1530cf1cd486f343b91ccb90573afdf"
-              },
-              "IgnoreMapLayerCheck": false,
-              "LocalPosition": {
-                "x": 0,
-                "y": 0
-              },
-              "LocalScale": {
-                "x": 1,
-                "y": 1
-              },
-              "MaterialId": "",
-              "OrderInLayer": 0,
-              "OverrideSorting": false,
-              "PlayRate": 1,
-              "PreserveSprite": 0,
-              "SortingLayer": "UI",
-              "StartFrameIndex": 0,
-              "Color": {
-                "r": 1,
-                "g": 1,
-                "b": 1,
-                "a": 1
-              },
-              "DropShadow": false,
-              "DropShadowAngle": 120,
-              "DropShadowColor": {
-                "r": 0,
-                "g": 0,
-                "b": 0,
-                "a": 0.72
-              },
-              "DropShadowDistance": 3,
-              "FillAmount": 1,
-              "FillCenter": true,
-              "FillClockWise": true,
-              "FillMethod": 0,
-              "FillOrigin": 0,
-              "FlipX": false,
-              "FlipY": false,
-              "FrameColumn": 1,
-              "FrameRate": 0,
-              "FrameRow": 1,
-              "Outline": false,
-              "OutlineColor": {
-                "r": 0,
-                "g": 0,
-                "b": 0,
-                "a": 1
-              },
-              "OutlineWidth": 3,
-              "RaycastTarget": false,
-              "Type": 1,
               "Enable": true
             }
           ],

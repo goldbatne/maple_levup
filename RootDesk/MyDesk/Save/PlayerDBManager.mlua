@@ -328,9 +328,9 @@ script PlayerDBManager extends Component
         if stats ~= nil then
             stats.Level = run.level
             stats.Exp = run.exp
-            stats.StatAtk = run.stat_atk
+            stats.StatStr = run.stat_str
             stats.StatInt = run.stat_int
-            stats.StatDef = run.stat_def
+            stats.StatDex = run.stat_dex
             stats.StatLuk = run.stat_luk
             stats.UnspentPoints = run.unspent_points
             -- 캡 플래그는 저장하지 않고 레벨에서 다시 판정한다.
@@ -673,9 +673,9 @@ script PlayerDBManager extends Component
         if stats ~= nil then
             run.level = stats.Level
             run.exp = stats.Exp
-            run.stat_atk = stats.StatAtk
+            run.stat_str = stats.StatStr
             run.stat_int = stats.StatInt
-            run.stat_def = stats.StatDef
+            run.stat_dex = stats.StatDex
             run.stat_luk = stats.StatLuk
             run.unspent_points = stats.UnspentPoints
         end

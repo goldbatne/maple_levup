@@ -13,9 +13,9 @@ script SaveRunData
     property number exp = 0
 
     -- 스탯 4종. CSV의 stat_points_per_level 만큼 레벨당 지급된다.
-    property integer stat_atk = 0
+    property integer stat_str = 0
     property integer stat_int = 0
-    property integer stat_def = 0
+    property integer stat_dex = 0
     property integer stat_luk = 0
     property integer unspent_points = 0
 
@@ -38,9 +38,9 @@ script SaveRunData
         self.schema_version = 1
         self.level = 1
         self.exp = 0
-        self.stat_atk = 0
+        self.stat_str = 0
         self.stat_int = 0
-        self.stat_def = 0
+        self.stat_dex = 0
         self.stat_luk = 0
         self.unspent_points = 0
         self.equipped_monster_skills = {}
@@ -67,9 +67,9 @@ script SaveRunData
         body["schema_version"] = self.schema_version
         body["level"] = self.level
         body["exp"] = self.exp
-        body["stat_atk"] = self.stat_atk
+        body["stat_str"] = self.stat_str
         body["stat_int"] = self.stat_int
-        body["stat_def"] = self.stat_def
+        body["stat_dex"] = self.stat_dex
         body["stat_luk"] = self.stat_luk
         body["unspent_points"] = self.unspent_points
         if self:HasAny(self.equipped_monster_skills) then
@@ -87,9 +87,14 @@ script SaveRunData
         self.schema_version = body["schema_version"] or 1
         self.level = body["level"] or 1
         self.exp = body["exp"] or 0
-        self.stat_atk = body["stat_atk"] or 0
+        -- ⚠ 옛 키 하위 호환 (T31, 2026-08-27). T31 이전 세이브는 STR을 `stat_atk`,
+        -- DEX를 `stat_def`에 넣어 뒀다 — 그때는 스탯 이름이 ATK/DEF였기 때문이다.
+        -- 새 키를 먼저 보고 없으면 옛 키를 읽는다. 쓸 때는 새 키만 쓰므로
+        -- 한 번 저장되면 옛 키는 사라진다.
+        -- ⚠ 되돌아갈 수는 없다 — 새 빌드로 저장한 뒤 옛 빌드로 로드하면 STR/DEX가 0이 된다.
+        self.stat_str = body["stat_str"] or body["stat_atk"] or 0
         self.stat_int = body["stat_int"] or 0
-        self.stat_def = body["stat_def"] or 0
+        self.stat_dex = body["stat_dex"] or body["stat_def"] or 0
         self.stat_luk = body["stat_luk"] or 0
         self.unspent_points = body["unspent_points"] or 0
         self.equipped_monster_skills = body["equipped_monster_skills"] or {}
