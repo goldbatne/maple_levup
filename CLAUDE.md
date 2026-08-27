@@ -48,6 +48,9 @@
   - **자동 공격의 계수 스탯 = `max(ATK, INT)`**. 스킬은 각자의 `scaling_stat`(ATK/INT/LUK)
   - 어느 스탯을 쓸지 고르는 곳은 `PlayerAttack.CalcDamage`, 산술은 `CombatFormula`
 - 스탯 4종: **STR / DEX / INT / LUK**, 레벨당 5포인트 (기본값 10/10/10/**0**)
+  — ⚠ **이름 체계가 둘이다**: 분배 스탯은 STR/DEX/INT/LUK이고, 그것이 만드는
+  파생 수치는 ATK(물리 공격력)/INT(마법 공격력)/DEF(방어력)/LUK(포인트)다.
+  `ItemTable`·`SkillTable.scaling_stat`·`RoomGate.gate_key`는 **파생 수치 쪽** 이름을 쓴다
   — 2026-08-27 재설계. 최대 HP = 1000 + STR x 20.
   공격력·방어력은 아직 구 계수(`atk_per_stat_point` = 1)로 돈다 (T27-2에서 옮긴다)
 - Lv1 필요 EXP 20 (공비 1.12), 초기 레벨 캡 30 → 누적 4,290 EXP / 145P
@@ -289,6 +292,32 @@
   - ⚠ **그라데이션 테두리는 엔진에 없다.** `SpriteGUIRendererComponent`에는 단색
     `Color`뿐이고 그라데이션 속성이 없다. 내려면 **그라데이션이 그려진 스프라이트**를
     찾아 테두리로 깔아야 한다 — T20-2에서 확인한다.
+- 진행 중: **T31 스탯 이름 변경** (T27 재설계의 마지막 조각. 2026-08-27 대표 지시).
+  **✅ 분배 스탯이 STR/DEX/INT/LUK으로 불린다** (`StatAtk`→`StatStr`, `StatDef`→`StatDex`,
+  저장 키 `stat_atk`→`stat_str`·`stat_def`→`stat_dex`(하위 호환), `Allocate("ATK")`→`"STR"`,
+  스탯 창 라벨 ATK/DEF → STR/DEX).
+  실측: **옛 세이브에서 STR 157 / DEX 80이 그대로 살아났고**, 새 키로 쓴 뒤 재접속에도
+  STR 158 / DEX 81이 유지된다) /
+  다음: 대표 플레이 판정 — **스탯 창이 STR/DEX로 뜨는지** 봐 주실 것
+  - ⚠⚠⚠ **이름 체계가 둘이라는 것이 이 태스크의 핵심이다.** 이제 갈라 뒀다:
+    | | 무엇 | 값 | 쓰는 곳 |
+    |---|---|---|---|
+    | **분배 스탯** | STR / DEX / INT / LUK | 분배한 **포인트 수** | `StatStr` 등, `Allocate`, 스탯 창 |
+    | **파생 수치** | ATK / INT / DEF / LUK | 포인트가 만드는 **수치** | `GetStatWithoutEquip`, `GetEquipBonus`, `ItemTable` 스탯 컬럼, `SkillTable.scaling_stat`, `RoomGate.gate_key` |
+    T31 전에는 1)이 2)의 이름을 써서 **"ATK"가 두 가지를 뜻했다.** 이제 안 겹친다
+    (INT·LUK은 스탯과 수치가 같은 이름이지만 그건 원래 1:1이라 문제가 아니다).
+  - **파생 수치 이름(체계 2)은 안 바꿨다.** 겹침이 사라졌으므로 더 바꿀 이유가 없고,
+    바꾸면 `ItemTable` 컬럼 + `SkillTable` + 그걸 읽는 5개 파일이 더 걸린다.
+    바꿀 일이 생기면 `PATK`/`MATK`처럼 수치임이 드러나는 이름이 좋다.
+  - **저장은 하위 호환으로 넘긴다.** `body["stat_str"] or body["stat_atk"] or 0` —
+    새 키를 먼저 보고 없으면 옛 키를 읽는다. **쓸 때는 새 키만 쓰므로** 한 번 저장되면
+    옛 키가 사라진다. ⚠ **되돌아갈 수는 없다** — 새 빌드로 저장한 뒤 옛 빌드로 로드하면
+    STR/DEX가 0이 된다.
+  - ⚠ **`.mlua`를 python으로 고치면 안 된다** (T27-3에서 겪었다). Windows에서 text 모드
+    쓰기가 LF를 CRLF로 바꿔 **파일 전체가 바뀐 diff**가 된다. node `fs.writeFileSync`는
+    개행을 번역하지 않는다 — 이번엔 전부 node로 썼고 diff가 실제 변경만 담았다.
+  - **`.ui` 라벨은 UIBuilder로 고쳤다** (`patchComponent`). Row3 → STR, Row5 → DEX.
+    Row4 INT · Row6 LUK은 그대로다.
 - 진행 중: **T27-5 회피 폐기** (2026-08-27 대표 판정: *"회피는 없애는 방향으로 너무 크다"*).
   **✅ LUK 회피를 걷어냈다** (`GetEvadeRate`/`RollEvade`/`ShowEvade` 삭제,
   `luk_evade_per_point`·`player_evade_max` 키 삭제. `IsHitTarget`은 i-frame만 본다.
@@ -1436,6 +1465,17 @@
   - 컬렉션 종 수 **4 → 5**. 슬롯은 3칸 그대로라 "무엇을 끼울지"가 더 좁아진다.
 
 ### 설계 변경 이력
+- 2026-08-27 — **분배 스탯의 이름을 STR/DEX/INT/LUK으로 바꾼다** (T27 재설계의 마지막 조각).
+  `StatAtk`→`StatStr` · `StatDef`→`StatDex`, 저장 키 `stat_atk`→`stat_str` · `stat_def`→`stat_dex`,
+  `Allocate("ATK")`→`"STR"`, 스탯 창 라벨 ATK/DEF → STR/DEX.
+  - **왜**: T27이 스탯의 뜻을 바꿔 놓고 이름은 그대로 뒀다. 그 결과 **"ATK"가 두 가지를
+    뜻했다** — 분배하는 스탯(= 지금의 STR)이면서 파생 수치(물리 공격력)이기도 했다.
+    같은 문자열이 두 체계에 걸쳐 있으면 조용히 틀린 값을 읽게 된다.
+  - **체계를 둘로 못박았다**: (1) 분배 스탯 STR/DEX/INT/LUK = 포인트 수 (2) 파생 수치
+    ATK/INT/DEF/LUK = 그 포인트가 만드는 값. **파생 수치 이름은 안 바꿨다** — 겹침이
+    사라졌으므로 더 바꿀 이유가 없다.
+  - **파생: 저장이 한 방향으로 넘어간다.** 읽기는 `새 키 or 옛 키`로 하위 호환이지만
+    쓰기는 새 키만 한다. 새 빌드로 저장한 계정을 옛 빌드로 로드하면 STR/DEX가 0이 된다.
 - 2026-08-27 — **LUK 회피를 없앤다.** (대표 판정 *"회피는 없애는 방향으로 너무 크다"*)
   T27-1에서 승인했던 `LUK 1P당 회피 +0.002`(상한 0.6)를 **폐기한다.** 계수와 키를 지웠다.
   - **왜**: T28이 몬스터 곡선을 "동레벨 3대에 잡고 **12대 맞으면 죽는다**"로 다시 세웠고,

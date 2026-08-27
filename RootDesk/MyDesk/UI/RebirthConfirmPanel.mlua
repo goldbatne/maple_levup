@@ -122,7 +122,7 @@ script RebirthConfirmPanel extends Logic
         local slots = me:GetComponent("script.PlayerSkillSlots")
         if stats == nil or slots == nil then return end
 
-        local spent = stats.StatAtk + stats.StatInt + stats.StatDef + stats.StatLuk
+        local spent = stats.StatStr + stats.StatDex + stats.StatInt + stats.StatLuk
         local equipped = 0
         local maxSlot = math.floor(_GameData:GetBalance("monster_slot_max"))
         for i = 1, maxSlot do

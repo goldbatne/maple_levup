@@ -13,9 +13,12 @@ script PlayerStats extends Component
     @TargetUserSync property integer Level = 1
     @TargetUserSync property number Exp = 0
 
-    @TargetUserSync property integer StatAtk = 0
+    -- 분배하는 스탯 4종. **이름은 곧 STR/DEX/INT/LUK이다** (T31, 2026-08-27).
+    -- 담는 값은 "분배한 포인트 수"이고, 그 포인트가 만드는 **수치**(물리 공격력 등)는
+    -- GetTotalX / GetStatWithoutEquip 쪽이다 — 둘을 헷갈리지 말 것.
+    @TargetUserSync property integer StatStr = 0
     @TargetUserSync property integer StatInt = 0
-    @TargetUserSync property integer StatDef = 0
+    @TargetUserSync property integer StatDex = 0
     @TargetUserSync property integer StatLuk = 0
     @TargetUserSync property integer UnspentPoints = 0
 
@@ -70,12 +73,15 @@ script PlayerStats extends Component
             return false
         end
 
-        if statName == "ATK" then
-            self.StatAtk = self.StatAtk + amount
+        -- statName은 **분배하는 스탯 이름**이다: STR / DEX / INT / LUK.
+        -- ⚠ `GetStatWithoutEquip("ATK")`의 "ATK"와 다른 체계다 — 그쪽은 **수치 이름**
+        --   (물리 공격력)이고 여러 스탯이 거기로 모인다. T31에서 이 둘을 갈랐다.
+        if statName == "STR" then
+            self.StatStr = self.StatStr + amount
         elseif statName == "INT" then
             self.StatInt = self.StatInt + amount
-        elseif statName == "DEF" then
-            self.StatDef = self.StatDef + amount
+        elseif statName == "DEX" then
+            self.StatDex = self.StatDex + amount
         elseif statName == "LUK" then
             self.StatLuk = self.StatLuk + amount
         else
@@ -86,8 +92,8 @@ script PlayerStats extends Component
         self.UnspentPoints = self.UnspentPoints - amount
 
         log("[PlayerStats] 분배 " .. statName .. " +" .. tostring(amount)
-            .. "  → ATK=" .. tostring(self.StatAtk) .. " INT=" .. tostring(self.StatInt)
-            .. " DEF=" .. tostring(self.StatDef) .. " LUK=" .. tostring(self.StatLuk)
+            .. "  → STR=" .. tostring(self.StatStr) .. " DEX=" .. tostring(self.StatDex)
+            .. " INT=" .. tostring(self.StatInt) .. " LUK=" .. tostring(self.StatLuk)
             .. "  남은P=" .. tostring(self.UnspentPoints)
             .. "  ATK총합=" .. tostring(self:GetTotalAtk()))
 
@@ -251,9 +257,9 @@ script PlayerStats extends Component
         -- 회차 초기화. 환생(T7)이 이걸 부른다. 영구 데이터는 건드리지 않는다.
         self.Level = 1
         self.Exp = 0
-        self.StatAtk = 0
+        self.StatStr = 0
         self.StatInt = 0
-        self.StatDef = 0
+        self.StatDex = 0
         self.StatLuk = 0
         self.UnspentPoints = 0
         -- 환생하면 다시 Lv1이므로 캡 플래그도 내린다. 안 내리면 새 회차에서
@@ -268,29 +274,29 @@ script PlayerStats extends Component
     end
 
     ---------------------------------------------------------------
-    -- 새 스탯 이름으로 읽는 창구 (T27, 대표 승인 2026-08-27)
+    -- 분배한 포인트를 읽는 창구 (T31에서 이름 변경 완료)
     ---------------------------------------------------------------
     --
-    -- 스탯이 ATK/INT/DEF/LUK → **STR/DEX/INT/LUK**으로 바뀌었다. 담는 그릇은 그대로다:
+    --   STR (물리 공격력 + 최대 HP)
+    --   DEX (방어력 + 물리 공격력)
+    --   INT (마법 공격력)
+    --   LUK (물리 공격력 + 공속 + 이속 + 포획률 + 드랍률)
     --
-    --   StatAtk → STR (물리 공격력 + HP)
-    --   StatDef → DEX (방어력 + 물리 공격력)
-    --   StatInt → INT (마법 공격력)
-    --   StatLuk → LUK (물리 공격력 + 공속 + 회피 + 이속)
-    --
-    -- 프로퍼티 이름을 아직 안 바꾼 이유: 저장 키가 `stat_atk` 계열이고
-    -- `ItemTable.stat_type` · `SkillTable.scaling_stat` · 스탯 창 · RoomGate가 전부
-    -- 그 문자열을 쓴다. **이름 변경은 마이그레이션이 필요한 별도 단계다.**
-    -- 그때까지 새 코드는 아래 창구만 쓴다 — 이름을 바꿀 때 여기 네 줄만 고치면 된다.
+    -- ⚠⚠ **두 이름 체계가 있다. 헷갈리면 조용히 틀린 값을 읽는다.**
+    --   1) 여기 넷 = **분배하는 스탯** (STR/DEX/INT/LUK). 포인트 수다.
+    --   2) `GetStatWithoutEquip(stat)` / `GetEquipBonus(stat)` / `ItemTable`의 스탯 컬럼 /
+    --      `SkillTable.scaling_stat` = **파생 수치 이름** (ATK=물리 공격력, INT=마법 공격력,
+    --      DEF=방어력, LUK=포인트). 여러 스탯이 한 수치로 모이므로 1:1이 아니다.
+    --   T31 이전에는 1)이 2)의 이름을 쓰고 있어서 "ATK"가 두 가지를 뜻했다.
 
     method integer GetStr()
         -- 분배한 STR 포인트.
-        return self.StatAtk
+        return self.StatStr
     end
 
     method integer GetDex()
         -- 분배한 DEX 포인트.
-        return self.StatDef
+        return self.StatDex
     end
 
     method integer GetIntStat()
@@ -552,7 +558,7 @@ script PlayerStats extends Component
         --      총합 = 5 x (레벨 - 1) - 미분배 포인트
         --   레벨 게이트와 다른 점은 **미분배로 쌓아 둔 포인트는 쳐주지 않는다**는 것
         --   하나뿐이다. 즉 "레벨을 올렸는가"가 아니라 "올리고 실제로 찍었는가"를 묻는다.
-        return self.StatAtk + self.StatInt + self.StatDef + self.StatLuk
+        return self.StatStr + self.StatDex + self.StatInt + self.StatLuk
     end
 
     method number GetCaptureRate()
