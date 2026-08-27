@@ -35,7 +35,7 @@ player_base_def,10,기본 DEF (분배 전) - ATK와 대칭. 피격 감쇄는 T10
 player_base_luk,0,기본 LUK (분배 전) - 0을 유지한다. 10을 주면 기본 포획률이 3%가 아니라 4%가 되어 기획서 4.8과 어긋난다
 atk_per_stat_point,1,스탯 1P당 ATK - 구 설계(4스탯이 한 계수를 공유). T27 스탯 재설계로 아래 계수들이 대체한다. 아직 GetStatWithoutEquip이 읽고 있어 남겨 둔다
 str_atk_per_point,5,STR 1P당 물리 공격력 (T27 대표 승인 2026-08-27)
-str_hp_per_point,50,STR 1P당 최대 HP - **이 값이 T26-6의 벽을 푼다.** 지금까지 플레이어 HP는 1000 고정이라 Lv34 이상 보스가 무조건 한 방이었다
+str_hp_per_point,20,STR 1P당 최대 HP - **이 값이 T26-6의 벽을 푼다.** 지금까지 플레이어 HP는 1000 고정이라 Lv34 이상 보스가 무조건 한 방이었다 / 50이었다가 2026-08-27 대표 지시로 20 - 50이면 STR이 딜 1등이면서 탱 1등이라 DEX의 방어력 x10이 값을 못 했다(Lv30 스텀피 버티는 대수 STR 18.1 vs DEX 10.6 -> 20에서 8.5 vs 8.4로 붙는다)
 dex_def_per_point,10,DEX 1P당 방어력
 dex_atk_per_point,2,DEX 1P당 물리 공격력 - 0으로 두면 DEX 올인이 딜 1이 되어 게임이 멈춘다(구 DEF 빌드가 그랬다)
 int_matk_per_point,5,INT 1P당 마법 공격력 - STR의 물리 공격력과 같은 값이라 물리/마법이 대칭이다
