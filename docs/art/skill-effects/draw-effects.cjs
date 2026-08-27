@@ -143,6 +143,182 @@ const EFFECTS = {
   'fx-horn-pierce': PIERCE,
 };
 
+
+// ═══════════════════════════════════════════════════════════════════
+// 페리온 7종 (T32-3). 위 4종과 같은 격자·같은 규칙.
+// ⚠ **명도 대비로 버틴다** — 테두리는 거의 검게, 속은 거의 희게.
+//   색조는 아이콘과 맞추되(같은 스킬로 읽혀야 한다) 명도는 벌린다.
+// ═══════════════════════════════════════════════════════════════════
+
+// 행 목록에서 사각형 밖을 잘라낸다. 호(arc)를 만들 때 쓴다.
+const clip = (list, x0, x1, y0, y1) => list
+  .filter(([y]) => y >= y0 && y <= y1)
+  .map(([y, a, b]) => [y, Math.max(a, x0), Math.min(b, x1)])
+  .filter(([, a, b]) => b >= a);
+
+// ── 도끼 휘두르기 (burst) — 휘두른 은빛 호 ──────────────────────────
+const AXE_FX = [
+  // C자 호 — 오른쪽이 열린 초승달. 가운데(24,24) 기준이라 커져도 안 쏠린다.
+  rows(clip(ring(24, 24, 21, 7), 2, 34, 2, 46), '#1a1c24'),
+  rows(clip(ring(24, 24, 20, 4), 3, 33, 4, 44), '#c8cfdc'),
+  rows(clip(ring(24, 24, 19, 2), 4, 32, 5, 43), '#f7f9ff'),
+  // 호 바깥의 호박빛 잔상 — 휘두른 자취
+  rows(clip(ring(24, 24, 25, 2), 3, 36, 3, 45), '#e0a33c'),
+  // 날이 지나간 끝에서 튀는 불꽃 (위·아래 끝)
+  rows([[3, 24, 28], [4, 26, 30], [5, 28, 31]], '#ffe08a'),
+  rows([[44, 24, 28], [43, 26, 30], [42, 28, 31]], '#ffe08a'),
+].join('\\n');
+
+const ROOT_FX = (() => {
+  const out = [];
+  // 뿌리 다섯 가닥. 아래(y=46)에서 시작해 위로 갈수록 가늘어지고 옆으로 휜다.
+  const stalks = [[24, 0, 42], [14, -7, 34], [34, 7, 34], [8, -12, 26], [40, 12, 26]];
+  for (const [x0, bend, len] of stalks) {
+    for (let i = 0; i <= len; i += 1) {
+      const t = i / len;
+      const x = Math.round(x0 + bend * t * t);
+      const y = 46 - i;
+      const w = Math.max(1, Math.round(5 * (1 - t) + 1));
+      out.push(r(x - Math.floor(w / 2) - 1, y, w + 2, 1, '#0d0616'));   // 테두리
+      out.push(r(x - Math.floor(w / 2), y, w, 1, '#4a2270'));           // 본체
+      if (i % 4 === 0) out.push(r(x, y, 1, 1, '#b45cf0'));              // 마디 빛
+    }
+    // 끝에서 터지는 보라 기운
+    const tx = Math.round(x0 + bend), ty = 46 - len;
+    out.push(rows(disc(tx, ty - 2, 4), '#0d0616'));
+    out.push(rows(disc(tx, ty - 2, 3), '#b45cf0'));
+    out.push(rows(disc(tx, ty - 2, 1), '#efc6ff'));
+  }
+  return out.join('\n');
+})();
+
+// ── 저돌 맹진 (pierce) — 앞으로 밀고 나가는 쐐기 ────────────────────
+const CHARGE_FX = (() => {
+  const out = [];
+  const TIP = 45, TAIL = 2;
+  for (let x = TAIL; x <= TIP; x += 1) {
+    const t = (x - TAIL) / (TIP - TAIL);
+    let h;
+    if (t < 0.75) h = 1 + Math.round(11 * (t / 0.75));
+    else h = Math.max(1, Math.round(12 * (1 - (t - 0.75) / 0.25)));
+    out.push(r(x, Math.round(24 - h / 2), 1, h, '#1a0805'));
+  }
+  for (let x = TAIL + 1; x <= TIP - 1; x += 1) {
+    const t = (x - TAIL) / (TIP - TAIL);
+    let h;
+    if (t < 0.75) h = 1 + Math.round(11 * (t / 0.75)) - 2;
+    else h = Math.round(12 * (1 - (t - 0.75) / 0.25)) - 2;
+    if (h <= 0) continue;
+    out.push(r(x, Math.round(24 - h / 2), 1, h, '#c25f38'));
+  }
+  // 달아오른 심지
+  out.push(r(12, 24, 30, 1, '#ffe08a'));
+  out.push(r(18, 23, 20, 1, '#f2ead4'));
+  out.push(r(18, 25, 20, 1, '#f2ead4'));
+  // 뒤로 끌리는 속도선 (돌진이라 길게)
+  out.push(rows([[16, 0, 12], [17, 0, 9], [31, 0, 12], [32, 0, 9]], '#8c3a22'));
+  out.push(rows([[16, 0, 6], [31, 0, 6]], '#c25f38'));
+  // 앞에서 터지는 흙먼지
+  out.push(rows([[18, 45, 47], [24, 46, 47], [30, 45, 47]], '#ffc61e'));
+  return out.join('\n');
+})();
+
+// ── 강철 가죽 (ring) — 철빛 방어 고리 + 금 리벳 ─────────────────────
+const IRON_FX = [
+  rows(ring(24, 24, 22, 4), '#161c26'),
+  rows(ring(24, 24, 21, 2), '#93a8c0'),
+  rows(ring(24, 24, 20, 1), '#eef4ff'),
+  rows(ring(24, 24, 15, 3), '#161c26'),
+  rows(ring(24, 24, 14, 1), '#5a6e86'),
+  // 금 리벳 넷 (위·아래·좌·우) — 아이콘의 리벳과 같은 색이라 같은 스킬로 읽힌다
+  rows(disc(24, 3, 3), '#3a2a08'), rows(disc(24, 3, 2), '#ffe08a'),
+  rows(disc(24, 45, 3), '#3a2a08'), rows(disc(24, 45, 2), '#ffe08a'),
+  rows(disc(3, 24, 3), '#3a2a08'), rows(disc(3, 24, 2), '#ffe08a'),
+  rows(disc(45, 24, 3), '#3a2a08'), rows(disc(45, 24, 2), '#ffe08a'),
+].join('\n');
+
+// ── 뼈 무덤 (burst) — 방사형으로 솟구치는 뼈 ────────────────────────
+const BONE_FX = (() => {
+  const out = [];
+  const arms = [[0, -23], [0, 23], [-23, 0], [23, 0],
+                [-16, -16], [16, -16], [-16, 16], [16, 16]];
+  for (const [dx, dy] of arms) {
+    const steps = 14;
+    for (let i = 3; i <= steps; i += 1) {
+      const tt = i / steps;
+      const x = Math.round(24 + dx * tt), y = Math.round(24 + dy * tt);
+      const w = Math.max(1, Math.round(6 * (1 - tt * 0.6)));
+      out.push(r(x - Math.floor(w / 2) - 1, y - Math.floor(w / 2) - 1, w + 2, w + 2, '#241c2c'));
+      out.push(r(x - Math.floor(w / 2), y - Math.floor(w / 2), w, w, '#ecead8'));
+    }
+    // 뼈 끝 마디 (두 갈래)
+    const ex = Math.round(24 + dx), ey = Math.round(24 + dy);
+    out.push(rows(disc(ex, ey, 3), '#241c2c'));
+    out.push(rows(disc(ex, ey, 2), '#fffdf2'));
+  }
+  // 가운데 자주빛 기운
+  out.push(rows(disc(24, 24, 11), '#2a0a1e'));
+  out.push(rows(disc(24, 24, 9), '#a3266f'));
+  out.push(rows(disc(24, 24, 5), '#ecead8'));
+  out.push(rows(disc(24, 24, 2), '#ffffff'));
+  return out.join('\n');
+})();
+
+// ── 화염 돌풍 (cloud) — 부풀어 오르는 불길 ──────────────────────────
+const FIRE_FX = (() => {
+  const puffs = [[24, 26, 16], [12, 24, 10], [36, 24, 10], [19, 12, 9], [31, 13, 8], [24, 38, 9]];
+  const dark = puffs.map(([x, y, rad]) => rows(disc(x, y, rad), '#3a0a02')).join('\n');
+  const body = puffs.map(([x, y, rad]) => rows(disc(x, y, rad - 2), '#e85a12')).join('\n');
+  const mid = [[24, 26, 11], [17, 20, 6], [30, 20, 6]].map(([x, y, rad]) => rows(disc(x, y, rad), '#ffb020')).join('\n');
+  const core = [[24, 26, 6], [24, 17, 4]].map(([x, y, rad]) => rows(disc(x, y, rad), '#ffef9e')).join('\n');
+  // 흩날리는 불티 — "돌풍"을 말한다
+  const motes = rows([[4, 6, 8], [7, 40, 42], [42, 8, 10], [45, 34, 36], [2, 22, 24]], '#e85a12');
+  return [dark, body, mid, core, motes].join('\n');
+})();
+
+// ── 대지 가르기 (burst) — 가로로 터지는 균열 충격파 ─────────────────
+const REND_FX = (() => {
+  const out = [];
+  // 가로로 터지는 균열 — 가운데가 가장 두껍다. 이게 주인공이라 크게 잡는다.
+  for (let x = 0; x <= 47; x += 1) {
+    const tt = Math.abs(x - 24) / 24;
+    const h = Math.max(1, Math.round(19 * (1 - tt * tt)));
+    out.push(r(x, Math.round(24 - h / 2) - 1, 1, h + 2, '#120c06'));
+  }
+  for (let x = 3; x <= 44; x += 1) {
+    const tt = Math.abs(x - 24) / 21;
+    const h = Math.max(1, Math.round(14 * (1 - tt * tt)));
+    out.push(r(x, Math.round(24 - h / 2), 1, h, '#9c7038'));
+  }
+  for (let x = 6; x <= 41; x += 1) {
+    const tt = Math.abs(x - 24) / 18;
+    const h = Math.max(1, Math.round(9 * (1 - tt * tt)));
+    out.push(r(x, Math.round(24 - h / 2), 1, h, '#ffc61e'));
+  }
+  out.push(r(11, 24, 26, 1, '#fff3b0'));
+  out.push(r(15, 23, 18, 1, '#fff3b0'));
+  // 튀어 오르는 흙 파편 — 위로만, 크기도 제각각이라 장식으로 안 보인다
+  const chunks = [[9, 13, 4], [17, 6, 3], [26, 9, 5], [34, 5, 3], [40, 14, 4], [21, 15, 2]];
+  for (const [x, y, rad] of chunks) {
+    out.push(rows(disc(x, y, rad), '#3d2a14'));
+    out.push(rows(disc(x, y, rad - 1), '#9c7038'));
+    if (rad >= 4) out.push(rows(disc(x, y - 1, 1), '#e8c07a'));
+  }
+  // 아래로 떨어지는 부스러기 (적게)
+  out.push(rows([[38, 12, 14], [41, 30, 31], [44, 20, 21]], '#3d2a14'));
+  return out.join('\\n');
+})();
+
+Object.assign(EFFECTS, {
+  'fx-axe-arc': AXE_FX,
+  'fx-dark-root': ROOT_FX,
+  'fx-boar-charge': CHARGE_FX,
+  'fx-iron-hide': IRON_FX,
+  'fx-bone-burst': BONE_FX,
+  'fx-fire-cloud': FIRE_FX,
+  'fx-earth-rend': REND_FX,
+});
+
 for (const [name, body] of Object.entries(EFFECTS)) {
   const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="100%" height="100%"\n'
     + '     style="image-rendering: pixelated; image-rendering: crisp-edges;">\n'
