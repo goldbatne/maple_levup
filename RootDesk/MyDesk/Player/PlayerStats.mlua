@@ -39,6 +39,7 @@ script PlayerStats extends Component
         -- 기본값(STR 0)으로 한 번 맞춰 둔다. 세이브가 있으면 PlayerDBManager가
         -- 복원 직후 다시 부른다 — 여기서 부르는 것은 신규 계정과 순서 사고 대비다.
         self:ApplyMaxHp()
+        self:ApplySpeeds()
     end
 
     ---------------------------------------------------------------
@@ -90,9 +91,10 @@ script PlayerStats extends Component
             .. "  남은P=" .. tostring(self.UnspentPoints)
             .. "  ATK총합=" .. tostring(self:GetTotalAtk()))
 
-        -- STR을 찍었으면 최대 HP가 바뀐다. 분배 직후 바로 반영해야
-        -- "찍었는데 체력이 그대로"로 보이지 않는다.
+        -- STR을 찍었으면 최대 HP가, LUK을 찍었으면 공속·이속이 바뀐다.
+        -- 분배 직후 바로 반영해야 "찍었는데 그대로"로 보이지 않는다.
         self:ApplyMaxHp()
+        self:ApplySpeeds()
 
         self:MarkSave("분배 확정")
         return true
@@ -260,7 +262,9 @@ script PlayerStats extends Component
 
         -- STR이 0으로 돌아갔으니 최대 HP도 기본치로 내린다. 안 내리면 환생 후에도
         -- 예전 STR로 부풀린 HP가 남는다 — 회차 초기화의 의미가 사라진다.
+        -- 공속·이속도 같은 이유로 되돌린다 (LUK도 0이 됐다).
         self:ApplyMaxHp()
+        self:ApplySpeeds()
     end
 
     ---------------------------------------------------------------
@@ -352,6 +356,60 @@ script PlayerStats extends Component
             .. "  (STR " .. tostring(self:GetStr()) .. " x "
             .. tostring(_GameData:GetBalance("str_hp_per_point")) .. ")"
             .. "  현재 HP=" .. tostring(pc.Hp))
+    end
+
+    ---------------------------------------------------------------
+    -- 공격 속도 · 이동 속도 (T27-3)
+    ---------------------------------------------------------------
+
+    method number GetAttackInterval()
+        -- 자동 공격 주기(초) = 기본 - LUK x LUK당 단축.
+        --
+        -- **상한(= 주기 하한)이 반드시 필요하다.** 단축이 선형이라 LUK 500이면
+        -- 주기가 0이 되고, 그 아래로 가면 음수라 타이머가 무한 루프처럼 돈다.
+        -- 실드 감쇄 0.9 상한 · 회피 0.6 상한과 같은 이유다.
+        --
+        -- 실행공간을 비워 둔다: 서버는 타이머에, 클라는 스탯 창 표시에 쓴다.
+        local base = _GameData:GetBalance("player_attack_interval")
+        local perPoint = _GameData:GetBalance("luk_attack_speed_per_point")
+        local floorValue = _GameData:GetBalance("player_attack_interval_min")
+        local interval = base - self:GetTotalLuk() * perPoint
+        if interval < floorValue then interval = floorValue end
+        return interval
+    end
+
+    method number GetMoveSpeed()
+        -- 이동 속도 = 기본 x (1 + LUK x LUK당 증가).
+        --
+        -- **배수인 이유**: `MovementComponent.InputSpeed`가 월드 유닛/초가 아니라
+        -- 맵 종류마다 환산이 다른 계수다(RectTile은 1.2로 나눈다 — platform.md 10).
+        -- 정액으로 더하면 맵마다 체감이 달라진다.
+        --
+        -- 상한을 안 두는 이유: 주기·회피와 달리 빨라져도 규칙이 깨지지 않는다.
+        -- LUK 1000이어도 2배일 뿐이다.
+        local base = _GameData:GetBalance("player_base_move_speed")
+        local perPoint = _GameData:GetBalance("luk_move_speed_per_point")
+        return base * (1 + self:GetTotalLuk() * perPoint)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplySpeeds()
+        -- 계산한 속도를 실제로 먹인다. `ApplyMaxHp`와 같은 자리에서 불린다 —
+        -- 셋 다 "스탯에서 매번 다시 계산하고 저장하지 않는" 값이다.
+        --
+        -- ⚠ **공속은 타이머를 다시 걸어야 바뀐다.** `SetTimerRepeat`은 걸 때의
+        --   주기를 그대로 들고 있어서, 값만 고쳐 놓으면 그 회차 내내 옛 주기로 돈다.
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        if attack ~= nil then
+            ---@type PlayerAttack
+            local atk = attack
+            atk:RestartAutoAttack()
+        end
+
+        local movement = self.Entity.MovementComponent
+        if isvalid(movement) then
+            movement.InputSpeed = self:GetMoveSpeed()
+        end
     end
 
     ---------------------------------------------------------------

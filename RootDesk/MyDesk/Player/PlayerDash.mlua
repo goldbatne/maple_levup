@@ -84,7 +84,17 @@ script PlayerDash extends Logic
         local movement = player.MovementComponent
         if not isvalid(movement) then return end
 
-        if self.savedSpeed > 0 then movement.InputSpeed = self.savedSpeed end
+        -- 스냅샷이 아니라 **지금 맞는 속도**로 되돌린다 (T27-3).
+        -- 이동 속도가 LUK에서 나오게 되면서 스냅샷이 낡을 수 있다 — 돌진 도중에
+        -- 레벨업으로 LUK이 오르면 옛 속도로 되돌아가고, 그 뒤로는 아무도 안 고쳐 준다
+        -- (ApplySpeeds는 스탯이 바뀔 때만 돈다). 계산식이 한 곳에만 있으면 안 낡는다.
+        ---@type PlayerStats
+        local stats = player:GetComponent("script.PlayerStats")
+        if stats ~= nil then
+            movement.InputSpeed = stats:GetMoveSpeed()
+        elseif self.savedSpeed > 0 then
+            movement.InputSpeed = self.savedSpeed
+        end
         movement:Stop()
     end
 

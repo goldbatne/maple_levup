@@ -341,6 +341,7 @@ script PlayerDBManager extends Component
             -- 플래그와 같다 — 계수(`str_hp_per_point`)를 조정했을 때 옛 값이 남으면
             -- 세이브가 있는 계정만 다른 HP로 논다.
             stats:ApplyMaxHp()
+            stats:ApplySpeeds()
         end
 
         ---@type PlayerSkillSlots
