@@ -345,6 +345,17 @@ script EquipPanel extends Logic
             return
         end
 
+        -- 패시브는 끼우는 것이 아니다 (2026-08-29). 같은 줄을 다시 눌러도 장착을
+        -- 요청하지 않고, **왜 안 끼워지는지**를 알려 준다 — 안 알려 주면 고장으로 읽힌다.
+        local picked = _GameData:GetSkill(skillId)
+        if picked ~= nil and picked.skill_kind == "passive" then
+            log("[EquipPanel] 패시브라 장착하지 않는다 " .. skillId)
+            _GateNotice:ShowNotice("끼우지 않는다",
+                "[" .. picked.name .. "]은(는) 패시브다. **가지고 있는 것만으로 항상 켜져 있다.**"
+                .. "  더 모을수록 세진다.")
+            return
+        end
+
         ---@type PlayerSkillSlots
         local slots = self:GetSlots()
         if slots == nil then return end
@@ -390,10 +401,38 @@ script EquipPanel extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method integer OwnedCountOf(string skillId)
+        -- 그 스킬을 몇 장 갖고 있나. 패시브 설명이 "몇 장이라 얼마"를 적는 데 쓴다.
+        local me = _UserService.LocalPlayer
+        if me == nil then return 0 end
+        ---@type PlayerCollection
+        local col = me:GetComponent("script.PlayerCollection")
+        if col == nil then return 0 end
+        return col:GetOwnedCount(skillId)
+    end
+
+    @ExecSpace("ClientOnly")
+    method number PassiveAmount(string skillId)
+        -- 이 패시브가 **지금** 주는 분배 스탯 포인트.
+        -- 계산을 여기서 다시 하지 않고 PlayerStats와 같은 식을 쓴다 — 두 곳에서
+        -- 따로 계산하면 화면과 실제가 언젠가 갈라진다.
+        local skill = _GameData:GetSkill(skillId)
+        if skill == nil or skill.skill_kind ~= "passive" then return 0 end
+        local count = self:OwnedCountOf(skillId)
+        if count <= 0 then return 0 end
+        local per = skill.passive_value
+        if per <= 0 then per = _GameData:GetBalance("collection_passive_first") end
+        return per + _GameData:GetBalance("collection_passive_extra") * (count - 1)
+    end
+
+    @ExecSpace("ClientOnly")
     method string KindLabel(table skill)
         -- 화면에 보일 분류. 모르는 값은 그대로 — 데이터가 늘어나도 깨지지 않는다.
         if skill.skill_kind == "attack" then return "공격" end
         if skill.skill_kind == "defense" then return "방어" end
+        -- 패시브는 **끼우는 것이 아니라 가지고 있으면 켜지는 것**이다 (2026-08-29).
+        -- 그 사실이 태그에 드러나야 "왜 안 끼워지지"가 안 생긴다.
+        if skill.skill_kind == "passive" then return "패시브" end
         return skill.skill_kind
     end
 
@@ -425,7 +464,13 @@ script EquipPanel extends Logic
         -- 공격 스킬만 — 방어 스킬은 계수가 0이라 스탯을 쓰지 않는다.
         -- 0이면 경고를 붙인다: 그 상태로 끼우면 눌러도 피해가 안 나간다.
         local statText = ""
-        if skill.skill_kind ~= "defense" then
+        if skill.skill_kind == "passive" then
+            -- 패시브는 계수 스탯이 아니라 **지금 몇 장이라 얼마를 주는지**를 적는다
+            -- (2026-08-29). 이게 안 보이면 중복을 모을 이유가 화면에 없다.
+            statText = "   " .. skill.passive_stat .. " +"
+                .. string.format("%.2f", self:PassiveAmount(self.selectedSkillId))
+                .. "  (" .. tostring(self:OwnedCountOf(self.selectedSkillId)) .. "장 · 항상 켜짐)"
+        elseif skill.skill_kind ~= "defense" then
             local mine = self:GetMyStat(skill.scaling_stat)
             statText = "   " .. skill.scaling_stat .. " " .. tostring(math.floor(mine))
             if mine <= 0 then statText = statText .. " → 피해 없음" end

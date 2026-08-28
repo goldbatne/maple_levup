@@ -323,9 +323,11 @@ script PlayerStats extends Component
         --
         -- 실행공간을 비워 둔다: 서버는 실제 적용에, 클라는 스탯 창 표시에 쓴다.
         -- 읽는 값이 @TargetUserSync라 양쪽 결과가 같다.
+        -- 포획 패시브의 STR도 여기 얹힌다 (설계 변경 2026-08-29) — 분배 STR과 같은
+        -- 계수를 쓴다. 환생 직후 HP가 1200에서 1380이 되는 것이 이 한 줄이다.
         local base = _GameData:GetBalance("player_base_hp")
         local perPoint = _GameData:GetBalance("str_hp_per_point")
-        return base + self:GetStr() * perPoint
+        return base + (self:GetStr() + self:GetCollectionPoints("STR")) * perPoint
     end
 
     @ExecSpace("ServerOnly")
@@ -461,6 +463,82 @@ script PlayerStats extends Component
         return total
     end
 
+    method number GetCollectionPoints(string statName)
+        -- 포획 패시브가 주는 **분배 스탯 포인트** (설계 변경 2026-08-29, 대표 지시).
+        -- statName은 **분배 스탯 이름** — "STR" / "DEX" / "INT" / "LUK".
+        --
+        -- ## 왜 있나
+        --
+        -- 환생하면 컬렉션·슬롯·차수·장비는 남는데 **몸은 신규 계정과 정확히 같다**
+        -- (둘 다 물공 70 / HP 1200). 환생 보상 둘이 **다 Lv1에서 안 나오기** 때문이다 —
+        -- 레벨업당 스탯은 레벨이 올라야 받고, 사냥방 몬스터는 4에서 7마리가 될 뿐이다.
+        -- 거기에 T34로 `exp_base`가 60이 되어 Lv1→2에 12마리를 잡아야 한다.
+        -- 직전까지 Lv30~40이던 사람이 달팽이를 4대씩 12마리 잡는 구간을 이게 메운다.
+        --
+        -- ## 중복을 센다
+        --
+        -- 대표 판단: 중복은 **"다음 지역에 대한 완화제"**다 — 막히면 지금 지역을 갈아서
+        -- 넘는 길이 열린다. 대안이던 "환생당 포인트 증가"는 그냥 숫자가 커지는 것이라
+        -- 버렸다(*"얻는 재미와 성장의 경험"*).
+        --
+        -- 첫 장 `collection_passive_first`(1) + 추가 장마다 `collection_passive_extra`(0.25).
+        -- ⚠ 추가 장을 1로 두면 85종 만작(425장)이 **+425P**가 되어 Lv1인데 물공 1345 —
+        --   Lv50 STR 몰빵(1295)과 같아진다(실측). 0.25면 만작 1종이 2P라
+        --   T15-2의 계수 강화(1.0 → 1.8)와 **같은 모양**이 된다.
+        --
+        -- 실행공간을 비워 둔다 — 서버는 실제 적용에, 클라는 스탯 창 표시에 쓴다.
+        if statName == "" then return 0 end
+        ---@type PlayerCollection
+        local collection = self.Entity:GetComponent("script.PlayerCollection")
+        if collection == nil then return 0 end
+
+        local first = _GameData:GetBalance("collection_passive_first")
+        local extra = _GameData:GetBalance("collection_passive_extra")
+        local total = 0
+        local ids = _GameData:GetAllSkillIds()
+        for i = 1, #ids do
+            local skill = _GameData:GetSkill(ids[i])
+            if skill ~= nil and skill.skill_kind == "passive" and skill.passive_stat == statName then
+                local count = collection:GetOwnedCount(ids[i])
+                if count > 0 then
+                    -- 줄에 값이 있으면 그것이 첫 장 값을 대신한다 (비면 기본).
+                    local per = skill.passive_value
+                    if per <= 0 then per = first end
+                    total = total + per + extra * (count - 1)
+                end
+            end
+        end
+        return total
+    end
+
+    method number GetCollectionBonus(string stat)
+        -- 컬렉션 패시브가 만드는 **파생 수치**. 인자는 GetStatWithoutEquip과 같은
+        -- 수치 이름("ATK"/"INT"/"DEF"/"LUK")이고, 계수도 **같은 것을 쓴다** —
+        -- 분배 1P와 패시브 1P가 같은 값이어야 "1P 상당"이라는 말이 참이 된다.
+        --
+        -- ⚠⚠ **게이트에는 안 센다.** `RoomGate`의 STAT_TOTAL은 `GetAllocatedTotal()`
+        -- (= StatStr+StatDex+StatInt+StatLuk)만 보고, gate_key가 ATK/DEF 등일 때는
+        -- `GetStatWithoutEquip`을 본다. 이 함수는 **둘 중 어느 쪽에도 안 들어간다** —
+        -- 장비와 똑같이 `GetTotalX`에만 얹힌다. 게이트가 재는 것은 성장이어야 하고
+        -- (2026-08-12), 컬렉션으로 문이 열리면 그게 무너진다.
+        if stat == "ATK" then
+            return self:GetCollectionPoints("STR") * _GameData:GetBalance("str_atk_per_point")
+                + self:GetCollectionPoints("DEX") * _GameData:GetBalance("dex_atk_per_point")
+                + self:GetCollectionPoints("LUK") * _GameData:GetBalance("luk_atk_per_point")
+        end
+        if stat == "INT" then
+            return self:GetCollectionPoints("INT") * _GameData:GetBalance("int_matk_per_point")
+        end
+        if stat == "DEF" then
+            return self:GetCollectionPoints("DEX") * _GameData:GetBalance("dex_def_per_point")
+        end
+        if stat == "LUK" then
+            -- LUK만 수치가 아니라 포인트 그대로다 (GetStatWithoutEquip과 같은 이유).
+            return self:GetCollectionPoints("LUK")
+        end
+        return 0
+    end
+
     method number GetStatWithoutEquip(string stat)
         -- 장비를 빼고 본 **전투 수치** (기본값 + 분배분). **수치 게이트가 이걸 쓴다.**
         --
@@ -513,6 +591,7 @@ script PlayerStats extends Component
         -- **어느 스탯을 찍어도 딜이 0이 되지 않게** 하려는 것이다. 예전에는 DEF나 LUK에
         -- 몰빵하면 딜이 1~3이라 게임이 멈췄다.
         return self:GetStatWithoutEquip("ATK") + self:GetEquipBonus("ATK")
+            + self:GetCollectionBonus("ATK")
     end
 
     method number GetTotalInt()
@@ -526,11 +605,13 @@ script PlayerStats extends Component
         -- 스탯 창 · EquipPanel에 걸쳐 있고, 이름 정리는 저장 마이그레이션과 함께
         -- 별도 단계로 묶여 있다.
         return self:GetStatWithoutEquip("INT") + self:GetEquipBonus("INT")
+            + self:GetCollectionBonus("INT")
     end
 
     method number GetTotalDef()
         -- **방어력.** DEX가 만든다 (DEX x 10). 피격 감쇄는 MonsterAttack이 이 값을 읽는다.
         return self:GetStatWithoutEquip("DEF") + self:GetEquipBonus("DEF")
+            + self:GetCollectionBonus("DEF")
     end
 
     method number GetTotalLuk()
@@ -545,6 +626,7 @@ script PlayerStats extends Component
         --
         -- 장비 LUK은 여기 포함되므로 **포획률에도 얹힌다** (기획서 4.7).
         return self:GetStatWithoutEquip("LUK") + self:GetEquipBonus("LUK")
+            + self:GetCollectionBonus("LUK")
     end
 
     method number GetAllocatedTotal()
