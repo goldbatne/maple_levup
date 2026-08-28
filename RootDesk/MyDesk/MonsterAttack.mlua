@@ -5,8 +5,37 @@
 @Component
 script MonsterAttack extends AttackComponent
 
+	-- 공격 주기(초). **0이면 `GameBalance.monster_attack_interval`을 쓴다** (T33-3).
+	-- 종별로 다르게 하고 싶을 때만 여기(또는 `.model`)에 값을 넣는다 — 넣으면 CSV를 이긴다.
 	@MinValue(0)
-	property number AttackInterval = 0.03
+	property number AttackInterval = 0
+
+	-- 추격 감지 범위(월드 유닛). **0이면 `GameBalance.monster_detect_range`를 쓴다** (T33-3).
+	-- ⚠ 이건 우리 프로퍼티가 아니라 **네이티브 `AIChaseComponent.DetectionRange`에 써 넣는 값**이다.
+	--   엔진 컴포넌트라 "CSV를 읽어라"라고 시킬 수 없어서, OnBeginPlay에서 우리가 밀어 넣는다.
+	@MinValue(0)
+	property number DetectRange = 0
+
+	method number ResolvedAttackInterval()
+		-- 종별 값이 있으면 그것, 없으면 CSV.
+		--
+		-- **0을 신호값으로 쓴 이유**: 13개 모델이 전부 0.5를 명시하고 있었는데, 그걸 지우고
+		-- CSV로 모으면서도 "이 몬스터만 빠르게" 같은 조정 여지를 남겨야 했다.
+		-- T28에서 정한 대로 **난이도는 방이 만들고**, 종별 공속은 그 방을 짜는 지렛대다.
+		if self.AttackInterval > 0 then return self.AttackInterval end
+		local fromCsv = _GameData:GetBalance("monster_attack_interval")
+		-- CSV도 없으면 옛 기본값으로 떨어진다. 0이면 타이머가 매 프레임 돌아 서버가 멈춘다.
+		if fromCsv <= 0 then return 0.5 end
+		return fromCsv
+	end
+
+	method number ResolvedDetectRange()
+		-- 위와 같은 규칙.
+		if self.DetectRange > 0 then return self.DetectRange end
+		local fromCsv = _GameData:GetBalance("monster_detect_range")
+		if fromCsv <= 0 then return 6.0 end
+		return fromCsv
+	end
 
 	-- 공격 자세를 유지하는 시간(초). 이 시간이 지나면 IDLE로 돌려보내
 	-- AIChase가 다시 IDLE↔MOVE를 굴리게 둔다.
@@ -99,6 +128,17 @@ script MonsterAttack extends AttackComponent
 		-- 가장 많이 가진 상대다.
 		self:StartBossSkills(monster)
 
+		-- 추격 감지 범위를 CSV에서 밀어 넣는다 (T33-3).
+		--
+		-- ⚠ `AIChaseComponent`는 **네이티브 컴포넌트**라 "CSV를 읽어라"라고 시킬 수 없다.
+		--   그래서 값을 우리가 써 넣는다. `.model`에서 값을 지웠으므로 이걸 안 하면
+		--   엔진 기본값으로 돌아가 추격 거리가 조용히 바뀐다.
+		-- ⚠ 아바타 몬스터(히어로)에도 붙어 있는지 확신할 수 없어 isvalid로 가른다.
+		local chase = self.Entity.AIChaseComponent
+		if isvalid(chase) then
+			chase.DetectionRange = self:ResolvedDetectRange()
+		end
+
 		-- ATTACK 상태는 등록하지 않는다. 등록해서 ChangeState로 가는 길을 먼저 만들었는데
 		-- AIChase가 0.1초 만에 되돌려서 못 쓴다 (PlayAttackPose 주석 참고).
 		-- 공격 모션은 SpriteRUID를 직접 갈아끼우는 쪽으로 처리한다.
@@ -118,7 +158,7 @@ script MonsterAttack extends AttackComponent
 				if monster.IsDead == false then
 					self:AttackNear()
 				end
-			end, self.AttackInterval)
+			end, self:ResolvedAttackInterval())
 			log("[MonsterAttack] 아바타 몬스터 — 고정 상자로 공격 시작 ("
 				.. tostring(self.Entity.Name) .. ")")
 			return
@@ -137,7 +177,7 @@ script MonsterAttack extends AttackComponent
 				if monster.IsDead == false then
 					self:AttackNear()
 				end
-			end, self.AttackInterval)
+			end, self:ResolvedAttackInterval())
 		end)
 	end
 

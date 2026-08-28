@@ -48,6 +48,8 @@ player_base_move_speed,2.4,LUK 0일 때의 MovementComponent.InputSpeed (T27-3).
 atk_alloc_ratio,0.6,ATK 분배 비중 (기준 빌드)
 player_attack_range,1.0,기본 공격 근접 판정 반경(월드 유닛) - 시트 외 구현 상수
 player_attack_interval,1.0,자동 공격 주기(초) - 시트 외 구현 상수
+monster_attack_interval,0.5,몬스터 공격 주기(초) - T33-3에서 13개 .model의 script.MonsterAttack.AttackInterval에서 옮겨 왔다. **종별로 다르게 하려면 그 몬스터의 .model에 값을 넣으면 CSV를 이긴다**(0이면 CSV). i-frame이 1초라 0.5로 둬도 실제 피격은 초당 1대다 - 이 값은 "얼마나 자주 때리려 드는가"이고 실제 맞는 빈도는 i-frame이 정한다
+monster_detect_range,6.0,몬스터 추격 감지 범위(월드 유닛) - T33-3에서 13개 .model의 AIChaseComponent.DetectionRange에서 옮겨 왔다. ⚠ AIChaseComponent는 네이티브라 CSV를 못 읽는다 - MonsterAttack.OnBeginPlay가 이 값을 컴포넌트에 써 넣는다. 종별 조정은 위와 같은 방식
 player_iframe_seconds,1.0,한 대 맞고 다음 대까지의 무적 시간(초) - T33-1에서 PlayerHit.ImmuneCooldown 프로퍼티에서 옮겨 왔다. **이 값이 전투 설계의 단위다**: T28이 "동레벨 12대 맞으면 죽는다"로 곡선을 세울 때 i-frame 1초를 전제로 "대수 = 초"라고 읽었다. 여기를 바꾸면 그 계산이 통째로 움직인다
 portal_reenter_guard,0.7,포탈 통과 직후 재진입 무시 시간(초) - 시트 외 구현 상수
 skill_coefficient_base,1.2,기준 스킬 계수 - 데미지 = 계수 x ATK^2 / (ATK+DEF)
