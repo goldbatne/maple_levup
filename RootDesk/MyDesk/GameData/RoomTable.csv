@@ -1,5 +1,5 @@
 ﻿id,name,room_type,conn_north,conn_south,conn_east,conn_west,gate_type,gate_key,gate_value,map_name,monster_id,monster_count,monster_level,is_start,area_id,portal_x,portal_y
-r_town,헤네시스,town,r_11,,r_01,,none,,,maptown,,0,,true,,13,1
+r_town,헤네시스,town,r_11,r_21,r_01,,none,,,maptown,,0,,true,,13,1
 r_01,시작 숲길,hunt,,,r_02,r_town,none,,,map01,m_snail,3,,,area_01,13,1
 r_02,이끼 낀 관문,gate,r_03,,r_04,r_01,stat,STAT_TOTAL,10,map02,m_blue_snail,4,3,,area_01,13,1
 r_03,무너진 서고,hunt,,r_02,,,boss,r_05,,map03,m_mushroom,4,8,,area_01,13,1
@@ -14,3 +14,6 @@ r_14,험한 바위 지대,hunt,,r_17,r_15,r_13,stat,STAT_TOTAL,170,map14,m_stone
 r_15,돌풍의 봉우리,boss,,,,r_14,none,,,map15,m_stumpy,1,26,,area_02,13,1
 r_16,아머피그의 땅,hunt,r_13,,r_17,,none,,,map16,m_iron_hog,5,28,,area_02,13,1
 r_17,불의 땅,hunt,r_14,,,r_16,none,,,map17,m_fire_boar,5,32,,area_02,13,1
+r_21,숲으로 가는 길,hunt,r_town,,r_22,,,,,map21,m_slime,4,11,,area_03,13,1
+r_22,요정의 숲,hunt,,,r_23,r_21,,,,map22,m_leaf_puppet,4,14,,area_03,13,1
+r_23,솟아오른 나무,hunt,,,,r_22,,,,map23,m_fairy,5,16,,area_03,13,1
