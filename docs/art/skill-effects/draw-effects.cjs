@@ -309,6 +309,166 @@ const REND_FX = (() => {
   return out.join('\\n');
 })();
 
+// ═══════════════════════════════════════════════════════════════════
+// 엘리니아 5종 (T37-3). 위 11종과 같은 격자·같은 규칙.
+// 스타일은 기존 넷에 물린다 — 새로 만들지 않는다 (README "스타일" 절).
+// 색조는 아이콘과 맞추되 명도는 벌린다 (테두리 거의 검게, 속 거의 희게).
+// ═══════════════════════════════════════════════════════════════════
+
+// 중심에서 뻗는 광선 위에 정사각형을 늘어놓는다. 고리를 잘라 칸을 낼 때 쓴다.
+const ray = (cx, cy, deg, r0, r1, w, fill) => {
+  const out = [];
+  const a = (deg * Math.PI) / 180;
+  for (let d = r0; d <= r1; d += 0.5) {
+    const x = Math.round(cx + Math.cos(a) * d), y = Math.round(cy + Math.sin(a) * d);
+    out.push(r(x - Math.floor(w / 2), y - Math.floor(w / 2), w, w, fill));
+  }
+  return out.join('\n');
+};
+
+// ── 끈적한 몸통 (burst) — 튀는 점액 ─────────────────────────────────
+// ⚠ 처음에 8방향 팔로 그렸더니 **성게**가 됐고, 같은 꼴인 뼈 무덤·물방울과
+//   색만 다른 그림이 됐다 (실측). 튄 점액은 **좌우가 안 맞는 덩어리 + 흘러내리는
+//   몇 가닥**이지 대칭 별이 아니다. 덩어리를 치우치게 겹치고 가닥은 넷만 뒀다.
+const SLIME_FX = (() => {
+  const out = [];
+  const blobs = [[24, 25, 14], [15, 19, 9], [33, 20, 8], [28, 34, 9], [15, 33, 7]];
+  const runs = [[-118, 23], [-32, 20], [58, 17], [140, 21]];
+  // ⚠ **테두리를 전부 먼저 깔고 본체를 전부 나중에 칠한다.** 덩어리마다
+  //   테두리→본체를 짝으로 그리면 뒤 가닥의 테두리가 앞 덩어리 위에 그어져
+  //   **한 덩어리가 아니라 금이 간 것처럼** 보인다 (실측).
+  const shape = (fill, shrink) => {
+    const o = [];
+    for (const [x, y, rad] of blobs) o.push(rows(disc(x, y, rad - shrink), fill));
+    for (const [deg, len] of runs) {
+      const a = (deg * Math.PI) / 180;
+      for (let d = 8; d <= len; d += 1) {
+        const t = (d - 8) / (len - 8);
+        const w = Math.max(2, Math.round(7 * (1 - t * 0.75)));
+        const x = Math.round(24 + Math.cos(a) * d), y = Math.round(24 + Math.sin(a) * d);
+        o.push(rows(disc(x, y, w / 2 + 1 - shrink), fill));
+      }
+      const ex = Math.round(24 + Math.cos(a) * (len + 4));
+      const ey = Math.round(24 + Math.sin(a) * (len + 4));
+      o.push(rows(disc(ex, ey, 3 - shrink), fill));
+    }
+    return o.join('\n');
+  };
+  out.push(shape('#0d2405', 0));
+  out.push(shape('#2e7a12', 2));
+  // 젖은 광택 — 왼쪽 위에 몰아 둔다
+  out.push(rows(disc(18, 19, 5), '#8cf24a'));
+  out.push(rows(disc(28, 28, 4), '#8cf24a'));
+  out.push(rows(disc(17, 18, 2), '#e8ffc0'));
+  return out.join('\n');
+})();
+
+// ── 단단한 밑동 (ring) — 통나무 방책 ────────────────────────────────
+// ⚠ 매끈한 동심 고리로 그렸더니 **강철 가죽과 같은 그림**이 됐다 (색만 다르다).
+//   고리를 **열두 조각으로 잘라** 통나무를 둘러 세운 방책으로 만들었다 —
+//   끊긴 자리가 나무 기둥의 경계라 철판과 실루엣부터 갈린다.
+const STUMP_FX = (() => {
+  const out = [];
+  out.push(rows(ring(24, 24, 22, 9), '#140d06'));
+  out.push(rows(ring(24, 24, 21, 7), '#3a2a1a'));
+  out.push(rows(ring(24, 24, 20, 5), '#8a6a42'));
+  out.push(rows(ring(24, 24, 19, 3), '#b08a5a'));
+  out.push(rows(ring(24, 24, 18, 1), '#e8cfa8'));
+  // 기둥 사이를 갈라 낸다 — 이게 방책으로 읽히게 하는 핵심
+  for (let k = 0; k < 12; k += 1) {
+    out.push(ray(24, 24, k * 30 + 15, 12, 24, 3, '#140d06'));
+  }
+  // 기둥마다 나이테 한 점 (아이콘과 이어지는 신호)
+  for (let k = 0; k < 12; k += 1) {
+    const a = ((k * 30) * Math.PI) / 180;
+    const x = Math.round(24 + Math.cos(a) * 19), y = Math.round(24 + Math.sin(a) * 19);
+    out.push(rows(disc(x, y, 2), '#5a4228'));
+    out.push(rows(disc(x, y, 1), '#d8b585'));
+  }
+  return out.join('\n');
+})();
+
+// ── 물방울 터뜨리기 (burst) — 흩어지는 물보라 ───────────────────────
+// ⚠ 방사형 팔로 그리면 눈꽃(뼈 무덤)이 된다. **이어지지 않은 방울들**을
+//   반지름·크기를 제각각으로 흩어 놓아야 물보라로 읽힌다.
+const BUBBLE_FX = (() => {
+  const out = [];
+  const drops = [
+    [10, 21, 5], [58, 19, 4], [96, 22, 5], [132, 17, 3], [168, 21, 5],
+    [205, 18, 4], [242, 22, 5], [278, 16, 3], [312, 20, 4], [340, 22, 5],
+    [35, 12, 3], [120, 11, 2], [222, 12, 3], [300, 11, 2],
+  ];
+  for (const [deg, dist, rad] of drops) {
+    const a = (deg * Math.PI) / 180;
+    const x = Math.round(24 + Math.cos(a) * dist), y = Math.round(24 + Math.sin(a) * dist);
+    out.push(rows(disc(x, y, rad + 1), '#062f45'));
+    out.push(rows(disc(x, y, rad), '#79dcf7'));
+    if (rad >= 3) out.push(rows(disc(x - 1, y - 1, Math.max(1, rad - 2)), '#d4f8ff'));
+    if (rad >= 4) out.push(rows(disc(x - 1, y - 1, 1), '#ffffff'));
+  }
+  // 터진 자리 — 가운데만 밝게. 방울들이 여기서 흩어져 나갔다
+  out.push(rows(disc(24, 24, 8), '#062f45'));
+  out.push(rows(disc(24, 24, 6), '#79dcf7'));
+  out.push(rows(disc(24, 24, 4), '#d4f8ff'));
+  out.push(rows(disc(24, 24, 2), '#ffffff'));
+  return out.join('\n');
+})();
+
+// ── 요정의 인분 (cloud) — 흩날리는 분홍 가루 ────────────────────────
+const DUST_FX = (() => {
+  const puffs = [[24, 25, 15], [12, 22, 9], [36, 22, 9], [19, 36, 8], [32, 35, 7], [24, 10, 8]];
+  const dark = puffs.map(([x, y, rad]) => rows(disc(x, y, rad), '#4a0c2c')).join('\n');
+  const body = puffs.map(([x, y, rad]) => rows(disc(x, y, rad - 2), '#ffb8de')).join('\n');
+  const light = [[19, 20, 7], [29, 28, 6]].map(([x, y, rad]) => rows(disc(x, y, rad), '#ffe8f6')).join('\n');
+  // 4각 반짝임 — 아이콘의 주인공이라 여기에도 넣어야 같은 스킬로 읽힌다
+  const spark = (cx, cy, len) => {
+    const out = [];
+    for (let d = -len; d <= len; d += 1) {
+      const w = Math.max(1, Math.round(3 * (1 - Math.abs(d) / len)));
+      out.push(r(cx - Math.floor(w / 2), cy + d, w, 1, '#ffffff'));
+      out.push(r(cx + d, cy - Math.floor(w / 2), 1, w, '#ffffff'));
+    }
+    return out.join('\n');
+  };
+  return [dark, body, light,
+          spark(24, 24, 9), spark(10, 12, 5), spark(39, 15, 5),
+          spark(14, 41, 4), spark(37, 39, 4)].join('\n');
+})();
+
+// ── 어둠의 손아귀 (burst) — 움켜쥐는 검은 발톱 ──────────────────────
+// ⚠ 곧게 뻗은 가시로 두면 **뼈 무덤**과 같은 그림이 된다. 끝을 한쪽으로 꺾어
+//   **갈고리**로 만들면 (burst가 조금 돌려 주므로) 움켜쥐는 것으로 읽힌다.
+// ⚠ 다섯 개는 많다 — 가늘어져서 눈꽃이 된다. **넷으로 줄여 굵게** 세우고
+//   갈고리를 크게 꺾었다. 발톱이 굵어야 손가락으로 읽힌다.
+const GRIP_FX = (() => {
+  const out = [];
+  const arms = [[-0.71, -0.71], [0.71, -0.71], [-0.71, 0.71], [0.71, 0.71]];
+  for (const [ux, uy] of arms) {
+    const len = 21, steps = 14;
+    const px = -uy, py = ux;    // 팔에 수직인 방향 — 이쪽으로 끝을 꺾는다
+    for (let i = 2; i <= steps; i += 1) {
+      const t = i / steps;
+      const hook = 11 * Math.pow(Math.max(0, (t - 0.45) / 0.55), 2);
+      const x = Math.round(24 + ux * len * t + px * hook);
+      const y = Math.round(24 + uy * len * t + py * hook);
+      const w = Math.max(2, Math.round(11 * (1 - t * 0.72)));
+      out.push(rows(disc(x, y, w / 2 + 1), '#050508'));
+      out.push(rows(disc(x, y, w / 2), '#241d33'));
+    }
+    // 발톱 끝 — 진홍
+    const ex = Math.round(24 + ux * len + px * 11), ey = Math.round(24 + uy * len + py * 11);
+    out.push(rows(disc(ex, ey, 3), '#050508'));
+    out.push(rows(disc(ex, ey, 2), '#c81030'));
+    out.push(rows(disc(ex, ey, 1), '#ff5a6e'));
+  }
+  // 움켜쥔 어둠
+  out.push(rows(disc(24, 24, 13), '#050508'));
+  out.push(rows(disc(24, 24, 10), '#5c0a1c'));
+  out.push(rows(disc(24, 24, 6), '#c81030'));
+  out.push(rows(disc(24, 24, 3), '#ff5a6e'));
+  return out.join('\n');
+})();
+
 Object.assign(EFFECTS, {
   'fx-axe-arc': AXE_FX,
   'fx-dark-root': ROOT_FX,
@@ -317,6 +477,11 @@ Object.assign(EFFECTS, {
   'fx-bone-burst': BONE_FX,
   'fx-fire-cloud': FIRE_FX,
   'fx-earth-rend': REND_FX,
+  'fx-slime-splat': SLIME_FX,
+  'fx-stump-guard': STUMP_FX,
+  'fx-bubble-spray': BUBBLE_FX,
+  'fx-fairy-dust': DUST_FX,
+  'fx-dark-grip': GRIP_FX,
 });
 
 for (const [name, body] of Object.entries(EFFECTS)) {
