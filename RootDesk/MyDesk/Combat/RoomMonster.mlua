@@ -15,7 +15,10 @@
 script RoomMonster extends Component
 
     -- MonsterTable의 id. 같은 모델로 여러 몬스터를 만들 때 이 값만 바꾼다.
-    property string MonsterId = "m_slime"
+    -- 기본값은 비워 둔다 (T33-4). 예전 기본값 "m_slime"은 헤네시스 재테마(2026-08-16)
+    -- 때 MonsterTable에서 빠져 **없는 종을 가리키고 있었다** — 아래 OnBeginPlay가
+    -- 어차피 거절하지만, 그때 로그가 실재하지 않는 이름을 대며 사람을 헷갈리게 했다.
+    property string MonsterId = ""
 
     -- 죽은 뒤 다시 살아날지. 방 단위 리스폰은 T3-2b에서 스포너가 관리한다.
     property boolean RespawnOn = false

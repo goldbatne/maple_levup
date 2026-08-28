@@ -294,10 +294,27 @@
     찾아 테두리로 깔아야 한다 — T20-2에서 확인한다.
 - 진행 중: **T33 정리** (2026-08-28 대표 선택 — 한 회차 플레이 판정 중이라 **밸런스·콘텐츠를**
   **안 건드리는 일**만 골랐다).
+  **T33-4 죽은 `Slime.model` 삭제 ✅** (대표 지시. T33-3에서 발견한 것.
+  `MonsterId = m_slime`이 `MonsterTable`에 없고 어떤 맵도 안 쓴다 — T33-1에서 지운
+  `Skeleton.model`과 같은 경우다. `RoomMonster.MonsterId` 기본값도 `"m_slime"` → **빈 값**.
+  실측: 엔진이 `[LEA-3028] MissingModel: model://slime가 없습니다` · 몬스터 13종 정상 스폰 ·
+  빌드 에러 0) /
+  다음: 대표 플레이 판정
+  - **이걸로 헤네시스 재테마(2026-08-16) 잔재가 다 걷혔다.** 그때 `MonsterTable`에서
+    빠진 두 종(`m_skeleton` · `m_slime`)의 모델이 각각 T33-1과 여기서 사라졌다.
+  - **기본값도 같이 고쳤다.** `RoomMonster`가 `MonsterId = "m_slime"`을 기본으로 들고 있어
+    값을 안 준 몬스터가 생기면 **실재하지 않는 종 이름을 대며** 에러를 냈다.
+    `OnBeginPlay`가 어차피 거절하지만, 로그가 거짓말을 하면 원인 찾는 데 시간을 먹는다.
+  - ⚠ **삭제 전 전수 조사는 빌더로 했다.** 맵 15개(`MapBuilder`) · `.model` 26개
+    (`ModelBuilder`) · `.mlua` · `.csv` · `.config`/`.directory` 전부 참조 0건.
+    T33-2에서 `.model`을 Grep으로 봤다가 오탐을 낸 적이 있어 원문 검색을 안 썼다.
+  - ⚠ **`SpawnByModelId`는 없는 모델에 예외를 던지지 않는다.** `pcall`로 감싸면 "성공"이
+    돌아온다 — 실제 증거는 로그의 `[LEA-3028] MissingModel`이다. 살아 있는 모델
+    (`model://snail`)을 대조군으로 같이 돌려 그 줄이 안 뜨는 것까지 봤다.
   **T33-3 몬스터 공속·추격 범위를 CSV로 ✅** (대표 지시. `monster_attack_interval` 0.5 ·
   `monster_detect_range` 6.0 신설, 14개 `.model`에서 두 값을 걷어냈다.
   실측: 실제 주기 0.5 · **서버 `DetectionRange` 6.0** · 전투 정상) /
-  다음: 대표 판단 — 죽은 `Slime.model`을 지울지
+  다음: **T33-4에서 지웠다**
   - **"CSV가 기본값, 모델이 덮어쓴다" 꼴로 넣었다.** 프로퍼티가 **0이면 CSV**를 쓰고,
     값이 있으면 그것이 이긴다(`ResolvedAttackInterval` / `ResolvedDetectRange`).
     그냥 CSV 한 값으로 합치면 **종별로 다르게 둘 여지가 사라지는데**, T28에서
@@ -310,8 +327,7 @@
     서버에서 읽으니 **6.0**이었다. `DetectionRange`는 클라로 동기화되지 않고
     **추격 판정은 서버가 한다** — 실제로 도는 값은 6.0이다.
     `maker_execute_script`의 `context: server_main`으로 확인할 것.
-  - ⚠ **`Slime.model`도 죽은 모델이다** (T33-1에서 지운 `Skeleton.model`과 같은 경우 —
-    `m_slime`이 `MonsterTable`에 없고 어떤 맵도 안 쓴다). **이번 태스크 범위 밖이라 안 지웠다.**
+  - ~~⚠ `Slime.model`도 죽은 모델이다~~ → **T33-4에서 지웠다.**
   **T33-2 템플릿 잔재 일괄 정리 ✅** (대표 지시 *"템플릿 맵까지 묶어서 다 정리하자"*.
   **27개 파일 삭제** — 스크립트 11쌍(`.mlua`+`.codeblock`) · `.stateset` 2 · 템플릿 맵 3.
   `Global/` 모델 2개는 삭제 대신 **편집**했다.
