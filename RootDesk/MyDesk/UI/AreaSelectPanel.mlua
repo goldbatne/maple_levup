@@ -10,17 +10,20 @@ script AreaSelectPanel extends Logic
 
     -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다.
     property Entity panel = "3da012e3-68a0-4de7-85d6-03dbe0df862e"
-    property ButtonComponent slot0 = "80d65707-3ccb-41f6-8da8-2839515dcd68"
-    property ButtonComponent slot1 = "9d877a28-94b3-48ab-8929-a7a131600db2"
-    property ButtonComponent slot2 = "0377f494-c577-4fb6-822e-6ba56bc312c0"
-    property ButtonComponent slot3 = "cabd154d-7842-49b8-a562-f9858a2d6b4a"
     property ButtonComponent btnClose = "dfd6298d-ba0d-4ab2-9100-02f088866951"
 
-    -- 슬롯에 실린 지역 id. 버튼을 누르면 여기서 꺼내 서버에 보낸다.
-    @HideFromInspector property string id0 = ""
-    @HideFromInspector property string id1 = ""
-    @HideFromInspector property string id2 = ""
-    @HideFromInspector property string id3 = ""
+    -- 스크롤 목록의 뿌리 (T35, 2026-08-28). 지역이 20칸이 되면서 4칸으로는 안 된다.
+    --
+    -- 칸을 하나씩 바인딩하지 않고 뿌리 하나만 잡는다 — 20개를 프로퍼티로 늘어놓으면
+    -- .ui를 고칠 때마다 UUID 20개를 다시 맞춰야 한다. 이름으로 찾는다
+    -- (T20-3 스킬 격자와 같은 방식).
+    property Entity listRoot = "665a3d7b-4b92-4f43-bcd8-91c1e56f8597"
+
+    -- .ui에 만들어 둔 칸 수. **여기와 .ui가 어긋나면 뒤쪽 칸이 조용히 안 그려진다.**
+    property integer slotCount = 20
+
+    -- 슬롯에 실린 지역 id. 인덱스는 1부터다 (.ui의 Slot1~Slot20과 맞춘다).
+    property table slotIds = {}
 
     -- 붙인 클릭 핸들러. 엔티티와 핸들러를 **병렬 배열 두 개**로 들고 있는다 —
     -- `{ entity = e, handler = h }` 형태의 다중 키 테이블 생성자는 mlua 파서가
@@ -33,14 +36,20 @@ script AreaSelectPanel extends Logic
         -- 닫힌 채로 시작한다. 루트 그룹은 열어 두고 자식 Enable로 여닫는다 —
         -- 그룹을 DefaultShow=false로 두면 안의 스크립트가 아예 안 돈다.
         self:Hide()
-        log("[AreaSelect] OnBeginPlay — 닫힌 채로 시작")
+        self.slotIds = {}
 
-        -- ConnectEvent는 Entity/Logic/Service에만 있다. 버튼 컴포넌트가 아니라
-        -- 버튼이 붙은 **엔티티**에 연결해야 한다.
-        self:Bind(self.slot0, 0)
-        self:Bind(self.slot1, 1)
-        self:Bind(self.slot2, 2)
-        self:Bind(self.slot3, 3)
+        -- 칸이 20개라 손으로 늘어놓지 않고 돈다. 번호는 지역 변수로 잡아
+        -- 클로저마다 다른 값을 갖게 한다 (안 잡으면 전부 마지막 값을 본다).
+        for i = 1, self.slotCount do
+            local index = i
+            local slot = self:GetSlot(index)
+            if slot ~= nil then
+                local h = slot:ConnectEvent(ButtonClickEvent, function()
+                    self:Choose(index)
+                end)
+                self:Remember(slot, h)
+            end
+        end
 
         if isvalid(self.btnClose) then
             -- 엔티티를 먼저 지역 변수로 뽑는다. 테이블 생성자 안에서 `a.b.c`처럼
@@ -51,6 +60,8 @@ script AreaSelectPanel extends Logic
             end)
             self:Remember(closeEntity, h)
         end
+
+        log("[AreaSelect] OnBeginPlay — 닫힌 채로 시작, 칸 " .. tostring(self.slotCount) .. "개")
     end
 
     @ExecSpace("ClientOnly")
@@ -74,69 +85,78 @@ script AreaSelectPanel extends Logic
     end
 
     @ExecSpace("ClientOnly")
-    method void Bind(ButtonComponent btn, integer index)
-        -- 버튼 하나를 슬롯 번호에 묶는다. 클로저로 번호를 잡아 둔다 —
-        -- 루프 변수를 그대로 쓰면 마지막 값이 네 버튼에 다 걸린다.
-        if not isvalid(btn) then return end
-        local captured = index
-        local ent = btn.Entity
-        local h = ent:ConnectEvent(ButtonClickEvent, function()
-            self:Choose(captured)
-        end)
-        self:Remember(ent, h)
+    method any GetSlot(integer index)
+        -- 목록의 index번 칸 엔티티. 없으면 nil.
+        --
+        -- .ui에 20칸을 미리 만들어 두고 스크립트가 켜고 끈다. 가상화(GridView)를
+        -- 안 쓰는 이유는 T20-3과 같다 — 칸이 재사용되면 스크롤할 때마다 클릭 핸들러를
+        -- 다시 걸어야 해서 새기 쉽다. 지역은 20개로 확정이라 실제 엔티티가 싸고 안전하다.
+        if not isvalid(self.listRoot) then return nil end
+        return self.listRoot:GetChildByName("Slot" .. tostring(index), false)
     end
 
     @ExecSpace("ClientOnly")
     method void Show(string idsJoined, string namesJoined)
-        -- 서버가 준 목록으로 창을 연다. 슬롯 수보다 많으면 앞에서부터 채운다.
+        -- 서버가 준 목록으로 창을 연다.
         local ids = self:Split(idsJoined)
         local names = self:Split(namesJoined)
 
-        self.id0 = "" self.id1 = "" self.id2 = "" self.id3 = ""
-        self:FillSlot(self.slot0, 0, ids, names)
-        self:FillSlot(self.slot1, 1, ids, names)
-        self:FillSlot(self.slot2, 2, ids, names)
-        self:FillSlot(self.slot3, 3, ids, names)
+        if #ids > self.slotCount then
+            -- 조용히 잘리면 아무도 못 알아챈다. 지역을 더 늘리면 .ui의 칸도 늘려야 한다.
+            log_warning("[AreaSelect] 지역이 " .. tostring(#ids) .. "곳인데 칸은 "
+                .. tostring(self.slotCount) .. "개다 — 뒤가 잘린다")
+        end
+
+        self.slotIds = {}
+        for i = 1, self.slotCount do
+            self:FillSlot(i, ids, names)
+        end
 
         if isvalid(self.panel) then self.panel.Enable = true end
+
+        -- ⚠ 스크롤을 맨 위로 되돌린다. 지난번에 보던 위치가 남아 있으면
+        --   지역이 적을 때 짧아진 목록의 **빈 아래쪽**을 계속 보게 된다 (T20-3 실측).
+        self:ResetScroll()
+
         log("[AreaSelect] 열림 — " .. tostring(#ids) .. "곳")
     end
 
     @ExecSpace("ClientOnly")
-    method void FillSlot(ButtonComponent btn, integer index, table ids, table names)
-        -- 목록에 있는 만큼만 버튼을 켠다. 남는 슬롯은 끈다.
+    method void FillSlot(integer index, table ids, table names)
+        -- 목록에 있는 만큼만 칸을 켠다. 남는 칸은 끈다.
         --
         -- Visible이 아니라 Enable로 끄는 이유: Visible=false는 클릭이 살아 있어서
         -- 안 보이는 버튼을 누를 수 있다 (ui-hierarchy 5).
-        if not isvalid(btn) then return end
+        local slot = self:GetSlot(index)
+        if slot == nil then return end
 
-        local n = index + 1
-        if n > #ids then
-            btn.Entity.Enable = false
+        if index > #ids then
+            slot.Enable = false
             return
         end
 
-        btn.Entity.Enable = true
-        local label = btn.Entity.TextGUIRendererComponent
-        if isvalid(label) then label.Text = names[n] or ids[n] end
+        slot.Enable = true
+        local label = slot.TextGUIRendererComponent
+        if isvalid(label) then label.Text = names[index] or ids[index] end
+        self.slotIds[index] = ids[index]
+    end
 
-        if index == 0 then self.id0 = ids[n]
-        elseif index == 1 then self.id1 = ids[n]
-        elseif index == 2 then self.id2 = ids[n]
-        elseif index == 3 then self.id3 = ids[n] end
+    @ExecSpace("ClientOnly")
+    method void ResetScroll()
+        -- ⚠ 0이 위다. `VerticalScrollBarDirection`을 TopToBottom(3)으로 뒀기 때문이다
+        --   (엔진 기본 BottomToTop에서는 반대다 — runtime-patterns 4의 0.0은 '맨 아래').
+        if not isvalid(self.listRoot) then return end
+        local list = self.listRoot.ScrollLayoutGroupComponent
+        if not isvalid(list) then return end
+        list:SetScrollNormalizedPosition(UITransformAxis.Vertical, 0)
     end
 
     @ExecSpace("ClientOnly")
     method void Choose(integer index)
         -- 고른 지역을 서버에 요청한다. 서버가 갈 수 있는지 **다시** 판정한다 —
         -- 여기서 보낸 값을 서버가 그대로 믿으면 목록에 없던 지역도 뚫린다.
-        local areaId = ""
-        if index == 0 then areaId = self.id0
-        elseif index == 1 then areaId = self.id1
-        elseif index == 2 then areaId = self.id2
-        elseif index == 3 then areaId = self.id3 end
-
-        if areaId == "" then return end
+        local areaId = self.slotIds[index]
+        if areaId == nil or areaId == "" then return end
 
         local gate = self:FindGate()
         if gate == nil then
