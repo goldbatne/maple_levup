@@ -165,6 +165,22 @@ script GameData extends Logic
                     -- 원인이 화면에 안 남는다.
                     tier = self:ToNumber(row:GetItem("tier"), 0),
 
+                    -- ── 포획 패시브 (설계 변경 2026-08-29, 대표 지시) ──
+                    -- `skill_kind == "passive"`면 **슬롯을 안 먹고 보유만 해도 항상 켜진다.**
+                    -- 지역당 5종 중 2종이 패시브고 나머지 3종은 액티브다 (대표: "버프,
+                    -- 액티브가 존재해야 하니까") — 전부 패시브면 "무엇을 끼울지가 곧 빌드"라는
+                    -- 핵심 설계가 얇아진다.
+                    --
+                    -- ⚠⚠ **주는 스탯을 `scaling_stat`에 넣으면 안 된다.** 그 칸은 **파생 수치**
+                    -- 이름(ATK=물리 공격력 / INT=마법 공격력 / LUK)을 쓰는데, 패시브가 주는 것은
+                    -- **분배 스탯**(STR/DEX/INT/LUK)이다. 이름 체계가 둘이라는 함정
+                    -- (설계 변경 2026-08-27)에 정확히 걸리므로 칸을 따로 뒀다.
+                    --
+                    -- passive_value가 비면 `collection_passive_first`를 쓴다 — 대부분 기본값이라
+                    -- 매번 적어 넣으면 나중에 기본을 바꿀 때 CSV를 전부 고쳐야 한다 (range와 같은 판단).
+                    passive_stat = self:ToText(row:GetItem("passive_stat")),
+                    passive_value = self:ToNumber(row:GetItem("passive_value"), 0),
+
                     -- 원작 스킬 아이콘 RUID (T16-3a). 대표 지시: "UUID와 효과도 원작과 같아야 해".
                     -- 값은 `msw-search`의 **스킬 리소스 팩**에서 얻는다 — 팩 id가 원작 스킬 id
                     -- 그대로여서(예: 슬래시 블러스트 = skill/100.img/skill/1001005) 눈대중이 아니라

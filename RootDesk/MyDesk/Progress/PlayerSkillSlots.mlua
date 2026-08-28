@@ -462,6 +462,16 @@ script PlayerSkillSlots extends Component
             return false
         end
 
+        -- ⚠ **패시브는 슬롯을 안 먹는다** (설계 변경 2026-08-29, 대표 지시).
+        -- 보유만 해도 항상 켜지므로 끼울 대상이 아니다 — 끼우게 두면 칸을 하나
+        -- 잡아먹으면서 아무 일도 안 하고, "무엇을 끼울지가 곧 빌드"라는 핵심 설계가
+        -- 그만큼 얇아진다. 지역당 5종 중 2종이 패시브고 나머지 3종이 이 칸을 겨룬다.
+        if skill.skill_kind == "passive" then
+            log_warning("[SkillSlots] 패시브 스킬은 끼우는 것이 아니다 (보유만 해도 켜진다): "
+                .. skillId)
+            return false
+        end
+
         -- 슬롯에 끼울 수 있는 것은 `slot_type=monster`뿐이다.
         -- 몬스터 스킬과 NPC 스킬이 **둘 다** monster로 들어와 같은 칸을 놓고 겨룬다
         -- (2026-08-16 · 2026-08-20 설계). 그 밖의 slot_type은 지금 존재하지 않는다.
