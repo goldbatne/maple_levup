@@ -168,9 +168,20 @@ script WorldMapPanel extends Logic
         -- ⚠ 연결은 `conn_*` 컬럼이 아니라 **`room.connections.north/...`**에 접혀 있다
         --   (GameData.LoadRooms가 4컬럼을 한 테이블로 묶는다). 컬럼 이름으로 읽으면
         --   전부 nil이 되어 **모든 방이 "연결 없음"으로 떨어진다** (실측).
-        local dirs = { "north", "south", "east", "west" }
-        local dx = { 0, 0, 1, -1 }
-        local dy = { 1, -1, 0, 0 }
+        --
+        -- ⚠⚠ **동서를 먼저 훑는다** (2026-08-29 대표 신고: *"파우스트 지역이 왜 나오지 않냐"*).
+        --   지역의 본선은 대개 동서로 뻗고 우회로가 남북으로 돌아 나간다. 남북을 먼저 훑으면
+        --   **우회로 쪽 경로로 좌표가 먼저 매겨져** 본선 방과 칸이 어긋난다.
+        --   실측: 엘리니아에서 r_24가 r_22와, **보스방 r_25가 r_23과 같은 칸**에 떨어져
+        --   파우스트 방이 다른 방 밑에 깔려 안 보였다.
+        local dirs = { "east", "west", "north", "south" }
+        local dx = { 1, -1, 0, 0 }
+        local dy = { 0, 0, 1, -1 }
+
+        -- 점유한 칸. 순환이 있는 지도에서는 두 경로의 **변위가 다를 수 있어**
+        -- 방향 순서를 고쳐도 겹칠 수 있다 — 그때는 빈 칸으로 밀어낸다.
+        local used = {}
+        used["0,0"] = startRoomId
 
         local head = 1
         while head <= #queue do
@@ -182,8 +193,20 @@ script WorldMapPanel extends Logic
                     local nextRoom = _GameData:GetRoom(nextId)
                     -- 다른 지역·마을로는 뻗지 않는다.
                     if nextRoom ~= nil and nextRoom.area_id == areaId then
-                        gx[nextId] = gx[id] + dx[i]
-                        gy[nextId] = gy[id] + dy[i]
+                        local nx = gx[id] + dx[i]
+                        local ny = gy[id] + dy[i]
+                        if used[nx .. "," .. ny] ~= nil then
+                            -- **조용히 겹쳐 그리면 방이 사라진다.** 밀어내고 시끄럽게 알린다.
+                            local free = self:FindFreeCell(used, nx, ny, dx[i], dy[i])
+                            log_warning("[WorldMap] " .. nextId .. " 가 " .. used[nx .. "," .. ny]
+                                .. " 와 같은 칸(" .. nx .. "," .. ny .. ")에 떨어져 ("
+                                .. free.x .. "," .. free.y .. ")로 밀었다 — 지도 모양이 실제와 달라진다")
+                            nx = free.x
+                            ny = free.y
+                        end
+                        used[nx .. "," .. ny] = nextId
+                        gx[nextId] = nx
+                        gy[nextId] = ny
                         table.insert(ids, nextId)
                         table.insert(queue, nextId)
                     end
@@ -192,6 +215,30 @@ script WorldMapPanel extends Logic
         end
 
         return { ids = ids, gx = gx, gy = gy }
+    end
+
+    @ExecSpace("ClientOnly")
+    method any FindFreeCell(any used, integer x, integer y, integer dx, integer dy)
+        -- 비어 있는 가장 가까운 칸을 찾는다. 먼저 **가던 방향으로 계속 밀어 보고**
+        -- (그래야 지도 모양이 덜 망가진다), 그래도 없으면 반경을 넓혀 훑는다.
+        -- ⚠ 값을 둘 돌려주면 선언(`any` 하나)과 안 맞아 빌드 경고가 난다 — 테이블로 준다.
+        local nx = x
+        local ny = y
+        for _ = 1, 6 do
+            nx = nx + dx
+            ny = ny + dy
+            if used[nx .. "," .. ny] == nil then return { x = nx, y = ny } end
+        end
+        for r = 1, 8 do
+            for ox = -r, r do
+                for oy = -r, r do
+                    local cx = x + ox
+                    local cy = y + oy
+                    if used[cx .. "," .. cy] == nil then return { x = cx, y = cy } end
+                end
+            end
+        end
+        return { x = x, y = y }
     end
 
     @ExecSpace("ClientOnly")
