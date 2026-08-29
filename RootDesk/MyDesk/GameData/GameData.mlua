@@ -668,6 +668,18 @@ script GameData extends Logic
         return self:GetItemStatBonus(id, stat) * count
     end
 
+    method table GetLandmarkLevels()
+        -- 랜드마크가 걸린 레벨 목록을 **오름차순으로** 돌려준다.
+        -- `Rebirth.GrantLandmarksUpTo`가 "지금 레벨 이하 전부"를 훑을 때 쓴다 —
+        -- 낮은 레벨부터 줘야 해금 알림이 순서대로 뜬다.
+        local out = {}
+        for level, _ in pairs(self.landmarks) do
+            table.insert(out, level)
+        end
+        table.sort(out)
+        return out
+    end
+
     method table GetLandmarksAtLevel(number level)
         -- 해당 도달 레벨의 보상 목록. 없으면 빈 배열.
         local list = self.landmarks[level]
