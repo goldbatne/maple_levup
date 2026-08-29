@@ -197,6 +197,24 @@ script PlayerDBManager extends Component
         local slotsAfterLoad = self.Entity:GetComponent("script.PlayerSkillSlots")
         if slotsAfterLoad ~= nil then
             slotsAfterLoad:RecomputeSlotCount()
+
+            -- **안 받은 랜드마크를 소급 지급한다** (2026-08-29).
+            --
+            -- 이게 없으면 **기존 세이브가 영영 안 고쳐진다.** 랜드마크는 지금까지
+            -- 환생할 때만, 그것도 정확히 그 레벨의 줄만 줬다 — 이미 Lv10·Lv20을
+            -- 지나온 사람은 다시 그 레벨이 될 일이 없으니 못 받는다.
+            -- 랜드마크 표를 나중에 고쳐도(엘리니아 Lv20 → Lv10) 마찬가지다.
+            --
+            -- 실측으로 확인한 증상: Lv37인데 해금된 지역이 `area_02` 하나뿐이라
+            -- **엘리니아가 지역 선택 창에 안 떴다** (대표: "페리온에서 엘리니아로 안 이동하는데?").
+            --
+            -- ⚠ 반드시 `ApplyRun` **뒤**여야 한다 — 레벨이 복원되기 전에 부르면
+            -- Lv1로 읽혀 아무것도 안 준다 (슬롯 계산과 같은 함정).
+            ---@type PlayerStats
+            local statsAfterLoad = self.Entity:GetComponent("script.PlayerStats")
+            if statsAfterLoad ~= nil then
+                _Rebirth:GrantLandmarksUpTo(statsAfterLoad.Level, self, slotsAfterLoad)
+            end
         end
 
         -- 모든 적용이 끝난 뒤에만 게이트를 연다.

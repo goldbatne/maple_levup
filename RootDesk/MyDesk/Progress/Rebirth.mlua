@@ -90,8 +90,13 @@ script Rebirth extends Logic
             .. "  (환생 " .. tostring(slots.RebirthCount) .. "회차 → "
             .. tostring(slots.RebirthCount + 1) .. "회차)")
 
-        -- 1. 랜드마크 먼저. "그 레벨에서 **환생해야** 지급"이므로 리셋 전에 도달 레벨로 준다.
-        self:GrantLandmarks(fromLevel, db, slots)
+        -- 1. 랜드마크 먼저. 리셋 전에 도달 레벨로 준다.
+        --
+        -- ⚠ `GrantLandmarks(fromLevel)`이 아니라 **`UpTo`**다 (2026-08-29).
+        --   정확히 그 레벨만 보면 **Lv37에서 환생했을 때 아무것도 안 준다** —
+        --   표에 걸린 레벨은 10·20·30뿐이기 때문이다. 캡이 30이고 환생이 캡에서만
+        --   가능하던 시절에는 항상 Lv30이라 안 드러났다 (2026-08-21에 조건이 없어졌다).
+        self:GrantLandmarksUpTo(fromLevel, db, slots)
 
         -- 2. 환생 기록. **여기가 환생의 실제 보상이다** (설계 변경 2026-08-21).
         --
@@ -146,6 +151,42 @@ script Rebirth extends Logic
     ---------------------------------------------------------------
     -- 랜드마크
     ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method void GrantLandmarksUpTo(integer level, PlayerDBManager db, PlayerSkillSlots slots)
+        -- **지금 레벨 이하의 안 받은 랜드마크를 전부 준다.**
+        --
+        -- ## 왜 필요한가 (2026-08-29 대표 신고: "페리온에서 엘리니아로 안 이동하는데?")
+        --
+        -- `GrantLandmarks`는 **정확히 그 레벨**의 줄만 보고, 부르는 곳이 `Rebirth.Execute`
+        -- 하나뿐이었다. 즉 **그 레벨에서 환생해야만** 지역이 열렸다.
+        --
+        -- 그 설계는 레벨 캡이 30이고 **환생이 캡에서만 가능하던 시절**에는 맞았다 —
+        -- 언제나 Lv30에서 환생했으므로 `GetLandmarksAtLevel(30)`이 곧 전부였다.
+        -- 그런데 2026-08-21에 **환생 조건이 없어지고** 캡이 200이 되면서 그 전제가 깨졌다.
+        -- 지금은 Lv37에서 환생하면 `GetLandmarksAtLevel(37)`이 **빈 배열**이라
+        -- 아무것도 안 준다. 실측: Lv37인데 해금된 지역이 `area_02` 하나뿐이었다.
+        --
+        -- 그리고 랜드마크 표를 나중에 고치면(2026-08-29에 엘리니아를 Lv20 → Lv10으로
+        -- 당겼다) **이미 그 레벨을 지나온 세이브는 영영 못 받는다.**
+        --
+        -- 그래서 **레벨 이하 전부를 훑고, 원장(`LandmarkClaimed`)으로 중복을 막는다.**
+        -- 원장이 레벨별이라 여러 번 불러도 안전하다 — 레벨업·로드·환생 어디서 불러도 된다.
+        if db == nil or slots == nil then return end
+        local levels = _GameData:GetLandmarkLevels()
+        local granted = 0
+        for i = 1, #levels do
+            local lv = levels[i]
+            if lv <= level and db.LandmarkClaimed[tostring(lv)] == nil then
+                self:GrantLandmarks(lv, db, slots)
+                granted = granted + 1
+            end
+        end
+        if granted > 0 then
+            log("[Rebirth] 랜드마크 소급 지급 " .. tostring(granted) .. "건 (Lv"
+                .. tostring(level) .. " 이하 중 안 받은 것)")
+        end
+    end
 
     @ExecSpace("ServerOnly")
     method void GrantLandmarks(integer level, PlayerDBManager db, PlayerSkillSlots slots)

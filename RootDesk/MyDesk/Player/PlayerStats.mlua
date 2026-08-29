@@ -229,6 +229,19 @@ script PlayerStats extends Component
         local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
         if slots == nil then return end
         slots:RecomputeSlotCount()
+
+        -- **랜드마크도 여기서 준다** (2026-08-29). 지역 개방은 "레벨에 도달하면 열린다"가
+        -- 설계인데(2026-08-04 기획서 4.5 · 2026-08-29 "지역은 대역이 시작되기 직전 레벨에
+        -- 열린다"), 지금까지 `Rebirth.Execute` 한 곳에서만 줘서 **그 레벨에서 환생해야만**
+        -- 열렸다. 대표 신고: *"페리온에서 엘리니아로 안 이동하는데?"* — Lv37인데
+        -- 엘리니아가 안 열려 있어 지역 선택 창에 안 떴다.
+        --
+        -- `GrantLandmarksUpTo`는 원장으로 중복을 막으므로 매 레벨업마다 불러도 안전하다.
+        ---@type PlayerDBManager
+        local db = self.Entity:GetComponent("script.PlayerDBManager")
+        if db ~= nil then
+            _Rebirth:GrantLandmarksUpTo(self.Level, db, slots)
+        end
     end
 
     method integer PointsPerLevel()
