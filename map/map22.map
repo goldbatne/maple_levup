@@ -14,7 +14,7 @@
     "Use": "Binary",
     "Entities": [
       {
-        "id": "58e75cea-7c85-4701-b44f-aa48849ae065",
+        "id": "98247f34-ebbf-4532-a776-34496438d34c",
         "path": "/maps/map22",
         "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner",
         "jsonString": {
@@ -48,27 +48,19 @@
               "Enable": true
             },
             {
-              "@type": "script.RoomCamera",
-              "Enable": true
+              "Enable": true,
+              "@type": "script.RoomCamera"
             },
             {
               "@type": "script.RoomSpawner",
-              "Enable": true,
-              "monsterId": "",
-              "modelId": "",
-              "monsterCount": 0,
-              "spawnIndex": 0,
-              "checkTimer": 0,
-              "roomId": "",
-              "isBossRoom": false,
-              "bossEntryTimer": 0
+              "Enable": true
             }
           ],
           "@version": 1
         }
       },
       {
-        "id": "5803914f-54f7-4caf-bb96-c5369497fbc4",
+        "id": "6375f5c9-ea54-427c-aa23-fbea1e3b66a9",
         "path": "/maps/map22/Background",
         "componentNames": "MOD.Core.BackgroundComponent",
         "jsonString": {
@@ -101,7 +93,7 @@
         }
       },
       {
-        "id": "dc911f1c-0611-4122-9e86-26f8adaa051d",
+        "id": "e3c3dc61-5d80-48b9-986c-9769980c70b6",
         "path": "/maps/map22/MapleMapLayer",
         "componentNames": "MOD.Core.MapLayerComponent",
         "jsonString": {
@@ -137,7 +129,7 @@
         }
       },
       {
-        "id": "d803de7f-aaf5-4964-8ed4-af9883e34002",
+        "id": "e496ae75-c713-4d76-bc79-47eb0123557a",
         "path": "/maps/map22/SpawnLocation",
         "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.SpawnLocationComponent",
         "jsonString": {
@@ -213,7 +205,7 @@
         }
       },
       {
-        "id": "abf67506-f2a3-49d4-b6f4-7575ee139b04",
+        "id": "4fef5267-7f4f-4a91-aee6-964879ba5ab3",
         "path": "/maps/map22/RectTileMap",
         "componentNames": "MOD.Core.TransformComponent,MOD.Core.RectTileMapComponent",
         "jsonString": {
@@ -3853,105 +3845,7 @@
         }
       },
       {
-        "id": "8bfc56e9-2709-4feb-96e4-3c7058d8621d",
-        "path": "/maps/map22/Portal_E",
-        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.RoomPortal",
-        "jsonString": {
-          "name": "Portal_E",
-          "path": "/maps/map22/Portal_E",
-          "nameEditable": true,
-          "enable": true,
-          "visible": true,
-          "localize": false,
-          "displayOrder": 4,
-          "pathConstraints": "///",
-          "revision": 1,
-          "origin": {
-            "type": "Model",
-            "entry_id": "roomportal",
-            "sub_entity_id": null,
-            "root_entity_id": "8bfc56e9-2709-4feb-96e4-3c7058d8621d",
-            "replaced_model_id": null
-          },
-          "modelId": "roomportal",
-          "@components": [
-            {
-              "@type": "MOD.Core.TransformComponent",
-              "Rotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0
-              },
-              "Position": {
-                "x": 13,
-                "y": 1,
-                "z": 0
-              },
-              "QuaternionRotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "w": 1
-              },
-              "Scale": {
-                "x": 1,
-                "y": 1,
-                "z": 1
-              },
-              "ZRotation": 0,
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.SpriteRendererComponent",
-              "ActionSheet": {},
-              "DrawMode": 0,
-              "EndFrameIndex": 2147483647,
-              "FlipX": false,
-              "FlipY": false,
-              "OrderInLayer": 2,
-              "PlayRate": 1,
-              "RenderSetting": 0,
-              "SpriteRUID": "1507704072384d8ba4dc1d73c02ba92b",
-              "StartFrameIndex": 0,
-              "Color": {
-                "r": 1,
-                "g": 1,
-                "b": 1,
-                "a": 1
-              },
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.TagComponent",
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.TriggerComponent",
-              "BoxSize": {
-                "x": 1.5,
-                "y": 1.5
-              },
-              "ColliderOffset": {
-                "x": 0,
-                "y": 0
-              },
-              "IsLegacy": true,
-              "Enable": true
-            },
-            {
-              "@type": "script.RoomPortal",
-              "Enable": true,
-              "direction": "east",
-              "locked": false,
-              "openRUID": "1507704072384d8ba4dc1d73c02ba92b",
-              "lockedRUID": "0cad726e623d4a3994c36fb3f7473841"
-            }
-          ],
-          "@version": 1
-        }
-      },
-      {
-        "id": "2f9719f0-b8d9-4405-90af-2242e09dfb53",
+        "id": "338fcc70-e3ad-4065-a4f2-77f502294510",
         "path": "/maps/map22/Portal_W",
         "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.RoomPortal",
         "jsonString": {
@@ -3961,25 +3855,13 @@
           "enable": true,
           "visible": true,
           "localize": false,
-          "displayOrder": 5,
+          "displayOrder": 4,
           "pathConstraints": "///",
           "revision": 1,
-          "origin": {
-            "type": "Model",
-            "entry_id": "roomportal",
-            "sub_entity_id": null,
-            "root_entity_id": "2f9719f0-b8d9-4405-90af-2242e09dfb53",
-            "replaced_model_id": null
-          },
           "modelId": "roomportal",
           "@components": [
             {
               "@type": "MOD.Core.TransformComponent",
-              "Rotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0
-              },
               "Position": {
                 "x": -13,
                 "y": 1,
@@ -3996,27 +3878,114 @@
                 "y": 1,
                 "z": 1
               },
-              "ZRotation": 0,
               "Enable": true
             },
             {
               "@type": "MOD.Core.SpriteRendererComponent",
-              "ActionSheet": {},
-              "DrawMode": 0,
-              "EndFrameIndex": 2147483647,
-              "FlipX": false,
-              "FlipY": false,
-              "OrderInLayer": 2,
-              "PlayRate": 1,
-              "RenderSetting": 0,
               "SpriteRUID": "1507704072384d8ba4dc1d73c02ba92b",
-              "StartFrameIndex": 0,
               "Color": {
                 "r": 1,
                 "g": 1,
                 "b": 1,
                 "a": 1
               },
+              "DrawMode": 0,
+              "FlipX": false,
+              "FlipY": false,
+              "PlayRate": 1,
+              "OrderInLayer": 2,
+              "StartFrameIndex": 0,
+              "EndFrameIndex": 2147483647,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.TagComponent",
+              "Enable": true
+            },
+            {
+              "Enable": true,
+              "BoxSize": {
+                "x": 1.5,
+                "y": 1.5
+              },
+              "ColliderOffset": {
+                "$type": "MOD.Core.MODVector2, MOD.Core",
+                "x": 0,
+                "y": 0
+              },
+              "@type": "MOD.Core.TriggerComponent"
+            },
+            {
+              "Enable": true,
+              "direction": "west",
+              "@type": "script.RoomPortal",
+              "openRUID": "1507704072384d8ba4dc1d73c02ba92b",
+              "lockedRUID": "0cad726e623d4a3994c36fb3f7473841",
+              "locked": false
+            }
+          ],
+          "@version": 1,
+          "origin": {
+            "type": "Model",
+            "entry_id": "roomportal",
+            "sub_entity_id": null,
+            "root_entity_id": "338fcc70-e3ad-4065-a4f2-77f502294510",
+            "replaced_model_id": null
+          }
+        }
+      },
+      {
+        "id": "e0f6338e-f1a5-42b2-b379-ca0abb33c38d",
+        "path": "/maps/map22/Portal_S",
+        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.RoomPortal",
+        "jsonString": {
+          "name": "Portal_S",
+          "path": "/maps/map22/Portal_S",
+          "nameEditable": true,
+          "enable": true,
+          "visible": true,
+          "localize": false,
+          "displayOrder": 5,
+          "pathConstraints": "///",
+          "revision": 1,
+          "modelId": "roomportal",
+          "@components": [
+            {
+              "@type": "MOD.Core.TransformComponent",
+              "Position": {
+                "x": 0,
+                "y": -6,
+                "z": 0
+              },
+              "QuaternionRotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "w": 1
+              },
+              "Scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SpriteRendererComponent",
+              "SpriteRUID": "1507704072384d8ba4dc1d73c02ba92b",
+              "Color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+              },
+              "DrawMode": 0,
+              "FlipX": false,
+              "FlipY": false,
+              "PlayRate": 1,
+              "OrderInLayer": 2,
+              "StartFrameIndex": 0,
+              "EndFrameIndex": 2147483647,
               "Enable": true
             },
             {
@@ -4025,27 +3994,124 @@
             },
             {
               "@type": "MOD.Core.TriggerComponent",
+              "Enable": true,
               "BoxSize": {
-                "x": 3,
-                "y": 3
+                "x": 1.5,
+                "y": 1.5
               },
               "ColliderOffset": {
+                "$type": "MOD.Core.MODVector2, MOD.Core",
                 "x": 0,
                 "y": 0
-              },
-              "IsLegacy": true,
-              "Enable": true
+              }
             },
             {
               "@type": "script.RoomPortal",
               "Enable": true,
-              "direction": "west",
-              "locked": false,
               "openRUID": "1507704072384d8ba4dc1d73c02ba92b",
-              "lockedRUID": "0cad726e623d4a3994c36fb3f7473841"
+              "lockedRUID": "0cad726e623d4a3994c36fb3f7473841",
+              "locked": false,
+              "direction": "south"
             }
           ],
-          "@version": 1
+          "@version": 1,
+          "origin": {
+            "type": "Model",
+            "entry_id": "roomportal",
+            "sub_entity_id": null,
+            "root_entity_id": "e0f6338e-f1a5-42b2-b379-ca0abb33c38d",
+            "replaced_model_id": null
+          }
+        }
+      },
+      {
+        "id": "3589b4b0-a278-42b9-96f4-b072db7e8313",
+        "path": "/maps/map22/Portal_E",
+        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.RoomPortal",
+        "jsonString": {
+          "name": "Portal_E",
+          "path": "/maps/map22/Portal_E",
+          "nameEditable": true,
+          "enable": true,
+          "visible": true,
+          "localize": false,
+          "displayOrder": 6,
+          "pathConstraints": "///",
+          "revision": 1,
+          "modelId": "roomportal",
+          "@components": [
+            {
+              "@type": "MOD.Core.TransformComponent",
+              "Position": {
+                "x": 13,
+                "y": 1,
+                "z": 0
+              },
+              "QuaternionRotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "w": 1
+              },
+              "Scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SpriteRendererComponent",
+              "SpriteRUID": "1507704072384d8ba4dc1d73c02ba92b",
+              "Color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+              },
+              "DrawMode": 0,
+              "FlipX": false,
+              "FlipY": false,
+              "PlayRate": 1,
+              "OrderInLayer": 2,
+              "StartFrameIndex": 0,
+              "EndFrameIndex": 2147483647,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.TagComponent",
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.TriggerComponent",
+              "Enable": true,
+              "BoxSize": {
+                "x": 1.5,
+                "y": 1.5
+              },
+              "ColliderOffset": {
+                "$type": "MOD.Core.MODVector2, MOD.Core",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "@type": "script.RoomPortal",
+              "Enable": true,
+              "openRUID": "1507704072384d8ba4dc1d73c02ba92b",
+              "lockedRUID": "0cad726e623d4a3994c36fb3f7473841",
+              "locked": false,
+              "direction": "east"
+            }
+          ],
+          "@version": 1,
+          "origin": {
+            "type": "Model",
+            "entry_id": "roomportal",
+            "sub_entity_id": null,
+            "root_entity_id": "3589b4b0-a278-42b9-96f4-b072db7e8313",
+            "replaced_model_id": null
+          }
         }
       }
     ]
