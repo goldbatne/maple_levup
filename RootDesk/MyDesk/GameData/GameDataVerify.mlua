@@ -148,9 +148,20 @@ script GameDataVerify extends Logic
         -- 스킬 메타 (T17-2). 분류가 비어 있으면 스킬 바·설명 UI가 조용히 잘못 그린다.
         local attackCount = 0
         local defenseCount = 0
+        local passiveCount = 0
         for id, skill in pairs(_GameData.skills) do
             if skill.skill_kind == "attack" then attackCount += 1
             elseif skill.skill_kind == "defense" then defenseCount += 1
+            elseif skill.skill_kind == "passive" then
+                -- 포획 패시브 (설계 변경 2026-08-29). **슬롯을 안 먹고 보유만 해도 켜진다.**
+                passiveCount += 1
+                if skill.passive_stat ~= "STR" and skill.passive_stat ~= "DEX"
+                    and skill.passive_stat ~= "INT" and skill.passive_stat ~= "LUK" then
+                    -- 비어 있으면 **아무 스탯도 안 주는 패시브**가 된다 — 끼울 수도 없고
+                    -- 주지도 않아 그냥 죽은 줄이다. 에러도 안 나므로 여기서 잡는다.
+                    log_error("  [패시브] " .. id .. " 의 passive_stat이 비었거나 모르는 값: '"
+                        .. tostring(skill.passive_stat) .. "' (STR/DEX/INT/LUK 중 하나여야 한다)")
+                end
             else
                 log_error("  [스킬메타] " .. id .. " 의 skill_kind가 비었거나 모르는 값: '"
                     .. tostring(skill.skill_kind) .. "'")
@@ -178,7 +189,8 @@ script GameDataVerify extends Logic
         end
         log("[스킬차수] " .. tierText .. " (시작 0차 / 전직 " .. ladder .. ")")
         log("[스킬메타] 공격 " .. tostring(attackCount) .. " / 방어 " .. tostring(defenseCount)
-            .. "  (방어도 같은 슬롯을 먹는다 — 대표 지시 2026-08-16)")
+            .. " / 패시브 " .. tostring(passiveCount)
+            .. "  (공격·방어는 **같은 슬롯**을 먹고 — 2026-08-16 — 패시브는 **안 먹는다** — 2026-08-29)")
         for id, skill in pairs(_GameData.skills) do
             log("  [스킬메타] " .. skill.name .. " [" .. skill.skill_kind .. "/" .. skill.effect_type
                 .. "] 대상=" .. skill.target_mode
@@ -260,6 +272,20 @@ script GameDataVerify extends Logic
                     if targetRoom == nil then
                         brokenCount += 1
                         log_error("    " .. dir .. " -> " .. target .. " : 그런 방이 없다")
+                    elseif targetRoom.room_type == "town" then
+                        -- ⚠ **마을은 방향으로 들어가는 곳이 아니다** (설계 확인 2026-08-29).
+                        --
+                        -- 어느 지역이든 **마을 동쪽 문 하나**로 들어간다 — 그 문에는
+                        -- `RoomPortal`이 아니라 `TownGate`가 붙어 있어 지역 선택 창을 띄운다
+                        -- (2026-08-10 설계 · T12-3 · T26-1). 나올 때만 진입 방에서 걸어 나온다.
+                        --
+                        -- 그래서 `r_town`의 conn 네 칸은 **이동에 하나도 안 쓰인다.**
+                        -- 그런데 여기서 역방향을 요구하는 바람에, 지역이 늘 때마다 마을 방향을
+                        -- 하나씩 태워야 했고 **네 개에서 막혔다** — 지역 20칸(2026-08-28) 설계가
+                        -- area_05에서 멈추는 원인이 이 검사 하나였다.
+                        --
+                        -- 대표 정정: *"그냥 마을에서 우측으로 가자는거였잖아."*
+                        log("    " .. dir .. " -> " .. target .. " (마을 — 역방향 면제)")
                     elseif targetRoom.connections[back] ~= id then
                         brokenCount += 1
                         log_error("    " .. dir .. " -> " .. target .. " : 역방향(" .. back .. ")이 되돌아오지 않는다")
