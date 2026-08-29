@@ -14,7 +14,7 @@
     "Use": "Binary",
     "Entities": [
       {
-        "id": "a0a934af-a1bb-45eb-8931-494356aa92bb",
+        "id": "5e504e80-b4ab-40a1-b84b-5406c2911539",
         "path": "/maps/map23",
         "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner",
         "jsonString": {
@@ -60,7 +60,7 @@
         }
       },
       {
-        "id": "d2da0f48-d6dc-42b0-ad6b-887dafd714f1",
+        "id": "755d21f3-df7a-4966-866c-cec43837f731",
         "path": "/maps/map23/Background",
         "componentNames": "MOD.Core.BackgroundComponent",
         "jsonString": {
@@ -93,7 +93,7 @@
         }
       },
       {
-        "id": "0c1a5528-8c05-4c87-97e1-f12991b36be4",
+        "id": "0ec75500-0d3d-4e87-b9b9-9e972f85f21d",
         "path": "/maps/map23/MapleMapLayer",
         "componentNames": "MOD.Core.MapLayerComponent",
         "jsonString": {
@@ -129,7 +129,7 @@
         }
       },
       {
-        "id": "fa79ceff-6da9-47ff-afcc-ffd4aed1a513",
+        "id": "9e7f760a-1d32-4d9a-850c-a626d3d15fed",
         "path": "/maps/map23/SpawnLocation",
         "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.SpawnLocationComponent",
         "jsonString": {
@@ -205,7 +205,7 @@
         }
       },
       {
-        "id": "cc4722c1-963a-4575-971d-6df05dd3ee3a",
+        "id": "8c6fb360-675b-4c95-96a8-2877a60e0118",
         "path": "/maps/map23/RectTileMap",
         "componentNames": "MOD.Core.TransformComponent,MOD.Core.RectTileMapComponent",
         "jsonString": {
@@ -3845,7 +3845,7 @@
         }
       },
       {
-        "id": "3ac43510-d1d5-465e-8cdf-9f5c31519f89",
+        "id": "ea25b581-484d-4f09-b693-133aa488cfe3",
         "path": "/maps/map23/Portal_W",
         "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.RoomPortal",
         "jsonString": {
@@ -3929,13 +3929,13 @@
             "type": "Model",
             "entry_id": "roomportal",
             "sub_entity_id": null,
-            "root_entity_id": "3ac43510-d1d5-465e-8cdf-9f5c31519f89",
+            "root_entity_id": "ea25b581-484d-4f09-b693-133aa488cfe3",
             "replaced_model_id": null
           }
         }
       },
       {
-        "id": "63ce4460-aa32-461f-99ba-a786b2f5071c",
+        "id": "22b16a4a-a502-4cd9-b408-12dfc16e485d",
         "path": "/maps/map23/Portal_N",
         "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.RoomPortal",
         "jsonString": {
@@ -4019,13 +4019,13 @@
             "type": "Model",
             "entry_id": "roomportal",
             "sub_entity_id": null,
-            "root_entity_id": "63ce4460-aa32-461f-99ba-a786b2f5071c",
+            "root_entity_id": "22b16a4a-a502-4cd9-b408-12dfc16e485d",
             "replaced_model_id": null
           }
         }
       },
       {
-        "id": "022c3ae8-5f7a-4556-9d49-ab4a349f8a27",
+        "id": "24a0608c-c43d-4a75-a559-121250e4f910",
         "path": "/maps/map23/Portal_E",
         "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.RoomPortal",
         "jsonString": {
@@ -4109,7 +4109,97 @@
             "type": "Model",
             "entry_id": "roomportal",
             "sub_entity_id": null,
-            "root_entity_id": "022c3ae8-5f7a-4556-9d49-ab4a349f8a27",
+            "root_entity_id": "24a0608c-c43d-4a75-a559-121250e4f910",
+            "replaced_model_id": null
+          }
+        }
+      },
+      {
+        "id": "74361809-c30b-483c-9816-4ec7efbab401",
+        "path": "/maps/map23/Portal_S",
+        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.RoomPortal",
+        "jsonString": {
+          "name": "Portal_S",
+          "path": "/maps/map23/Portal_S",
+          "nameEditable": true,
+          "enable": true,
+          "visible": true,
+          "localize": false,
+          "displayOrder": 7,
+          "pathConstraints": "///",
+          "revision": 1,
+          "modelId": "roomportal",
+          "@components": [
+            {
+              "@type": "MOD.Core.TransformComponent",
+              "Position": {
+                "x": 0,
+                "y": -6,
+                "z": 0
+              },
+              "QuaternionRotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0,
+                "w": 1
+              },
+              "Scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+              },
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SpriteRendererComponent",
+              "SpriteRUID": "1507704072384d8ba4dc1d73c02ba92b",
+              "Color": {
+                "r": 1,
+                "g": 1,
+                "b": 1,
+                "a": 1
+              },
+              "DrawMode": 0,
+              "FlipX": false,
+              "FlipY": false,
+              "PlayRate": 1,
+              "OrderInLayer": 2,
+              "StartFrameIndex": 0,
+              "EndFrameIndex": 2147483647,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.TagComponent",
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.TriggerComponent",
+              "Enable": true,
+              "BoxSize": {
+                "x": 1.5,
+                "y": 1.5
+              },
+              "ColliderOffset": {
+                "$type": "MOD.Core.MODVector2, MOD.Core",
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "@type": "script.RoomPortal",
+              "Enable": true,
+              "openRUID": "1507704072384d8ba4dc1d73c02ba92b",
+              "lockedRUID": "0cad726e623d4a3994c36fb3f7473841",
+              "locked": false,
+              "direction": "south"
+            }
+          ],
+          "@version": 1,
+          "origin": {
+            "type": "Model",
+            "entry_id": "roomportal",
+            "sub_entity_id": null,
+            "root_entity_id": "74361809-c30b-483c-9816-4ec7efbab401",
             "replaced_model_id": null
           }
         }
