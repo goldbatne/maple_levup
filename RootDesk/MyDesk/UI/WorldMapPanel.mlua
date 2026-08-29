@@ -102,7 +102,12 @@ script WorldMapPanel extends Logic
     @ExecSpace("ClientOnly")
     method void Refresh(boolean force)
         local me = _UserService.LocalPlayer
-        if me == nil then return end
+        -- ⚠ `nil` 검사만으로는 부족하다. **맵 전환 중에는 엔티티가 nil이 아니면서 무효**라,
+        -- 그대로 들고 `_RoomGate:Evaluate`까지 가면 그 안의 `GetComponent`가 터진다
+        -- (실측 2026-08-29: 방을 연달아 옮기는 중 `Object reference not set` 1건,
+        --  최상단 프레임이 `GetComponent`였다). 0.5초 타이머가 계속 도는 HUD라
+        -- 전환 한 프레임을 건너뛰어도 다음 틱에 다시 그린다.
+        if not isvalid(me) then return end
 
         local here = self:CurrentRoom()
         local roomId = ""

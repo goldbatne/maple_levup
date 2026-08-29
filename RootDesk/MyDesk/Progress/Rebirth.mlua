@@ -171,20 +171,19 @@ script Rebirth extends Logic
         -- 당겼다) **이미 그 레벨을 지나온 세이브는 영영 못 받는다.**
         --
         -- 그래서 **레벨 이하 전부를 훑고, 원장(`LandmarkClaimed`)으로 중복을 막는다.**
-        -- 원장이 레벨별이라 여러 번 불러도 안전하다 — 레벨업·로드·환생 어디서 불러도 된다.
+        --
+        -- ⚠⚠ 원장은 **줄 단위**다 (2026-08-29 두 번째 수정). 처음엔 레벨 단위였는데,
+        -- 한 레벨에 줄이 둘 이상이면 **먼저 받은 줄이 나머지를 영영 가린다.**
+        -- 실측: Lv30에 `slot,1`이 이미 있는 상태에서 `area,area_04`를 더했더니
+        -- Lv37인 세이브가 커닝시티를 못 받았다 — 원장에 `"30"`이 이미 찍혀 있어서다.
+        -- 줄 단위로 두면 표에 줄을 더해도 그 줄만 새로 지급된다.
         if db == nil or slots == nil then return end
         local levels = _GameData:GetLandmarkLevels()
-        local granted = 0
         for i = 1, #levels do
             local lv = levels[i]
-            if lv <= level and db.LandmarkClaimed[tostring(lv)] == nil then
+            if lv <= level then
                 self:GrantLandmarks(lv, db, slots)
-                granted = granted + 1
             end
-        end
-        if granted > 0 then
-            log("[Rebirth] 랜드마크 소급 지급 " .. tostring(granted) .. "건 (Lv"
-                .. tostring(level) .. " 이하 중 안 받은 것)")
         end
     end
 
@@ -199,22 +198,24 @@ script Rebirth extends Logic
         -- 원장 키를 문자열로 쓰는 이유: 저장이 JSON을 거치는데 JSON 객체 키는
         -- 문자열이라야 한다. 숫자 인덱스로 넣으면 디코드했을 때 키 타입이 달라져
         -- 같은 랜드마크를 다시 받게 된다 (equipped_monster_skills와 같은 이유).
+        --
+        -- ⚠⚠ 키는 **레벨이 아니라 줄**이다 (`레벨:종류:값`). 레벨만 쓰면 한 레벨에
+        -- 줄이 둘 이상일 때 **먼저 받은 줄이 나머지를 영영 가린다** — GrantLandmarksUpTo 주석 참조.
+        -- 옛 세이브에는 `"30"` 같은 레벨 키가 남아 있는데, 그건 그냥 무시된다.
+        -- 다시 지급돼도 안전하다 — `area`는 이미 열렸으면 건너뛰고 `slot`은 원래 아무것도 안 한다.
         local key = tostring(level)
-        if db.LandmarkClaimed[key] ~= nil then
-            log("[Rebirth] Lv" .. key .. " 랜드마크는 이미 받았다 — 지급 없음")
-            return
-        end
-
         local rewards = _GameData:GetLandmarksAtLevel(level)
         if #rewards == 0 then
-            log("[Rebirth] Lv" .. key .. " 에 걸린 랜드마크 없음")
             return
         end
-
-        db.LandmarkClaimed[key] = 1
 
         for i = 1, #rewards do
             local r = rewards[i]
+            local rowKey = key .. ":" .. tostring(r.reward_type) .. ":" .. tostring(r.reward_value)
+            if db.LandmarkClaimed[rowKey] ~= nil then
+                continue
+            end
+            db.LandmarkClaimed[rowKey] = 1
 
             -- 직업 보상(reward_type=job)은 폐기됐다 (2026-08-16). LandmarkTable에
             -- 남아 있어도 여기서 걸리지 않으므로 조용히 무시된다.
