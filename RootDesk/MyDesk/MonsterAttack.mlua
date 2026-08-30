@@ -203,7 +203,7 @@ script MonsterAttack extends AttackComponent
 		-- 언젠가 어긋나 "안 주는 스킬을 쓰는 보스"가 생긴다.
 		--
 		--   npc_skill_ids  격파 지급 (히어로 계보 5종)   → 있으면 이쪽
-		--   drop_skill_id  포획 지급 (돌 정령 바위 던지기) → 없으면 이쪽
+		--   drop_skill_id  포획 지급 (머쉬맘 포자 충격 등) → 없으면 이쪽
 		--
 		-- 팔라딘·다크나이트가 붙어도 CSV만 채우면 따라온다.
 		local npcSkills = _GameData:GetNpcSkillIds(self:MonsterIdOf())
@@ -225,9 +225,9 @@ script MonsterAttack extends AttackComponent
 
 	@ExecSpace("ServerOnly")
 	method void StartBossSkills(RoomMonster monster)
-		-- 보스방의 몬스터만 스킬을 쓴다 (대표 선택 2026-08-23: 히어로 + 돌 정령).
+		-- 보스방의 몬스터만 스킬을 쓴다 (히어로 계보 + 각 지역 보스 포획 스킬).
 		--
-		-- 왜 종이 아니라 **방**으로 가르나: 돌 정령을 나중에 일반 사냥방에 세울 수 있다.
+		-- 왜 종이 아니라 **방**으로 가르나: 스톤골렘처럼 한 종을 일반 사냥방에도 세울 수 있다.
 		-- 종에 플래그를 달면 그때 초반 방이 조용히 어려워진다. 보스 배율(T16-1)이
 		-- 방으로 갈리는 것과 같은 기준이다.
 		if monster:IsBossRoom() == false then return end

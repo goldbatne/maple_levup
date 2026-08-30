@@ -81,6 +81,7 @@ python docs/art/skill-icons/rasterize.py docs/art/skill-icons/skill-spore-spray.
 | 포자 살포 | `skill-spore-spray.svg` | `6923ce8064e4445d8e63176645943fb1` |
 | 뿔 들이받기 | `skill-horn-gore.svg` | `0928f98bbd114efc935696c1200c9d39` |
 | 바위 던지기 | `skill-rock-throw.svg` | `cba9471e009f46ee9c786f31d29c3848` |
+| 머쉬맘의 포자 충격 | `skill-mushmom-stomp.svg` | `0b09a6a325c54caca2282859ae624b22` |
 
 ### 페리온 7종 (T32-2)
 

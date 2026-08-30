@@ -109,7 +109,7 @@ script RoomProgressHud extends Logic
                 collection:GetOwnedCount(monster.drop_skill_id), cap)
         end
 
-        -- 장비 줄. 한 몬스터가 여럿을 떨굴 수 있다 (돌 정령은 목걸이 + 반지).
+        -- 장비 줄. 한 몬스터가 여럿을 떨굴 수 있으므로 첫 일치에서 멈추지 않는다.
         --
         -- **소비 아이템은 세지 않는다** (대표 지시 2026-08-25: *"드랍 UI에 아직 포션의
         -- 내역이 출력되고 있네 저거 없애고 기본으로 드랍되게"*).

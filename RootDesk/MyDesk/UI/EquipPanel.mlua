@@ -76,7 +76,8 @@ script EquipPanel extends Logic
     property any cellHandlers = nil
 
     -- .ui에 만들어 둔 칸 수. 여기와 .ui가 어긋나면 뒤쪽 칸이 조용히 안 그려진다.
-    property integer cellCount = 20
+    -- T52 현재 몬스터 포획 스킬 28종을 전부 담는다.
+    property integer cellCount = 28
 
     property number refreshInterval = 0.3
 
