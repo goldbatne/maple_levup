@@ -104,22 +104,35 @@ script GameDataVerify extends Logic
             log_warning("  [스킬아이콘] 비율 없음: " .. noRatio .. " — 장착 창에서 늘어나 보인다")
         end
 
-        -- 시전 이펙트 (T19-2). 없으면 스킬을 써도 화면에 아무 일도 안 일어난다 —
-        -- 에러가 아니라 **조용히 밋밋해지는** 실패라 여기서 세어 둔다.
+        -- 시전 이펙트 (T19-2). 액티브인데 없으면 스킬을 써도 화면에 아무 일도
+        -- 안 일어난다. 반대로 패시브에 액티브 이펙트·사운드가 남으면 실제로는
+        -- 재생되지 않으면서 표만 액티브처럼 보인다(T52에서 7종 정리).
         local withEffect = 0
+        local activeTotal = 0
         local noEffect = ""
         for id, skill in pairs(_GameData.skills) do
-            if skill.effect_ruid ~= "" then
+            if skill.skill_kind == "passive" then
+                if skill.effect_ruid ~= "" or skill.effect_style ~= ""
+                    or skill.sfx_ruid ~= "" or skill.projectile_ruid ~= ""
+                    or skill.effect_value ~= 0 or skill.duration ~= 0
+                    or skill.range ~= 0 or skill.dash_distance ~= 0 then
+                    log_error("  [패시브] " .. id .. " 에 액티브 연출·효과 데이터가 남아 있다")
+                end
+            elseif skill.effect_ruid ~= "" then
+                activeTotal += 1
                 withEffect = withEffect + 1
             elseif skill.projectile_ruid ~= "" then
+                activeTotal += 1
                 -- 던지는 스킬은 시전 이펙트가 없어도 된다 — 날아가는 물건이 곧 연출이다
                 -- (T19-4: 바위 던지기의 보라색 시전 이펙트를 일부러 뺐다).
                 withEffect = withEffect + 1
             else
+                activeTotal += 1
                 noEffect = noEffect .. (noEffect == "" and "" or ", ") .. id
             end
         end
-        log("[스킬이펙트] " .. tostring(withEffect) .. "/" .. tostring(total) .. "종에 시전 이펙트가 있다")
+        log("[스킬이펙트] 액티브 " .. tostring(withEffect) .. "/" .. tostring(activeTotal)
+            .. "종에 시전 이펙트가 있다 (패시브는 연출 없음)")
         if noEffect ~= "" then
             log_warning("  [스킬이펙트] 이펙트 없음: " .. noEffect)
         end
