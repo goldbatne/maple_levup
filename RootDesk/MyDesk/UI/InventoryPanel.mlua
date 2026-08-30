@@ -9,8 +9,9 @@
 -- 장비인가·슬롯이 맞는가·가지고 있는가는 전부 서버가 다시 본다 —
 -- 창이 보내는 값은 클라가 조작할 수 있으므로 여기의 검사는 표시용일 뿐이다.
 --
--- 줄 수가 고정인 이유: ItemTable이 6종이라 6줄로 전부 보인다. 10종을 넘으면
--- 스크롤이 필요하다 (component-api: 10개 이하는 직접 배치, 100개 넘으면 GridView).
+-- 가진 아이템은 ScrollLayout 아래 29줄에 그린다. 현재 전체 아이템 29종을
+-- 한 번에 담고, 화면에 넘치는 부분은 스크롤한다. 종류를 더 늘릴 때는
+-- itemRow 프로퍼티와 UIBuilder의 행 수를 함께 늘려야 한다.
 
 @Logic
 script InventoryPanel extends Logic
@@ -23,12 +24,35 @@ script InventoryPanel extends Logic
     property ButtonComponent equipRow0 = "85cb4aaa-f735-4510-a4b9-a1c3e7487f1d"
     property ButtonComponent equipRow1 = "919ea6ea-150d-41d0-90d9-6c2644d7243d"
     property ButtonComponent equipRow2 = "e99a2da9-e57a-4a6e-8b83-0f471ef082e0"
-    property ButtonComponent itemRow0 = "810afa3e-7a19-4fbd-afcb-910409d44cc4"
-    property ButtonComponent itemRow1 = "14edbf8e-ec9b-4d2e-aaae-445b26e60dee"
-    property ButtonComponent itemRow2 = "4e81f66d-18f2-44d9-a707-1378f2dc0ddc"
-    property ButtonComponent itemRow3 = "19018490-19c9-4489-9b1a-b93146330d6f"
-    property ButtonComponent itemRow4 = "b040be9f-420c-477f-8427-bba440633e5a"
-    property ButtonComponent itemRow5 = "5ee60a1a-2493-4c43-b420-a3cbe5c12381"
+    property ButtonComponent itemRow0 = "a79be951-75bd-41fb-9ba8-ec1b6f2b5fd0"
+    property ButtonComponent itemRow1 = "0212c7bf-7dee-408a-8f48-168b91bd5103"
+    property ButtonComponent itemRow2 = "7c79ea3d-4b83-4e83-8da0-f853acb0be41"
+    property ButtonComponent itemRow3 = "bfdb672d-de16-4eb8-813d-0e0a7e88f092"
+    property ButtonComponent itemRow4 = "82139da3-9bd8-411f-9ac4-7c2935a2b45a"
+    property ButtonComponent itemRow5 = "39d5586a-ad22-4840-a82e-3f135adb36e9"
+    property ButtonComponent itemRow6 = "d7299983-a36e-4cdc-a50d-9a76b9bb87a2"
+    property ButtonComponent itemRow7 = "7dd5c3ae-39e2-4a3f-93e5-29801fd8f084"
+    property ButtonComponent itemRow8 = "606a0633-eebb-4b53-8d05-8d10f6710119"
+    property ButtonComponent itemRow9 = "660e3ac4-e7e8-4c68-a9f6-a62ccdaf7d73"
+    property ButtonComponent itemRow10 = "2e7472c4-1c28-420b-b6bb-76d9b04f3b50"
+    property ButtonComponent itemRow11 = "254da18c-3819-4bf4-a9cb-b48ee1267cd6"
+    property ButtonComponent itemRow12 = "fc379c96-07c5-40b6-bf93-7fdfccc6e88e"
+    property ButtonComponent itemRow13 = "025c6e61-6fcb-40f0-92e0-c5e6f6578028"
+    property ButtonComponent itemRow14 = "16ff9ad0-1255-4f5d-ba26-a7be61d8a5cd"
+    property ButtonComponent itemRow15 = "54011789-10a0-44f7-b599-239956afb78f"
+    property ButtonComponent itemRow16 = "e90411d7-a725-4d55-a794-12a0ee38164e"
+    property ButtonComponent itemRow17 = "0e4ecd0b-b4ce-429e-9849-7e6ab5125789"
+    property ButtonComponent itemRow18 = "9476466a-d52b-423f-ab7f-46beba08c938"
+    property ButtonComponent itemRow19 = "a07f711d-f937-4c21-b659-55ff7a7c00a4"
+    property ButtonComponent itemRow20 = "1dcfd1b8-ed52-4989-8b2c-53052c7bfc12"
+    property ButtonComponent itemRow21 = "104f1088-5763-41b0-8b91-8b43ec1cd294"
+    property ButtonComponent itemRow22 = "98c9ab93-8659-48e7-a8d1-f67f361774e4"
+    property ButtonComponent itemRow23 = "9da708f8-2c04-42c5-8bad-ed23b0d33796"
+    property ButtonComponent itemRow24 = "6f48a54d-8e58-463c-a521-e577e299f30e"
+    property ButtonComponent itemRow25 = "19f70044-f8f8-4a16-9491-8e76f2a3e94f"
+    property ButtonComponent itemRow26 = "7c215272-5f4a-446a-9734-4747354bcfb7"
+    property ButtonComponent itemRow27 = "7bb8725d-66e3-4736-bd6a-252e45fce3a1"
+    property ButtonComponent itemRow28 = "dae56899-9fe2-4501-9fe1-67740b5be311"
 
     -- (엔티티, 핸들러) 병렬 배열. `handler`는 mlua 예약어라 키로 쓸 수 없다.
     property table handlerEntities = {}
@@ -42,7 +66,7 @@ script InventoryPanel extends Logic
     property table rowItemIds = {}
 
     property integer equipRowCount = 3
-    property integer itemRowCount = 6
+    property integer itemRowCount = 29
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -111,6 +135,29 @@ script InventoryPanel extends Logic
         if index == 4 then return self.itemRow3 end
         if index == 5 then return self.itemRow4 end
         if index == 6 then return self.itemRow5 end
+        if index == 7 then return self.itemRow6 end
+        if index == 8 then return self.itemRow7 end
+        if index == 9 then return self.itemRow8 end
+        if index == 10 then return self.itemRow9 end
+        if index == 11 then return self.itemRow10 end
+        if index == 12 then return self.itemRow11 end
+        if index == 13 then return self.itemRow12 end
+        if index == 14 then return self.itemRow13 end
+        if index == 15 then return self.itemRow14 end
+        if index == 16 then return self.itemRow15 end
+        if index == 17 then return self.itemRow16 end
+        if index == 18 then return self.itemRow17 end
+        if index == 19 then return self.itemRow18 end
+        if index == 20 then return self.itemRow19 end
+        if index == 21 then return self.itemRow20 end
+        if index == 22 then return self.itemRow21 end
+        if index == 23 then return self.itemRow22 end
+        if index == 24 then return self.itemRow23 end
+        if index == 25 then return self.itemRow24 end
+        if index == 26 then return self.itemRow25 end
+        if index == 27 then return self.itemRow26 end
+        if index == 28 then return self.itemRow27 end
+        if index == 29 then return self.itemRow28 end
         return nil
     end
 
