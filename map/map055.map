@@ -16,7 +16,7 @@
       {
         "id": "75924612-3787-4a75-a829-7e9abacafbbe",
         "path": "/maps/map055",
-        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner",
+        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner,script.NautilusWaterBoundary",
         "jsonString": {
           "name": "map055",
           "path": "/maps/map055",
@@ -59,6 +59,10 @@
               "monsterCount": 0,
               "spawnIndex": 0,
               "checkTimer": 0
+            },
+            {
+              "Enable": true,
+              "@type": "script.NautilusWaterBoundary"
             }
           ],
           "@version": 1
