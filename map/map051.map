@@ -16,7 +16,7 @@
       {
         "id": "3a995539-7852-4683-ba71-32a034b2d562",
         "path": "/maps/map051",
-        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner",
+        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner,script.NautilusWaterBoundary",
         "jsonString": {
           "name": "map051",
           "path": "/maps/map051",
@@ -62,6 +62,10 @@
               "roomId": "",
               "isBossRoom": false,
               "bossEntryTimer": 0
+            },
+            {
+              "Enable": true,
+              "@type": "script.NautilusWaterBoundary"
             }
           ],
           "@version": 1

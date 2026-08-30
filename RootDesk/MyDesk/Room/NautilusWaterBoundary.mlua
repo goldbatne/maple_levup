@@ -1,0 +1,123 @@
+-- 노틸러스 전용 수면 경계.
+-- 바닷물 타일에 들어간 플레이어를 마지막 육지/갑판 위치로 되돌린다.
+-- 클라이언트가 즉시 보정해 움직임을 매끄럽게 유지하고, 서버도 안전망으로 검증한다.
+
+@Component
+script NautilusWaterBoundary extends Component
+
+    property string waterTileName = "Nautilus_water"
+    @HideFromInspector property any tileMap = nil
+    @HideFromInspector property table lastSafePositions = {}
+
+    method void OnBeginPlay()
+        -- 맵마다 한 번 타일맵을 찾고 활성화 여부를 로그로 남긴다.
+        self.tileMap = self:FindTileMap()
+        if self.tileMap == nil then
+            log_warning("[NautilusWater] RectTileMapComponent를 찾지 못함: " .. self.Entity.Name)
+            return
+        end
+
+        log("[NautilusWater] 활성화: " .. self.Entity.Name
+            .. " water=" .. self.waterTileName
+            .. " server=" .. tostring(self:IsServer()))
+    end
+
+    method any FindTileMap()
+        -- 이 맵의 RectTileMapComponent를 찾는다.
+        local byType = self.Entity:GetFirstChildComponentByTypeName("RectTileMapComponent", true)
+        if byType ~= nil then return byType end
+
+        local child = self.Entity:GetChildByName("RectTileMap", true)
+        if child ~= nil then return child.RectTileMapComponent end
+        return nil
+    end
+
+    method void OnUpdate(number delta)
+        -- 클라이언트는 로컬 플레이어를 즉시 보정하고 서버는 전체 유저를 검증한다.
+        if self.tileMap == nil then return end
+
+        if self:IsClient() then
+            local me = _UserService.LocalPlayer
+            if me ~= nil and self:IsMyRoom(me) then
+                self:KeepPlayerOffWater(me)
+            end
+        end
+
+        if self:IsServer() then
+            local users = _UserService:GetUsersByMapName(self.Entity.Name)
+            if users ~= nil then
+                for i = 1, #users do
+                    self:KeepPlayerOffWater(users[i])
+                end
+            end
+        end
+    end
+
+    method boolean IsMyRoom(Entity player)
+        -- 맵 전환 중 이전 맵 컴포넌트가 플레이어를 끌어당기지 않게 한다.
+        if not isvalid(player) then return false end
+        local map = player.CurrentMap
+        return map ~= nil and map.Name == self.Entity.Name
+    end
+
+    method void KeepPlayerOffWater(Entity player)
+        -- 안전한 타일에서는 위치를 기억하고, 수면에서는 그 위치로 되돌린다.
+        if not isvalid(player) or not self:IsMyRoom(player) then return end
+
+        local body = player.KinematicbodyComponent
+        local transform = player.TransformComponent
+        local playerComponent = player.PlayerComponent
+        if body == nil or transform == nil or playerComponent == nil then return end
+
+        local pos = transform.WorldPosition
+        local cell = self.tileMap:ToCellPosition(pos)
+        local tile = self.tileMap:GetTile(cell)
+        local userId = playerComponent.UserId
+
+        if tile == nil or tile.Name ~= self.waterTileName then
+            self.lastSafePositions[userId] = Vector2(pos.x, pos.y)
+            return
+        end
+
+        local safe = self.lastSafePositions[userId]
+        if safe == nil then
+            safe = self:FindNearestSafePosition(cell)
+        end
+        if safe == nil then return end
+
+        if player.MovementComponent ~= nil then
+            player.MovementComponent:Stop()
+        end
+        body:SetWorldPosition(safe)
+
+        log("[NautilusWater] 이동 차단: map=" .. self.Entity.Name
+            .. " user=" .. tostring(userId)
+            .. " cell=(" .. tostring(cell.x) .. "," .. tostring(cell.y) .. ")")
+    end
+
+    method any FindNearestSafePosition(any origin)
+        -- 첫 프레임부터 물 위라면 가장 가까운 육지/갑판 셀 중심을 비상 위치로 쓴다.
+        local positions = self.tileMap:GetAllTilePositions():ToTable()
+        local best = nil
+        local bestDistance = nil
+
+        for i = 1, #positions do
+            local cell = positions[i]
+            local tile = self.tileMap:GetTile(cell)
+            if tile ~= nil and tile.Name ~= self.waterTileName then
+                local dx = cell.x - origin.x
+                local dy = cell.y - origin.y
+                local distance = dx * dx + dy * dy
+                if bestDistance == nil or distance < bestDistance then
+                    best = cell
+                    bestDistance = distance
+                end
+            end
+        end
+
+        if best == nil then return nil end
+        local world = self.tileMap:ToWorldPosition(best)
+        return Vector2(world.x, world.y)
+    end
+
+end
