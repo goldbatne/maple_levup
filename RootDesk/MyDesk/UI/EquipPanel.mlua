@@ -83,8 +83,8 @@ script EquipPanel extends Logic
 
     -- 아이콘을 넣을 상자 (T20-4). 그림은 이 안에 **비율을 지킨 채** 들어간다.
     -- 칸(150x126)에서 위 10px을 띄우고 아래 이름표(48px)를 뺀 나머지다.
-    property number iconBoxW = 56
-    property number iconBoxH = 60
+    property number iconBoxW = 54
+    property number iconBoxH = 54
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()

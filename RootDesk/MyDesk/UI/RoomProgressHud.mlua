@@ -30,10 +30,10 @@ script RoomProgressHud extends Logic
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
-        log("[방진척] OnBeginPlay")
-        self.refreshTimer = _TimerService:SetTimerRepeat(function()
-            self:Refresh()
-        end, self.refreshInterval)
+        -- T54: 상시 획득 현황은 월드맵 방 클릭 팝업으로 옮겼다.
+        -- 예전 패널은 기존 월드와 UUID 호환을 위해 남겨 두되 화면과 타이머를 모두 끈다.
+        if isvalid(self.panel) then self.panel.Enable = false end
+        log("[방진척] T54 비활성 — 월드맵 방 클릭 정보로 대체")
     end
 
     @ExecSpace("ClientOnly")

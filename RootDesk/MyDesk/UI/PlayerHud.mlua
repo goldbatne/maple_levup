@@ -22,17 +22,30 @@ script PlayerHud extends Logic
     -- (MSW 프리셋 상태창 `UIMyInfo`도 같은 방식이다).
     property TextGUIRendererComponent nameText = "d96c227c-e616-48fb-b562-257c348d2c43"
 
+    -- 보스 HUD. UIBuilder가 /ui/PlayerHud/BossHud 아래를 만들고 UUID를 주입한다 (T53).
+    property Entity bossRoot = "ddcd6877-6923-47dc-9dab-2b83795a25e2"
+    property Entity bossBarRoot = "7f5dc6f9-0e85-43f8-83a8-d90b02eb9702"
+    property UITransformComponent bossFill = "65e412d2-d402-4d3f-aaa6-ab7c2e3c7f2b"
+    property TextGUIRendererComponent bossNameText = "e63f3748-8d68-4b00-91a1-2f6b045093e6"
+    property TextGUIRendererComponent bossHpText = "7f84ada4-b9a7-4f3d-94f9-57942799a648"
+    property TextGUIRendererComponent bossTimeText = "4c129f53-3a6b-421b-a488-77e735f6cc23"
+
     -- 게이지 원래 폭. RectSize를 줄여서 채움을 표현하므로 최대 폭을 기억해야 한다.
     @HideFromInspector property number hpFullWidth = 0
     @HideFromInspector property number expFullWidth = 0
+    @HideFromInspector property number bossFullWidth = 0
 
     @HideFromInspector property integer tickTimer = 0
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
+        self:ResolveBossHud()
         -- 최대 폭을 처음 한 번만 저장해 둔다.
         if isvalid(self.hpFill) then self.hpFullWidth = self.hpFill.RectSize.x end
         if isvalid(self.expFill) then self.expFullWidth = self.expFill.RectSize.x end
+        if isvalid(self.bossFill) then self.bossFullWidth = self.bossFill.RectSize.x end
+        -- 자식 UI는 첫 프레임 뒤에 준비될 수 있다. 여기서 부모를 바로 끄면
+        -- 아직 생성되지 않은 자식이 계속 nil로 남으므로, 첫 RefreshBoss가 숨긴다.
         -- 닉네임은 바뀌지 않으므로 여기서 한 번만 채운다.
         local me = _UserService.LocalPlayer
         if isvalid(self.nameText) and isvalid(me) and isvalid(me.PlayerComponent) then
@@ -40,7 +53,8 @@ script PlayerHud extends Logic
         end
 
         log("[PlayerHud] OnBeginPlay  HP폭=" .. tostring(self.hpFullWidth)
-            .. " EXP폭=" .. tostring(self.expFullWidth))
+            .. " EXP폭=" .. tostring(self.expFullWidth)
+            .. " 보스폭=" .. tostring(self.bossFullWidth))
 
         -- 매 프레임 갱신할 이유가 없다. 0.2초면 게이지가 끊겨 보이지 않는다.
         self.tickTimer = _TimerService:SetTimerRepeat(function()
@@ -62,6 +76,9 @@ script PlayerHud extends Logic
         -- 로컬 플레이어의 현재 값을 읽어 세 표시를 갱신한다.
         local player = _UserService.LocalPlayer
         if not isvalid(player) then return end
+
+        -- PlayerStats가 아직 붙기 전에도 보스바는 맵 상태만으로 그릴 수 있다.
+        self:RefreshBoss(player)
 
         local pc = player.PlayerComponent
         if isvalid(pc) and isvalid(self.hpFill) then
@@ -98,6 +115,97 @@ script PlayerHud extends Logic
                 end
             end
         end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshBoss(Entity player)
+        self:ResolveBossHud()
+        if not isvalid(self.bossRoot) then return end
+
+        local map = player.CurrentMap
+        if map == nil then
+            self:SetBossHudVisible(false)
+            return
+        end
+
+        ---@type RoomSpawner
+        local spawner = map:GetComponent("script.RoomSpawner")
+        if spawner == nil or spawner.BossActive == false then
+            self:SetBossHudVisible(false)
+            return
+        end
+        self:SetBossHudVisible(true)
+
+        if isvalid(self.bossNameText) then
+            self.bossNameText.Text = "BOSS  " .. spawner.BossDisplayName
+        end
+
+        local maxHp = spawner.BossMaxHp
+        local hp = spawner.BossHp
+        if hp < 0 then hp = 0 end
+        local ratio = 1
+        if maxHp > 0 then ratio = hp / maxHp end
+        if isvalid(self.bossFill) then
+            self:SetFill(self.bossFill, self.bossFullWidth, ratio)
+        end
+        if isvalid(self.bossHpText) then
+            if maxHp > 0 then
+                self.bossHpText.Text = tostring(math.floor(hp))
+                    .. " / " .. tostring(math.floor(maxHp))
+            else
+                self.bossHpText.Text = "전투 준비"
+            end
+        end
+
+        if isvalid(self.bossTimeText) then
+            local total = math.ceil(spawner.BossRemainingSeconds)
+            if total < 0 then total = 0 end
+            local minutes = math.floor(total / 60)
+            local seconds = total - minutes * 60
+            self.bossTimeText.Text = "남은 시간  "
+                .. string.format("%02d:%02d", minutes, seconds)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ResolveBossHud()
+        -- UIBuilder로 보스 HUD의 크기나 구성을 다시 만들면 자식 UUID가 바뀔 수 있다.
+        -- 저장된 바인딩이 아직 갱신되지 않은 경우에도 고정 경로로 즉시 복구한다.
+        if not isvalid(self.bossRoot) then
+            self.bossRoot = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHud")
+        end
+        if not isvalid(self.bossBarRoot) then
+            self.bossBarRoot = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudBar")
+        end
+        if not isvalid(self.bossFill) then
+            local fillEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudFill")
+            if isvalid(fillEntity) then self.bossFill = fillEntity.UITransformComponent end
+        end
+        if not isvalid(self.bossNameText) then
+            local nameEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudName")
+            if isvalid(nameEntity) then self.bossNameText = nameEntity.TextGUIRendererComponent end
+        end
+        if not isvalid(self.bossHpText) then
+            local hpEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudHpText")
+            if isvalid(hpEntity) then self.bossHpText = hpEntity.TextGUIRendererComponent end
+        end
+        if not isvalid(self.bossTimeText) then
+            local timeEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudTime")
+            if isvalid(timeEntity) then self.bossTimeText = timeEntity.TextGUIRendererComponent end
+        end
+        if self.bossFullWidth <= 0 and isvalid(self.bossFill) then
+            self.bossFullWidth = self.bossFill.RectSize.x
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetBossHudVisible(boolean visible)
+        if isvalid(self.bossRoot) then self.bossRoot.Enable = visible end
+        if isvalid(self.bossBarRoot) then self.bossBarRoot.Enable = visible end
+        if isvalid(self.bossFill) then self.bossFill.Enable = visible end
+        if isvalid(self.bossNameText) then self.bossNameText.Enable = visible end
+        if isvalid(self.bossHpText) then self.bossHpText.Enable = visible end
+        if isvalid(self.bossTimeText) then self.bossTimeText.Enable = visible end
     end
 
     @ExecSpace("ClientOnly")

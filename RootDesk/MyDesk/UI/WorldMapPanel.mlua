@@ -37,6 +37,24 @@ script WorldMapPanel extends Logic
     property Entity board = "3a9ed1e5-8ae3-497c-947c-19d442ae2f14"
     property TextGUIRendererComponent titleText = "2c8f908e-2b36-4db2-945d-26ea5e1be864"
 
+    -- T54: 상시 획득 현황 HUD를 없애고, 지도 칸을 눌렀을 때만 방 정보를 연다.
+    property Entity popup = "62a291dd-1802-45ca-aa8a-c34039ce2f1f"
+    property ButtonComponent popupClose = "99557ea1-e84a-43ad-835e-a4779ab1366c"
+    property TextGUIRendererComponent popupTitle = "29e6e9b0-17d1-44f2-ac35-3854c38e1fa1"
+    property TextGUIRendererComponent popupMonster = "15a92756-a177-4b56-afec-c2b6e5558d51"
+    property Entity popupRow1 = "f786d2dd-442a-43a4-bd4d-4251fb991023"
+    property Entity popupRow2 = "3ca58ef9-8ae1-4b1b-b88a-25e056209ff6"
+    property Entity popupRow3 = "dabfcced-c251-4a1f-8abf-710b068f0e9b"
+    property Entity popupRow4 = "0492483c-9f70-48be-9146-b4af5bba0071"
+    property TextGUIRendererComponent popupDrop1 = "950d7e82-7e83-4b24-b8e3-63f0d2a31396"
+    property SpriteGUIRendererComponent popupIcon1 = "2d2bd7ca-c9c6-4ef5-adee-704de2df0bf7"
+    property TextGUIRendererComponent popupDrop2 = "ab6c6fe8-3390-4024-aaf3-026ae7d51dad"
+    property SpriteGUIRendererComponent popupIcon2 = "b8f11457-216a-479d-afb9-888992b86032"
+    property TextGUIRendererComponent popupDrop3 = "b57bffe4-f784-4d76-9f2a-a51e16242b81"
+    property SpriteGUIRendererComponent popupIcon3 = "2aa2005a-07b0-4da3-99b2-80016e209b15"
+    property TextGUIRendererComponent popupDrop4 = "53fbad9d-7270-4259-918f-14c114b33af1"
+    property SpriteGUIRendererComponent popupIcon4 = "ee079686-eea3-4db5-84de-c2d3792b2a00"
+
     -- 칸·연결선 풀 크기. `.ui`에 만들어 둔 개수와 같아야 한다.
     property integer cellMax = 12
     property integer linkMax = 16
@@ -71,10 +89,30 @@ script WorldMapPanel extends Logic
     -- 마지막으로 그린 방. 같은 방이면 다시 그리지 않는다 (0.5초마다 도는 타이머라
     -- 매번 전부 다시 그리면 방마다 게이트 판정을 계속 돌리게 된다).
     property string lastRoomId = ""
+    property table cellRoomIds = {}
+    property table cellHandlers = {}
+    property any closeHandler = nil
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         log("[WorldMap] OnBeginPlay")
+        self.cellRoomIds = {}
+        self.cellHandlers = {}
+        for i = 1, self.cellMax do
+            local index = i
+            local cell = self:GetCell(index)
+            if isvalid(cell) and isvalid(cell.ButtonComponent) then
+                self.cellHandlers[index] = cell:ConnectEvent(ButtonClickEvent, function()
+                    self:OpenRoomInfo(index)
+                end)
+            end
+        end
+        if isvalid(self.popupClose) then
+            self.closeHandler = self.popupClose.Entity:ConnectEvent(ButtonClickEvent, function()
+                self:HidePopup()
+            end)
+        end
+        self:HidePopup()
         self.refreshTimer = _TimerService:SetTimerRepeat(function()
             self:Refresh(false)
         end, self.refreshInterval)
@@ -83,6 +121,19 @@ script WorldMapPanel extends Logic
 
     @ExecSpace("ClientOnly")
     method void OnEndPlay()
+        if self.cellHandlers ~= nil then
+            for i = 1, self.cellMax do
+                local cell = self:GetCell(i)
+                if isvalid(cell) and self.cellHandlers[i] ~= nil then
+                    cell:DisconnectEvent(ButtonClickEvent, self.cellHandlers[i])
+                end
+            end
+            self.cellHandlers = {}
+        end
+        if isvalid(self.popupClose) and self.closeHandler ~= nil then
+            self.popupClose.Entity:DisconnectEvent(ButtonClickEvent, self.closeHandler)
+            self.closeHandler = nil
+        end
         if self.refreshTimer ~= nil then
             _TimerService:ClearTimer(self.refreshTimer)
             self.refreshTimer = nil
@@ -121,11 +172,13 @@ script WorldMapPanel extends Logic
         -- 어느 지역 지도를 띄워도 거짓말이 되고, 숨은 방은 지도에 없는 방이다.
         if areaId == nil or areaId == "" then
             if isvalid(self.panel) then self.panel.Enable = false end
+            self:HidePopup()
             self.lastRoomId = ""
             return
         end
 
         if force == false and roomId == self.lastRoomId then return end
+        if roomId ~= self.lastRoomId then self:HidePopup() end
         self.lastRoomId = roomId
 
         local area = _GameData:GetArea(areaId)
@@ -270,6 +323,7 @@ script WorldMapPanel extends Logic
             .. "  칸 " .. tostring(math.floor(self.cellW * scale)) .. "x" .. tostring(math.floor(self.cellH * scale)))
 
         local shown = 0
+        self.cellRoomIds = {}
         for i = 1, #ids do
             if shown >= self.cellMax then
                 log_warning("[WorldMap] 칸이 모자란다 — " .. tostring(#ids)
@@ -354,6 +408,7 @@ script WorldMapPanel extends Logic
 
         local room = _GameData:GetRoom(roomId)
         if room == nil then return end
+        self.cellRoomIds[index] = roomId
 
         local isHere = (here ~= nil and here.id == roomId)
         local gate = _RoomGate:Evaluate(me, room)
@@ -409,6 +464,102 @@ script WorldMapPanel extends Logic
                 subText.TextGUIRendererComponent.FontColor = Color(0.62, 0.66, 0.72, 1)
             end
         end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void HidePopup()
+        if isvalid(self.popup) then self.popup.Enable = false end
+    end
+
+    @ExecSpace("ClientOnly")
+    method any PopupDropText(integer index)
+        if index == 1 then return self.popupDrop1 end
+        if index == 2 then return self.popupDrop2 end
+        if index == 3 then return self.popupDrop3 end
+        if index == 4 then return self.popupDrop4 end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method any PopupDropIcon(integer index)
+        if index == 1 then return self.popupIcon1 end
+        if index == 2 then return self.popupIcon2 end
+        if index == 3 then return self.popupIcon3 end
+        if index == 4 then return self.popupIcon4 end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method any PopupDropRow(integer index)
+        if index == 1 then return self.popupRow1 end
+        if index == 2 then return self.popupRow2 end
+        if index == 3 then return self.popupRow3 end
+        if index == 4 then return self.popupRow4 end
+        return nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OpenRoomInfo(integer index)
+        local roomId = self.cellRoomIds[index]
+        if roomId == nil or roomId == "" then return end
+        local room = _GameData:GetRoom(roomId)
+        if room == nil then return end
+
+        if isvalid(self.popupTitle) then self.popupTitle.Text = room.name end
+        local monster = nil
+        if room.monster_id ~= nil and room.monster_id ~= "" then
+            monster = _GameData:GetMonster(room.monster_id)
+        end
+        if isvalid(self.popupMonster) then
+            if monster == nil then
+                self.popupMonster.Text = "몬스터 없음"
+            else
+                local level = room.monster_level
+                if level == nil or level <= 0 then level = monster.level end
+                local bossMark = ""
+                if room.room_type == "boss" then bossMark = "◆ 보스  " end
+                self.popupMonster.Text = bossMark .. "Lv" .. tostring(math.floor(level)) .. "  "
+                    .. monster.name .. "   x" .. tostring(math.floor(room.monster_count))
+            end
+        end
+
+        local drops = {}
+        if monster ~= nil then drops = _GameData:GetItemDropsOf(monster.id) end
+        for i = 1, 4 do
+            local row = self:PopupDropRow(i)
+            local label = self:PopupDropText(i)
+            local icon = self:PopupDropIcon(i)
+            local itemId = drops[i]
+            if itemId == nil then
+                if isvalid(row) then row.Enable = false end
+                if isvalid(label) then label.Entity.Enable = false end
+                if isvalid(icon) then icon.Entity.Enable = false end
+            else
+                if isvalid(row) then row.Enable = true end
+                local item = _GameData:GetItem(itemId)
+                if item == nil then
+                    if isvalid(label) then
+                        label.Entity.Enable = true
+                        label.Text = itemId
+                    end
+                    if isvalid(icon) then icon.Entity.Enable = false end
+                else
+                    local chance = string.format("%.0f%%", item.drop_rate * 100)
+                    if room.room_type == "boss" and item.drop_from ~= "*" then chance = "확정" end
+                    if isvalid(label) then
+                        label.Entity.Enable = true
+                        label.Text = item.name .. "   " .. chance
+                    end
+                    if isvalid(icon) then
+                        icon.Entity.Enable = true
+                        icon.ImageRUID = DataRef(item.icon_ruid)
+                        icon.Color = Color(1, 1, 1, 1)
+                    end
+                end
+            end
+        end
+        if isvalid(self.popup) then self.popup.Enable = true end
+        log("[WorldMap] 방 정보 열림 " .. roomId .. "  드랍 " .. tostring(#drops) .. "종")
     end
 
     @ExecSpace("ClientOnly")
