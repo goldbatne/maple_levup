@@ -147,7 +147,7 @@ function rebuildInventory() {
 
   const bindings = {};
   const cols = 6;
-  for (let i = 0; i < 29; i += 1) {
+  for (let i = 0; i < 30; i += 1) {
     const col = i % cols;
     const row = Math.floor(i / cols);
     const cell = `${box}/ItemRow${i}`;

@@ -121,7 +121,9 @@ script RoomProgressHud extends Logic
             for i = 1, #drops do
                 local item = _GameData:GetItem(drops[i])
                 if item ~= nil and item.item_type ~= "consume" then
-                    rows[#rows + 1] = self:CountText("아이템", item.name,
+                    local kind = "장비"
+                    if item.item_type == "passive" then kind = "패시브" end
+                    rows[#rows + 1] = self:CountText(kind, item.name,
                         inventory:GetCount(item.id), _GameData:GetItemStackCap(item.id))
                 end
             end

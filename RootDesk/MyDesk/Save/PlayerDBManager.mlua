@@ -265,7 +265,14 @@ script PlayerDBManager extends Component
         local collection = self.Entity:GetComponent("script.PlayerCollection")
         if collection ~= nil then
             for id, count in pairs(perm.owned_skills) do
-                collection.OwnedSkills[id] = math.floor(count)
+                local skill = _GameData:GetSkill(id)
+                -- T56: 직업 캐릭터의 전투 전용 스킬은 더 이상 플레이어 보상이 아니다.
+                -- 옛 저장에 남은 s_hero_*는 로드하지 않고 다음 저장에서 자연스럽게 제거한다.
+                if skill ~= nil and skill.source == "monster" then
+                    collection.OwnedSkills[id] = math.floor(count)
+                else
+                    log_warning("[PlayerDB] 포획 스킬이 아닌 옛 보유 기록을 버린다: " .. tostring(id))
+                end
             end
             for id, kills in pairs(perm.species_kills) do
                 collection.SpeciesKills[id] = math.floor(kills)
@@ -621,8 +628,9 @@ script PlayerDBManager extends Component
         if collection ~= nil then
             local owned = {}
             for _, id in ipairs(_GameData:GetAllSkillIds()) do
+                local skill = _GameData:GetSkill(id)
                 local n = collection.OwnedSkills[id]
-                if n ~= nil and n > 0 then owned[id] = n end
+                if skill ~= nil and skill.source == "monster" and n ~= nil and n > 0 then owned[id] = n end
             end
             perm.owned_skills = owned
 

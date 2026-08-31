@@ -198,16 +198,11 @@ script MonsterAttack extends AttackComponent
 	---------------------------------------------------------------
 
 	method table UsableSkillIds()
-		-- 이 몬스터가 쓸 스킬 목록. **새 컬럼을 만들지 않고 "주는 것"에서 그대로 유도한다** —
-		-- 대표 지시가 "얻는 스킬을 사용"이므로 둘이 같아야 하고, 칸을 따로 두면
-		-- 언젠가 어긋나 "안 주는 스킬을 쓰는 보스"가 생긴다.
-		--
-		--   npc_skill_ids  격파 지급 (히어로 계보 5종)   → 있으면 이쪽
-		--   drop_skill_id  포획 지급 (머쉬맘 포자 충격 등) → 없으면 이쪽
-		--
-		-- 팔라딘·다크나이트가 붙어도 CSV만 채우면 따라온다.
-		local npcSkills = _GameData:GetNpcSkillIds(self:MonsterIdOf())
-		if #npcSkills > 0 then return npcSkills end
+		-- 적 전용 패턴이 있으면 그것을 우선 사용한다 (T56).
+		-- 직업 캐릭터의 기술은 전투 패턴일 뿐 플레이어가 훔치는 보상이 아니므로,
+		-- 포획 보상(drop_skill_id)과 별도 컬럼에서 읽는다.
+		local combatSkills = _GameData:GetCombatSkillIds(self:MonsterIdOf())
+		if #combatSkills > 0 then return combatSkills end
 
 		local record = _GameData:GetMonster(self:MonsterIdOf())
 		if record == nil then return {} end
