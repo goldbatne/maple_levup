@@ -21,38 +21,40 @@ script InventoryPanel extends Logic
     property ButtonComponent openBtn = "f21aca9a-6277-48a9-89f9-f6342d2570a9"
     property ButtonComponent closeBtn = "4219e969-e664-4b1e-821f-f136c65c939f"
     property TextGUIRendererComponent hintText = "5b833216-1485-4747-82c1-31cd62b9a1b8"
+    property TextGUIRendererComponent detailTitle = "688bd506-9ce9-4828-980b-db4faf24811f"
+    property TextGUIRendererComponent detailBody = "f0109592-7a1f-4f2b-b6e1-30052c53947b"
     property ButtonComponent equipRow0 = "85cb4aaa-f735-4510-a4b9-a1c3e7487f1d"
     property ButtonComponent equipRow1 = "919ea6ea-150d-41d0-90d9-6c2644d7243d"
     property ButtonComponent equipRow2 = "e99a2da9-e57a-4a6e-8b83-0f471ef082e0"
-    property ButtonComponent itemRow0 = "a79be951-75bd-41fb-9ba8-ec1b6f2b5fd0"
-    property ButtonComponent itemRow1 = "0212c7bf-7dee-408a-8f48-168b91bd5103"
-    property ButtonComponent itemRow2 = "7c79ea3d-4b83-4e83-8da0-f853acb0be41"
-    property ButtonComponent itemRow3 = "bfdb672d-de16-4eb8-813d-0e0a7e88f092"
-    property ButtonComponent itemRow4 = "82139da3-9bd8-411f-9ac4-7c2935a2b45a"
-    property ButtonComponent itemRow5 = "39d5586a-ad22-4840-a82e-3f135adb36e9"
-    property ButtonComponent itemRow6 = "d7299983-a36e-4cdc-a50d-9a76b9bb87a2"
-    property ButtonComponent itemRow7 = "7dd5c3ae-39e2-4a3f-93e5-29801fd8f084"
-    property ButtonComponent itemRow8 = "606a0633-eebb-4b53-8d05-8d10f6710119"
-    property ButtonComponent itemRow9 = "660e3ac4-e7e8-4c68-a9f6-a62ccdaf7d73"
-    property ButtonComponent itemRow10 = "2e7472c4-1c28-420b-b6bb-76d9b04f3b50"
-    property ButtonComponent itemRow11 = "254da18c-3819-4bf4-a9cb-b48ee1267cd6"
-    property ButtonComponent itemRow12 = "fc379c96-07c5-40b6-bf93-7fdfccc6e88e"
-    property ButtonComponent itemRow13 = "025c6e61-6fcb-40f0-92e0-c5e6f6578028"
-    property ButtonComponent itemRow14 = "16ff9ad0-1255-4f5d-ba26-a7be61d8a5cd"
-    property ButtonComponent itemRow15 = "54011789-10a0-44f7-b599-239956afb78f"
-    property ButtonComponent itemRow16 = "e90411d7-a725-4d55-a794-12a0ee38164e"
-    property ButtonComponent itemRow17 = "0e4ecd0b-b4ce-429e-9849-7e6ab5125789"
-    property ButtonComponent itemRow18 = "9476466a-d52b-423f-ab7f-46beba08c938"
-    property ButtonComponent itemRow19 = "a07f711d-f937-4c21-b659-55ff7a7c00a4"
-    property ButtonComponent itemRow20 = "1dcfd1b8-ed52-4989-8b2c-53052c7bfc12"
-    property ButtonComponent itemRow21 = "104f1088-5763-41b0-8b91-8b43ec1cd294"
-    property ButtonComponent itemRow22 = "98c9ab93-8659-48e7-a8d1-f67f361774e4"
-    property ButtonComponent itemRow23 = "9da708f8-2c04-42c5-8bad-ed23b0d33796"
-    property ButtonComponent itemRow24 = "6f48a54d-8e58-463c-a521-e577e299f30e"
-    property ButtonComponent itemRow25 = "19f70044-f8f8-4a16-9491-8e76f2a3e94f"
-    property ButtonComponent itemRow26 = "7c215272-5f4a-446a-9734-4747354bcfb7"
-    property ButtonComponent itemRow27 = "7bb8725d-66e3-4736-bd6a-252e45fce3a1"
-    property ButtonComponent itemRow28 = "dae56899-9fe2-4501-9fe1-67740b5be311"
+    property ButtonComponent itemRow0 = "eef446f2-c318-4897-b664-80f7f0a87cc1"
+    property ButtonComponent itemRow1 = "bb715c79-7f26-4460-812b-af0bb38800b2"
+    property ButtonComponent itemRow2 = "3f22ba67-86b7-44d6-843a-50d4caf6f910"
+    property ButtonComponent itemRow3 = "f574d1f9-7929-428b-ad06-7711820497b5"
+    property ButtonComponent itemRow4 = "446372d5-114f-4b1c-a68f-9af6fa147806"
+    property ButtonComponent itemRow5 = "1f625391-aa5f-4e2e-b127-8a105a15cfb4"
+    property ButtonComponent itemRow6 = "c49b346b-6a7a-4927-985f-51c0700cdb7d"
+    property ButtonComponent itemRow7 = "106d103e-a1d8-4a45-9f8b-90eb760cef55"
+    property ButtonComponent itemRow8 = "b1b2f0c7-0bb2-4e84-ae5a-9941bec1061a"
+    property ButtonComponent itemRow9 = "18b9ce0e-8ba9-4561-9fd3-3b6af7ba878c"
+    property ButtonComponent itemRow10 = "0002480b-0655-4047-b848-21ea2ecca786"
+    property ButtonComponent itemRow11 = "d6e619b0-467c-4c8c-8c68-5f17bf8e1c4b"
+    property ButtonComponent itemRow12 = "7ed9b876-e586-47c9-81f3-1c97086ca51a"
+    property ButtonComponent itemRow13 = "a14b555c-2171-4117-897e-96f838d4667b"
+    property ButtonComponent itemRow14 = "d836d011-4b65-41ae-9332-6c0dd1aa23ca"
+    property ButtonComponent itemRow15 = "91b4a172-2e73-452c-87c6-498a9c67f402"
+    property ButtonComponent itemRow16 = "b10bbe8d-a3f8-41d7-97c2-0d0e7a7d0c23"
+    property ButtonComponent itemRow17 = "71003d99-4d90-49a6-ac87-97964a89dc89"
+    property ButtonComponent itemRow18 = "2a18ef88-ceba-4793-bf36-65b3ecebf862"
+    property ButtonComponent itemRow19 = "8b18caa7-2698-47fc-b90e-1a45acbce68f"
+    property ButtonComponent itemRow20 = "71840906-6e48-43c2-a39a-a71565aad9d4"
+    property ButtonComponent itemRow21 = "a0548e56-8e75-4f98-82c6-ed720940ce80"
+    property ButtonComponent itemRow22 = "28c3de11-ffc1-4039-9836-cd19091e51b8"
+    property ButtonComponent itemRow23 = "cd9b6ccf-809f-4e66-a558-42b41f1ffdb4"
+    property ButtonComponent itemRow24 = "209f3f65-160c-483d-b480-7bf80da30ca2"
+    property ButtonComponent itemRow25 = "bb67f078-702e-42b1-88ba-b71cd3ced34a"
+    property ButtonComponent itemRow26 = "e2eb832d-5a18-4eb5-8214-2a1ee0c8fe76"
+    property ButtonComponent itemRow27 = "b23a3cff-4879-4ef3-8297-87867f4b5fbd"
+    property ButtonComponent itemRow28 = "44465311-b826-4e9f-92b4-96138ea186e3"
 
     -- (엔티티, 핸들러) 병렬 배열. `handler`는 mlua 예약어라 키로 쓸 수 없다.
     property table handlerEntities = {}
@@ -64,6 +66,7 @@ script InventoryPanel extends Logic
     -- 클릭 핸들러에 아이템 id를 캡처하지 않는 이유: 목록이 갱신되면 줄의 내용이
     -- 바뀌는데 핸들러는 그대로라, 캡처했다면 옛 아이템을 장착하게 된다.
     property table rowItemIds = {}
+    property string selectedItemId = ""
 
     property integer equipRowCount = 3
     property integer itemRowCount = 29
@@ -250,7 +253,13 @@ script InventoryPanel extends Logic
         rowEntity.Enable = true
 
         local text = rowEntity.TextGUIRendererComponent
-        if isvalid(text) then text.Text = label end
+        local nameEntity = rowEntity:GetChildByName("Name", false)
+        if isvalid(nameEntity) then
+            if isvalid(text) then text.Text = "" end
+            nameEntity.TextGUIRendererComponent.Text = label
+        elseif isvalid(text) then
+            text.Text = label
+        end
 
         local icon = rowEntity:GetChildByName("Icon", false)
         if icon ~= nil and isvalid(icon) then
@@ -267,6 +276,66 @@ script InventoryPanel extends Logic
     method void HideRow(any btn)
         if btn == nil or not isvalid(btn) then return end
         btn.Entity.Enable = false
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetItemCell(any btn, table item, integer count, boolean selected)
+        if btn == nil or not isvalid(btn) then return end
+        local entity = btn.Entity
+        entity.Enable = true
+        local text = entity.TextGUIRendererComponent
+        if isvalid(text) then text.Text = "" end
+
+        local iconEntity = entity:GetChildByName("Icon", false)
+        if isvalid(iconEntity) then
+            iconEntity.Enable = item.icon_ruid ~= ""
+            if item.icon_ruid ~= "" then
+                local icon = iconEntity.SpriteGUIRendererComponent
+                icon.ImageRUID = DataRef(item.icon_ruid)
+                -- 보유 아이템은 상태 표현 때문에 흐리게 만들지 않는다. 선택 여부는 슬롯 테두리로만 가른다.
+                icon.Color = Color(1, 1, 1, 1)
+                iconEntity.UITransformComponent.anchoredPosition = Vector2(0, -2)
+                iconEntity.UITransformComponent.RectSize = Vector2(62, 62)
+            end
+        end
+
+        local countEntity = entity:GetChildByName("Count", false)
+        if isvalid(countEntity) then
+            countEntity.TextGUIRendererComponent.Text = tostring(count)
+        end
+
+        local sprite = entity.SpriteGUIRendererComponent
+        if isvalid(sprite) then
+            if selected then
+                sprite.Color = Color(0.55, 0.76, 0.95, 1)
+            elseif item.item_type == "equip" then
+                sprite.Color = Color(0.94, 0.90, 0.76, 1)
+            else
+                sprite.Color = Color(0.90, 0.92, 0.95, 1)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RenderItemDetail(PlayerInventory inv)
+        if not isvalid(self.detailTitle) or not isvalid(self.detailBody) then return end
+        if self.selectedItemId == "" then
+            self.detailTitle.Text = "아이템을 선택해 주세요"
+            self.detailBody.Text = "한 번 누르면 설명 · 같은 슬롯을 한 번 더 누르면 사용/장착"
+            return
+        end
+        local item = _GameData:GetItem(self.selectedItemId)
+        if item == nil then
+            self.selectedItemId = ""
+            self.detailTitle.Text = "아이템을 선택해 주세요"
+            self.detailBody.Text = "한 번 누르면 설명 · 같은 슬롯을 한 번 더 누르면 사용/장착"
+            return
+        end
+        local count = inv:GetCount(item.id)
+        self.detailTitle.Text = item.name .. "   x" .. tostring(count)
+        local action = "한 번 더 누르면 사용"
+        if item.item_type == "equip" then action = "한 번 더 누르면 " .. self:SlotLabel(item.slot) .. " 장착" end
+        self.detailBody.Text = self:StatSummary(item, count) .. "   ·   " .. action
     end
 
     @ExecSpace("ClientOnly")
@@ -289,19 +358,18 @@ script InventoryPanel extends Logic
             else
                 local itemId = inv:GetEquipped(slot)
                 if itemId == "" then
-                    self:SetRow(btn, self:SlotLabel(slot) .. "        (비어 있음)", "")
+                    self:SetRow(btn, self:SlotLabel(slot) .. "\n비어 있음", "")
                 else
                     local item = _GameData:GetItem(itemId)
                     if item == nil then
-                        self:SetRow(btn, self:SlotLabel(slot) .. "        " .. itemId, "")
+                        self:SetRow(btn, self:SlotLabel(slot) .. "\n" .. itemId, "")
                     else
                         -- 착용 줄에도 개수를 적는다. 장착은 한 슬롯이지만 수치는
                         -- 보유 개수만큼 붙으므로(T15-1) 개수가 안 보이면
                         -- "왜 +5가 아니라 +15지"의 답이 화면에 없다.
                         local held = inv:GetCount(itemId)
-                        self:SetRow(btn, self:SlotLabel(slot) .. "        " .. item.name
-                            .. " " .. self:CountLabel(item, held)
-                            .. "   " .. self:StatSummary(item, held) .. "        [해제]", item.icon_ruid)
+                        self:SetRow(btn, self:SlotLabel(slot) .. "\n" .. item.name
+                            .. " x" .. tostring(held) .. "\n눌러서 해제", item.icon_ruid)
                     end
                 end
             end
@@ -318,31 +386,30 @@ script InventoryPanel extends Logic
                 row = row + 1
                 self.rowItemIds[row] = id
                 local item = _GameData:GetItem(id)
-                local label = id
-                local icon = ""
                 if item ~= nil then
-                    label = item.name .. "   " .. self:CountLabel(item, count)
-                        .. "        " .. self:StatSummary(item, count)
-                    if item.item_type == "equip" then
-                        label = label .. "        [장착]"
-                    else
-                        label = label .. "        [사용]"
-                    end
-                    icon = item.icon_ruid
+                    self:SetItemCell(self:GetItemRow(row), item, count, id == self.selectedItemId)
+                else
+                    self:HideRow(self:GetItemRow(row))
                 end
-                self:SetRow(self:GetItemRow(row), label, icon)
             end
         end
         for i = row + 1, self.itemRowCount do
             self:HideRow(self:GetItemRow(i))
         end
 
+        if row == 0 then
+            self.selectedItemId = ""
+        elseif self.selectedItemId ~= "" and inv:GetCount(self.selectedItemId) <= 0 then
+            self.selectedItemId = ""
+        end
+        self:RenderItemDetail(inv)
+
         if isvalid(self.hintText) then
             if row == 0 then
                 self.hintText.Text = "가방이 비어 있다. 몬스터를 잡으면 바닥에 떨어진다 — 밟으면 줍는다."
             else
                 -- 한 줄로 둔다. 두 줄이면 마지막 아이템 줄과 겹친다 (ui_lint L023).
-                self.hintText.Text = "장비는 눌러서 장착 · 물약은 눌러서 마신다 · 착용 중인 줄은 눌러서 해제"
+                self.hintText.Text = "아이템 한 번 선택 · 한 번 더 눌러 사용/장착 · 착용 칸은 눌러서 해제"
             end
         end
     end
@@ -377,6 +444,13 @@ script InventoryPanel extends Logic
 
         local item = _GameData:GetItem(itemId)
         if item == nil then return end
+
+        -- 원작형 슬롯 조작: 첫 클릭은 선택/설명, 같은 슬롯을 다시 눌렀을 때 사용 또는 장착.
+        if self.selectedItemId ~= itemId then
+            self.selectedItemId = itemId
+            self:Refresh()
+            return
+        end
 
         ---@type PlayerInventory
         local inv = self:GetInventory()

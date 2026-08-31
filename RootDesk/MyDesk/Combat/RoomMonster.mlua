@@ -256,6 +256,20 @@ script RoomMonster extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void ExpireBoss()
+        -- 보스 제한시간이 끝났을 때 RoomSpawner가 부르는 실패 전용 종료 경로.
+        -- Dead를 호출하면 EXP·포획·아이템·클리어 보상이 전부 지급되므로 여기서는
+        -- 전투 대상에서 내리고 제거만 한다.
+        if self.IsDead then return end
+        self.IsDead = true
+        self.Hp = 0
+        self.Entity:SetVisible(false)
+        self.Entity:SetEnable(false)
+        log("[RoomMonster] 시간초과 제거 " .. self.DisplayName .. " — 보상 없음")
+        self.Entity:Destroy()
+    end
+
+    @ExecSpace("ServerOnly")
     method void Respawn()
         self.IsDead = false
         self.Entity:SetVisible(true)

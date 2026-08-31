@@ -62,10 +62,11 @@ monster_atk_per_level,11.5,몬스터 ATK 레벨당 증가량 - 동레벨 몬스�
 drop_luk_multiplier,0.005,LUK 1P당 드랍률 배율 증가분 - 드랍률 = drop_rate x (1 + LUK x 이 값). LUK 100이면 1.5배. 초안(T13-6). 포획처럼 정액으로 두면 2% 희귀템이 LUK 100에서 7%가 되어 최종 목표템이 희귀하지 않게 된다
 drop_despawn_seconds,30,바닥에 떨어진 아이템이 사라지는 시간(초) - 초안
 drop_pickup_range,0.9,아이템을 줍는 반경(월드 유닛) - 플레이어 공격 반경 1.0보다 살짝 좁게. 초안
-boss_hp_multiplier,3,보스방(room_type=boss) 몬스터의 HP 배율 (T16-1 대표 지시). Lv15 골렘 100 -> 301
-boss_def_multiplier,1,보스 DEF 배율 - **2026-08-27 T28에서 3 -> 1.** DEF 배율은 싸움을 길게 만들고 ATK 배율은 위험하게 만드는데 **둘이 곱해진다** - 이 겹침이 T26-6에서 대표가 보스에게 진 진짜 이유다. 보스의 무게는 HP 배율(x3)이 지고 DEF는 안 건드린다
+boss_hp_multiplier,10,보스방(room_type=boss) 몬스터의 HP 배율. T53에서 상단 HP바·제한시간을 도입하며 3 → 10 — 동레벨 잡몹 약 3타 기준 보스전은 약 30타
+boss_def_multiplier,1,보스 DEF 배율 - **2026-08-27 T28에서 3 -> 1.** DEF 배율은 싸움을 길게 만들고 ATK 배율은 위험하게 만드는데 **둘이 곱해진다** - 이 겹침이 T26-6에서 대표가 보스에게 진 진짜 이유다. 보스의 무게는 HP 배율(x10)이 지고 DEF는 안 건드린다
 boss_atk_multiplier,1.5,보스 ATK 배율 - **2026-08-27 T28에서 3 -> 1.5** (대표 선택). 스텀피 Lv26 기준 7.4대에 잡고 7.5대 버틴다 = 아슬아슬한 대등 승부. **여전히 가장 먼저 조절될 값** - 세다고 느껴지면 여기부터 낮춘다
 boss_exp_multiplier,3,보스 EXP 배율. 19 -> 57. 보스가 재입장마다 다시 서므로 왕복 시간에 값하는 보상이 필요하다
+boss_time_limit_seconds,300,보스전 제한시간 5분. 입장으로 새 보스가 선 순간부터 흐르고 시간초과 시 보상 없이 직전 방으로 퇴장한다(T53)
 capture_base_rate,0.03,기본 포획 확률 3%
 capture_luk_bonus,0.001,LUK 1P당 포획 보정 +0.1%p
 capture_pity_kills,40,종별 포획 천장 - N마리 처치 시 확정

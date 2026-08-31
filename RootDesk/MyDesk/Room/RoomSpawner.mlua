@@ -29,6 +29,15 @@ script RoomSpawner extends Component
     property number SpawnMinY = -4
     property number SpawnMaxY = 6
 
+    -- 보스전 HUD가 읽는 서버 정본. 맵 컴포넌트에 두면 이 방의 보스와 수명이 같고,
+    -- 클라는 별도 추측 없이 동기화된 값만 그리면 된다 (T53).
+    @Sync property boolean BossActive = false
+    @Sync property string BossDisplayName = ""
+    @Sync property number BossHp = 0
+    @Sync property number BossMaxHp = 0
+    @Sync property number BossRemainingSeconds = 0
+    @Sync property number BossTimeLimitSeconds = 0
+
     @HideFromInspector property string monsterId = ""
     @HideFromInspector property string modelId = ""
     @HideFromInspector property integer monsterCount = 0
@@ -37,6 +46,8 @@ script RoomSpawner extends Component
     -- 보스방이면 리필 규칙이 다르다 (아래 ShouldSpawn 참고).
     @HideFromInspector property string roomId = ""
     @HideFromInspector property boolean isBossRoom = false
+    @HideFromInspector property string monsterDisplayName = ""
+    @HideFromInspector property number bossStartedAt = 0
     @HideFromInspector property any userEnterHandler = nil
     @HideFromInspector property integer bossEntryTimer = 0
     -- 지난 검사 때 이 방에 있던 userId 집합. 여기 없던 사람이 나타나면 "새로 들어왔다"다.
@@ -73,6 +84,7 @@ script RoomSpawner extends Component
         -- 모델을 아직 안 만든 몬스터는 건너뛴다. 그냥 스폰하면 SpawnByModelId가
         -- 조용히 nil을 주고 "왜 안 나오지"로 끝난다.
         self.modelId = record.model_id
+        self.monsterDisplayName = record.name
         if self.modelId == "" then
             log_warning("[RoomSpawner] " .. self.Entity.Name .. " 스폰 생략 — "
                 .. self.monsterId .. "(" .. record.name .. ")의 model_id가 비어 있다")
@@ -154,9 +166,21 @@ script RoomSpawner extends Component
         -- 나간 사람은 목록에서 빠진다. 그래야 다시 들어올 때 상승 엣지가 잡힌다.
         self.presentUserIds = nowIds
 
+        -- 보스방이 완전히 비면 그 판은 끝난다. 살아 있는 보스를 남겨 두면 다시
+        -- 들어왔을 때 깎인 HP와 남은 시간이 그대로 이어져 "새 입장"으로 읽히지 않는다.
+        -- 여러 명 중 한 명만 나간 경우에는 남은 사람의 전투를 리셋하지 않는다.
+        if #users == 0 then
+            self:ResetBossWhenRoomEmpty()
+            return
+        end
+
         if entered then
             self:SpawnBossOnEntry()
         end
+
+        -- 입장 감시 주기를 그대로 보스전 상태 갱신 주기로 쓴다. 별도 타이머를 하나 더
+        -- 만들면 맵 종료 때 정리할 수명이 늘고, 두 루프의 순서에 따라 HUD가 흔들린다.
+        self:UpdateBossEncounter(users)
     end
 
     @ExecSpace("ServerOnly")
@@ -181,8 +205,140 @@ script RoomSpawner extends Component
         for i = 1, missing do
             self:SpawnOne()
         end
+        if self:CountAlive() > 0 then
+            self:StartBossEncounter()
+        end
         log("[RoomSpawner] " .. self.Entity.Name .. " 보스 재등장 +" .. tostring(missing)
             .. "  (입장 시 스폰 — 주기 리필로는 서지 않는다)")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void StartBossEncounter()
+        -- 살아 있는 보스에게 누가 추가 입장해도 제한시간을 다시 주지 않는다.
+        -- 이 메서드는 실제로 새 보스를 스폰한 직후에만 호출된다.
+        local limit = _GameData:GetBalance("boss_time_limit_seconds")
+        if limit <= 0 then
+            log_warning("[RoomSpawner] boss_time_limit_seconds가 0 이하 — 안전값 300초 사용")
+            limit = 300
+        end
+
+        self.BossActive = true
+        self.BossDisplayName = self.monsterDisplayName
+        self.BossHp = 0
+        self.BossMaxHp = 0
+        self.BossTimeLimitSeconds = limit
+        self.BossRemainingSeconds = limit
+        self.bossStartedAt = _UtilLogic.ElapsedSeconds
+
+        log("[RoomSpawner] 보스전 시작 " .. self.roomId .. " / "
+            .. self.BossDisplayName .. " / 제한 " .. tostring(limit) .. "초")
+    end
+
+    @ExecSpace("ServerOnly")
+    method any FindLivingBoss()
+        -- 파괴 전 사망 연출 중인 엔티티는 isvalid지만 전투 대상은 아니다.
+        -- IsDead까지 확인해야 HP 0인 보스바가 0.8초 남지 않는다.
+        for i = 1, #self.spawned do
+            local e = self.spawned[i]
+            if isvalid(e) then
+                local monster = e:GetComponent("script.RoomMonster")
+                if monster ~= nil and monster.IsDead == false then
+                    return monster
+                end
+            end
+        end
+        return nil
+    end
+
+    @ExecSpace("ServerOnly")
+    method void UpdateBossEncounter(table users)
+        if self.isBossRoom == false or self.BossActive == false then return end
+
+        local boss = self:FindLivingBoss()
+        if boss == nil then
+            -- 정상 격파. 보상은 RoomMonster.Dead가 이미 처리한다.
+            self.BossActive = false
+            self.BossHp = 0
+            self.BossRemainingSeconds = 0
+            log("[RoomSpawner] 보스전 종료 " .. self.roomId .. " — 격파")
+            return
+        end
+
+        self.BossDisplayName = boss.DisplayName
+        self.BossHp = math.max(boss.Hp, 0)
+        self.BossMaxHp = math.max(boss.MaxHp, 0)
+
+        local remaining = self.BossTimeLimitSeconds
+            - (_UtilLogic.ElapsedSeconds - self.bossStartedAt)
+        if remaining <= 0 then
+            self.BossRemainingSeconds = 0
+            self:FinishBossTimeOver(boss, users)
+            return
+        end
+        self.BossRemainingSeconds = remaining
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ResetBossWhenRoomEmpty()
+        if self.BossActive == false then return end
+
+        local boss = self:FindLivingBoss()
+        if boss ~= nil then boss:ExpireBoss() end
+        self.BossActive = false
+        self.BossDisplayName = self.monsterDisplayName
+        self.BossHp = 0
+        self.BossMaxHp = 0
+        self.BossRemainingSeconds = 0
+        self.bossStartedAt = 0
+        -- ExpireBoss가 즉시 파괴하지만 참조도 바로 비워 다음 입장에서 CountAlive가
+        -- 이전 판 엔티티를 세지 않게 한다.
+        self.spawned = {}
+        log("[RoomSpawner] 보스전 리셋 " .. self.roomId .. " — 방이 비었다")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void FinishBossTimeOver(any boss, table users)
+        -- 시간초과는 처치가 아니다. EXP·포획·보스 클리어·아이템을 주지 않고 제거한다.
+        self.BossActive = false
+        self.BossHp = 0
+        self.BossRemainingSeconds = 0
+        if boss ~= nil then boss:ExpireBoss() end
+
+        local exitRoom = self:GetBossExitRoom()
+        if exitRoom == nil or exitRoom.map_name == "" then
+            log_error("[RoomSpawner] " .. self.roomId .. " 시간초과 퇴장 방을 찾지 못함")
+            return
+        end
+
+        log("[RoomSpawner] 보스전 시간초과 " .. self.roomId .. " → " .. exitRoom.id)
+        for i = 1, #users do
+            local user = users[i]
+            if isvalid(user) and isvalid(user.PlayerComponent) then
+                local userId = user.PlayerComponent.UserId
+                _TeleportService:TeleportToMapPosition(user, Vector3(0, 0, 0), exitRoom.map_name)
+                local movement = user.MovementComponent
+                if movement ~= nil then movement:Stop() end
+                _MoveInputGuard:Begin(userId)
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method table GetBossExitRoom()
+        -- 보스방은 현재 모두 서쪽이 직전 방이지만, 데이터가 바뀌어도 연결된 방 하나로
+        -- 빠져나가게 한다. 연결이 없는 모험가 시험장은 시작 마을로 보낸다.
+        local room = _GameData:GetRoom(self.roomId)
+        if room ~= nil then
+            local directions = { "west", "east", "south", "north" }
+            for i = 1, #directions do
+                local targetId = room.connections[directions[i]]
+                if targetId ~= nil and targetId ~= "" then
+                    local target = _GameData:GetRoom(targetId)
+                    if target ~= nil then return target end
+                end
+            end
+        end
+        return _GameData:GetStartRoom()
     end
 
     @ExecSpace("ServerOnly")
@@ -201,12 +357,17 @@ script RoomSpawner extends Component
 
     @ExecSpace("ServerOnly")
     method integer CountAlive()
-        -- 살아있는 수를 세면서 죽은 참조는 목록에서 걷어낸다.
+        -- 살아있는 수를 세면서 죽은 참조는 목록에서 걷어낸다. 사망 연출 0.8초 동안은
+        -- 엔티티가 아직 isvalid이므로 RoomMonster.IsDead도 봐야 한다. 안 보면 보스를
+        -- 잡자마자 빠르게 재입장했을 때 죽은 몸을 살아 있다고 세어 새 보스가 안 선다.
         local alive = {}
         for i = 1, #self.spawned do
             local e = self.spawned[i]
             if isvalid(e) then
-                table.insert(alive, e)
+                local monster = e:GetComponent("script.RoomMonster")
+                if monster == nil or monster.IsDead == false then
+                    table.insert(alive, e)
+                end
             end
         end
         self.spawned = alive
