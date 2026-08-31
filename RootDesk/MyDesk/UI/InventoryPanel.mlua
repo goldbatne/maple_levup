@@ -55,6 +55,7 @@ script InventoryPanel extends Logic
     property ButtonComponent itemRow26 = "e2eb832d-5a18-4eb5-8214-2a1ee0c8fe76"
     property ButtonComponent itemRow27 = "b23a3cff-4879-4ef3-8297-87867f4b5fbd"
     property ButtonComponent itemRow28 = "44465311-b826-4e9f-92b4-96138ea186e3"
+    property ButtonComponent itemRow29 = "38edbc40-015e-4612-be45-59eafbafa7bf"
 
     -- (엔티티, 핸들러) 병렬 배열. `handler`는 mlua 예약어라 키로 쓸 수 없다.
     property table handlerEntities = {}
@@ -69,7 +70,7 @@ script InventoryPanel extends Logic
     property string selectedItemId = ""
 
     property integer equipRowCount = 3
-    property integer itemRowCount = 29
+    property integer itemRowCount = 30
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -216,6 +217,10 @@ script InventoryPanel extends Logic
         --   하는데 스탯 창은 +125로 늘어 "장비가 이상하다"로 읽힌다.
         --   그래서 **스탯 창과 같은 창구**(`GetItemStackedStatBonus`)에서 값을 받는다.
         if count < 1 then count = 1 end
+        if item.item_type == "passive" then
+            return "보유 효과 " .. item.passive_stat .. " +"
+                .. string.format("%.0f", item.passive_rate * count * 100) .. "%"
+        end
         -- 올스탯만 포인트로 적는다. 수치가 넷 다 달라(물공 +15 / 방어 +30 …) 한 줄에
         -- 다 쓰면 줄을 넘고, 이 아이템의 값어치는 "모든 스탯 몇 P"가 가장 잘 나른다.
         if item.stat_all > 0 then return "올스탯+" .. tostring(item.stat_all * count) .. "P" end
@@ -234,7 +239,7 @@ script InventoryPanel extends Logic
         -- "x3/5" 꼴. 장비만 상한을 같이 보여준다 — 5가 목표 숫자라서
         -- 몇 개가 남았는지가 바로 읽혀야 한다. 포션은 상한이 99라 "/99"가
         -- 잡음이 될 뿐이라 개수만 적는다.
-        if item.item_type == "equip" then
+        if item.item_type == "equip" or item.item_type == "passive" then
             return "x" .. tostring(count) .. "/" .. tostring(_GameData:GetItemStackCap(item.id))
         end
         return "x" .. tostring(count)
@@ -309,6 +314,8 @@ script InventoryPanel extends Logic
         if isvalid(sprite) then
             if selected then
                 sprite.Color = Color(0.55, 0.76, 0.95, 1)
+            elseif item.item_type == "passive" then
+                sprite.Color = Color(0.90, 0.84, 0.97, 1)
             elseif item.item_type == "equip" then
                 sprite.Color = Color(0.94, 0.90, 0.76, 1)
             else
@@ -337,6 +344,8 @@ script InventoryPanel extends Logic
         local action = "한 번 더 누르면 사용"
         if item.item_type == "equip" then
             action = "한 번 더 누르면 " .. self:SlotLabel(item.slot) .. " 장착"
+        elseif item.item_type == "passive" then
+            action = "인벤토리 보유 중 자동 적용"
         end
         self.detailBody.Text = self:StatSummary(item, count) .. "   ·   " .. action
     end
@@ -465,6 +474,12 @@ script InventoryPanel extends Logic
             log("[Inventory창] 사용 요청 " .. itemId)
             inv:RequestUseItem(itemId)
             self:Refresh()
+            return
+        end
+
+        -- 패시브 아이템은 선택해서 설명만 본다. 재클릭해도 장착/사용 요청을 보내지 않는다.
+        if item.item_type == "passive" then
+            log("[Inventory창] 패시브 확인 " .. itemId .. " — 보유 중 자동 적용")
             return
         end
 

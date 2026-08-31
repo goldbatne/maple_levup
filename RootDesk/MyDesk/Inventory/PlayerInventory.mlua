@@ -135,6 +135,13 @@ script PlayerInventory extends Component
         self.Items[itemId] = after
         log("[Inventory] 획득 " .. record.name .. " +" .. tostring(added)
             .. "  (" .. tostring(before) .. " → " .. tostring(after) .. "/" .. tostring(cap) .. ")")
+        if record.item_type == "passive" then
+            ---@type PlayerStats
+            local stats = self.Entity:GetComponent("script.PlayerStats")
+            if stats ~= nil then stats:ApplyMaxHp() end
+            log("[Inventory] 패시브 자동 적용 " .. record.name .. "  "
+                .. record.passive_stat .. " +" .. string.format("%.0f", record.passive_rate * after * 100) .. "%")
+        end
         self:MarkSave("아이템 획득")
         return added
     end
@@ -160,6 +167,11 @@ script PlayerInventory extends Component
         local record = _GameData:GetItem(itemId)
         local name = itemId
         if record ~= nil then name = record.name end
+        if record ~= nil and record.item_type == "passive" then
+            ---@type PlayerStats
+            local stats = self.Entity:GetComponent("script.PlayerStats")
+            if stats ~= nil then stats:ApplyMaxHp() end
+        end
         log("[Inventory] 소모 " .. name .. " -" .. tostring(count)
             .. "  (" .. tostring(before) .. " → " .. tostring(after) .. ")")
         self:MarkSave("아이템 소모")

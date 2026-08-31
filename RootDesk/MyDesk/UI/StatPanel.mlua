@@ -143,7 +143,8 @@ script StatPanel extends Logic
         -- "분배값 (총합)" 꼴. 총합에는 기본값과 **장비분**이 들어 있다 (T13-4).
         -- 네 스탯을 같은 꼴로 맞춘 이유: ATK만 총합을 보여주던 동안 장비를 껴도
         -- DEF·LUK 줄은 숫자가 그대로여서 "장비가 안 먹었다"로 보였다.
-        self.strValue.Text = self:StatText(stats.StatStr, stats:GetTotalAtk())
+        self.strValue.Text = self:StatTextWithRate(stats.StatStr, stats:GetTotalAtk(),
+            stats:GetPassiveItemRate("STR"))
         self.intValue.Text = self:StatText(stats.StatInt, stats:GetTotalInt())
         self.dexValue.Text = self:StatText(stats.StatDex, stats:GetTotalDef())
         self.lukValue.Text = self:StatText(stats.StatLuk, stats:GetTotalLuk())
@@ -154,6 +155,15 @@ script StatPanel extends Logic
         -- "3  (18)" 꼴로 맞춘다. 소수점이 붙지 않게 총합은 내림한다 —
         -- 밸런스 값이 실수라 그냥 tostring하면 "18.0"으로 나온다.
         return tostring(allocated) .. "  (" .. tostring(math.floor(total)) .. ")"
+    end
+
+    @ExecSpace("ClientOnly")
+    method string StatTextWithRate(integer allocated, number total, number rate)
+        -- 히어로 패시브처럼 분배 수치를 비율로 키우는 효과는 왼쪽에 함께 적는다.
+        -- 실제 전투 수치는 기존처럼 괄호 안에 둔다.
+        local rateText = ""
+        if rate > 0 then rateText = " +" .. string.format("%.0f", rate * 100) .. "%" end
+        return tostring(allocated) .. rateText .. "  (" .. tostring(math.floor(total)) .. ")"
     end
 
 end

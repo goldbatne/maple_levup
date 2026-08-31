@@ -584,7 +584,9 @@ script WorldMapPanel extends Logic
                         if room.room_type == "boss" and item.drop_from ~= "*" then chance = "확정" end
                         if isvalid(label) then
                             label.Entity.Enable = true
-                            label.Text = "장비 · " .. item.name .. "   " .. chance
+                            local kind = "장비"
+                            if item.item_type == "passive" then kind = "패시브 · 보유 시 자동 적용" end
+                            label.Text = kind .. " · " .. item.name .. "   " .. chance
                         end
                         if isvalid(icon) then
                             icon.Entity.Enable = true

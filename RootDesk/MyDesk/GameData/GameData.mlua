@@ -278,21 +278,11 @@ script GameData extends Logic
                     -- 아직 모델을 안 만든 몬스터는 비어 있고, 스포너가 건너뛴다.
                     model_id = self:ToText(row:GetItem("model_id")),
 
-                    -- 격파하면 **확실히** 넘어오는 스킬 목록 (T16-3, 대표 지시 2026-08-20).
-                    -- 파이프 구분이라 한 상대가 여러 개를 준다 — "다 얻고 거기서 고른다".
-                    --
-                    -- ## drop_skill_id와 물리적으로 갈라 둔 이유
-                    --
-                    -- 획득 규칙이 정반대다:
-                    --   drop_skill_id  = 포획. **확률**(3% + LUK)이고 5장까지 **중복 강화**된다.
-                    --   npc_skill_ids  = 격파. **확정**이고 **1장 고정**(중복 강화 없음).
-                    -- 한 칸에 섞으면 어느 규칙으로 굴릴지를 매번 다시 판단해야 하고,
-                    -- 그 판단이 두 곳에 생기는 순간 어긋난다. 그래서 칸부터 나눈다
-                    -- (전투는 GetTotalX / 게이트는 GetStatWithoutEquip과 같은 판단).
-                    --
-                    -- 시험 상대는 drop_skill_id가 비어 있어 `TryCapture`가 즉시 빠져나간다 —
-                    -- 포획 판정도 천장 카운터도 타지 않는다.
-                    npc_skill_ids = self:SplitIds(self:ToText(row:GetItem("npc_skill_ids"))),
+                    -- 보스가 전투 중 사용할 전용 스킬 목록 (T56).
+                    -- `drop_skill_id`는 플레이어가 포획해 얻는 스킬이고,
+                    -- `combat_skill_ids`는 적만 쓰는 패턴이다. 히어로처럼 직업 캐릭터의
+                    -- 기술을 플레이어 보상과 엮지 않기 위해 물리적으로 분리한다.
+                    combat_skill_ids = self:SplitIds(self:ToText(row:GetItem("combat_skill_ids"))),
                 }
             end
         end
@@ -450,13 +440,17 @@ script GameData extends Logic
                     --
                     -- 세 가지 꼴을 받는다 (T23-5, 대표 지시 "몬스터들이 다 포션을 드랍"):
                     --   `m_snail`              한 마리
-                    --   `m_snail|m_mushroom`   여러 마리 (npc_skill_ids와 같은 파이프 구분)
+                    --   `m_snail|m_mushroom`   여러 마리 (combat_skill_ids와 같은 파이프 구분)
                     --   `*`                    **모든 몬스터**
                     -- `*`를 둔 이유: 몬스터를 나열하면 새 몬스터를 추가할 때마다 이 줄을
                     -- 고쳐야 하고, 안 고치면 그 몬스터만 조용히 포션을 안 떨군다.
                     drop_from = self:ToText(row:GetItem("drop_from")),
                     drop_rate = self:ToNumber(row:GetItem("drop_rate"), 0),
                     icon_ruid = self:ToText(row:GetItem("icon_ruid")),
+                    -- 인벤토리에 가지고 있기만 해도 적용되는 패시브 아이템 (T56).
+                    -- passive_rate는 0.01 = 1%처럼 비율로 저장한다.
+                    passive_stat = self:ToText(row:GetItem("passive_stat")),
+                    passive_rate = self:ToNumber(row:GetItem("passive_rate"), 0),
                 }
 
                 -- 몬스터 → 떨어뜨리는 아이템 역인덱스. 드랍 판정(T13-6)이 처치 시점에
@@ -540,12 +534,11 @@ script GameData extends Logic
         return self.monsters[id]
     end
 
-    method table GetNpcSkillIds(string monsterId)
-        -- 이 상대를 격파하면 확정으로 넘어오는 스킬 목록 (T16-3). 없으면 빈 배열.
-        -- 포획(drop_skill_id)과 섞이지 않게 창구를 따로 둔다 — LoadMonsters 주석 참고.
+    method table GetCombatSkillIds(string monsterId)
+        -- 이 적이 전투 중 사용할 전용 스킬 목록. 플레이어 보상과 무관하다 (T56).
         local record = self.monsters[monsterId]
         if record == nil then return {} end
-        return record.npc_skill_ids
+        return record.combat_skill_ids
     end
 
     method table GetRoom(string id)

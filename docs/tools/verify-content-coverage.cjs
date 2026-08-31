@@ -39,8 +39,8 @@ function readUiComponent(filepath, path, type) {
   return json["@components"].find((component) => component["@type"] === type) || null;
 }
 
-const monsters = readCsv("RootDesk/MyDesk/GameData/MonsterTable.csv")
-  .filter((monster) => monster.id !== "m_adv_hero");
+const allMonsters = readCsv("RootDesk/MyDesk/GameData/MonsterTable.csv");
+const monsters = allMonsters.filter((monster) => monster.id !== "m_adv_hero");
 const skills = readCsv("RootDesk/MyDesk/GameData/SkillTable.csv");
 const items = readCsv("RootDesk/MyDesk/GameData/ItemTable.csv");
 const rooms = readCsv("RootDesk/MyDesk/GameData/RoomTable.csv");
@@ -52,7 +52,7 @@ const skillById = new Map(skills.map((skill) => [skill.id, skill]));
 const missingSkill = monsters
   .filter((monster) => !monster.drop_skill_id || !skillIds.has(monster.drop_skill_id))
   .map((monster) => monster.id);
-const missingItem = monsters
+const missingItem = allMonsters
   .filter((monster) => !items.some((item) => item.drop_from.split("|").includes(monster.id)))
   .map((monster) => monster.id);
 const validItemIcon = (item) => /^(thumbnail:\/\/)?[0-9a-f]{32}$/.test(item.icon_ruid);
@@ -66,13 +66,26 @@ const badRuid = [
 ];
 const specificItems = items.filter((item) => item.drop_from !== "*");
 const badItemTypeMapping = specificItems
-  .filter((item) => item.item_type !== "equip")
+  .filter((item) => item.item_type !== "equip" && item.id !== "i_hero_sword")
   .map((item) => item.id);
 const validEquipSlots = new Set(["weapon", "armor", "accessory"]);
 const badEquipment = specificItems
   .filter((item) => item.item_type === "equip")
   .filter((item) => !validEquipSlots.has(item.slot) || !/원작 아이템 \d+/.test(item.note))
   .map((item) => item.id);
+const heroPassive = items.find((item) => item.id === "i_hero_sword");
+const heroPassiveOk = heroPassive !== undefined
+  && heroPassive.name === "히어로의 검"
+  && heroPassive.item_type === "passive"
+  && heroPassive.slot === ""
+  && heroPassive.passive_stat === "STR"
+  && Number(heroPassive.passive_rate) === 0.01
+  && Number(heroPassive.stack_max) === 5
+  && heroPassive.drop_from === "m_adv_hero";
+const heroCombatOnlyOk = skills.filter((skill) => skill.id.startsWith("s_hero_"))
+  .every((skill) => skill.source === "boss" && skill.slot_type === "enemy")
+  && allMonsters.find((monster) => monster.id === "m_adv_hero")?.combat_skill_ids
+    === "s_hero_01|s_hero_def|s_hero_02|s_hero_03|s_hero_04";
 const correctedPassiveEquipment = new Map([
   ["i_maple_spear", { name: "메이플 스피어", slot: "weapon", stat_atk: 5, itemId: "1432012", ruid: "a911d7794deb4d04a32188b55eda32ab" }],
   ["i_bronze_crusader_helm", { name: "브론즈 크루세이더 헬름", slot: "armor", stat_def: 6, itemId: "1002086", ruid: "1147bf323fb74b949312a89dc350f506" }],
@@ -116,13 +129,11 @@ const passiveEffectResidue = skills
     || Number(skill.dash_distance) !== 0)
   .map((skill) => skill.id);
 const activeWithoutVisual = skills
-  .filter((skill) => skill.source === "monster" && skill.skill_kind !== "passive")
+  .filter((skill) => (skill.source === "monster" || skill.source === "boss") && skill.skill_kind !== "passive")
   .filter((skill) => !skill.effect_ruid && !skill.projectile_ruid)
   .map((skill) => skill.id);
 const bossRooms = rooms.filter((room) => room.room_type === "boss");
 const bossItemMissing = bossRooms
-  // 모험가 시험 상대는 장비 대신 직업 스킬 5종을 확정 지급하는 NPC다.
-  .filter((room) => room.monster_id !== "m_adv_hero")
   .filter((room) => !items.some((item) => item.drop_from.split("|").includes(room.monster_id)))
   .map((room) => room.id + ":" + room.monster_id);
 
@@ -167,6 +178,12 @@ const playerHudEntities = playerHudUi.ContentProto.Entities.map((entity) => ({
 const playerHudMlua = fs.readFileSync("RootDesk/MyDesk/UI/PlayerHud.mlua", "utf8");
 const roomSpawnerMlua = fs.readFileSync("RootDesk/MyDesk/Room/RoomSpawner.mlua", "utf8");
 const itemDropMlua = fs.readFileSync("RootDesk/MyDesk/Inventory/ItemDrop.mlua", "utf8");
+const playerStatsMlua = fs.readFileSync("RootDesk/MyDesk/Player/PlayerStats.mlua", "utf8");
+const playerInventoryMlua = fs.readFileSync("RootDesk/MyDesk/Inventory/PlayerInventory.mlua", "utf8");
+const roomMonsterMlua = fs.readFileSync("RootDesk/MyDesk/Combat/RoomMonster.mlua", "utf8");
+const playerCollectionMlua = fs.readFileSync("RootDesk/MyDesk/Progress/PlayerCollection.mlua", "utf8");
+const monsterAttackMlua = fs.readFileSync("RootDesk/MyDesk/MonsterAttack.mlua", "utf8");
+const playerDbMlua = fs.readFileSync("RootDesk/MyDesk/Save/PlayerDBManager.mlua", "utf8");
 const topMenuTransforms = [
   ["stat", "ui/StatGroup.ui", "/ui/StatGroup/OpenBtn", -478],
   ["skill", "ui/EquipWindow.ui", "/ui/EquipWindow/OpenBtn", -354],
@@ -182,7 +199,7 @@ const topMenuRightEdges = topMenuTransforms.map(([name, transform]) => [
   name, transform === null ? null : transform.anchoredPosition.x,
 ]);
 const bindings = [];
-for (let i = 0; i < 29; i += 1) {
+for (let i = 0; i < 30; i += 1) {
   const match = mlua.match(new RegExp(
     "property ButtonComponent itemRow" + i + " = \"([^\"]+)\"",
   ));
@@ -242,7 +259,7 @@ const popupBindingsOk = Object.entries(popupBindingPaths).every(([property, path
     (entity) => entity.id === match[1] && entity.path === path,
   );
 });
-const inventoryIconAlphaOk = Array.from({ length: 29 }, (_, i) => {
+const inventoryIconAlphaOk = Array.from({ length: 30 }, (_, i) => {
   const path = "/ui/Inventory/Window/Box/ItemRow" + i + "/Icon";
   const sprite = readUiComponent("ui/Inventory.ui", path, "MOD.Core.SpriteGUIRendererComponent");
   const transform = readUiTransform("ui/Inventory.ui", path);
@@ -274,6 +291,18 @@ const result = {
   missingItem,
   badRuid,
   equipmentItems: specificItems.filter((item) => item.item_type === "equip").length,
+  passiveItems: specificItems.filter((item) => item.item_type === "passive").length,
+  heroPassiveOk,
+  heroCombatOnlyOk,
+  heroPassiveWiringOk: /method number GetPassiveItemRate/.test(playerStatsMlua)
+    && /GetPassiveItemRate\("STR"\)/.test(playerStatsMlua)
+    && /GetPassiveItemBonus\("ATK"\)/.test(playerStatsMlua)
+    && /record\.item_type == "passive"/.test(playerInventoryMlua)
+    && /stats:ApplyMaxHp\(\)/.test(playerInventoryMlua),
+  heroRewardSeparationOk: !/GrantNpcSkills/.test(roomMonsterMlua)
+    && !/GrantNpcSkills/.test(playerCollectionMlua)
+    && /GetCombatSkillIds/.test(monsterAttackMlua)
+    && /skill\.source == "monster"/.test(playerDbMlua),
   badItemTypeMapping,
   badEquipment,
   badCorrectedPassiveEquipment,
@@ -325,6 +354,8 @@ console.log(JSON.stringify(result, null, 2));
 
 if (missingSkill.length || missingItem.length || badRuid.length
   || badItemTypeMapping.length || badEquipment.length || badCorrectedPassiveEquipment.length
+  || !heroPassiveOk || !heroCombatOnlyOk
+  || !result.heroPassiveWiringOk || !result.heroRewardSeparationOk
   || legacyMaterialResidue.length
   || passiveEffectResidue.length || activeWithoutVisual.length || badGateSkills.length
   || bossRooms.length !== 6 || bossItemMissing.length
@@ -336,7 +367,7 @@ if (missingSkill.length || missingItem.length || badRuid.length
   || topMenuTransforms.some(([, transform, expectedRight]) => (
     transform === null || transform.anchoredPosition.x !== expectedRight
   ))
-  || result.inventorySlots !== 29 || !result.bindingsOk || !result.inventoryIconAlphaOk
+  || result.inventorySlots !== 30 || !result.bindingsOk || !result.inventoryIconAlphaOk
   || result.equipCells !== 28 || !result.equipCellCountOk
   || result.skillGridColumns !== 5 || !result.skillIconAlphaOk
   || !result.roomProgressDisabled || result.worldMapTop !== -150
