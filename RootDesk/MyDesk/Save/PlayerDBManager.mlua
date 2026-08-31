@@ -326,6 +326,10 @@ script PlayerDBManager extends Component
                 local record = _GameData:GetItem(id)
                 if record == nil then
                     log_warning("[PlayerDB] 없는 아이템의 장착을 버린다: " .. tostring(id))
+                elseif record.item_type ~= "equip" then
+                    -- 소비 아이템 같은 비장비 ID가 잘못 저장돼 있어도 장착으로 복원하지 않는다.
+                    log_warning("[PlayerDB] 장비가 아닌 아이템의 옛 장착을 버린다: "
+                        .. tostring(id) .. " (" .. record.item_type .. ")")
                 elseif record.slot ~= slot then
                     log_warning("[PlayerDB] 슬롯이 바뀐 장착을 버린다: " .. tostring(id)
                         .. " (저장=" .. tostring(slot) .. " 현재=" .. record.slot .. ")")

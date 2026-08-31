@@ -268,6 +268,7 @@ script InventoryPanel extends Logic
             else
                 icon.Enable = true
                 icon.SpriteGUIRendererComponent.ImageRUID = DataRef(iconRuid)
+                icon.SpriteGUIRendererComponent.Color = Color(1, 1, 1, 1)
             end
         end
     end
@@ -334,7 +335,9 @@ script InventoryPanel extends Logic
         local count = inv:GetCount(item.id)
         self.detailTitle.Text = item.name .. "   x" .. tostring(count)
         local action = "한 번 더 누르면 사용"
-        if item.item_type == "equip" then action = "한 번 더 누르면 " .. self:SlotLabel(item.slot) .. " 장착" end
+        if item.item_type == "equip" then
+            action = "한 번 더 누르면 " .. self:SlotLabel(item.slot) .. " 장착"
+        end
         self.detailBody.Text = self:StatSummary(item, count) .. "   ·   " .. action
     end
 
@@ -458,7 +461,7 @@ script InventoryPanel extends Logic
 
         -- 소비 아이템은 여기서 바로 쓴다 (T13-7). 퀵슬롯(T13-5b)이 붙으면
         -- 손이 빠른 길이 하나 더 생기는 것이고, 창에서 쓰는 길은 그대로 남는다.
-        if item.item_type ~= "equip" then
+        if item.item_type == "consume" then
             log("[Inventory창] 사용 요청 " .. itemId)
             inv:RequestUseItem(itemId)
             self:Refresh()

@@ -431,7 +431,7 @@ script GameData extends Logic
                 self.items[id] = {
                     id = id,
                     name = self:ToText(row:GetItem("name")),
-                    -- "equip"(장착) / "consume"(소비). 빈 값은 없다고 본다.
+                    -- "equip"(장착) / "consume"(소비). 몬스터 전용 보상은 전부 장비다.
                     item_type = self:ToText(row:GetItem("item_type")),
                     -- 장비가 들어가는 자리: weapon / armor / accessory. 소비는 빈 칸.
                     slot = self:ToText(row:GetItem("slot")),
@@ -444,7 +444,7 @@ script GameData extends Logic
                     stat_all = self:ToNumber(row:GetItem("stat_all"), 0),
                     -- 소비 아이템의 HP 회복량(정액).
                     heal_hp = self:ToNumber(row:GetItem("heal_hp"), 0),
-                    -- 한 칸에 몇 개까지 겹치는가. 장비는 1.
+                    -- 한 칸에 몇 개까지 겹치는가. 장비는 강화 중첩 때문에 5, 소비는 99다.
                     stack_max = self:ToNumber(row:GetItem("stack_max"), 1),
                     -- 이 아이템을 떨어뜨리는 몬스터와 확률.
                     --
