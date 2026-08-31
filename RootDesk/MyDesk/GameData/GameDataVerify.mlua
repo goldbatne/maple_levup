@@ -370,13 +370,15 @@ script GameDataVerify extends Logic
 
     @ExecSpace("ServerOnly")
     method void VerifyItems()
-        -- 아이템 테이블 (T13-2). 조용히 어긋날 수 있는 네 가지를 대조한다:
+        -- 아이템 테이블 (T13-2/T55). 조용히 어긋날 수 있는 네 가지를 대조한다:
         --   ① item_type이 equip/consume 중 하나인가
         --   ② 장비에 slot이 있고, 소비에는 없는가
         --   ③ drop_from이 실재하는 몬스터인가 (오타면 영원히 안 떨어진다)
         --   ④ 아이콘 RUID가 비어 있지 않은가 (비면 인벤토리에 빈 칸으로 보인다)
         local ids = _GameData:GetAllItemIds()
         log("[아이템] 총 " .. tostring(#ids) .. "개")
+        local equipCount = 0
+        local consumeCount = 0
 
         for i = 1, #ids do
             local item = _GameData:GetItem(ids[i])
@@ -387,11 +389,15 @@ script GameDataVerify extends Logic
             end
 
             if item.item_type == "equip" then
+                equipCount += 1
                 if item.slot == "" then
                     log_error("  [아이템] " .. item.id .. " 는 장비인데 slot이 비어 있다")
                 end
-            elseif item.slot ~= "" then
-                log_warning("  [아이템] " .. item.id .. " 는 소비인데 slot이 채워져 있다: " .. item.slot)
+            else
+                consumeCount += 1
+                if item.slot ~= "" then
+                    log_warning("  [아이템] " .. item.id .. " 는 소비인데 slot이 채워져 있다: " .. item.slot)
+                end
             end
 
             -- drop_from은 세 꼴이다 (T23-5): 한 마리 / 파이프로 여럿 / `*`(전체).
@@ -438,6 +444,9 @@ script GameDataVerify extends Logic
                 .. " (" .. item.item_type .. (item.slot ~= "" and "/" .. item.slot or "") .. ")  "
                 .. statText .. "  " .. dropText)
         end
+
+        log("[아이템분류] 장비 " .. tostring(equipCount)
+            .. " / 소비 " .. tostring(consumeCount))
 
         -- 몬스터 → 드랍 역인덱스가 실제로 만들어졌는지. 드랍 판정(T13-6)이 이걸 읽는다.
         local monsterIds = _GameData:GetAllMonsterIds()

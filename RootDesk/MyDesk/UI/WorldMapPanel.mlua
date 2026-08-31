@@ -42,6 +42,7 @@ script WorldMapPanel extends Logic
     property ButtonComponent popupClose = "99557ea1-e84a-43ad-835e-a4779ab1366c"
     property TextGUIRendererComponent popupTitle = "29e6e9b0-17d1-44f2-ac35-3854c38e1fa1"
     property TextGUIRendererComponent popupMonster = "15a92756-a177-4b56-afec-c2b6e5558d51"
+    property TextGUIRendererComponent popupRewardTitle = "d8dc24b1-003f-48e7-94fc-c5e9d143bc65"
     property Entity popupRow1 = "f786d2dd-442a-43a4-bd4d-4251fb991023"
     property Entity popupRow2 = "3ca58ef9-8ae1-4b1b-b88a-25e056209ff6"
     property Entity popupRow3 = "dabfcced-c251-4a1f-8abf-710b068f0e9b"
@@ -505,6 +506,8 @@ script WorldMapPanel extends Logic
         local room = _GameData:GetRoom(roomId)
         if room == nil then return end
 
+        -- Maker가 기존 UI 텍스트를 캐시에 들고 있어도 스킬을 포함하는 제목으로 고정한다.
+        if isvalid(self.popupRewardTitle) then self.popupRewardTitle.Text = "획득 가능한 보상" end
         if isvalid(self.popupTitle) then self.popupTitle.Text = room.name end
         local monster = nil
         if room.monster_id ~= nil and room.monster_id ~= "" then
@@ -518,48 +521,83 @@ script WorldMapPanel extends Logic
                 if level == nil or level <= 0 then level = monster.level end
                 local bossMark = ""
                 if room.room_type == "boss" then bossMark = "◆ 보스  " end
+                -- 방의 스폰 수는 전투 내부 수치다. 보상 팝업에 `x5`로 쓰면
+                -- 아이템 수량처럼 읽히므로 몬스터 이름만 보여준다.
                 self.popupMonster.Text = bossMark .. "Lv" .. tostring(math.floor(level)) .. "  "
-                    .. monster.name .. "   x" .. tostring(math.floor(room.monster_count))
+                    .. monster.name
             end
         end
 
-        local drops = {}
-        if monster ~= nil then drops = _GameData:GetItemDropsOf(monster.id) end
+        -- 이 목록은 드랍 테이블 전체가 아니라 플레이어가 이 방에서 노릴 **보상**이다.
+        -- 공통 물약은 사냥 편의 소비품이라 숨기고 포획 스킬을 첫 줄에 둔다.
+        local rewards = {}
+        if monster ~= nil then
+            if monster.drop_skill_id ~= nil and monster.drop_skill_id ~= "" then
+                local skill = _GameData:GetSkill(monster.drop_skill_id)
+                if skill ~= nil then
+                    table.insert(rewards, { kind = "skill", id = skill.id })
+                end
+            end
+            local itemDrops = _GameData:GetItemDropsOf(monster.id)
+            for i = 1, #itemDrops do
+                local item = _GameData:GetItem(itemDrops[i])
+                if item ~= nil and item.item_type ~= "consume" then
+                    table.insert(rewards, { kind = "item", id = item.id })
+                end
+            end
+        end
         for i = 1, 4 do
             local row = self:PopupDropRow(i)
             local label = self:PopupDropText(i)
             local icon = self:PopupDropIcon(i)
-            local itemId = drops[i]
-            if itemId == nil then
+            local reward = rewards[i]
+            if reward == nil then
                 if isvalid(row) then row.Enable = false end
                 if isvalid(label) then label.Entity.Enable = false end
                 if isvalid(icon) then icon.Entity.Enable = false end
             else
                 if isvalid(row) then row.Enable = true end
-                local item = _GameData:GetItem(itemId)
-                if item == nil then
-                    if isvalid(label) then
-                        label.Entity.Enable = true
-                        label.Text = itemId
+                if reward.kind == "skill" then
+                    local skill = _GameData:GetSkill(reward.id)
+                    if skill == nil then
+                        if isvalid(label) then label.Entity.Enable = false end
+                        if isvalid(icon) then icon.Entity.Enable = false end
+                    else
+                        local capture = string.format("%.0f%%", _GameData:GetBalance("capture_base_rate") * 100)
+                        if isvalid(label) then
+                            label.Entity.Enable = true
+                            label.Text = "스킬 · " .. skill.name .. "   포획 " .. capture
+                        end
+                        if isvalid(icon) then
+                            icon.Entity.Enable = true
+                            icon.ImageRUID = DataRef(skill.icon_ruid)
+                            icon.Color = Color(1, 1, 1, 1)
+                        end
                     end
-                    if isvalid(icon) then icon.Entity.Enable = false end
                 else
-                    local chance = string.format("%.0f%%", item.drop_rate * 100)
-                    if room.room_type == "boss" and item.drop_from ~= "*" then chance = "확정" end
-                    if isvalid(label) then
-                        label.Entity.Enable = true
-                        label.Text = item.name .. "   " .. chance
-                    end
-                    if isvalid(icon) then
-                        icon.Entity.Enable = true
-                        icon.ImageRUID = DataRef(item.icon_ruid)
-                        icon.Color = Color(1, 1, 1, 1)
+                    local item = _GameData:GetItem(reward.id)
+                    if item == nil then
+                        if isvalid(label) then label.Entity.Enable = false end
+                        if isvalid(icon) then icon.Entity.Enable = false end
+                    else
+                        local chance = string.format("%.0f%%", item.drop_rate * 100)
+                        if room.room_type == "boss" and item.drop_from ~= "*" then chance = "확정" end
+                        if isvalid(label) then
+                            label.Entity.Enable = true
+                            label.Text = "장비 · " .. item.name .. "   " .. chance
+                        end
+                        if isvalid(icon) then
+                            icon.Entity.Enable = true
+                            icon.ImageRUID = DataRef(item.icon_ruid)
+                            icon.Color = Color(1, 1, 1, 1)
+                        end
                     end
                 end
             end
         end
         if isvalid(self.popup) then self.popup.Enable = true end
-        log("[WorldMap] 방 정보 열림 " .. roomId .. "  드랍 " .. tostring(#drops) .. "종")
+        log("[WorldMap] 방 정보 열림 " .. roomId .. "  보상 " .. tostring(#rewards)
+            .. "종 (공통 소비 아이템 제외)")
     end
 
     @ExecSpace("ClientOnly")

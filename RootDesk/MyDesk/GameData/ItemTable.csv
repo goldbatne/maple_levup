@@ -1,30 +1,30 @@
 ﻿id,name,item_type,slot,stat_atk,stat_int,stat_def,stat_luk,stat_all,heal_hp,stack_max,drop_from,drop_rate,icon_ruid,note
-i_potion_red,빨간 포션,consume,,0,0,0,0,0,300,99,*,0.15,234aca1a4ce946119b68e3717991e775,회복량 300은 초안 - HP 1000 기준 3할. drop_from=* 는 모든 몬스터를 뜻한다(T23-5)
-i_sword_iron,무쇠 검,equip,weapon,5,0,0,0,0,0,5,m_horny_mushroom,0.03,7c92e0752a8342bb9fc05c2bafebdeae,stat_* 컬럼은 **스탯 포인트 상당**이다(T30) - 5P = 물리 공격력 +25(STR 계수 5). 5개까지 중첩해 최대 25P = 125
-i_wand_spark,불티 완드,equip,weapon,0,5,0,0,0,0,5,m_mushroom,0.03,e6f7d5c89ddf4501b872a2d077809eab,5P = 마법 공격력 +25(INT 계수 5). 자동공격 계수가 max(물리/마법)이라 INT 빌드도 무기가 필요하다. 쉼표를 쓰면 컬럼이 밀린다. 5중첩 최대 25P
-i_armor_leather,가죽 갑옷,equip,armor,0,0,5,0,0,0,5,m_blue_snail,0.03,294ea34ebfc44500b2eb4772505a76c5,5P = 방어력 +50(DEX 계수 10). 같은 5P인데 값이 검의 2배인 것은 계수가 달라서다 - 세기는 같다. 5중첩 최대 25P / 아이콘은 원작 옐로우 레더
-i_amulet_luck,행운의 목걸이,equip,accessory,0,0,0,5,0,0,5,m_stone_golem,0.05,1770229735c64cc78370acbc05e46872,5P = LUK +5(포인트가 곧 값이다 - GetTotalLuk은 분배 포인트 수다). 포획률과 드랍률에 얹힌다. 5중첩 최대 25P
-i_ring_all,머쉬맘의 균형 반지,equip,accessory,0,0,0,0,3,0,5,m_mushmom,0.02,7d69460a56d84d5fb4f224342294df99,헤네시스 보스 전용 올스탯 3P 장비. 네 수치 전부에 3P어치가 얹힌다(물공+15 / 마공+15 / 방어+30 / LUK+3). 5중첩 최대 올스탯 15P
-i_shell_charm,단단한 껍질 부적,equip,accessory,0,0,3,0,0,0,5,m_snail,0.03,00601c0ba2e0491092c8688d9c13f460,달팽이 전용 장비. 초반 방어 3P
-i_axe_wood,도끼나무 손잡이,equip,weapon,6,0,0,0,0,0,5,m_axe_stump,0.03,cd60c576e23b469986aaa207905b3b21,엑스텀프 전용 장비. 물리 6P
-i_dark_root,검은 뿌리 부적,equip,accessory,0,6,0,0,0,0,5,m_dark_axe_stump,0.03,ce2abbca8e5a497bba4a235e4d1db289,다크 엑스텀프 전용 장비. 마법 6P
-i_boar_tusk,멧돼지 송곳니,equip,weapon,6,0,0,0,0,0,5,m_wild_boar,0.03,068e406b09b8469bbc914c12ade18d5f,와일드보어 전용 장비. 물리 6P
-i_bone_plate,지휘관의 골갑,equip,armor,0,0,6,0,0,0,5,m_skeleton_commander,0.03,4353c5f7f7ff45f28d681d3e2eece265,스켈레톤 지휘관 전용 장비. 방어 6P
-i_iron_hoof,강철 발굽 갑옷,equip,armor,0,0,6,0,0,0,5,m_iron_hog,0.03,798c9751297543519cea1984b7b0333f,아이언 호그 전용 장비. 방어 6P
-i_fire_tusk,불붙은 송곳니,equip,weapon,0,6,0,0,0,0,5,m_fire_boar,0.03,bc2522ab99304e0cb8a3f752fb99fe59,파이어보어 전용 장비. 마법 6P
-i_stumpy_sapling,스텀피 묘목,equip,accessory,0,0,0,0,4,0,5,m_stumpy,0.02,0c93ea8bf2fd462da2bf51205cd38781,페리온 보스 전용 올스탯 4P 장비
-i_slime_bubble,슬라임 방울 갑옷,equip,armor,0,0,5,0,0,0,5,m_slime,0.03,0c4f4c97ae3d4e76b85dc954ee05e061,슬라임 전용 장비. 방어 5P
-i_fairy_heart,요정의 심장,equip,accessory,0,5,0,0,0,0,5,m_fairy,0.03,5eb88c5c48ad4b4e92ad6eed9683b2ca,페어리 전용 장비. 마법 5P
-i_dark_bark,검은 나무껍질,equip,armor,0,0,5,0,0,0,5,m_dark_stump,0.03,4e732fab1bc74ce9a85e74c51744c06d,다크 스텀프 전용 장비. 방어 5P
-i_bubbling_orb,버블링 큰 방울,equip,accessory,0,0,0,5,0,0,5,m_bubbling,0.03,ee7a45c22990498892f74a3cc3c26fe8,버블링 전용 장비. LUK 5P
-i_faust_tail,파우스트 꼬리 부적,equip,accessory,0,0,0,0,3,0,5,m_faust,0.02,f90d986b525a44f1b8b18daccf61bcda,엘리니아 보스 전용 올스탯 3P 장비
-i_octopus_leg,먹물 묻은 다리,equip,weapon,0,7,0,0,0,0,5,m_octopus,0.03,294ce4fd15bb405b8c57f0ae6f7a0bce,옥토퍼스 전용 장비. 마법 7P
-i_stirge_wing,스티지 날개 부적,equip,accessory,0,0,0,7,0,0,5,m_stirge,0.03,663913cb59df4ce9af570523df0c9d18,스티지 전용 장비. LUK 7P
-i_jr_wraith_cloak,주니어 망령포,equip,armor,0,0,7,0,0,0,5,m_jr_wraith,0.03,92aea2487fc8489ea332407eb6ed65de,주니어 레이스 전용 장비. 방어 7P
-i_wraith_soul,레이스 원혼석,equip,accessory,0,7,0,0,0,0,5,m_wraith,0.03,e2c5d9ad480c46578f5c5d265995b3f8,레이스 전용 장비. 마법 7P
-i_shade_charm,그림자 부적,equip,accessory,0,0,0,0,4,0,5,m_shade,0.02,301856fdcded4e278e0f93e7abdda770,커닝시티 보스 전용 올스탯 4P 장비
-i_red_ribbon,붉은 리본 부적,equip,accessory,0,0,0,8,0,0,5,m_ribbon_pig,0.03,0c2847f2816d47f092f8348122008d7b,리본 돼지 전용 장비. LUK 8P
-i_blue_ribbon,푸른 리본 갑옷,equip,armor,0,0,8,0,0,0,5,m_blue_pig,0.03,29d2efec8b3d46d4bc54a47c6149926f,파란 리본돼지 전용 장비. 방어 8P
-i_starfish_spine,별가시 칼날,equip,weapon,8,0,0,0,0,0,5,m_starfish,0.03,3fd574fd98b248dbaee5c3d281483ece,불가사리 전용 장비. 물리 8P
-i_cool_jelly,차가운 젤리 완드,equip,weapon,0,8,0,0,0,0,5,m_jellyfish,0.03,7b8d0db57da24be0b94c8621c16de4ec,쿨 젤리피쉬 전용 장비. 마법 8P
-i_balrog_soul,주니어 발록 영혼석,equip,accessory,0,0,0,0,5,0,5,m_jr_balrog,0.02,99036c94c3c4457286da79e3d67c02d9,노틸러스 보스 전용 올스탯 5P 장비
+i_potion_red,빨간 포션,consume,,0,0,0,0,0,300,99,*,0.15,234aca1a4ce946119b68e3717991e775,회복량 300. 모든 몬스터 공통 드랍이지만 지도 보상 목록에서는 숨긴다
+i_maple_spear,메이플 스피어,equip,weapon,5,0,0,0,0,0,5,m_horny_mushroom,0.03,thumbnail://a911d7794deb4d04a32188b55eda32ab,뿔버섯 실제 장비 드랍. 기존 장비 스탯 유지. 원작 아이템 1432012
+i_wand_spark,양날 도끼,equip,weapon,5,0,0,0,0,0,5,m_mushroom,0.03,thumbnail://9d1a419ec16444978e7532c9f60eb7d3,주황버섯 실제 장비 드랍. 원작 아이템 1312000
+i_armor_leather,하얀 면 나시,equip,armor,0,0,5,0,0,0,5,m_blue_snail,0.03,thumbnail://b9ff114114a2473d8a76d75de39633ed,파란 달팽이 실제 장비 드랍. 원작 아이템 1040006
+i_amulet_luck,브론즈 하이드후드,equip,armor,0,0,0,5,0,0,5,m_stone_golem,0.05,thumbnail://32ff1302d1d04bc89bc316d560e19386,스톤골렘 실제 장비 드랍. 원작 아이템 1002247
+i_ring_all,페어리 완드,equip,weapon,0,0,0,0,3,0,5,m_mushmom,0.02,thumbnail://ee18d9d44bfa49e6b28d088cf137eced,머쉬맘 실제 장비 드랍. 원작 아이템 1372000
+i_shell_charm,연두색 머리띠,equip,armor,0,0,3,0,0,0,5,m_snail,0.03,thumbnail://274b50c184c047d8abf1b520c958ce98,달팽이 실제 장비 드랍. 원작 아이템 1002067
+i_axe_wood,콘트라 엑스,equip,weapon,6,0,0,0,0,0,5,m_axe_stump,0.03,thumbnail://cdee4e069bc24b49b202f3bfe99bb8a0,엑스텀프 실제 장비 드랍. 원작 아이템 1312016
+i_dark_root,브라운 도로네스 로브,equip,armor,0,6,0,0,0,0,5,m_dark_axe_stump,0.03,thumbnail://f39e411e89c14edc9626d92bae852609,다크 엑스텀프 실제 장비 드랍. 원작 아이템 1051003
+i_boar_tusk,나카마키,equip,weapon,6,0,0,0,0,0,5,m_wild_boar,0.03,thumbnail://72ebf19a38fd48148c8edb6d7e903fb5,와일드보어 실제 장비 드랍. 원작 아이템 1432003
+i_bone_plate,블루 오리엔타이칸,equip,armor,0,0,6,0,0,0,5,m_skeleton_commander,0.03,thumbnail://5ff22c21c2d54e27ac46a79dfbdfa6ac,스켈레톤 지휘관 실제 장비 드랍. 원작 아이템 1040092
+i_bronze_crusader_helm,브론즈 크루세이더 헬름,equip,armor,0,0,6,0,0,0,5,m_iron_hog,0.03,thumbnail://1147bf323fb74b949312a89dc350f506,아이언 호그 실제 장비 드랍. 기존 장비 스탯 유지. 원작 아이템 1002086
+i_fire_tusk,크리스탈 완드,equip,weapon,0,6,0,0,0,0,5,m_fire_boar,0.03,thumbnail://102c15b28a944d2f905872dd10f795ec,파이어보어 실제 장비 드랍. 원작 아이템 1372012
+i_stumpy_sapling,다크 크라페,equip,armor,0,0,0,0,4,0,5,m_stumpy,0.02,thumbnail://06caa2bdbad9488ba9acfe336df01da6,스텀피 실제 장비 드랍. 원작 아이템 1002170
+i_slime_bubble,레모나,equip,armor,0,0,5,0,0,0,5,m_slime,0.03,thumbnail://cfbfec45bb1c4f4495f206b81c212f7c,슬라임 실제 장비 드랍. 원작 아이템 1082019
+i_fairy_heart,빨간하트 귀고리,equip,accessory,0,5,0,0,0,0,5,m_fairy,0.03,thumbnail://84c16d587fbc465fbb4beee1e8bf27bc,페어리 실제 장비 드랍. 원작 아이템 1032013
+i_dark_bark,사각 나무 방패,equip,armor,0,0,5,0,0,0,5,m_dark_stump,0.03,thumbnail://7d4cc6871503458bb8de7576c7047ef3,다크 스텀프 실제 장비 드랍. 원작 아이템 1092003
+i_maple_sword,메이플 소드,equip,weapon,0,0,0,5,0,0,5,m_bubbling,0.03,thumbnail://4668b7ab224449fc94805e2e6cb0f6f5,버블링 실제 장비 드랍. 기존 장비 스탯 유지. 원작 아이템 1302020
+i_faust_tail,크로미,equip,weapon,0,0,0,0,3,0,5,m_faust,0.02,thumbnail://f40b305407874e928e59ca9d6c9090fd,파우스트 실제 장비 드랍. 원작 아이템 1372007
+i_octopus_leg,한쪽 은 귀고리,equip,accessory,0,7,0,0,0,0,5,m_octopus,0.03,thumbnail://42998039a9db44c3a4fb866967748ee8,옥토퍼스 실제 장비 드랍. 원작 아이템 1032001
+i_work_glove,노가다 목장갑,equip,armor,0,0,0,7,0,0,5,m_stirge,0.03,thumbnail://2e58683f2f094f099a0813c36e278dd5,스티지 실제 장비 드랍. 기존 장비 스탯 유지. 원작 아이템 1082002
+i_jr_wraith_cloak,다크 크로스 체인메일,equip,armor,0,0,7,0,0,0,5,m_jr_wraith,0.03,thumbnail://e9f071e143634b1cb397d53af302ab7e,주니어 레이스 실제 장비 드랍. 원작 아이템 1050022
+i_maple_lama_staff,메이플 라마 스태프,equip,weapon,0,7,0,0,0,0,5,m_wraith,0.03,thumbnail://be49540382d54da6a01fefcc4cd10e83,레이스 실제 장비 드랍. 기존 장비 스탯 유지. 원작 아이템 1382012
+i_shade_charm,베이지 우산,equip,weapon,0,0,0,0,4,0,5,m_shade,0.02,thumbnail://6089a3f4e8e64cfca32824c3d1c96847,셰이드 실제 장비 드랍. 원작 아이템 1302029
+i_red_ribbon,자수정 귀고리,equip,accessory,0,0,0,8,0,0,5,m_ribbon_pig,0.03,thumbnail://62d38d3d1bfb4412a7ccd9f169b1a142,리본 돼지 실제 장비 드랍. 원작 아이템 1032003
+i_steel_mail,스틸 메일,equip,armor,0,0,8,0,0,0,5,m_blue_pig,0.03,thumbnail://d936956da3ec44079be5dcb6bf08a69f,파란 리본돼지 실제 장비 드랍. 기존 장비 스탯 유지. 원작 아이템 1051000
+i_starfish_spine,아쿠아 스노우보드,equip,weapon,8,0,0,0,0,0,5,m_starfish,0.03,thumbnail://70c2515b138b47ee9ea8686c73f806c3,불가사리와 맞춘 노틸러스 수중 장비. 원작 아이템 1442013
+i_dragon_halberd,구룡도,equip,weapon,0,8,0,0,0,0,5,m_jellyfish,0.03,thumbnail://46424df07a1c4f139784aa859051b4bd,쿨 젤리피쉬 실제 장비 드랍. 기존 장비 스탯 유지. 원작 아이템 1442005
+i_balrog_soul,이블윙즈,equip,weapon,0,0,0,0,5,0,5,m_jr_balrog,0.02,thumbnail://364ee9432c284089a568d1b51059d795,주니어 발록 실제 장비 드랍. 원작 아이템 1382007

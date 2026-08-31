@@ -55,14 +55,59 @@ const missingSkill = monsters
 const missingItem = monsters
   .filter((monster) => !items.some((item) => item.drop_from.split("|").includes(monster.id)))
   .map((monster) => monster.id);
+const validItemIcon = (item) => /^(thumbnail:\/\/)?[0-9a-f]{32}$/.test(item.icon_ruid);
 const badRuid = [
   ...skills
     .filter((skill) => skill.source === "monster" && skill.icon_ruid.length !== 32)
     .map((skill) => "skill:" + skill.id),
   ...items
-    .filter((item) => item.icon_ruid.length !== 32)
+    .filter((item) => !validItemIcon(item))
     .map((item) => "item:" + item.id),
 ];
+const specificItems = items.filter((item) => item.drop_from !== "*");
+const badItemTypeMapping = specificItems
+  .filter((item) => item.item_type !== "equip")
+  .map((item) => item.id);
+const validEquipSlots = new Set(["weapon", "armor", "accessory"]);
+const badEquipment = specificItems
+  .filter((item) => item.item_type === "equip")
+  .filter((item) => !validEquipSlots.has(item.slot) || !/원작 아이템 \d+/.test(item.note))
+  .map((item) => item.id);
+const correctedPassiveEquipment = new Map([
+  ["i_maple_spear", { name: "메이플 스피어", slot: "weapon", stat_atk: 5, itemId: "1432012", ruid: "a911d7794deb4d04a32188b55eda32ab" }],
+  ["i_bronze_crusader_helm", { name: "브론즈 크루세이더 헬름", slot: "armor", stat_def: 6, itemId: "1002086", ruid: "1147bf323fb74b949312a89dc350f506" }],
+  ["i_maple_sword", { name: "메이플 소드", slot: "weapon", stat_luk: 5, itemId: "1302020", ruid: "4668b7ab224449fc94805e2e6cb0f6f5" }],
+  ["i_work_glove", { name: "노가다 목장갑", slot: "armor", stat_luk: 7, itemId: "1082002", ruid: "2e58683f2f094f099a0813c36e278dd5" }],
+  ["i_maple_lama_staff", { name: "메이플 라마 스태프", slot: "weapon", stat_int: 7, itemId: "1382012", ruid: "be49540382d54da6a01fefcc4cd10e83" }],
+  ["i_steel_mail", { name: "스틸 메일", slot: "armor", stat_def: 8, itemId: "1051000", ruid: "d936956da3ec44079be5dcb6bf08a69f" }],
+  ["i_dragon_halberd", { name: "구룡도", slot: "weapon", stat_int: 8, itemId: "1442005", ruid: "46424df07a1c4f139784aa859051b4bd" }],
+]);
+const legacyMaterialIds = new Set([
+  "i_sword_iron",
+  "i_iron_hoof",
+  "i_bubbling_orb",
+  "i_stirge_wing",
+  "i_wraith_soul",
+  "i_blue_ribbon",
+  "i_cool_jelly",
+]);
+const legacyMaterialResidue = items
+  .filter((item) => legacyMaterialIds.has(item.id))
+  .map((item) => item.id);
+const badCorrectedPassiveEquipment = [];
+for (const [id, expected] of correctedPassiveEquipment) {
+  const item = items.find((candidate) => candidate.id === id);
+  if (!item || item.name !== expected.name || item.item_type !== "equip" || item.slot !== expected.slot
+    || Number(item.stack_max) !== 5
+    || Number(item.stat_atk) !== (expected.stat_atk || 0)
+    || Number(item.stat_int) !== (expected.stat_int || 0)
+    || Number(item.stat_def) !== (expected.stat_def || 0)
+    || Number(item.stat_luk) !== (expected.stat_luk || 0)
+    || item.icon_ruid !== `thumbnail://${expected.ruid}`
+    || !item.note.includes(`원작 아이템 ${expected.itemId}`)) {
+    badCorrectedPassiveEquipment.push(id);
+  }
+}
 const passiveEffectResidue = skills
   .filter((skill) => skill.skill_kind === "passive")
   .filter((skill) => skill.effect_ruid || skill.effect_style || skill.sfx_ruid
@@ -215,6 +260,12 @@ const skillIconAlphaOk = Array.from({ length: 28 }, (_, i) => {
   return sprite !== null && sprite.Color.a === 1;
 }).every(Boolean);
 
+const popupRewardTitle = readUiComponent(
+  "ui/WorldMap.ui",
+  "/ui/WorldMap/RoomInfoPopup/DropLabel",
+  "MOD.Core.TextGUIRendererComponent",
+);
+
 const result = {
   monsters: monsters.length,
   monsterSkills: skills.filter((skill) => skill.source === "monster").length,
@@ -222,6 +273,11 @@ const result = {
   missingSkill,
   missingItem,
   badRuid,
+  equipmentItems: specificItems.filter((item) => item.item_type === "equip").length,
+  badItemTypeMapping,
+  badEquipment,
+  badCorrectedPassiveEquipment,
+  legacyMaterialResidue,
   passiveEffectResidue,
   activeWithoutVisual,
   bossRooms: bossRooms.map((room) => room.id + ":" + room.monster_id),
@@ -256,11 +312,20 @@ const result = {
   worldMapButtons,
   popupEntities: worldMapEntities.filter((entity) => entity.path.startsWith("/ui/WorldMap/RoomInfoPopup")).length,
   popupBindingsOk,
+  popupRewardTitleOk: popupRewardTitle?.Text === "획득 가능한 보상"
+    || (/popupRewardTitle/.test(worldMapMlua)
+      && /popupRewardTitle\.Text = "획득 가능한 보상"/.test(worldMapMlua)),
+  worldMapRewardWiringOk: /monster\.drop_skill_id/.test(worldMapMlua)
+    && /item\.item_type ~= "consume"/.test(worldMapMlua)
+    && /공통 소비 아이템 제외/.test(worldMapMlua)
+    && !/popupMonster\.Text[\s\S]{0,180}room\.monster_count/.test(worldMapMlua),
 };
 
 console.log(JSON.stringify(result, null, 2));
 
 if (missingSkill.length || missingItem.length || badRuid.length
+  || badItemTypeMapping.length || badEquipment.length || badCorrectedPassiveEquipment.length
+  || legacyMaterialResidue.length
   || passiveEffectResidue.length || activeWithoutVisual.length || badGateSkills.length
   || bossRooms.length !== 6 || bossItemMissing.length
   || balance.get("boss_hp_multiplier") !== 10
@@ -276,6 +341,7 @@ if (missingSkill.length || missingItem.length || badRuid.length
   || result.skillGridColumns !== 5 || !result.skillIconAlphaOk
   || !result.roomProgressDisabled || result.worldMapTop !== -150
   || result.worldMapButtons !== 12 || result.popupEntities !== 18 || !result.popupBindingsOk
+  || !result.popupRewardTitleOk || !result.worldMapRewardWiringOk
   || henesysBoss.monster_id !== "m_mushmom"
   || kerningBoss.monster_id !== "m_shade"
   || bossGate.gate_type !== "key" || bossGate.gate_key !== "s_mon_mushmom"
