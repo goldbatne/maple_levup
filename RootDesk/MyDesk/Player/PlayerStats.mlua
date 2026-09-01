@@ -324,7 +324,7 @@ script PlayerStats extends Component
 
     method number GetFinalStatPoints(string statName)
         -- 일반 스탯 창에 표시할 최종 STR/DEX/INT/LUK.
-        -- 분배 포인트 + 포획 컬렉션 포인트에 히든 보스 장비의 %를 곱한다.
+        -- 분배 포인트 + 포획 컬렉션 포인트에 히든 보스 장비의 정액 주스탯을 더한다.
         -- 일반 장비는 ATK/마력/DEF 같은 파생 수치를 올리므로 여기에는 섞지 않고
         -- 상세 스탯의 물리 공격력·마법 공격력·방어력에서 보여 준다.
         local points = 0
@@ -339,7 +339,7 @@ script PlayerStats extends Component
         else
             return 0
         end
-        return points * (1 + self:GetPassiveItemRate(statName))
+        return points + self:GetPassiveItemStatBonus(statName)
     end
 
     ---------------------------------------------------------------
@@ -360,9 +360,7 @@ script PlayerStats extends Component
         -- 계수를 쓴다. 환생 직후 HP가 1200에서 1380이 되는 것이 이 한 줄이다.
         local base = _GameData:GetBalance("player_base_hp")
         local perPoint = _GameData:GetBalance("str_hp_per_point")
-        local strPoints = self:GetStr() + self:GetCollectionPoints("STR")
-        local passiveRate = self:GetPassiveItemRate("STR")
-        return base + strPoints * (1 + passiveRate) * perPoint
+        return base + self:GetFinalStatPoints("STR") * perPoint
     end
 
     @ExecSpace("ServerOnly")
@@ -397,8 +395,8 @@ script PlayerStats extends Component
 
         log("[PlayerStats] 최대 HP " .. tostring(oldMax) .. " → " .. tostring(newMax)
             .. "  (STR " .. tostring(self:GetStr() + self:GetCollectionPoints("STR"))
-            .. " x " .. string.format("%.2f", 1 + self:GetPassiveItemRate("STR")) .. " x "
-            .. tostring(_GameData:GetBalance("str_hp_per_point")) .. ")"
+            .. " + 패시브 " .. tostring(self:GetPassiveItemStatBonus("STR")) .. ") x "
+            .. tostring(_GameData:GetBalance("str_hp_per_point"))
             .. "  현재 HP=" .. tostring(pc.Hp))
     end
 
@@ -575,9 +573,9 @@ script PlayerStats extends Component
         return 0
     end
 
-    method number GetPassiveItemRate(string statName)
-        -- 인벤토리에 **보유만 해도** 적용되는 패시브 아이템의 비율 합계 (T56).
-        -- 0.01은 1%다. 장착 슬롯과 무관하며 종류별 stack_max가 자연스럽게 상한이다.
+    method number GetPassiveItemStatBonus(string statName)
+        -- 인벤토리에 **보유만 해도** 적용되는 패시브 아이템의 주스탯 정액 합계 (T57-2).
+        -- 장착 슬롯과 무관하며 종류별 stack_max가 자연스럽게 상한이다.
         ---@type PlayerInventory
         local inventory = self.Entity:GetComponent("script.PlayerInventory")
         if inventory == nil then return 0 end
@@ -587,7 +585,7 @@ script PlayerStats extends Component
         for i = 1, #ids do
             local item = _GameData:GetItem(ids[i])
             if item ~= nil and item.item_type == "passive" and item.passive_stat == statName then
-                total = total + inventory:GetCount(item.id) * item.passive_rate
+                total = total + inventory:GetCount(item.id) * item.passive_value
             end
         end
         return total
@@ -595,35 +593,23 @@ script PlayerStats extends Component
 
     method number GetPassiveItemBonus(string stat)
         -- 패시브 아이템이 만드는 파생 수치. 수치 게이트에는 넣지 않고 실제 전투에만 얹는다.
-        -- 각 직업 보상은 해당 분배 스탯 + 포획 패시브 스탯을 함께 증폭한다.
+        -- 각 직업 보상의 정액 주스탯을 기존 스탯 계수로 파생 수치에 반영한다.
         --
         -- 한 스탯이 여러 파생 수치로 이어지는 규칙도 그대로 따른다. 보우마스터의 활
-        -- DEX%는 물리 공격력뿐 아니라 방어력에도 들어가야 "DEX가 1% 오른다"는 설명과
-        -- 실제 수치가 일치한다. 여기서 ATK만 올리면 아이템이 DEX%가 아니라 DEX 공격력%가 된다.
+        -- DEX는 물리 공격력뿐 아니라 방어력에도 들어가야 "DEX +10" 설명과 실제 수치가 일치한다.
         if stat == "ATK" then
-            local strPoints = self:GetStr() + self:GetCollectionPoints("STR")
-            local dexPoints = self:GetDex() + self:GetCollectionPoints("DEX")
-            local lukPoints = self:GetLukStat() + self:GetCollectionPoints("LUK")
-            return strPoints * self:GetPassiveItemRate("STR")
-                    * _GameData:GetBalance("str_atk_per_point")
-                + dexPoints * self:GetPassiveItemRate("DEX")
-                    * _GameData:GetBalance("dex_atk_per_point")
-                + lukPoints * self:GetPassiveItemRate("LUK")
-                    * _GameData:GetBalance("luk_atk_per_point")
+            return self:GetPassiveItemStatBonus("STR") * _GameData:GetBalance("str_atk_per_point")
+                + self:GetPassiveItemStatBonus("DEX") * _GameData:GetBalance("dex_atk_per_point")
+                + self:GetPassiveItemStatBonus("LUK") * _GameData:GetBalance("luk_atk_per_point")
         end
         if stat == "INT" then
-            local intPoints = self:GetIntStat() + self:GetCollectionPoints("INT")
-            return intPoints * self:GetPassiveItemRate("INT")
-                * _GameData:GetBalance("int_matk_per_point")
+            return self:GetPassiveItemStatBonus("INT") * _GameData:GetBalance("int_matk_per_point")
         end
         if stat == "DEF" then
-            local dexPoints = self:GetDex() + self:GetCollectionPoints("DEX")
-            return dexPoints * self:GetPassiveItemRate("DEX")
-                * _GameData:GetBalance("dex_def_per_point")
+            return self:GetPassiveItemStatBonus("DEX") * _GameData:GetBalance("dex_def_per_point")
         end
         if stat == "LUK" then
-            local lukPoints = self:GetLukStat() + self:GetCollectionPoints("LUK")
-            return lukPoints * self:GetPassiveItemRate("LUK")
+            return self:GetPassiveItemStatBonus("LUK")
         end
         return 0
     end

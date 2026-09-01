@@ -223,7 +223,7 @@ script InventoryPanel extends Logic
         if count < 1 then count = 1 end
         if item.item_type == "passive" then
             return "보유 효과 " .. item.passive_stat .. " +"
-                .. string.format("%.0f", item.passive_rate * count * 100) .. "%"
+                .. tostring(item.passive_value * count)
         end
         -- 올스탯만 포인트로 적는다. 수치가 넷 다 달라(물공 +15 / 방어 +30 …) 한 줄에
         -- 다 쓰면 줄을 넘고, 이 아이템의 값어치는 "모든 스탯 몇 P"가 가장 잘 나른다.

@@ -371,7 +371,7 @@ script GameDataVerify extends Logic
     method void VerifyItems()
         -- 아이템 테이블 (T13-2/T55). 조용히 어긋날 수 있는 네 가지를 대조한다:
         --   ① item_type이 equip/consume/passive 중 하나인가
-        --   ② 장비에만 slot이 있고, 패시브의 스탯/비율이 올바른가
+        --   ② 장비에만 slot이 있고, 패시브의 스탯/정액값이 올바른가
         --   ③ drop_from이 실재하는 몬스터인가 (오타면 영원히 안 떨어진다)
         --   ④ 아이콘 RUID가 비어 있지 않은가 (비면 인벤토리에 빈 칸으로 보인다)
         local ids = _GameData:GetAllItemIds()
@@ -417,8 +417,8 @@ script GameDataVerify extends Logic
                 if item.slot ~= "" then
                     log_error("  [아이템] " .. item.id .. " 는 패시브인데 slot이 채워져 있다: " .. item.slot)
                 end
-                if item.passive_stat == "" or item.passive_rate <= 0 then
-                    log_error("  [아이템] " .. item.id .. " 의 패시브 스탯/비율이 비어 있다")
+                if item.passive_stat == "" or item.passive_value <= 0 then
+                    log_error("  [아이템] " .. item.id .. " 의 패시브 스탯/정액값이 비어 있다")
                 end
                 if item.avatar_category ~= "" then
                     log_error("  [아이템] " .. item.id .. " 는 패시브인데 아바타 분류가 채워져 있다")
@@ -460,7 +460,7 @@ script GameDataVerify extends Logic
                 statText = "HP회복 " .. tostring(item.heal_hp) .. " / 최대 " .. tostring(item.stack_max) .. "개"
             elseif item.item_type == "passive" then
                 statText = "보유 효과 " .. item.passive_stat .. " +"
-                    .. tostring(item.passive_rate * 100) .. "%/개 / 최대 " .. tostring(item.stack_max) .. "개"
+                    .. tostring(item.passive_value) .. "/개 / 최대 " .. tostring(item.stack_max) .. "개"
             end
 
             local dropText = "드랍 없음"

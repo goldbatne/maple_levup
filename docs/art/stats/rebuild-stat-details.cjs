@@ -18,10 +18,20 @@ const BUTTON_RUID = '2860136c06ab075439721c027de365af';
 if (b.find(detail) !== null) b.remove(detail);
 if (b.find(toggle) !== null) b.remove(toggle);
 
+// 검은 헤더 배경은 창 전체 폭으로 유지한다. 상세 버튼은 그 위에 파란색으로 올린다.
+b.patchComponent(window + '/Title', 'MOD.Core.UITransformComponent', {
+  OffsetMax: { x: 250, y: -5 },
+  OffsetMin: { x: -250, y: -112 },
+  RectSize: { x: 500, y: 107 },
+  anchoredPosition: { x: 0, y: -5 },
+  Position: { x: 0, y: 435, z: 0 },
+});
+
 b.button(toggle, '상세 +', {
-  anchor: 'bottom-left', pos: [20, 20], rect_size: [128, 88], pivot: [0, 0],
+  // 검은 헤더 안, 가운데 '스텟' 제목의 왼쪽에 둔다.
+  anchor: 'top-left', pos: [16, -15], rect_size: [112, 88], pivot: [0, 1],
   image_ruid: BUTTON_RUID, sprite_type: 1, bg_color: '#4A90D9',
-  color: '#FFFFFF', font_size: 19,
+  color: '#FFFFFF', font_size: 18,
 });
 
 b.panel(detail, {
@@ -62,7 +72,31 @@ for (let i = 0; i < rows.length; i += 1) {
     size: 21, color: '#292E38', bold: true, horizontal_alignment: 4,
     best_fit: true, min_size: 15, max_size: 21,
   });
+  detailBindings[`detail${key}Label`] = row + '/Label';
   detailBindings[`detail${key}`] = row + '/Value';
+}
+
+// 네 스탯의 라벨·값 영역만 누르는 투명 버튼. 오른쪽 + 버튼과 영역을 분리해
+// '상세 영향 보기'와 '포인트 분배'가 한 번의 클릭으로 같이 실행되지 않게 한다.
+const statRows = [
+  ['Str', 3],
+  ['Int', 4],
+  ['Dex', 5],
+  ['Luk', 6],
+];
+const inspectBindings = {};
+for (const [key, rowIndex] of statRows) {
+  const inspect = `${window}/Row${rowIndex}/Inspect`;
+  if (b.find(inspect) !== null) b.remove(inspect);
+  b.button(inspect, '', {
+    anchor: 'middle-left', pos: [0, 0], rect_size: [372, 88], pivot: [0, 0.5],
+    image_ruid: '', bg_color: '#FFFFFF', alpha: 0,
+    color: '#FFFFFF', font_size: 1,
+  });
+  // 투명 클릭면에는 표시 텍스트가 필요 없다. Text 컴포넌트를 제거하면 실제
+  // 라벨·값과의 의도된 겹침을 ui_lint가 '텍스트 충돌'로 오인하지 않는다.
+  b.removeComponent(inspect, 'MOD.Core.TextGUIRendererComponent');
+  inspectBindings[`btnInspect${key}`] = inspect;
 }
 
 b.panel(detail + '/Passive', {
@@ -91,6 +125,10 @@ b.write(uiPath, {
       intValue: window + '/Row4/Value',
       dexValue: window + '/Row5/Value',
       lukValue: window + '/Row6/Value',
+      strLabel: window + '/Row3/Label',
+      intLabel: window + '/Row4/Label',
+      dexLabel: window + '/Row5/Label',
+      lukLabel: window + '/Row6/Label',
       btnStr: window + '/Row3/BtnPlus',
       btnInt: window + '/Row4/BtnPlus',
       btnDex: window + '/Row5/BtnPlus',
@@ -98,6 +136,7 @@ b.write(uiPath, {
       detailRoot: detail,
       btnDetail: toggle,
       detailPassive: detail + '/Passive/Text',
+      ...inspectBindings,
       ...detailBindings,
     },
   },
