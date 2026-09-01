@@ -452,9 +452,9 @@ script GameData extends Logic
                     -- 서로 다르므로 데이터에서 명시한다.
                     avatar_category = self:ToText(row:GetItem("avatar_category")),
                     -- 인벤토리에 가지고 있기만 해도 적용되는 패시브 아이템 (T56).
-                    -- passive_rate는 0.01 = 1%처럼 비율로 저장한다.
+                    -- passive_value는 보유 1개당 더하는 주스탯 정액값이다 (T57-2).
                     passive_stat = self:ToText(row:GetItem("passive_stat")),
-                    passive_rate = self:ToNumber(row:GetItem("passive_rate"), 0),
+                    passive_value = self:ToNumber(row:GetItem("passive_value"), 0),
                 }
 
                 -- 몬스터 → 떨어뜨리는 아이템 역인덱스. 드랍 판정(T13-6)이 처치 시점에

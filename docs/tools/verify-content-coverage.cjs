@@ -88,7 +88,7 @@ const heroPassiveOk = heroPassive !== undefined
   && heroPassive.item_type === "passive"
   && heroPassive.slot === ""
   && heroPassive.passive_stat === "STR"
-  && Number(heroPassive.passive_rate) === 0.01
+  && Number(heroPassive.passive_value) === 10
   && Number(heroPassive.stack_max) === 5
   && heroPassive.drop_from === "m_adv_hero";
 const heroCombatOnlyOk = skills.filter((skill) => skill.id.startsWith("s_hero_"))
@@ -101,7 +101,7 @@ const bowmasterPassiveOk = bowmasterPassive !== undefined
   && bowmasterPassive.item_type === "passive"
   && bowmasterPassive.slot === ""
   && bowmasterPassive.passive_stat === "DEX"
-  && Number(bowmasterPassive.passive_rate) === 0.01
+  && Number(bowmasterPassive.passive_value) === 10
   && Number(bowmasterPassive.stack_max) === 5
   && bowmasterPassive.drop_from === "m_adv_bowmaster";
 const bowmasterCombatOnlyOk = skills.filter((skill) => skill.id.startsWith("s_bow_"))
@@ -337,8 +337,8 @@ const result = {
   heroCombatOnlyOk,
   bowmasterPassiveOk,
   bowmasterCombatOnlyOk,
-  heroPassiveWiringOk: /method number GetPassiveItemRate/.test(playerStatsMlua)
-    && /GetPassiveItemRate\("STR"\)/.test(playerStatsMlua)
+  heroPassiveWiringOk: /method number GetPassiveItemStatBonus/.test(playerStatsMlua)
+    && /GetPassiveItemStatBonus\("STR"\)/.test(playerStatsMlua)
     && /GetPassiveItemBonus\("ATK"\)/.test(playerStatsMlua)
     && /record\.item_type == "passive"/.test(playerInventoryMlua)
     && /stats:ApplyMaxHp\(\)/.test(playerInventoryMlua),

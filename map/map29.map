@@ -31,15 +31,15 @@
           "@components": [
             {
               "@type": "MOD.Core.MapComponent",
-              "AirAccelerationXFactor": 1,
-              "AirDecelerationXFactor": 1,
-              "FallSpeedMaxXFactor": 1,
-              "FallSpeedMaxYFactor": 1,
-              "Gravity": 1,
+              "AirAccelerationXFactor": 1.0,
+              "AirDecelerationXFactor": 1.0,
+              "FallSpeedMaxXFactor": 1.0,
+              "FallSpeedMaxYFactor": 1.0,
+              "Gravity": 1.0,
               "IsInstanceMap": false,
               "TileMapMode": 1,
-              "WalkAccelerationFactor": 1,
-              "WalkDrag": 1,
+              "WalkAccelerationFactor": 1.0,
+              "WalkDrag": 1.0,
               "Enable": true
             },
             {
@@ -48,12 +48,22 @@
               "Enable": true
             },
             {
-              "Enable": true,
-              "@type": "script.RoomCamera"
+              "@type": "script.RoomCamera",
+              "Enable": true
             },
             {
               "@type": "script.RoomSpawner",
-              "Enable": true
+              "Enable": true,
+              "monsterId": "",
+              "modelId": "",
+              "monsterCount": 0,
+              "spawnIndex": 0,
+              "checkTimer": 0,
+              "roomId": "",
+              "isBossRoom": false,
+              "monsterDisplayName": "",
+              "bossStartedAt": 0.0,
+              "bossEntryTimer": 0
             }
           ],
           "@version": 1
@@ -81,7 +91,7 @@
                 "r": 0.549019635,
                 "g": 0.34117648,
                 "b": 0.164705887,
-                "a": 1
+                "a": 1.0
               },
               "TemplateRUID": "794ad8421e2543d8a6d2c70307637450",
               "Type": 2,
@@ -147,27 +157,27 @@
             {
               "@type": "MOD.Core.TransformComponent",
               "Rotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
               },
               "Position": {
-                "x": 0,
-                "y": 0,
+                "x": 0.0,
+                "y": 0.0,
                 "z": 999.999
               },
               "QuaternionRotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "w": 1
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
               },
               "Scale": {
-                "x": 1,
-                "y": 1,
-                "z": 1
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
               },
-              "ZRotation": 0,
+              "ZRotation": 0.0,
               "Enable": true
             },
             {
@@ -179,20 +189,20 @@
               "FlipY": false,
               "IgnoreMapLayerCheck": false,
               "OrderInLayer": 0,
-              "PlayRate": 1,
+              "PlayRate": 1.0,
               "RenderSetting": 0,
               "SortingLayer": "Default",
               "SpriteRUID": "8ef238e0d0ca4bb783aca526cff35d11",
               "StartFrameIndex": 0,
               "TiledSize": {
-                "x": 1,
-                "y": 1
+                "x": 1.0,
+                "y": 1.0
               },
               "Color": {
-                "r": 1,
-                "g": 1,
-                "b": 1,
-                "a": 1
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
               },
               "Enable": true
             },
@@ -230,22 +240,22 @@
             {
               "@type": "MOD.Core.TransformComponent",
               "Rotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
               },
               "Position": {
-                "x": 0,
-                "y": 0,
-                "z": 1000
+                "x": 0.0,
+                "y": 0.0,
+                "z": 1000.0
               },
               "QuaternionRotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "w": 1
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
               },
-              "ZRotation": 0,
+              "ZRotation": 0.0,
               "Enable": true
             },
             {
@@ -3858,44 +3868,59 @@
           "displayOrder": 4,
           "pathConstraints": "///",
           "revision": 1,
+          "origin": {
+            "type": "Model",
+            "entry_id": "roomportal",
+            "sub_entity_id": null,
+            "root_entity_id": "16f7731f-e759-49a2-b761-747f1ecb6166",
+            "replaced_model_id": null
+          },
           "modelId": "roomportal",
           "@components": [
             {
               "@type": "MOD.Core.TransformComponent",
+              "Rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
               "Position": {
-                "x": 0,
-                "y": -6,
-                "z": 0
+                "x": 0.0,
+                "y": -6.0,
+                "z": 0.0
               },
               "QuaternionRotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "w": 1
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
               },
               "Scale": {
-                "x": 1,
-                "y": 1,
-                "z": 1
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
               },
+              "ZRotation": 0.0,
               "Enable": true
             },
             {
               "@type": "MOD.Core.SpriteRendererComponent",
-              "SpriteRUID": "1507704072384d8ba4dc1d73c02ba92b",
-              "Color": {
-                "r": 1,
-                "g": 1,
-                "b": 1,
-                "a": 1
-              },
+              "ActionSheet": {},
               "DrawMode": 0,
+              "EndFrameIndex": 2147483647,
               "FlipX": false,
               "FlipY": false,
-              "PlayRate": 1,
               "OrderInLayer": 2,
+              "PlayRate": 1.0,
+              "RenderSetting": 0,
+              "SpriteRUID": "1507704072384d8ba4dc1d73c02ba92b",
               "StartFrameIndex": 0,
-              "EndFrameIndex": 2147483647,
+              "Color": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+              },
               "Enable": true
             },
             {
@@ -3903,35 +3928,28 @@
               "Enable": true
             },
             {
-              "Enable": true,
+              "@type": "MOD.Core.TriggerComponent",
               "BoxSize": {
                 "x": 1.5,
                 "y": 1.5
               },
               "ColliderOffset": {
-                "$type": "MOD.Core.MODVector2, MOD.Core",
-                "x": 0,
-                "y": 0
+                "x": 0.0,
+                "y": 0.0
               },
-              "@type": "MOD.Core.TriggerComponent"
+              "IsLegacy": true,
+              "Enable": true
             },
             {
+              "@type": "script.RoomPortal",
               "Enable": true,
               "direction": "south",
-              "@type": "script.RoomPortal",
+              "locked": false,
               "openRUID": "1507704072384d8ba4dc1d73c02ba92b",
-              "lockedRUID": "0cad726e623d4a3994c36fb3f7473841",
-              "locked": false
+              "lockedRUID": "0cad726e623d4a3994c36fb3f7473841"
             }
           ],
-          "@version": 1,
-          "origin": {
-            "type": "Model",
-            "entry_id": "roomportal",
-            "sub_entity_id": null,
-            "root_entity_id": "16f7731f-e759-49a2-b761-747f1ecb6166",
-            "replaced_model_id": null
-          }
+          "@version": 1
         }
       },
       {
@@ -3948,32 +3966,45 @@
           "displayOrder": 5,
           "pathConstraints": "///",
           "revision": 1,
+          "origin": {
+            "type": "Model",
+            "entry_id": "bowmasternpc",
+            "sub_entity_id": null,
+            "root_entity_id": "7233b578-1a6a-4071-a2e9-bc3c3c658d98",
+            "replaced_model_id": null
+          },
           "modelId": "bowmasternpc",
           "@components": [
             {
               "@type": "MOD.Core.TransformComponent",
+              "Rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
               "Position": {
-                "x": 8,
-                "y": 3,
-                "z": 0
+                "x": 8.0,
+                "y": 3.0,
+                "z": 0.0
               },
               "QuaternionRotation": {
-                "x": 0,
-                "y": 0,
-                "z": 0,
-                "w": 1
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
               },
               "Scale": {
-                "x": 1,
-                "y": 1,
-                "z": 1
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
               },
+              "ZRotation": 0.0,
               "Enable": true
             },
             {
               "@type": "MOD.Core.AvatarStateAnimationComponent",
-              "Enable": true,
-              "IsLegacy": false
+              "IsLegacy": false,
+              "Enable": true
             },
             {
               "@type": "MOD.Core.AvatarRendererComponent",
@@ -3981,43 +4012,37 @@
             },
             {
               "@type": "MOD.Core.CostumeManagerComponent",
-              "Enable": true,
-              "UseCustomEquipOnly": true,
+              "CustomCapEquip": "4f0d07c4571244f9b9a8c3f6c392265f",
+              "CustomHairEquip": "36456c66cf214497a4eadca005063289",
               "CustomLongcoatEquip": "9fa81ab0a0d248fbb307675e4b79d033",
               "CustomShoesEquip": "186a55d192d24b4da5201801422bebf7",
-              "CustomHairEquip": "36456c66cf214497a4eadca005063289",
-              "CustomCapEquip": "4f0d07c4571244f9b9a8c3f6c392265f",
-              "CustomTwoHandedWeaponEquip": "3da6e65b218d41178c839b03306da803"
+              "CustomTwoHandedWeaponEquip": "3da6e65b218d41178c839b03306da803",
+              "DefaultEquipUserId": "",
+              "UseCustomEquipOnly": true,
+              "Enable": true
             },
             {
               "@type": "MOD.Core.StateComponent",
-              "Enable": true,
-              "IsLegacy": false
+              "IsLegacy": false,
+              "Enable": true
             },
             {
               "@type": "MOD.Core.TouchReceiveComponent",
-              "Enable": true,
               "TouchArea": {
-                "$type": "MOD.Core.MODVector2, MOD.Core",
                 "x": 1.4,
                 "y": 1.4
-              }
+              },
+              "Enable": true
             },
             {
               "@type": "script.HeroNpc",
               "Enable": true,
               "TargetRoomId": "r_job_02",
-              "ChallengerMonsterId": "m_adv_bowmaster"
+              "ChallengerMonsterId": "m_adv_bowmaster",
+              "promptedAt": 0.0
             }
           ],
-          "@version": 1,
-          "origin": {
-            "type": "Model",
-            "entry_id": "bowmasternpc",
-            "sub_entity_id": null,
-            "root_entity_id": "7233b578-1a6a-4071-a2e9-bc3c3c658d98",
-            "replaced_model_id": null
-          }
+          "@version": 1
         }
       }
     ]

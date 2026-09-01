@@ -141,7 +141,7 @@ script PlayerInventory extends Component
             if stats ~= nil then stats:ApplyMaxHp() end
             self:LogStats("패시브 획득 " .. record.name)
             log("[Inventory] 패시브 자동 적용 " .. record.name .. "  "
-                .. record.passive_stat .. " +" .. string.format("%.0f", record.passive_rate * after * 100) .. "%")
+                .. record.passive_stat .. " +" .. tostring(record.passive_value * after))
         end
         self:MarkSave("아이템 획득")
         return added

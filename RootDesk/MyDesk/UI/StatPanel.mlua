@@ -22,11 +22,40 @@ script StatPanel extends Logic
     property TextGUIRendererComponent intValue = "9a3ad85c-00d9-47aa-932c-4e241f240aa3"
     property TextGUIRendererComponent dexValue = "8fc70e58-9a62-4ba2-8530-81bb0749f3b3"
     property TextGUIRendererComponent lukValue = "ff737980-48e9-4e66-af5b-bb9345a41120"
+    property TextGUIRendererComponent strLabel = "1df42fba-e1b4-47c9-8a27-359e2b75832f"
+    property TextGUIRendererComponent intLabel = "97705831-8fe8-4193-8d4c-14e5a6227407"
+    property TextGUIRendererComponent dexLabel = "9259da9e-a06a-40a3-bb97-ffd077e07208"
+    property TextGUIRendererComponent lukLabel = "9b3aaba6-f9cf-43ac-aa06-e22f906e2d60"
 
     property ButtonComponent btnStr = "7165efe6-9663-494f-82b4-94eb19f674bc"
     property ButtonComponent btnInt = "60be35ac-85ca-48b1-91be-22d0c9ef694e"
     property ButtonComponent btnDex = "cd8feafc-5091-4000-8358-d4dd8dd38074"
     property ButtonComponent btnLuk = "1bcce54f-3d59-41c2-90fb-1677c664ce82"
+    property ButtonComponent btnInspectStr = "40cb381a-cde0-44c6-86da-ebb022cb6f40"
+    property ButtonComponent btnInspectInt = "0acb5c28-bc13-402b-a492-3fd313157a95"
+    property ButtonComponent btnInspectDex = "488b9ed1-564f-45bc-8543-50893a053aaa"
+    property ButtonComponent btnInspectLuk = "2c381060-b7e9-4c8c-bea7-aac57faa95d5"
+
+    -- 일반 창 왼쪽으로 펼쳐지는 상세 전투 수치 창.
+    property SpriteGUIRendererComponent detailRoot = "ef35adbf-a564-46b8-bacd-ee78c0c516c8"
+    property ButtonComponent btnDetail = "19b27d63-0c2e-4f49-b13d-fd7eea866fb9"
+    property TextGUIRendererComponent detailAtk = "67091ec6-ba90-4f63-8072-687308ee42e5"
+    property TextGUIRendererComponent detailAtkLabel = "63be739b-e87c-4171-b807-4a285cf83ded"
+    property TextGUIRendererComponent detailMatk = "a79d43a5-b733-4f7b-a772-8ac15d4d7879"
+    property TextGUIRendererComponent detailMatkLabel = "dcbfd192-5e99-4134-b15d-d0ad47f40542"
+    property TextGUIRendererComponent detailDef = "c5e6bde4-7164-41b0-ba97-1390a3550c4c"
+    property TextGUIRendererComponent detailDefLabel = "d209e349-17b8-4f51-b0d6-f0e1626d9700"
+    property TextGUIRendererComponent detailHp = "b0693444-a925-4384-8534-6a6642b3cbb4"
+    property TextGUIRendererComponent detailHpLabel = "244b3f34-54f2-456b-a6ca-2b11db0bfb83"
+    property TextGUIRendererComponent detailAttackSpeed = "2884613f-2b30-40e9-a5de-4f908683f9f0"
+    property TextGUIRendererComponent detailAttackSpeedLabel = "f1fb6bc8-cccc-41a6-90bf-a5ec7128872a"
+    property TextGUIRendererComponent detailMoveSpeed = "20d42fee-6101-4318-81aa-076c088468d1"
+    property TextGUIRendererComponent detailMoveSpeedLabel = "e5cb492d-df34-45df-a884-16f136c5802f"
+    property TextGUIRendererComponent detailCapture = "3a5ec081-6003-491c-b5c4-4c6344f254ea"
+    property TextGUIRendererComponent detailCaptureLabel = "f516e7c5-284c-4742-ad09-f8d8ba24a057"
+    property TextGUIRendererComponent detailDrop = "44934f96-cd7c-4080-a52b-fb25c103180d"
+    property TextGUIRendererComponent detailDropLabel = "67172a11-3dd9-4864-a9e2-6b48e5dd57bd"
+    property TextGUIRendererComponent detailPassive = "2011f6ed-ce36-44de-bd0f-828649d1da54"
 
     -- 여닫기. 창을 닫으면 다시 열 수단이 필요한데 모바일에는 키보드가 없다.
     -- 그래서 키 토글이 아니라 화면에 남는 열기 버튼을 쓴다. 둘은 항상 반대 상태다.
@@ -39,12 +68,19 @@ script StatPanel extends Logic
     property any handlerInt = nil
     property any handlerDex = nil
     property any handlerLuk = nil
+    property any handlerInspectStr = nil
+    property any handlerInspectInt = nil
+    property any handlerInspectDex = nil
+    property any handlerInspectLuk = nil
+    property any handlerDetail = nil
     property any handlerClose = nil
     property any handlerOpen = nil
     property any refreshTimer = nil
 
     -- 기본은 닫힘. 창이 닫혀 있으면 갱신을 건너뛴다.
     property boolean isOpen = false
+    property boolean detailOpen = false
+    property string selectedStat = ""
 
     -- 표시 갱신 주기(초). @TargetUserSync 값 7개를 읽는 것뿐이라 비용은 무시할 만하다.
     property number refreshInterval = 0.2
@@ -65,6 +101,21 @@ script StatPanel extends Logic
         self.handlerLuk = self.btnLuk.Entity:ConnectEvent(ButtonClickEvent, function()
             self:Allocate("LUK")
         end)
+        self.handlerInspectStr = self.btnInspectStr.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:SelectStat("STR")
+        end)
+        self.handlerInspectInt = self.btnInspectInt.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:SelectStat("INT")
+        end)
+        self.handlerInspectDex = self.btnInspectDex.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:SelectStat("DEX")
+        end)
+        self.handlerInspectLuk = self.btnInspectLuk.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:SelectStat("LUK")
+        end)
+        self.handlerDetail = self.btnDetail.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:SetDetailOpen(not self.detailOpen)
+        end)
 
         self.handlerClose = self.btnClose.Entity:ConnectEvent(ButtonClickEvent, function()
             self:SetOpen(false)
@@ -79,6 +130,7 @@ script StatPanel extends Logic
 
         -- 기본은 닫힘. 열 때 SetOpen이 Refresh를 부르므로 여기서 따로 부르지 않는다.
         self:SetOpen(false)
+        self:SetDetailOpen(false)
     end
 
     @ExecSpace("ClientOnly")
@@ -88,7 +140,92 @@ script StatPanel extends Logic
         self.isOpen = open
         self.windowRoot.Entity:SetVisible(open)
         self.btnOpen.Entity:SetVisible(not open)
+        if open then
+            self:SetDetailOpen(false)
+            self:Refresh()
+        else
+            self:SetDetailOpen(false)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetDetailOpen(boolean open)
+        -- 상세 창 표시 상태와 헤더 버튼 문구를 함께 맞춘다.
+        self.detailOpen = open
+        self.detailRoot.Entity:SetVisible(open)
+        local text = self.btnDetail.Entity.TextGUIRendererComponent
+        if isvalid(text) then
+            text.Text = open and "상세 -" or "상세 +"
+        end
+        if not open then
+            self.selectedStat = ""
+            self:ApplyStatHighlight()
+        end
         if open then self:Refresh() end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SelectStat(string statName)
+        -- 스탯 텍스트를 누르면 상세 창을 열고 영향을 받는 수치를 강조한다.
+        if not self.detailOpen then self:SetDetailOpen(true) end
+        if self.selectedStat == statName then
+            self.selectedStat = ""
+        else
+            self.selectedStat = statName
+        end
+        self:ApplyStatHighlight()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetTextHighlight(TextGUIRendererComponent text, boolean highlighted, Color defaultColor)
+        -- 선택된 연결 관계에는 공통 빨간색을, 나머지에는 원래 색을 적용한다.
+        if not isvalid(text) then return end
+        if highlighted then
+            text.FontColor = Color(0.86, 0.16, 0.16, 1)
+        else
+            text.FontColor = defaultColor
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ApplyStatHighlight()
+        -- STR/INT/DEX/LUK가 실제 계산식에서 바꾸는 상세 수치만 같은 색으로 묶는다.
+        local strSelected = self.selectedStat == "STR"
+        local intSelected = self.selectedStat == "INT"
+        local dexSelected = self.selectedStat == "DEX"
+        local lukSelected = self.selectedStat == "LUK"
+
+        local statLabelColor = Color(0.16, 0.18, 0.22, 1)
+        local statValueColor = Color(0.66, 0.42, 0.04, 1)
+        local detailLabelColor = Color(0.302, 0.337, 0.404, 1)
+        local detailValueColor = Color(0.161, 0.180, 0.220, 1)
+
+        self:SetTextHighlight(self.strLabel, strSelected, statLabelColor)
+        self:SetTextHighlight(self.strValue, strSelected, statValueColor)
+        self:SetTextHighlight(self.intLabel, intSelected, statLabelColor)
+        self:SetTextHighlight(self.intValue, intSelected, statValueColor)
+        self:SetTextHighlight(self.dexLabel, dexSelected, statLabelColor)
+        self:SetTextHighlight(self.dexValue, dexSelected, statValueColor)
+        self:SetTextHighlight(self.lukLabel, lukSelected, statLabelColor)
+        self:SetTextHighlight(self.lukValue, lukSelected, statValueColor)
+
+        local atkSelected = strSelected or dexSelected or lukSelected
+        self:SetTextHighlight(self.detailAtkLabel, atkSelected, detailLabelColor)
+        self:SetTextHighlight(self.detailAtk, atkSelected, detailValueColor)
+        self:SetTextHighlight(self.detailMatkLabel, intSelected, detailLabelColor)
+        self:SetTextHighlight(self.detailMatk, intSelected, detailValueColor)
+        self:SetTextHighlight(self.detailDefLabel, dexSelected, detailLabelColor)
+        self:SetTextHighlight(self.detailDef, dexSelected, detailValueColor)
+        self:SetTextHighlight(self.detailHpLabel, strSelected, detailLabelColor)
+        self:SetTextHighlight(self.detailHp, strSelected, detailValueColor)
+        self:SetTextHighlight(self.detailAttackSpeedLabel, lukSelected, detailLabelColor)
+        self:SetTextHighlight(self.detailAttackSpeed, lukSelected, detailValueColor)
+        self:SetTextHighlight(self.detailMoveSpeedLabel, lukSelected, detailLabelColor)
+        self:SetTextHighlight(self.detailMoveSpeed, lukSelected, detailValueColor)
+        self:SetTextHighlight(self.detailCaptureLabel, lukSelected, detailLabelColor)
+        self:SetTextHighlight(self.detailCapture, lukSelected, detailValueColor)
+        self:SetTextHighlight(self.detailDropLabel, lukSelected, detailLabelColor)
+        self:SetTextHighlight(self.detailDrop, lukSelected, detailValueColor)
     end
 
     @ExecSpace("ClientOnly")
@@ -98,6 +235,11 @@ script StatPanel extends Logic
         if self.handlerInt ~= nil then self.btnInt.Entity:DisconnectEvent(ButtonClickEvent, self.handlerInt) end
         if self.handlerDex ~= nil then self.btnDex.Entity:DisconnectEvent(ButtonClickEvent, self.handlerDex) end
         if self.handlerLuk ~= nil then self.btnLuk.Entity:DisconnectEvent(ButtonClickEvent, self.handlerLuk) end
+        if self.handlerInspectStr ~= nil then self.btnInspectStr.Entity:DisconnectEvent(ButtonClickEvent, self.handlerInspectStr) end
+        if self.handlerInspectInt ~= nil then self.btnInspectInt.Entity:DisconnectEvent(ButtonClickEvent, self.handlerInspectInt) end
+        if self.handlerInspectDex ~= nil then self.btnInspectDex.Entity:DisconnectEvent(ButtonClickEvent, self.handlerInspectDex) end
+        if self.handlerInspectLuk ~= nil then self.btnInspectLuk.Entity:DisconnectEvent(ButtonClickEvent, self.handlerInspectLuk) end
+        if self.handlerDetail ~= nil then self.btnDetail.Entity:DisconnectEvent(ButtonClickEvent, self.handlerDetail) end
         if self.handlerClose ~= nil then self.btnClose.Entity:DisconnectEvent(ButtonClickEvent, self.handlerClose) end
         if self.handlerOpen ~= nil then self.btnOpen.Entity:DisconnectEvent(ButtonClickEvent, self.handlerOpen) end
         if self.refreshTimer ~= nil then _TimerService:ClearTimer(self.refreshTimer) end
@@ -140,30 +282,47 @@ script StatPanel extends Logic
         end
 
         self.pointsValue.Text = tostring(stats.UnspentPoints)
-        -- "분배값 (총합)" 꼴. 총합에는 기본값과 **장비분**이 들어 있다 (T13-4).
-        -- 네 스탯을 같은 꼴로 맞춘 이유: ATK만 총합을 보여주던 동안 장비를 껴도
-        -- DEF·LUK 줄은 숫자가 그대로여서 "장비가 안 먹었다"로 보였다.
-        self.strValue.Text = self:StatTextWithRate(stats.StatStr, stats:GetTotalAtk(),
-            stats:GetPassiveItemRate("STR"))
-        self.intValue.Text = self:StatText(stats.StatInt, stats:GetTotalInt())
-        self.dexValue.Text = self:StatText(stats.StatDex, stats:GetTotalDef())
-        self.lukValue.Text = self:StatText(stats.StatLuk, stats:GetTotalLuk())
+        -- 일반 창은 오직 최종 STR/DEX/INT/LUK만 보여 준다. 분배값·컬렉션·히든 보스
+        -- %를 합친 값이며, ATK·DEF 같은 파생 수치는 왼쪽 상세 창으로 분리한다.
+        self.strValue.Text = self:FormatNumber(stats:GetFinalStatPoints("STR"))
+        self.intValue.Text = self:FormatNumber(stats:GetFinalStatPoints("INT"))
+        self.dexValue.Text = self:FormatNumber(stats:GetFinalStatPoints("DEX"))
+        self.lukValue.Text = self:FormatNumber(stats:GetFinalStatPoints("LUK"))
+
+        if self.detailOpen then
+            self.detailAtk.Text = self:FormatNumber(stats:GetTotalAtk())
+            self.detailMatk.Text = self:FormatNumber(stats:GetTotalInt())
+            self.detailDef.Text = self:FormatNumber(stats:GetTotalDef())
+            self.detailHp.Text = self:FormatNumber(stats:GetMaxHp())
+            self.detailAttackSpeed.Text = string.format("%.2f초 / 회", stats:GetAttackInterval())
+            self.detailMoveSpeed.Text = string.format("%.2f", stats:GetMoveSpeed())
+            self.detailCapture.Text = string.format("%.1f%%", stats:GetCaptureRate() * 100)
+            local dropBonus = stats:GetTotalLuk()
+                * _GameData:GetBalance("drop_luk_multiplier") * 100
+            self.detailDrop.Text = "+" .. string.format("%.1f%%", dropBonus)
+            self.detailPassive.Text = self:PassiveSummary(stats)
+        end
     end
 
     @ExecSpace("ClientOnly")
-    method string StatText(integer allocated, number total)
-        -- "3  (18)" 꼴로 맞춘다. 소수점이 붙지 않게 총합은 내림한다 —
-        -- 밸런스 값이 실수라 그냥 tostring하면 "18.0"으로 나온다.
-        return tostring(allocated) .. "  (" .. tostring(math.floor(total)) .. ")"
+    method string FormatNumber(number value)
+        local rounded = math.floor(value + 0.5)
+        if math.abs(value - rounded) < 0.001 then return tostring(rounded) end
+        return string.format("%.2f", value)
     end
 
     @ExecSpace("ClientOnly")
-    method string StatTextWithRate(integer allocated, number total, number rate)
-        -- 히어로 패시브처럼 분배 수치를 비율로 키우는 효과는 왼쪽에 함께 적는다.
-        -- 실제 전투 수치는 기존처럼 괄호 안에 둔다.
-        local rateText = ""
-        if rate > 0 then rateText = " +" .. string.format("%.0f", rate * 100) .. "%" end
-        return tostring(allocated) .. rateText .. "  (" .. tostring(math.floor(total)) .. ")"
+    method string PassiveSummary(any stats)
+        local names = { "STR", "DEX", "INT", "LUK" }
+        local parts = {}
+        for i = 1, #names do
+            local bonus = stats:GetPassiveItemStatBonus(names[i])
+            if bonus > 0 then
+                table.insert(parts, names[i] .. " +" .. tostring(bonus))
+            end
+        end
+        if #parts == 0 then return "히든 보스 패시브 없음" end
+        return "히든 보스  " .. table.concat(parts, "  ·  ")
     end
 
 end
