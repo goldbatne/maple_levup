@@ -67,6 +67,9 @@ script InventoryPanel extends Logic
     -- 클릭 핸들러에 아이템 id를 캡처하지 않는 이유: 목록이 갱신되면 줄의 내용이
     -- 바뀌는데 핸들러는 그대로라, 캡처했다면 옛 아이템을 장착하게 된다.
     property table rowItemIds = {}
+    -- 행별로 마지막에 지정한 아이콘 RUID. 같은 thumbnail://을 0.3초마다 다시 넣으면
+    -- 로딩이 끝나기 전에 재요청되어 기본 아이콘이 계속 남을 수 있으므로 변경 시에만 갱신한다.
+    property table rowIconRuids = {}
     property string selectedItemId = ""
 
     property integer equipRowCount = 3
@@ -162,6 +165,7 @@ script InventoryPanel extends Logic
         if index == 27 then return self.itemRow26 end
         if index == 28 then return self.itemRow27 end
         if index == 29 then return self.itemRow28 end
+        if index == 30 then return self.itemRow29 end
         return nil
     end
 
@@ -285,7 +289,7 @@ script InventoryPanel extends Logic
     end
 
     @ExecSpace("ClientOnly")
-    method void SetItemCell(any btn, table item, integer count, boolean selected)
+    method void SetItemCell(any btn, table item, integer count, boolean selected, integer rowIndex)
         if btn == nil or not isvalid(btn) then return end
         local entity = btn.Entity
         entity.Enable = true
@@ -297,7 +301,10 @@ script InventoryPanel extends Logic
             iconEntity.Enable = item.icon_ruid ~= ""
             if item.icon_ruid ~= "" then
                 local icon = iconEntity.SpriteGUIRendererComponent
-                icon.ImageRUID = DataRef(item.icon_ruid)
+                if self.rowIconRuids[rowIndex] ~= item.icon_ruid then
+                    icon.ImageRUID = DataRef(item.icon_ruid)
+                    self.rowIconRuids[rowIndex] = item.icon_ruid
+                end
                 -- 보유 아이템은 상태 표현 때문에 흐리게 만들지 않는다. 선택 여부는 슬롯 테두리로만 가른다.
                 icon.Color = Color(1, 1, 1, 1)
                 iconEntity.UITransformComponent.anchoredPosition = Vector2(0, -2)
@@ -329,21 +336,21 @@ script InventoryPanel extends Logic
         if not isvalid(self.detailTitle) or not isvalid(self.detailBody) then return end
         if self.selectedItemId == "" then
             self.detailTitle.Text = "아이템을 선택해 주세요"
-            self.detailBody.Text = "한 번 누르면 설명 · 같은 슬롯을 한 번 더 누르면 사용/장착"
+            self.detailBody.Text = "장비는 한 번 눌러 장착 · 포션은 선택 후 다시 눌러 사용"
             return
         end
         local item = _GameData:GetItem(self.selectedItemId)
         if item == nil then
             self.selectedItemId = ""
             self.detailTitle.Text = "아이템을 선택해 주세요"
-            self.detailBody.Text = "한 번 누르면 설명 · 같은 슬롯을 한 번 더 누르면 사용/장착"
+            self.detailBody.Text = "장비는 한 번 눌러 장착 · 포션은 선택 후 다시 눌러 사용"
             return
         end
         local count = inv:GetCount(item.id)
         self.detailTitle.Text = item.name .. "   x" .. tostring(count)
         local action = "한 번 더 누르면 사용"
         if item.item_type == "equip" then
-            action = "한 번 더 누르면 " .. self:SlotLabel(item.slot) .. " 장착"
+            action = self:SlotLabel(item.slot) .. "에 장착됨"
         elseif item.item_type == "passive" then
             action = "인벤토리 보유 중 자동 적용"
         end
@@ -399,7 +406,7 @@ script InventoryPanel extends Logic
                 self.rowItemIds[row] = id
                 local item = _GameData:GetItem(id)
                 if item ~= nil then
-                    self:SetItemCell(self:GetItemRow(row), item, count, id == self.selectedItemId)
+                    self:SetItemCell(self:GetItemRow(row), item, count, id == self.selectedItemId, row)
                 else
                     self:HideRow(self:GetItemRow(row))
                 end
@@ -421,7 +428,7 @@ script InventoryPanel extends Logic
                 self.hintText.Text = "가방이 비어 있다. 몬스터를 잡으면 바닥에 떨어진다 — 밟으면 줍는다."
             else
                 -- 한 줄로 둔다. 두 줄이면 마지막 아이템 줄과 겹친다 (ui_lint L023).
-                self.hintText.Text = "아이템 한 번 선택 · 한 번 더 눌러 사용/장착 · 착용 칸은 눌러서 해제"
+                self.hintText.Text = "장비는 한 번 눌러 장착 · 포션은 선택 후 다시 눌러 사용 · 착용 칸은 눌러서 해제"
             end
         end
     end
@@ -457,12 +464,10 @@ script InventoryPanel extends Logic
         local item = _GameData:GetItem(itemId)
         if item == nil then return end
 
-        -- 원작형 슬롯 조작: 첫 클릭은 선택/설명, 같은 슬롯을 다시 눌렀을 때 사용 또는 장착.
-        if self.selectedItemId ~= itemId then
-            self.selectedItemId = itemId
-            self:Refresh()
-            return
-        end
+        -- 장비는 첫 클릭에 바로 장착한다. 이전에는 첫 클릭이 선택만 해서 파란 칸으로
+        -- 바뀌고 아무 일도 안 일어난 것처럼 보였다. 소비만 오사용 방지를 위해 재클릭한다.
+        local wasSelected = self.selectedItemId == itemId
+        self.selectedItemId = itemId
 
         ---@type PlayerInventory
         local inv = self:GetInventory()
@@ -471,6 +476,10 @@ script InventoryPanel extends Logic
         -- 소비 아이템은 여기서 바로 쓴다 (T13-7). 퀵슬롯(T13-5b)이 붙으면
         -- 손이 빠른 길이 하나 더 생기는 것이고, 창에서 쓰는 길은 그대로 남는다.
         if item.item_type == "consume" then
+            if wasSelected == false then
+                self:Refresh()
+                return
+            end
             log("[Inventory창] 사용 요청 " .. itemId)
             inv:RequestUseItem(itemId)
             self:Refresh()
@@ -480,6 +489,7 @@ script InventoryPanel extends Logic
         -- 패시브 아이템은 선택해서 설명만 본다. 재클릭해도 장착/사용 요청을 보내지 않는다.
         if item.item_type == "passive" then
             log("[Inventory창] 패시브 확인 " .. itemId .. " — 보유 중 자동 적용")
+            self:Refresh()
             return
         end
 

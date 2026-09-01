@@ -6,7 +6,9 @@ const { UIBuilder } = require("../../../.agents/skills/msw-ui-system/scripts/msw
 
 const FRAME_RUID = "2860136c06ab075439721c027de365af";
 const SLOT_RUID = "129f02486c2baef49a41b31ce16171f6";
-const EMPTY_ICON_RUID = "234aca1a4ce946119b68e3717991e775";
+// 런타임 데이터가 들어오기 전에는 실제로 빈 칸이어야 한다. 빨간 포션을 기본값으로
+// 두면 avatar thumbnail 로딩 중이거나 행이 숨기기 전 한 프레임 동안 포션으로 보인다.
+const EMPTY_ICON_RUID = "";
 
 function rebuildWorldMap() {
   const uiPath = "ui/WorldMap.ui";
@@ -175,6 +177,7 @@ function rebuildInventory() {
       });
     }
     b.patchComponent(cell + "/Icon", "MOD.Core.SpriteGUIRendererComponent", {
+      ImageRUID: { DataId: EMPTY_ICON_RUID },
       PreserveSprite: 0,
       Color: { r: 1, g: 1, b: 1, a: 1 },
     });
@@ -191,7 +194,7 @@ function rebuildInventory() {
     anchor: "top-left", pos: [18, -12], rect_size: [610, 34], pivot: [0, 1],
     size: 19, color: "#292E38", bold: true, best_fit: true, min_size: 14, max_size: 19,
     });
-    b.text(detail + "/Body", "한 번 누르면 설명 · 같은 슬롯을 한 번 더 누르면 사용/장착", {
+    b.text(detail + "/Body", "장비는 한 번 눌러 장착 · 포션은 선택 후 다시 눌러 사용", {
     anchor: "top-left", pos: [18, -50], rect_size: [610, 66], pivot: [0, 1],
     size: 16, color: "#4D5667", best_fit: true, min_size: 12, max_size: 16,
     });
@@ -257,7 +260,8 @@ function rebuildSkills() {
   b.write(uiPath, { strict: true, lint: true });
 }
 
-rebuildWorldMap();
-rebuildInventory();
-rebuildSkills();
-console.log("[T54] 월드맵 정보 팝업 + 슬롯형 가방/스킬 UI 생성 완료");
+const target = process.argv[2] || "all";
+if (target === "all" || target === "worldmap") rebuildWorldMap();
+if (target === "all" || target === "inventory") rebuildInventory();
+if (target === "all" || target === "skills") rebuildSkills();
+console.log(`[T54] ${target} UI 생성 완료`);

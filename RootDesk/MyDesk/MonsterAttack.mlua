@@ -218,6 +218,40 @@ script MonsterAttack extends AttackComponent
 		return monster.MonsterId
 	end
 
+	method table PhaseSkillIds(RoomMonster monster)
+		-- 보우마스터만 HP 구간별로 스킬 풀이 열린다. 히어로와 지역 보스는 기존의
+		-- 완전 무작위 규칙을 그대로 쓴다.
+		local skills = self._T.bossSkills
+		if skills == nil then return {} end
+		if self:MonsterIdOf() ~= "m_adv_bowmaster" then return skills end
+
+		local ratio = 1
+		if monster.MaxHp > 0 then ratio = monster.Hp / monster.MaxHp end
+		local phase = 1
+		if ratio <= 0.35 then phase = 3
+		elseif ratio <= 0.70 then phase = 2 end
+
+		if self._T.bowPhase ~= phase then
+			self._T.bowPhase = phase
+			log("[보우마스터] " .. tostring(phase) .. "단계 진입  HP="
+				.. string.format("%.1f", ratio * 100) .. "%")
+		end
+
+		local out = {}
+		for i = 1, #skills do
+			local skill = _GameData:GetSkill(skills[i])
+			if skill ~= nil then
+				-- 1단계: 1·2차 / 2단계: 1~3차 / 3단계: 3·4차.
+				-- 마지막 구간에서 초반 화살을 빼 피닉스와 폭풍의 시가 실제로 보이게 한다.
+				local usable = (phase == 1 and skill.tier <= 2)
+					or (phase == 2 and skill.tier <= 3)
+					or (phase == 3 and skill.tier >= 3)
+				if usable then out[#out + 1] = skills[i] end
+			end
+		end
+		return out
+	end
+
 	@ExecSpace("ServerOnly")
 	method void StartBossSkills(RoomMonster monster)
 		-- 보스방의 몬스터만 스킬을 쓴다 (히어로 계보 + 각 지역 보스 포획 스킬).
@@ -284,7 +318,8 @@ script MonsterAttack extends AttackComponent
 		-- 순서대로 돌리지 않는 이유: 5종을 순환하면 패턴이 외워져 두 번째 판부터
 		-- 사건이 아니게 된다. 무작위면 매번 다르게 맞는다.
 		local ready = {}
-		for _, id in ipairs(self._T.bossSkills) do
+		local phaseSkills = self:PhaseSkillIds(monster)
+		for _, id in ipairs(phaseSkills) do
 			local readyAt = self._T.skillReadyAt[id]
 			if readyAt == nil or _UtilLogic.ElapsedSeconds >= readyAt then
 				ready[#ready + 1] = id
@@ -318,6 +353,12 @@ script MonsterAttack extends AttackComponent
 	@ExecSpace("ServerOnly")
 	method boolean CastSkill(RoomMonster monster, table skill)
 		-- 실제 발동. **실제로 뭔가 일어났을 때만** true.
+		-- 보우마스터의 다발·설치·연사는 단일 원 판정으로는 구분되지 않으므로
+		-- 투사체 패턴 전용 경로에서 처리한다. 다른 보스는 기존 공통 경로를 탄다.
+		if monster.MonsterId == "m_adv_bowmaster" then
+			return self:CastBowmasterSkill(monster, skill)
+		end
+
 		if skill.skill_kind == "defense" then
 			if skill.effect_type ~= "shield" then
 				-- 회복(heal)은 아직 몬스터 쪽에 없다. 조용히 넘기면 "쿨다운은 도는데
@@ -486,6 +527,148 @@ script MonsterAttack extends AttackComponent
 		log("[착탄] " .. skill.name .. "  " .. string.format("%.1f,%.1f", pos.x, pos.y)
 			.. "  반경 " .. string.format("%.2f", r)
 			.. " → " .. tostring(n) .. "명" .. (n == 0 and "  (비켜섰다)" or ""))
+	end
+
+	---------------------------------------------------------------
+	-- 보우마스터 투사체 패턴 (T57)
+	---------------------------------------------------------------
+
+	@ExecSpace("ServerOnly")
+	method any FindBowTarget(Vector3 fromPos, number radius)
+		local map = self.Entity.CurrentMap
+		if map == nil then return nil end
+		local users = _UserService:GetUsersByMapName(map.Name)
+		if users == nil then return nil end
+
+		local target = nil
+		local best = radius
+		for i = 1, #users do
+			local user = users[i]
+			if isvalid(user) then
+				local p = user.TransformComponent.WorldPosition
+				local dx = p.x - fromPos.x
+				local dy = p.y - fromPos.y
+				local dist = math.sqrt(dx * dx + dy * dy)
+				if dist <= best then
+					best = dist
+					target = user
+				end
+			end
+		end
+		return target
+	end
+
+	@ExecSpace("ServerOnly")
+	method void LaunchBowProjectile(string skillId, Vector3 targetPos, number hitRadius, boolean showCast)
+		if not isvalid(self.Entity) then return end
+		local skill = _GameData:GetSkill(skillId)
+		if skill == nil then return end
+
+		if showCast then
+			local from = self.Entity.TransformComponent.WorldPosition
+			_SkillEffect:PlayCast(skillId, self.Entity, targetPos.x < from.x)
+		end
+		_SkillEffect:PlayProjectile(skillId, self.Entity, targetPos)
+
+		local flight = _GameData:GetBalance("projectile_seconds")
+		local maxTargets = skill.max_targets
+		_TimerService:SetTimerOnce(function()
+			self:ResolveBowHit(skillId, targetPos, maxTargets, hitRadius)
+		end, flight)
+	end
+
+	@ExecSpace("ServerOnly")
+	method void ResolveBowHit(string skillId, Vector3 pos, number maxTargets, number hitRadius)
+		if not isvalid(self.Entity) then return end
+		local skill = _GameData:GetSkill(skillId)
+		if skill == nil then return end
+
+		self.hitLimited = (maxTargets > 0)
+		self.hitBudget = math.floor(maxTargets)
+		local hits = self:Attack(
+			CircleShape(Vector2(pos.x, pos.y + 0.5), hitRadius),
+			skillId, CollisionGroups.Player)
+		self.hitLimited = false
+
+		local n = 0
+		if hits ~= nil then n = #hits end
+		log("[보우마스터 착탄] " .. skill.name .. "  "
+			.. string.format("%.1f,%.1f", pos.x, pos.y)
+			.. "  반경 " .. string.format("%.2f", hitRadius)
+			.. " → " .. tostring(n) .. "명" .. (n == 0 and "  (회피)" or ""))
+	end
+
+	@ExecSpace("ServerOnly")
+	method void FireBowAtNearest(string skillId, number targetRadius, number hitRadius, integer volley)
+		if not isvalid(self.Entity) then return end
+		---@type RoomMonster
+		local monster = self.Entity:GetComponent("script.RoomMonster")
+		if monster == nil or monster.IsDead then return end
+
+		local from = self.Entity.TransformComponent.WorldPosition
+		local target = self:FindBowTarget(from, targetRadius)
+		if target == nil then return end
+		self:LaunchBowProjectile(skillId, target.TransformComponent.WorldPosition, hitRadius, false)
+		log("[보우마스터 연사] " .. skillId .. " #" .. tostring(volley))
+	end
+
+	@ExecSpace("ServerOnly")
+	method boolean CastBowmasterSkill(RoomMonster monster, table skill)
+		local transform = self.Entity.TransformComponent
+		if not isvalid(transform) then return false end
+		local from = transform.WorldPosition
+		local radius = skill.range * _GameData:GetBalance("boss_skill_range_multiplier")
+		if radius <= 0 then radius = 5 end
+
+		local target = self:FindBowTarget(from, radius)
+		if target == nil then return false end
+		local targetPos = target.TransformComponent.WorldPosition
+		local hitRadius = _GameData:GetBalance("projectile_hit_radius")
+		if hitRadius <= 0 then hitRadius = 0.8 end
+
+		self:PlayAttackPose()
+		local flip = targetPos.x < from.x
+		_SkillEffect:PlayCast(skill.id, self.Entity, flip)
+
+		if skill.id == "s_bow_02" then
+			-- 바람의 시: 같은 조준점을 세로로 벌린 세 발. 한 발만 맞아도 i-frame이
+			-- 나머지를 막으므로 그림은 넓지만 순간 피해가 세 배가 되지는 않는다.
+			for i = -1, 1 do
+				self:LaunchBowProjectile(skill.id,
+					Vector3(targetPos.x, targetPos.y + i * 0.65, targetPos.z), hitRadius, false)
+			end
+		elseif skill.id == "s_bow_03" then
+			-- 애로우 플래터: 설치물을 별도 AI로 만들지 않고 2.2초 동안 네 번 재조준한다.
+			-- 다음 보스 스킬 주기(3초) 전에 끝나므로 다른 패턴과 겹치지 않는다.
+			for i = 0, 3 do
+				local volley = i + 1
+				_TimerService:SetTimerOnce(function()
+					self:FireBowAtNearest(skill.id, radius, hitRadius, volley)
+				end, i * 0.55)
+			end
+		elseif skill.id == "s_bow_04" then
+			-- 피닉스: 큰 불새 한 발과 넓은 착탄 반경.
+			local phoenixRadius = skill.effect_value
+			if phoenixRadius <= hitRadius then phoenixRadius = hitRadius * 1.75 end
+			self:LaunchBowProjectile(skill.id, targetPos, phoenixRadius, false)
+		elseif skill.id == "s_bow_05" then
+			-- 폭풍의 시: 낮은 HP 전용 다섯 발. 판정은 각 화살 도착 때 일어나며
+			-- 플레이어 i-frame이 연속 피격을 제한한다.
+			for i = 0, 4 do
+				local volley = i + 1
+				_TimerService:SetTimerOnce(function()
+					self:FireBowAtNearest(skill.id, radius, hitRadius, volley)
+				end, i * 0.13)
+			end
+		else
+			-- 애로우 블로우: 기본 조준 한 발.
+			self:LaunchBowProjectile(skill.id, targetPos, hitRadius, false)
+		end
+
+		log("[보우마스터 스킬] " .. monster.DisplayName .. " [" .. skill.name
+			.. "] 단계=" .. tostring(self._T.bowPhase or 1)
+			.. " 사거리=" .. string.format("%.2f", radius))
+		return true
 	end
 
 	method string ClipForState(string stateName)
