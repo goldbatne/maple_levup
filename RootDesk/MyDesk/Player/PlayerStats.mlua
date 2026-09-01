@@ -322,6 +322,26 @@ script PlayerStats extends Component
         return self.StatLuk
     end
 
+    method number GetFinalStatPoints(string statName)
+        -- 일반 스탯 창에 표시할 최종 STR/DEX/INT/LUK.
+        -- 분배 포인트 + 포획 컬렉션 포인트에 히든 보스 장비의 %를 곱한다.
+        -- 일반 장비는 ATK/마력/DEF 같은 파생 수치를 올리므로 여기에는 섞지 않고
+        -- 상세 스탯의 물리 공격력·마법 공격력·방어력에서 보여 준다.
+        local points = 0
+        if statName == "STR" then
+            points = self:GetStr() + self:GetCollectionPoints("STR")
+        elseif statName == "DEX" then
+            points = self:GetDex() + self:GetCollectionPoints("DEX")
+        elseif statName == "INT" then
+            points = self:GetIntStat() + self:GetCollectionPoints("INT")
+        elseif statName == "LUK" then
+            points = self:GetLukStat() + self:GetCollectionPoints("LUK")
+        else
+            return 0
+        end
+        return points * (1 + self:GetPassiveItemRate(statName))
+    end
+
     ---------------------------------------------------------------
     -- 최대 HP (T27-1)
     ---------------------------------------------------------------
