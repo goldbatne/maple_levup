@@ -25,6 +25,11 @@
 @Component
 script ReturnPortal extends Component
 
+    -- 빈 값이면 기존 규칙대로 시작 마을로, 값이 있으면 지정한 방으로 돌아간다.
+    -- 직업 시험장은 필드 안의 숨은 NPC로 들어오므로 발견 지점으로 돌려보내야
+    -- 재도전 동선이 끊기지 않는다. 일반 지역 보스 포탈은 값을 비워 마을 귀환을 유지한다.
+    property string TargetRoomId = ""
+
     -- 개방/잠김 스프라이트. RUID를 코드에 박지 않고 모델 Values에서 주입받는다.
     property string openRUID = ""
     property string lockedRUID = ""
@@ -154,17 +159,24 @@ script ReturnPortal extends Component
             return
         end
 
-        local startRoom = _GameData:GetStartRoom()
-        if startRoom == nil or startRoom.map_name == "" then
-            log_error("[ReturnPortal] RoomTable에 쓸 만한 is_start 방이 없다")
+        local targetRoom = nil
+        if self.TargetRoomId ~= "" then
+            targetRoom = _GameData:GetRoom(self.TargetRoomId)
+        else
+            targetRoom = _GameData:GetStartRoom()
+        end
+        if targetRoom == nil or targetRoom.map_name == "" then
+            log_error("[ReturnPortal] 귀환할 방을 찾지 못했다: " .. tostring(self.TargetRoomId))
             return
         end
 
         _PortalGuard:Mark(userId)
-        log("[ReturnPortal] 귀환 → " .. startRoom.id .. "(" .. startRoom.map_name .. ")")
+        log("[ReturnPortal] 귀환 → " .. targetRoom.id .. "(" .. targetRoom.map_name .. ")")
 
-        -- 도착점은 방 한가운데(0,0,0). 포탈은 가장자리에 있어 트리거에 걸리지 않는다.
-        _TeleportService:TeleportToMapPosition(player, Vector3(0, 0, 0), startRoom.map_name)
+        -- 목적지의 표준 진입 좌표를 쓴다. 직업 NPC 옆으로 정확히 돌아가는 좌표는
+        -- 맵이 아니라 RoomTable의 portal_x/y가 소유한다.
+        _TeleportService:TeleportToMapPosition(player,
+            Vector3(targetRoom.portal_x, targetRoom.portal_y, 0), targetRoom.map_name)
 
         -- 방향키를 누른 채 포탈에 들어가면 도착 후에도 계속 걸어간다.
         -- 근거와 실측은 RoomPortal.StopAfterArrive / MoveInputGuard 주석에 있다.

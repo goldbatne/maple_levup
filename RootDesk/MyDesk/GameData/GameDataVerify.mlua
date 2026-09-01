@@ -393,10 +393,24 @@ script GameDataVerify extends Logic
                 if item.slot == "" then
                     log_error("  [아이템] " .. item.id .. " 는 장비인데 slot이 비어 있다")
                 end
+                if item.avatar_category ~= "cap"
+                    and item.avatar_category ~= "coat"
+                    and item.avatar_category ~= "glove"
+                    and item.avatar_category ~= "longcoat"
+                    and item.avatar_category ~= "shield"
+                    and item.avatar_category ~= "onehandedweapon"
+                    and item.avatar_category ~= "twohandedweapon"
+                    and item.avatar_category ~= "earaccessory" then
+                    log_error("  [아이템] " .. item.id .. " 의 아바타 분류가 이상하다: '"
+                        .. item.avatar_category .. "'")
+                end
             elseif item.item_type == "consume" then
                 consumeCount += 1
                 if item.slot ~= "" then
                     log_warning("  [아이템] " .. item.id .. " 는 소비인데 slot이 채워져 있다: " .. item.slot)
+                end
+                if item.avatar_category ~= "" then
+                    log_error("  [아이템] " .. item.id .. " 는 소비인데 아바타 분류가 채워져 있다")
                 end
             elseif item.item_type == "passive" then
                 passiveCount += 1
@@ -405,6 +419,9 @@ script GameDataVerify extends Logic
                 end
                 if item.passive_stat == "" or item.passive_rate <= 0 then
                     log_error("  [아이템] " .. item.id .. " 의 패시브 스탯/비율이 비어 있다")
+                end
+                if item.avatar_category ~= "" then
+                    log_error("  [아이템] " .. item.id .. " 는 패시브인데 아바타 분류가 채워져 있다")
                 end
             end
 

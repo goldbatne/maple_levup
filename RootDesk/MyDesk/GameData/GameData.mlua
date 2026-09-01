@@ -447,6 +447,10 @@ script GameData extends Logic
                     drop_from = self:ToText(row:GetItem("drop_from")),
                     drop_rate = self:ToNumber(row:GetItem("drop_rate"), 0),
                     icon_ruid = self:ToText(row:GetItem("icon_ruid")),
+                    -- 인벤토리 아이콘의 thumbnail:// 뒤 원본 RUID를 실제 아바타에 입힐 때
+                    -- 사용할 MSW 공식 분류. 논리 슬롯(weapon/armor/accessory)과 외형 슬롯은
+                    -- 서로 다르므로 데이터에서 명시한다.
+                    avatar_category = self:ToText(row:GetItem("avatar_category")),
                     -- 인벤토리에 가지고 있기만 해도 적용되는 패시브 아이템 (T56).
                     -- passive_rate는 0.01 = 1%처럼 비율로 저장한다.
                     passive_stat = self:ToText(row:GetItem("passive_stat")),

@@ -40,7 +40,7 @@ function readUiComponent(filepath, path, type) {
 }
 
 const allMonsters = readCsv("RootDesk/MyDesk/GameData/MonsterTable.csv");
-const monsters = allMonsters.filter((monster) => monster.id !== "m_adv_hero");
+const monsters = allMonsters.filter((monster) => !monster.id.startsWith("m_adv_"));
 const skills = readCsv("RootDesk/MyDesk/GameData/SkillTable.csv");
 const items = readCsv("RootDesk/MyDesk/GameData/ItemTable.csv");
 const rooms = readCsv("RootDesk/MyDesk/GameData/RoomTable.csv");
@@ -66,12 +66,21 @@ const badRuid = [
 ];
 const specificItems = items.filter((item) => item.drop_from !== "*");
 const badItemTypeMapping = specificItems
-  .filter((item) => item.item_type !== "equip" && item.id !== "i_hero_sword")
+  .filter((item) => item.item_type !== "equip" && item.item_type !== "passive")
   .map((item) => item.id);
 const validEquipSlots = new Set(["weapon", "armor", "accessory"]);
+const validAvatarCategories = new Set([
+  "cap", "coat", "glove", "longcoat", "shield",
+  "onehandedweapon", "twohandedweapon", "earaccessory",
+]);
 const badEquipment = specificItems
   .filter((item) => item.item_type === "equip")
   .filter((item) => !validEquipSlots.has(item.slot) || !/원작 아이템 \d+/.test(item.note))
+  .map((item) => item.id);
+const badAvatarCategories = items
+  .filter((item) => item.item_type === "equip"
+    ? !validAvatarCategories.has(item.avatar_category)
+    : item.avatar_category !== "")
   .map((item) => item.id);
 const heroPassive = items.find((item) => item.id === "i_hero_sword");
 const heroPassiveOk = heroPassive !== undefined
@@ -86,6 +95,19 @@ const heroCombatOnlyOk = skills.filter((skill) => skill.id.startsWith("s_hero_")
   .every((skill) => skill.source === "boss" && skill.slot_type === "enemy")
   && allMonsters.find((monster) => monster.id === "m_adv_hero")?.combat_skill_ids
     === "s_hero_01|s_hero_def|s_hero_02|s_hero_03|s_hero_04";
+const bowmasterPassive = items.find((item) => item.id === "i_bowmaster_bow");
+const bowmasterPassiveOk = bowmasterPassive !== undefined
+  && bowmasterPassive.name === "보우마스터의 활"
+  && bowmasterPassive.item_type === "passive"
+  && bowmasterPassive.slot === ""
+  && bowmasterPassive.passive_stat === "DEX"
+  && Number(bowmasterPassive.passive_rate) === 0.01
+  && Number(bowmasterPassive.stack_max) === 5
+  && bowmasterPassive.drop_from === "m_adv_bowmaster";
+const bowmasterCombatOnlyOk = skills.filter((skill) => skill.id.startsWith("s_bow_"))
+  .every((skill) => skill.source === "boss" && skill.slot_type === "enemy")
+  && allMonsters.find((monster) => monster.id === "m_adv_bowmaster")?.combat_skill_ids
+    === "s_bow_01|s_bow_02|s_bow_03|s_bow_04|s_bow_05";
 const correctedPassiveEquipment = new Map([
   ["i_maple_spear", { name: "메이플 스피어", slot: "weapon", stat_atk: 5, itemId: "1432012", ruid: "a911d7794deb4d04a32188b55eda32ab" }],
   ["i_bronze_crusader_helm", { name: "브론즈 크루세이더 헬름", slot: "armor", stat_def: 6, itemId: "1002086", ruid: "1147bf323fb74b949312a89dc350f506" }],
@@ -266,6 +288,25 @@ const inventoryIconAlphaOk = Array.from({ length: 30 }, (_, i) => {
   return sprite !== null && sprite.Color.a === 1
     && transform !== null && transform.anchoredPosition.x === 0;
 }).every(Boolean);
+const inventoryClickTargetsOk = Array.from({ length: 30 }, (_, i) => {
+  const path = "/ui/Inventory/Window/Box/ItemRow" + i;
+  const button = readUiComponent("ui/Inventory.ui", path, "MOD.Core.ButtonComponent");
+  const sprite = readUiComponent("ui/Inventory.ui", path, "MOD.Core.SpriteGUIRendererComponent");
+  const icon = readUiComponent("ui/Inventory.ui", path + "/Icon", "MOD.Core.SpriteGUIRendererComponent");
+  return button !== null && button.Enable === true
+    && sprite !== null && sprite.RaycastTarget === true
+    && icon !== null && icon.RaycastTarget === false;
+}).every(Boolean);
+const inventoryGridBackground = readUiComponent(
+  "ui/Inventory.ui", "/ui/Inventory/Window/Box/ItemGridBg", "MOD.Core.SpriteGUIRendererComponent",
+);
+const inventoryGridDoesNotBlockClicks = inventoryGridBackground !== null
+  && inventoryGridBackground.RaycastTarget === false;
+const inventoryPlaceholdersEmpty = Array.from({ length: 30 }, (_, i) => {
+  const path = "/ui/Inventory/Window/Box/ItemRow" + i + "/Icon";
+  const sprite = readUiComponent("ui/Inventory.ui", path, "MOD.Core.SpriteGUIRendererComponent");
+  return sprite !== null && sprite.ImageRUID.DataId === "";
+}).every(Boolean);
 const skillGrid = readUiComponent(
   "ui/EquipWindow.ui", "/ui/EquipWindow/Window/Grid", "MOD.Core.ScrollLayoutGroupComponent",
 );
@@ -294,6 +335,8 @@ const result = {
   passiveItems: specificItems.filter((item) => item.item_type === "passive").length,
   heroPassiveOk,
   heroCombatOnlyOk,
+  bowmasterPassiveOk,
+  bowmasterCombatOnlyOk,
   heroPassiveWiringOk: /method number GetPassiveItemRate/.test(playerStatsMlua)
     && /GetPassiveItemRate\("STR"\)/.test(playerStatsMlua)
     && /GetPassiveItemBonus\("ATK"\)/.test(playerStatsMlua)
@@ -305,6 +348,13 @@ const result = {
     && /skill\.source == "monster"/.test(playerDbMlua),
   badItemTypeMapping,
   badEquipment,
+  badAvatarCategories,
+  avatarEquipmentWiringOk: /method void RefreshAvatarEquipment/.test(playerInventoryMlua)
+    && /@ExecSpace\("Client"\)\s+method void RefreshAvatarEquipmentClient/.test(playerInventoryMlua)
+    && /self:RefreshAvatarEquipmentClient\(/.test(playerInventoryMlua)
+    && /CostumeManagerComponent/.test(playerInventoryMlua)
+    && /string\.sub\(ruid, 1, 12\) == "thumbnail:\/\/"/.test(playerInventoryMlua)
+    && /inventory:RefreshAvatarEquipment\(\)/.test(playerDbMlua),
   badCorrectedPassiveEquipment,
   legacyMaterialResidue,
   passiveEffectResidue,
@@ -332,6 +382,15 @@ const result = {
   inventorySlots: entities.filter((entity) => /Inventory\/Window\/Box\/ItemRow\d+$/.test(entity.path)).length,
   bindingsOk: bindings.every(Boolean),
   inventoryIconAlphaOk,
+  inventoryClickTargetsOk,
+  inventoryGridDoesNotBlockClicks,
+  inventoryPlaceholdersEmpty,
+  inventoryThumbnailCacheOk: /property table rowIconRuids = \{\}/.test(mlua)
+    && /self\.rowIconRuids\[rowIndex\] ~= item\.icon_ruid/.test(mlua)
+    && /if index == 30 then return self\.itemRow29 end/.test(mlua),
+  inventoryOneClickEquipOk: /local wasSelected = self\.selectedItemId == itemId/.test(mlua)
+    && /if item\.item_type == "consume" then\s+if wasSelected == false then/.test(mlua)
+    && /log\("\[Inventory창\] 장착 요청 " .. item\.slot/.test(mlua),
   equipCells: equipEntities.filter((entity) => /EquipWindow\/Window\/Grid\/Cell\d+$/.test(entity.path)).length,
   equipCellCountOk: /property integer cellCount = 28\b/.test(equipMlua),
   skillGridColumns: skillGrid === null ? null : skillGrid.ConstraintCount,
@@ -353,12 +412,13 @@ const result = {
 console.log(JSON.stringify(result, null, 2));
 
 if (missingSkill.length || missingItem.length || badRuid.length
-  || badItemTypeMapping.length || badEquipment.length || badCorrectedPassiveEquipment.length
-  || !heroPassiveOk || !heroCombatOnlyOk
+  || badItemTypeMapping.length || badEquipment.length || badAvatarCategories.length
+  || badCorrectedPassiveEquipment.length
+  || !heroPassiveOk || !heroCombatOnlyOk || !bowmasterPassiveOk || !bowmasterCombatOnlyOk
   || !result.heroPassiveWiringOk || !result.heroRewardSeparationOk
   || legacyMaterialResidue.length
   || passiveEffectResidue.length || activeWithoutVisual.length || badGateSkills.length
-  || bossRooms.length !== 6 || bossItemMissing.length
+  || bossRooms.length !== 7 || bossItemMissing.length
   || balance.get("boss_hp_multiplier") !== 10
   || balance.get("boss_time_limit_seconds") !== 300
   || result.bossHudEntities !== 6 || !result.bossBindingsOk
@@ -368,6 +428,10 @@ if (missingSkill.length || missingItem.length || badRuid.length
     transform === null || transform.anchoredPosition.x !== expectedRight
   ))
   || result.inventorySlots !== 30 || !result.bindingsOk || !result.inventoryIconAlphaOk
+  || !result.inventoryClickTargetsOk || !result.inventoryGridDoesNotBlockClicks
+  || !result.inventoryPlaceholdersEmpty || !result.inventoryThumbnailCacheOk
+  || !result.inventoryOneClickEquipOk
+  || !result.avatarEquipmentWiringOk
   || result.equipCells !== 28 || !result.equipCellCountOk
   || result.skillGridColumns !== 5 || !result.skillIconAlphaOk
   || !result.roomProgressDisabled || result.worldMapTop !== -150

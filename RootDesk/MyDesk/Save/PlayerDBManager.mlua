@@ -344,6 +344,9 @@ script PlayerDBManager extends Component
                     inventory.Equipped[slot] = id
                 end
             end
+            -- 저장된 논리 장착을 캐릭터 CostumeManager에도 복원한다.
+            -- 이 호출이 없으면 가방에는 "착용 중"으로 보이지만 외형은 기본 복장으로 남는다.
+            inventory:RefreshAvatarEquipment()
         end
     end
 
