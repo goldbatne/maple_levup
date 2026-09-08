@@ -15,7 +15,7 @@ script LevelCurve extends Logic
     ---------------------------------------------------------------
 
     method integer RequiredExp(integer level)
-        -- 시트: Lv1 필요 EXP 20, 레벨당 공비 1.12.
+        -- 시트: Lv1 필요 EXP 60, 레벨당 공비 1.105.
         -- level에서 level+1로 가는 데 필요한 양이다.
         if level < 1 then level = 1 end
         local base = _GameData:GetBalance("exp_base")

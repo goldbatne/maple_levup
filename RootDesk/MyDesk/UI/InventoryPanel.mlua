@@ -9,9 +9,8 @@
 -- 장비인가·슬롯이 맞는가·가지고 있는가는 전부 서버가 다시 본다 —
 -- 창이 보내는 값은 클라가 조작할 수 있으므로 여기의 검사는 표시용일 뿐이다.
 --
--- 가진 아이템은 ScrollLayout 아래 29줄에 그린다. 현재 전체 아이템 29종을
--- 한 번에 담고, 화면에 넘치는 부분은 스크롤한다. 종류를 더 늘릴 때는
--- itemRow 프로퍼티와 UIBuilder의 행 수를 함께 늘려야 한다.
+    -- 고유 아이템은 6x6 슬롯 36칸에 그린다. area_00의 두 장비가 추가된 뒤에도
+    -- 공통 물약·몬스터 장비·히든 보스 패시브를 한 번에 담을 수 있다.
 
 @Logic
 script InventoryPanel extends Logic
@@ -23,6 +22,11 @@ script InventoryPanel extends Logic
     property TextGUIRendererComponent hintText = "5b833216-1485-4747-82c1-31cd62b9a1b8"
     property TextGUIRendererComponent detailTitle = "688bd506-9ce9-4828-980b-db4faf24811f"
     property TextGUIRendererComponent detailBody = "f0109592-7a1f-4f2b-b6e1-30052c53947b"
+    property ButtonComponent filterWeapon = "b98485d3-8f1b-4ae0-8b69-bfb2503b7abd"
+    property ButtonComponent filterArmor = "3705dcd7-a485-478c-8328-b110140ad32e"
+    property ButtonComponent filterAccessory = "4bf6a469-f182-4419-8d6a-dca7a896f1fd"
+    property ButtonComponent filterPassive = "921b6de9-8bb5-4dd4-9588-59cee123345c"
+    property ButtonComponent filterConsume = "2edd56ca-0456-4d2e-a48f-71c3d40901d9"
     property ButtonComponent equipRow0 = "85cb4aaa-f735-4510-a4b9-a1c3e7487f1d"
     property ButtonComponent equipRow1 = "919ea6ea-150d-41d0-90d9-6c2644d7243d"
     property ButtonComponent equipRow2 = "e99a2da9-e57a-4a6e-8b83-0f471ef082e0"
@@ -56,6 +60,12 @@ script InventoryPanel extends Logic
     property ButtonComponent itemRow27 = "b23a3cff-4879-4ef3-8297-87867f4b5fbd"
     property ButtonComponent itemRow28 = "44465311-b826-4e9f-92b4-96138ea186e3"
     property ButtonComponent itemRow29 = "38edbc40-015e-4612-be45-59eafbafa7bf"
+    property ButtonComponent itemRow30 = "34313428-fd8b-4ec1-a677-fe56293032e0"
+    property ButtonComponent itemRow31 = "af7f197f-a4a6-46d2-8698-90343f1f4a9c"
+    property ButtonComponent itemRow32 = "807b5c5d-b128-4510-b950-023db6df31c9"
+    property ButtonComponent itemRow33 = "f1246396-1a96-4002-baa4-76a35b5cf4f6"
+    property ButtonComponent itemRow34 = "19763b04-bb29-4404-850c-b9e112844d39"
+    property ButtonComponent itemRow35 = "1052d676-8657-4499-862e-56cb951145d1"
 
     -- (엔티티, 핸들러) 병렬 배열. `handler`는 mlua 예약어라 키로 쓸 수 없다.
     property table handlerEntities = {}
@@ -71,9 +81,10 @@ script InventoryPanel extends Logic
     -- 로딩이 끝나기 전에 재요청되어 기본 아이콘이 계속 남을 수 있으므로 변경 시에만 갱신한다.
     property table rowIconRuids = {}
     property string selectedItemId = ""
+    property string currentCategory = "weapon"
 
     property integer equipRowCount = 3
-    property integer itemRowCount = 30
+    property integer itemRowCount = 36
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -82,6 +93,11 @@ script InventoryPanel extends Logic
 
         self:Bind(self.openBtn, function() self:Open() end)
         self:Bind(self.closeBtn, function() self:Hide() end)
+        self:Bind(self.filterWeapon, function() self:SelectCategory("weapon") end)
+        self:Bind(self.filterArmor, function() self:SelectCategory("armor") end)
+        self:Bind(self.filterAccessory, function() self:SelectCategory("accessory") end)
+        self:Bind(self.filterPassive, function() self:SelectCategory("passive") end)
+        self:Bind(self.filterConsume, function() self:SelectCategory("consume") end)
 
         for i = 1, self.equipRowCount do
             local captured = i
@@ -166,6 +182,12 @@ script InventoryPanel extends Logic
         if index == 28 then return self.itemRow27 end
         if index == 29 then return self.itemRow28 end
         if index == 30 then return self.itemRow29 end
+        if index == 31 then return self.itemRow30 end
+        if index == 32 then return self.itemRow31 end
+        if index == 33 then return self.itemRow32 end
+        if index == 34 then return self.itemRow33 end
+        if index == 35 then return self.itemRow34 end
+        if index == 36 then return self.itemRow35 end
         return nil
     end
 
@@ -204,6 +226,66 @@ script InventoryPanel extends Logic
         if slot == "armor" then return "방어구" end
         if slot == "accessory" then return "장신구" end
         return slot
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SelectCategory(string category)
+        if category ~= "weapon" and category ~= "armor" and category ~= "accessory"
+            and category ~= "passive" and category ~= "consume" then return end
+        if self.currentCategory == category then return end
+        self.currentCategory = category
+        self.selectedItemId = ""
+        self:Refresh()
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean MatchesCategory(table item)
+        if item == nil then return false end
+        if self.currentCategory == "passive" then return item.item_type == "passive" end
+        if self.currentCategory == "consume" then return item.item_type == "consume" end
+        return item.item_type == "equip" and item.slot == self.currentCategory
+    end
+
+    @ExecSpace("ClientOnly")
+    method integer CategoryCount(PlayerInventory inv, string category)
+        local count = 0
+        local before = self.currentCategory
+        self.currentCategory = category
+        local ids = _GameData:GetAllItemIds()
+        for i = 1, #ids do
+            local item = _GameData:GetItem(ids[i])
+            if item ~= nil and inv:GetCount(ids[i]) > 0 and self:MatchesCategory(item) then
+                count = count + 1
+            end
+        end
+        self.currentCategory = before
+        return count
+    end
+
+    @ExecSpace("ClientOnly")
+    method void PaintCategory(ButtonComponent button, string label, string category, PlayerInventory inv)
+        if not isvalid(button) then return end
+        local text = button.Entity.TextGUIRendererComponent
+        if isvalid(text) then
+            text.Text = label .. " " .. tostring(self:CategoryCount(inv, category))
+        end
+        local sprite = button.Entity.SpriteGUIRendererComponent
+        if isvalid(sprite) then
+            if self.currentCategory == category then
+                sprite.Color = Color(0.55, 0.76, 0.95, 1)
+            else
+                sprite.Color = Color(0.85, 0.83, 0.80, 1)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RenderCategories(PlayerInventory inv)
+        self:PaintCategory(self.filterWeapon, "무기", "weapon", inv)
+        self:PaintCategory(self.filterArmor, "방어구", "armor", inv)
+        self:PaintCategory(self.filterAccessory, "장신구", "accessory", inv)
+        self:PaintCategory(self.filterPassive, "패시브", "passive", inv)
+        self:PaintCategory(self.filterConsume, "소비", "consume", inv)
     end
 
     @ExecSpace("ClientOnly")
@@ -336,21 +418,25 @@ script InventoryPanel extends Logic
         if not isvalid(self.detailTitle) or not isvalid(self.detailBody) then return end
         if self.selectedItemId == "" then
             self.detailTitle.Text = "아이템을 선택해 주세요"
-            self.detailBody.Text = "장비는 한 번 눌러 장착 · 포션은 선택 후 다시 눌러 사용"
+            self.detailBody.Text = "아이템을 한 번 눌러 확인 · 같은 아이템을 다시 눌러 장착 또는 사용"
             return
         end
         local item = _GameData:GetItem(self.selectedItemId)
         if item == nil then
             self.selectedItemId = ""
             self.detailTitle.Text = "아이템을 선택해 주세요"
-            self.detailBody.Text = "장비는 한 번 눌러 장착 · 포션은 선택 후 다시 눌러 사용"
+            self.detailBody.Text = "아이템을 한 번 눌러 확인 · 같은 아이템을 다시 눌러 장착 또는 사용"
             return
         end
         local count = inv:GetCount(item.id)
         self.detailTitle.Text = item.name .. "   x" .. tostring(count)
         local action = "한 번 더 누르면 사용"
         if item.item_type == "equip" then
-            action = self:SlotLabel(item.slot) .. "에 장착됨"
+            if inv:GetEquipped(item.slot) == item.id then
+                action = self:SlotLabel(item.slot) .. "에 장착 중"
+            else
+                action = "한 번 더 누르면 " .. self:SlotLabel(item.slot) .. "에 장착"
+            end
         elseif item.item_type == "passive" then
             action = "인벤토리 보유 중 자동 적용"
         end
@@ -366,6 +452,7 @@ script InventoryPanel extends Logic
         ---@type PlayerInventory
         local inv = self:GetInventory()
         if inv == nil then return end
+        self:RenderCategories(inv)
 
         -- 착용 중 3줄. 슬롯 이름과 순서는 PlayerInventory가 정본이다.
         local slots = inv:GetEquipSlotNames()
@@ -401,15 +488,11 @@ script InventoryPanel extends Logic
         for i = 1, #ids do
             local id = ids[i]
             local count = inv:GetCount(id)
-            if count > 0 and row < self.itemRowCount then
+            local item = _GameData:GetItem(id)
+            if count > 0 and item ~= nil and self:MatchesCategory(item) and row < self.itemRowCount then
                 row = row + 1
                 self.rowItemIds[row] = id
-                local item = _GameData:GetItem(id)
-                if item ~= nil then
-                    self:SetItemCell(self:GetItemRow(row), item, count, id == self.selectedItemId, row)
-                else
-                    self:HideRow(self:GetItemRow(row))
-                end
+                self:SetItemCell(self:GetItemRow(row), item, count, id == self.selectedItemId, row)
             end
         end
         for i = row + 1, self.itemRowCount do
@@ -428,7 +511,7 @@ script InventoryPanel extends Logic
                 self.hintText.Text = "가방이 비어 있다. 몬스터를 잡으면 바닥에 떨어진다 — 밟으면 줍는다."
             else
                 -- 한 줄로 둔다. 두 줄이면 마지막 아이템 줄과 겹친다 (ui_lint L023).
-                self.hintText.Text = "장비는 한 번 눌러 장착 · 포션은 선택 후 다시 눌러 사용 · 착용 칸은 눌러서 해제"
+                self.hintText.Text = "아이템은 한 번 눌러 확인 · 같은 아이템을 다시 눌러 장착/사용 · 착용 칸은 눌러서 해제"
             end
         end
     end
@@ -464,8 +547,8 @@ script InventoryPanel extends Logic
         local item = _GameData:GetItem(itemId)
         if item == nil then return end
 
-        -- 장비는 첫 클릭에 바로 장착한다. 이전에는 첫 클릭이 선택만 해서 파란 칸으로
-        -- 바뀌고 아무 일도 안 일어난 것처럼 보였다. 소비만 오사용 방지를 위해 재클릭한다.
+        -- 모든 능동 동작은 두 단계다. 첫 클릭은 설명과 선택 상태를 보여주고,
+        -- 같은 아이템을 다시 눌렀을 때만 장착 또는 사용 요청을 보낸다.
         local wasSelected = self.selectedItemId == itemId
         self.selectedItemId = itemId
 
@@ -489,6 +572,11 @@ script InventoryPanel extends Logic
         -- 패시브 아이템은 선택해서 설명만 본다. 재클릭해도 장착/사용 요청을 보내지 않는다.
         if item.item_type == "passive" then
             log("[Inventory창] 패시브 확인 " .. itemId .. " — 보유 중 자동 적용")
+            self:Refresh()
+            return
+        end
+
+        if wasSelected == false then
             self:Refresh()
             return
         end

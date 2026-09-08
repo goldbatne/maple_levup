@@ -1,4 +1,4 @@
-// T52 — 몬스터 스킬 28종을 모두 포획해도 장착 창에서 잘리지 않게 한다.
+// 몬스터 스킬 전체를 포획해도 장착 창에서 잘리지 않게 한다.
 // .ui 원문은 편집하지 않고 UIBuilder로 기존 스크롤 격자에 Cell21~28을 추가한다.
 
 const { UIBuilder } = require("../../../.agents/skills/msw-ui-system/scripts/msw_ui_builder.cjs");

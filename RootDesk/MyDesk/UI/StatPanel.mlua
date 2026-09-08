@@ -31,31 +31,31 @@ script StatPanel extends Logic
     property ButtonComponent btnInt = "60be35ac-85ca-48b1-91be-22d0c9ef694e"
     property ButtonComponent btnDex = "cd8feafc-5091-4000-8358-d4dd8dd38074"
     property ButtonComponent btnLuk = "1bcce54f-3d59-41c2-90fb-1677c664ce82"
-    property ButtonComponent btnInspectStr = "40cb381a-cde0-44c6-86da-ebb022cb6f40"
-    property ButtonComponent btnInspectInt = "0acb5c28-bc13-402b-a492-3fd313157a95"
-    property ButtonComponent btnInspectDex = "488b9ed1-564f-45bc-8543-50893a053aaa"
-    property ButtonComponent btnInspectLuk = "2c381060-b7e9-4c8c-bea7-aac57faa95d5"
+    property ButtonComponent btnInspectStr = "5e55ed21-3c72-4d91-9a8d-4c285217ff92"
+    property ButtonComponent btnInspectInt = "96bd2625-d328-4595-abf7-df2555ee0cb1"
+    property ButtonComponent btnInspectDex = "a19d454a-c5d1-4436-816a-bfa360f9b1bf"
+    property ButtonComponent btnInspectLuk = "d36a6676-ce8a-4e13-be6f-726bb41c6bba"
 
     -- 일반 창 왼쪽으로 펼쳐지는 상세 전투 수치 창.
-    property SpriteGUIRendererComponent detailRoot = "ef35adbf-a564-46b8-bacd-ee78c0c516c8"
-    property ButtonComponent btnDetail = "19b27d63-0c2e-4f49-b13d-fd7eea866fb9"
-    property TextGUIRendererComponent detailAtk = "67091ec6-ba90-4f63-8072-687308ee42e5"
-    property TextGUIRendererComponent detailAtkLabel = "63be739b-e87c-4171-b807-4a285cf83ded"
-    property TextGUIRendererComponent detailMatk = "a79d43a5-b733-4f7b-a772-8ac15d4d7879"
-    property TextGUIRendererComponent detailMatkLabel = "dcbfd192-5e99-4134-b15d-d0ad47f40542"
-    property TextGUIRendererComponent detailDef = "c5e6bde4-7164-41b0-ba97-1390a3550c4c"
-    property TextGUIRendererComponent detailDefLabel = "d209e349-17b8-4f51-b0d6-f0e1626d9700"
-    property TextGUIRendererComponent detailHp = "b0693444-a925-4384-8534-6a6642b3cbb4"
-    property TextGUIRendererComponent detailHpLabel = "244b3f34-54f2-456b-a6ca-2b11db0bfb83"
-    property TextGUIRendererComponent detailAttackSpeed = "2884613f-2b30-40e9-a5de-4f908683f9f0"
-    property TextGUIRendererComponent detailAttackSpeedLabel = "f1fb6bc8-cccc-41a6-90bf-a5ec7128872a"
-    property TextGUIRendererComponent detailMoveSpeed = "20d42fee-6101-4318-81aa-076c088468d1"
-    property TextGUIRendererComponent detailMoveSpeedLabel = "e5cb492d-df34-45df-a884-16f136c5802f"
-    property TextGUIRendererComponent detailCapture = "3a5ec081-6003-491c-b5c4-4c6344f254ea"
-    property TextGUIRendererComponent detailCaptureLabel = "f516e7c5-284c-4742-ad09-f8d8ba24a057"
-    property TextGUIRendererComponent detailDrop = "44934f96-cd7c-4080-a52b-fb25c103180d"
-    property TextGUIRendererComponent detailDropLabel = "67172a11-3dd9-4864-a9e2-6b48e5dd57bd"
-    property TextGUIRendererComponent detailPassive = "2011f6ed-ce36-44de-bd0f-828649d1da54"
+    property SpriteGUIRendererComponent detailRoot = "7c40fa22-1439-48a4-aaa1-584d13b998a8"
+    property ButtonComponent btnDetail = "2189cdbd-957b-4df0-9955-10bfc152eddf"
+    property TextGUIRendererComponent detailAtk = "0c831c94-5132-4e66-97bf-ba4867c998c6"
+    property TextGUIRendererComponent detailAtkLabel = "314e1dc9-34fa-45f7-b490-6ff6cd72bed7"
+    property TextGUIRendererComponent detailMatk = "61c35cc3-a56f-4f62-98c4-91db805ce5ad"
+    property TextGUIRendererComponent detailMatkLabel = "18565bc7-f822-479f-9f78-7d92c405f032"
+    property TextGUIRendererComponent detailDef = "fb74a7b5-fd92-461e-abb1-e3cc72a51e5b"
+    property TextGUIRendererComponent detailDefLabel = "1147e812-2f7e-495e-9881-a18f6e40ad9b"
+    property TextGUIRendererComponent detailHp = "3f6da110-1bfc-4b86-8ff6-c1bdd5f4ab2c"
+    property TextGUIRendererComponent detailHpLabel = "4efe3c35-28e1-439a-8be1-ed5e5ba7802d"
+    property TextGUIRendererComponent detailAttackSpeed = "3e258ab8-2a2f-479d-bb6f-31bbd36cdfe8"
+    property TextGUIRendererComponent detailAttackSpeedLabel = "221d7012-4712-42e9-8bff-ee936bfdef8f"
+    property TextGUIRendererComponent detailMoveSpeed = "0dab0353-3a80-4025-821b-e4e195beb160"
+    property TextGUIRendererComponent detailMoveSpeedLabel = "4d21075d-4400-4c09-993f-9d4a386c427e"
+    property TextGUIRendererComponent detailCapture = "b14a68fe-f0b4-4230-9582-26a691bbf3a3"
+    property TextGUIRendererComponent detailCaptureLabel = "6fdada84-f6e9-4906-82ca-cc45cb9294b9"
+    property TextGUIRendererComponent detailDrop = "3cba5c5f-bfe6-4ad1-97d6-931cec6fe219"
+    property TextGUIRendererComponent detailDropLabel = "e2545a2f-a65d-4ca1-9153-88789880fda1"
+    property TextGUIRendererComponent detailPassive = "0a107c80-eb9a-4b5b-8c66-efde3740c56a"
 
     -- 여닫기. 창을 닫으면 다시 열 수단이 필요한데 모바일에는 키보드가 없다.
     -- 그래서 키 토글이 아니라 화면에 남는 열기 버튼을 쓴다. 둘은 항상 반대 상태다.
@@ -88,6 +88,20 @@ script StatPanel extends Logic
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         log("[StatPanel] OnBeginPlay")
+        -- 상세 UI 바인딩 하나가 깨져도 기본 창의 닫기/열기 기능은 먼저 살린다.
+        self.handlerClose = self.btnClose.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:SetOpen(false)
+        end)
+        self.handlerOpen = self.btnOpen.Entity:ConnectEvent(ButtonClickEvent, function()
+            self:SetOpen(true)
+        end)
+        self.isOpen = false
+        self.detailOpen = false
+        self.windowRoot.Entity:SetVisible(false)
+        self.btnOpen.Entity:SetVisible(true)
+        if isvalid(self.detailRoot) then
+            self.detailRoot.Entity:SetVisible(false)
+        end
 
         self.handlerStr = self.btnStr.Entity:ConnectEvent(ButtonClickEvent, function()
             self:Allocate("STR")
@@ -101,28 +115,31 @@ script StatPanel extends Logic
         self.handlerLuk = self.btnLuk.Entity:ConnectEvent(ButtonClickEvent, function()
             self:Allocate("LUK")
         end)
-        self.handlerInspectStr = self.btnInspectStr.Entity:ConnectEvent(ButtonClickEvent, function()
-            self:SelectStat("STR")
-        end)
-        self.handlerInspectInt = self.btnInspectInt.Entity:ConnectEvent(ButtonClickEvent, function()
-            self:SelectStat("INT")
-        end)
-        self.handlerInspectDex = self.btnInspectDex.Entity:ConnectEvent(ButtonClickEvent, function()
-            self:SelectStat("DEX")
-        end)
-        self.handlerInspectLuk = self.btnInspectLuk.Entity:ConnectEvent(ButtonClickEvent, function()
-            self:SelectStat("LUK")
-        end)
-        self.handlerDetail = self.btnDetail.Entity:ConnectEvent(ButtonClickEvent, function()
-            self:SetDetailOpen(not self.detailOpen)
-        end)
-
-        self.handlerClose = self.btnClose.Entity:ConnectEvent(ButtonClickEvent, function()
-            self:SetOpen(false)
-        end)
-        self.handlerOpen = self.btnOpen.Entity:ConnectEvent(ButtonClickEvent, function()
-            self:SetOpen(true)
-        end)
+        if isvalid(self.btnInspectStr) then
+            self.handlerInspectStr = self.btnInspectStr.Entity:ConnectEvent(ButtonClickEvent, function()
+                self:SelectStat("STR")
+            end)
+        end
+        if isvalid(self.btnInspectInt) then
+            self.handlerInspectInt = self.btnInspectInt.Entity:ConnectEvent(ButtonClickEvent, function()
+                self:SelectStat("INT")
+            end)
+        end
+        if isvalid(self.btnInspectDex) then
+            self.handlerInspectDex = self.btnInspectDex.Entity:ConnectEvent(ButtonClickEvent, function()
+                self:SelectStat("DEX")
+            end)
+        end
+        if isvalid(self.btnInspectLuk) then
+            self.handlerInspectLuk = self.btnInspectLuk.Entity:ConnectEvent(ButtonClickEvent, function()
+                self:SelectStat("LUK")
+            end)
+        end
+        if isvalid(self.btnDetail) then
+            self.handlerDetail = self.btnDetail.Entity:ConnectEvent(ButtonClickEvent, function()
+                self:SetDetailOpen(not self.detailOpen)
+            end)
+        end
 
         self.refreshTimer = _TimerService:SetTimerRepeat(function()
             self:Refresh()
@@ -152,10 +169,14 @@ script StatPanel extends Logic
     method void SetDetailOpen(boolean open)
         -- 상세 창 표시 상태와 헤더 버튼 문구를 함께 맞춘다.
         self.detailOpen = open
-        self.detailRoot.Entity:SetVisible(open)
-        local text = self.btnDetail.Entity.TextGUIRendererComponent
-        if isvalid(text) then
-            text.Text = open and "상세 -" or "상세 +"
+        if isvalid(self.detailRoot) then
+            self.detailRoot.Entity:SetVisible(open)
+        end
+        if isvalid(self.btnDetail) then
+            local text = self.btnDetail.Entity.TextGUIRendererComponent
+            if isvalid(text) then
+                text.Text = open and "상세 -" or "상세 +"
+            end
         end
         if not open then
             self.selectedStat = ""

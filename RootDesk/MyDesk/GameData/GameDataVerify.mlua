@@ -114,11 +114,12 @@ script GameDataVerify extends Logic
             if skill.skill_kind == "passive" then
                 if skill.effect_ruid ~= "" or skill.effect_style ~= ""
                     or skill.sfx_ruid ~= "" or skill.projectile_ruid ~= ""
+                    or #(skill.effect_layers or {}) > 0
                     or skill.effect_value ~= 0 or skill.duration ~= 0
                     or skill.range ~= 0 or skill.dash_distance ~= 0 then
                     log_error("  [패시브] " .. id .. " 에 액티브 연출·효과 데이터가 남아 있다")
                 end
-            elseif skill.effect_ruid ~= "" then
+            elseif skill.effect_ruid ~= "" or #(skill.effect_layers or {}) > 0 then
                 activeTotal += 1
                 withEffect = withEffect + 1
             elseif skill.projectile_ruid ~= "" then
@@ -135,6 +136,29 @@ script GameDataVerify extends Logic
             .. "종에 시전 이펙트가 있다 (패시브는 연출 없음)")
         if noEffect ~= "" then
             log_warning("  [스킬이펙트] 이펙트 없음: " .. noEffect)
+        end
+
+        -- 다층 레시피는 RUID 목록 길이가 곧 레이어 수다. 잘못된 형식은 런타임에서
+        -- 한 겹만 조용히 빠지므로 여기서 형식과 필수 수치를 먼저 막는다.
+        for id, skill in pairs(_GameData.skills) do
+            local layers = skill.effect_layers or {}
+            if #layers > 0 then
+                for i = 1, #layers do
+                    local layer = layers[i]
+                    if layer.ruid == "" then
+                        log_error("  [다층이펙트] " .. id .. " #" .. tostring(i) .. " RUID가 비었다")
+                    end
+                    if layer.resource_type ~= "sprite" and layer.resource_type ~= "animationclip" then
+                        log_error("  [다층이펙트] " .. id .. " #" .. tostring(i)
+                            .. " 자원 형식이 이상하다: " .. tostring(layer.resource_type))
+                    end
+                    if layer.duration <= 0 or layer.scale <= 0 or layer.delay < 0 then
+                        log_error("  [다층이펙트] " .. id .. " #" .. tostring(i)
+                            .. " 시간/크기 값이 이상하다")
+                    end
+                end
+                log("  [다층이펙트] " .. skill.name .. " " .. tostring(#layers) .. "겹")
+            end
         end
 
         -- 중복 강화 계수 (T15-2). 몬스터 스킬만 쌓이므로 그것만 적는다.
@@ -216,7 +240,7 @@ script GameDataVerify extends Logic
     method void VerifyMonsters()
         -- 테이블 값 vs 밸런스시트 공식. 어긋나면 시트와 코드가 갈라진 것이므로 즉시 드러내야 한다.
         -- HP/DEF는 선형(base + per_level x step), EXP만 기하급수로 남는다 (T28, 2026-08-27).
-        -- EXP를 안 바꾼 이유: 필요 EXP 곡선(exp_ratio 1.12)이 기하급수라 그쪽을 따라가야 한다.
+        -- 몬스터 EXP도 필요 EXP 곡선(exp_ratio 1.105)에 맞춰 기하급수로 유지한다.
         local hpBase = _GameData:GetBalance("monster_hp_base")
         local hpPerLevel = _GameData:GetBalance("monster_hp_per_level")
         local defBase = _GameData:GetBalance("monster_def_base")

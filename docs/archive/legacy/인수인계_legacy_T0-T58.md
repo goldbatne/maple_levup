@@ -1,0 +1,399 @@
+# 인수인계 — 현재 상태
+
+- 갱신: 2026-09-02 (T58 메이플 아일랜드·리스항구 경로 개편 실측 완료)
+- 대상: 이 프로젝트를 **처음 받는 사람 또는 AI**
+
+> **이 문서의 목적 하나.** 기획서는 "이렇게 만들 것"을 적은 문서고, 코드는 "이렇게 만들어진 것"이다.
+> 둘은 지금 **4군데에서 다르다** — 문서·지시에 있으나 없는 것 3건(C, D, F) + 문서 근거 없이 있는 것 1건(H).
+> (B였던 "area_02에 방이 없다"는 2026-08-26 **T26 페리온 8방**으로 해소됐다 — 해소 표 참조.)
+> (E였던 "링크스킬식 계승"은 2026-08-21 **직업 시스템이 코드에서 사라지면서 근거째 없어졌다** — 해소 표 참조.)
+> (K였던 "r_03 영구 잠김"은 2026-08-16 **보스 게이트로 해소됐다** — 해소 표 참조.)
+> (G와 I는 2026-08-13에 해소됐다 — G는 T13-6 드랍 구현으로.)
+> 기획서만 읽고 작업하면 없는 기능을 있다고 가정하게 된다. 그 차이를 3절에 모아 둔다.
+> (A였던 "환생 게이트 미배치"는 2026-08-10에 **설계로 해소됐다** — 3절 아래 A 항목 참조.)
+>
+> 태스크를 완료할 때마다 이 문서도 갱신할 것 (CLAUDE.md 문서 갱신 규칙).
+
+---
+
+## 1. 한 문단 요약
+
+마을(`r_town`)에서 출발해 동쪽 문으로 지역에 들어가고, 방 5개(`r_01`~`r_05`)를 오가며
+몬스터를 잡아 레벨을 올리고, 스탯이 모자라면 문이 안 열리고, 몬스터를 포획해 스킬을 얻고,
+레벨을 채우면 마을로 돌아와 환생해 다음 회차를 더 세게 시작하는 —
+**수직 슬라이스가 전 구간 동작한다.** T0~T10 코드 태스크가 전부 끝났고,
+그 위에 T11(연출·UI), T12(마을·지역 구조), T13-1(회복·게이트 수정), T14(스킬 수동 조작과
+키 설정 창), T13-2~7 + T13-5b(아이템 전 구간 — 데이터·인벤토리·장착 스탯·가방 창·
+드랍·사용·**퀵슬롯**), T15(중복 획득 강화 — 장비·스킬)를 얹었다. 아이템은 완결됐다 —
+잡으면 떨어지고, 밟으면 줍고, 끼우면 세지고, 물약은 `1`·`2`로 마신다.
+**같은 것을 5개까지 모으면 수치가 그만큼 커진다** — 장비는 개당 수치 × 보유 개수,
+스킬은 계수 × (1 + 0.2 × (보유수−1)).
+남은 것은 **대표의 체감 판정 3개와 최종 질문**, 퀵슬롯 키 재설정(편의),
+그리고 **두 번째 지역의 방들**이다.
+
+---
+
+## 2. 실제로 동작하는 것 (실행 로그로 확인됨)
+
+| 시스템 | 상태 | 핵심 파일 |
+|---|---|---|
+| **메이플 아일랜드·리스항구 첫 지역과 Lv1~60 경로 개편** (T58) | **Maker 실측 완료.** `area_00` 8방은 달팽이→파란 달팽이→빨간 달팽이/슬라임→마노 보스로 이어지며, 중앙 갈림길·`stat 15` 막다른 방·아래쪽 순환로가 있다. 빨간 달팽이와 마노는 공식 MSW 애니메이션 모델, 전용 포획 스킬, 원작 장비 아이콘까지 연결했다. 기존 ID는 보존하고 지역 표시 순서만 `area_00 → area_01 → area_03 → area_02 → area_04 → area_05`로 바꿨으며 각 기존 방 레벨과 수치 게이트를 한 대역(+10레벨/+50 STAT_TOTAL) 이동했다. 지형은 메이플 아일랜드 내륙 3방을 모래 전용으로, 섬 외곽·달팽이 사냥터를 모래 해안으로, 사우스페리를 갑판+바다로, 리스항구를 모래 해안·모래톱+바다로 구분했다. 물 없는 방은 `NautilusWaterBoundary`도 제거했다. 8맵 전부 RectTile 448칸·양방향 연결·포탈 일치, 8방 실제 진입·몬스터 스폰·마노 HP바/5분 타이머·물 경계·빌드 오류 0을 확인했다. 콘텐츠 30몬스터/30스킬/전용 아이템 누락 0이며 가방은 36칸, 포획 스킬 창은 30칸이다 | `GameData/{AreaTable,LandmarkTable,RoomTable,MonsterTable,SkillTable,ItemTable}.csv`, `Models/Monsters/{RedSnail,Mano}.model`, `map/map00*.map`, `UI/{InventoryPanel,EquipPanel}.mlua`, `ui/{Inventory,EquipWindow}.ui`, `docs/tools/{generate-area00,verify-area00}.cjs` |
+| **보우마스터 히든 보스** (T57) | **Maker 실측 완료.** 엘리니아 `r_29`의 붉은 궁수 NPC를 두 번 누르면 `r_job_02`로 들어간다. 보우마스터는 HP 11,360·제한 300초·3단계이며 공식 리소스를 쓴 활 스킬 5종을 사용한다. 전용 보상 `보우마스터의 활`은 100% 드랍되고 장착 없이 보유 1개당 **DEX +10, 최대 5개(+50)**가 물리 공격력과 방어력에 자동 반영된다. 격파 후 포탈은 발견 지점 `r_29`로 귀환한다. 기존 입장·재입장 HP/시간 초기화·5종 패턴·확정 드랍·귀환·빌드 오류 0 실측은 완료됐다. 후속 UI에서 일반 스탯 창은 최종 STR/DEX/INT/LUK만 보여 준다. 검은 헤더 왼쪽의 파란 `상세 +`로 상세 창을 열며 스탯을 누르면 영향 수치가 빨간색으로 연결 표시된다 | `GameData/{RoomTable,MonsterTable,SkillTable,ItemTable}.csv`, `MonsterAttack.mlua`, `Player/PlayerStats.mlua`, `UI/StatPanel.mlua`, `Room/ReturnPortal.mlua`, `Models/{Monsters/Bowmaster,Npc/BowmasterNpc,Terrain/BowmasterReturnPortal}.model`, `map/{map29,mapjob02}.map`, `ui/StatGroup.ui`, `docs/보우마스터_히든보스_T57.md` |
+| **히어로 보상 패시브 전환** (T56) | 히어로는 더 이상 직업 스킬을 플레이어에게 주지 않는다. 확정 보상 `히어로의 검`은 장착 없이 인벤토리 보유만으로 **1개당 STR +10, 최대 5개(+50)**를 자동 적용한다. STR 기반 공격력과 최대 HP가 같이 오른다. 가방은 누적치와 `xN/5`를 보여 주며 30칸으로 확장했다. 히어로 스킬 5종은 `boss/enemy` 전투 패턴으로만 남아 히어로가 계속 사용한다. 옛 저장의 히어로 스킬은 로드·장착 대상에서 자동 제외한다 | `GameData/{MonsterTable,SkillTable,ItemTable}.csv`, `Player/PlayerStats.mlua`, `Inventory/PlayerInventory.mlua`, `Progress/{PlayerCollection,PlayerSkillSlots}.mlua`, `Save/PlayerDBManager.mlua`, `UI/{InventoryPanel,StatPanel,EquipPanel}.mlua`, `ui/Inventory.ui` |
+| **몬스터 보상·원작 이름/아이콘·장비 스탯 정리** (T55) | **Maker 실측 완료.** 방 팝업은 몬스터 `x마릿수`와 공통 물약을 숨기고 **포획 스킬 + 전용 장비**를 보여 준다. 몬스터 전용 보상 28종은 전부 장비이며 재료 타입은 없다. 28종 모두 원작 장비 이름과 MSW 아바타 장비 `thumbnail://` 아이콘을 사용하고, 능력치·중첩 상한은 개편 전 밸런스 값으로 복원했다. 옛 재료 ID 7종은 제거했으며 저장에 남아 있던 `i_sword_iron`·`i_stirge_wing`도 정리 저장했다. 재접속에서 옛 ID 폐기 경고 0·가방 재료 0·빌드 오류 0을 확인했다 | `GameData/{ItemTable.csv,GameData.mlua,GameDataVerify.mlua}`, `UI/{WorldMapPanel,InventoryPanel}.mlua`, `Save/PlayerDBManager.mlua`, `ui/WorldMap.ui`, `docs/tools/verify-content-coverage.cjs` |
+| **월드맵 방 정보·슬롯형 가방/스킬 UI** (T54) | 상시 획득 HUD는 껐고 월드맵을 그 자리로 올렸다. 지도 12칸은 클릭 버튼이며 방 팝업이 몬스터와 아이템/확률(보스 전용은 확정)을 보여 준다. 가방은 6×5 슬롯·중앙 62px 완전 불투명 아이콘·수량 배지·선택 상세, 스킬은 5열 28칸으로 통일했다. 첫 클릭은 설명, 같은 슬롯 재클릭은 사용/장착이다. 정적 검증 전 항목 통과. Maker에서 핵심 화면은 실측했으나 **마지막 UUID 안정화 후 저장 백그라운드 상태 때문에 최종 재실행 1회가 남았다** | `UI/{RoomProgressHud,WorldMapPanel,InventoryPanel,EquipPanel}.mlua`, `ui/{WorldMap,Inventory,EquipWindow}.ui`, `docs/art/ui-overhaul/rebuild-map-inventory.cjs` |
+| **전 보스 공통 전투 규격** (T53) | **동작·Maker 실측 완료.** `room_type=boss` 6방 모두 새 보스가 선 순간 상단 600px 바에 이름·HP·5분 타이머가 뜬다. 방에 플레이어가 남아 있으면 추가 입장으로 초기화하지 않고, **완전히 비면 보스를 보상 없이 정리해 다음 입장을 전체 HP·300초로 초기화**한다. HP 배율은 ×3→**×10**, 시간초과는 보상 없이 직전 방 퇴장(`r_job_01`은 시작 마을), 보스 전용 장비는 **100%**다. 공용 포션 확률은 그대로이며 히어로는 장비 대신 기존 직업 스킬 5종 확정 보상을 유지한다. `r_055` 실측에서 HP `13,200/18,200` 퇴장 후 재입장 `18,200/18,200·299.401초`, 줄인 HUD의 메뉴 비겹침, 강제 시간초과 `r_054` 퇴장, 굴림 0.929의 영혼석 확정 드랍·획득, 빌드 로그 0을 확인했다. 테스트 데이터는 저장 원복했다 | `Room/RoomSpawner.mlua`, `Combat/RoomMonster.mlua`, `Inventory/ItemDrop.mlua`, `UI/PlayerHud.mlua`, `GameData/GameBalance.csv`, `ui/PlayerHud.ui`, `docs/보스전_T53.md` |
+| **몬스터 지역·보스·스킬 정합성** (T52) | **로컬 구현 완료, Maker 실기 검증 대기.** 헤네시스 보스는 일반 스톤골렘 → 공식 필드 보스 **머쉬맘**, 커닝시티는 일반 레이스 → 상위 원혼 **셰이드 보스**로 교정했다. 이에 따라 열쇠도 `s_mon_mushmom` / `s_mon_shade`로 이동했다. 노틸러스 주니어 발록은 오류가 아니라 **노틸러스 습격 사건**이라는 기존 결정을 유지한다. 패시브 7종의 남은 이펙트·소리 값을 제거하고, 머쉬맘·주니어 발록·스텀피·파우스트에는 각 공식 몬스터 팩의 공격 이펙트/투사체/소리를 배선했다. `Mushmom.model`은 공식 stand/move/attack/hit/die/jump 클립으로 신규 생성했다. 몬스터 스킬 장착 창도 20칸 → **28칸**으로 늘려 전 종 포획 시 잘리지 않는다. 정적 검증기는 패시브 연출 잔재, 무연출 액티브, 잘못된 key 스킬, 장착 창 칸 수 불일치를 이제 실패시킨다 | `GameData/{MonsterTable,RoomTable,SkillTable,ItemTable}.csv`, `Models/Monsters/Mushmom.model`, `GameDataVerify.mlua`, `UI/EquipPanel.mlua`, `ui/EquipWindow.ui`, `docs/tools/verify-content-coverage.cjs`, `docs/지역설계_area04-area20.md` |
+| 방 6개(마을 + 5) 이동 · 포탈 · 방 단위 카메라 | 동작 | `Room/RoomPortal.mlua`, `Room/RoomCamera.mlua` |
+| 마을 게이트 — 해금된 지역 목록 → 1곳이면 바로, 2곳 이상이면 선택 창 | 동작 | `Room/TownGate.mlua`, `UI/AreaSelectPanel.mlua` |
+| 상시 HUD (HP · EXP · 레벨) | 동작 | `UI/PlayerHud.mlua` |
+| 몬스터 공격 모션 + 효과음 | 동작 | `MonsterAttack.mlua` |
+| 스탯 4종 + 서버 권한 분배 UI | 동작 | `Player/PlayerStats.mlua`, `UI/StatPanel.mlua` |
+| 데미지 공식 · 자동 공격 · 몬스터 피격/사망 | 동작 | `Combat/CombatFormula.mlua`, `Combat/RoomMonster.mlua`, `PlayerAttack.mlua` |
+| 레벨업 · EXP 곡선 · Lv200 캡 | 동작 (시트 대비 오차 0%) | `Progress/LevelCurve.mlua` |
+| 포획 · 40킬 천장 · 컬렉션 | 동작 | `Progress/PlayerCollection.mlua` |
+| 슬롯 경제 (차수 + 1칸, 상한 5) | 동작 | `Progress/PlayerSkillSlots.mlua` |
+| 게이트 **수치·열쇠·환생·보스** 4종 + 안내 배너 | 동작. 수치 게이트 키는 `STAT_TOTAL`(분배 포인트 총합, 배분 무관)이 기본이고 `ATK`/`INT`/`DEF`/`LUK`/`LEVEL`도 쓸 수 있다. **보스 게이트**(T16-3)는 `gate_key`가 보스방 id이고 한 번이라도 잡으면 영구히 열린다 — 실측: 깬 상태 통과 / 안 깬 상태 `[석상의 방]의 보스를 잡아야 한다` | `Room/RoomGate.mlua`, `UI/GateNotice.mlua`, `Progress/PlayerSkillSlots.HasEverClearedBoss` |
+| 환생 (조건 없음) · 랜드마크 | 동작 | `Progress/Rebirth.mlua`, `UI/RebirthConfirmPanel.mlua` |
+| 저장/로드 (영구·회차 분리, 스로틀) | 동작 | `Save/PlayerDBManager.mlua` |
+| 스킬 키 배치 저장·복원 (영구) + **키 설정 창** | 동작. 화면 왼쪽 "키 설정" 버튼으로 열고, 줄을 눌러 아무 키나 걸 수 있다(방향키·Esc 제외) | `SavePermanentData.key_order`, `PlayerSkillSlots.KeyOrder`, `UI/KeyConfigPanel.mlua` |
+| 아이템 **데이터** 6종 조회 (T13-2) | 데이터 계층 동작. 스탯 합산·드랍 역인덱스까지 검증됐다 | `GameData/ItemTable.csv`, `GameData.LoadItems` |
+| 인벤토리 담기·장착·**영구 저장** (T13-3) | 동작. 개수 상한·슬롯 정합·미보유 장착 거절까지 판정하고 재접속 후 복원된다 | `Inventory/PlayerInventory.mlua`, `SavePermanentData.inventory/equipped` |
+| 장착 스탯 반영 (T13-4) | 동작. 장비가 ATK/INT/DEF/LUK에 얹히고 데미지·포획률에 반영된다. **게이트는 장비를 빼고 잰다**(`GetStatWithoutEquip`) | `Player/PlayerStats.mlua`, `Room/RoomGate.mlua` |
+| **방별 수집 진척도 HUD** (T17-5) | 동작. 실측: 일반 방 `돌무덤 길 — 뿔버섯 / 스킬 뿔 들이받기 1/5 / 아이템 무쇠 검 5/5 ✔`, 보스방은 스킬 1줄 + 아이템 2줄, 마을은 패널 숨김. 분모는 데이터에서 유도하므로 몬스터를 바꾸면 따라간다 | `ui/RoomProgress.ui`, `UI/RoomProgressHud.mlua` |
+| **직업 시스템 제거** (T18-4) | 완료. `JobTable.csv`·`JobTable.userdataset` 삭제, `GameData.LoadJobs/GetJob/GetAllJobIds` 제거, `PlayerStats.CurrentJob`·`PlayerSkillSlots.UnlockedJobs` 제거, `SkillTable`에서 `s_job_*` 4줄 삭제, `LandmarkTable`의 직업 보상 줄 삭제, 저장 키 `current_job`/`unlocked_jobs` 제거. **왜 지금**: 직업은 2026-08-16에 폐기됐는데 `Rebirth.Execute`가 여전히 직업을 심었고 `GetJobSkills()`가 거기서 스킬을 유도해 **환생만 하면 강타·돌진이 스킬 바에 떴다**(대표 발견). 실측: 쓸 수 있는 스킬 `[]` / `GetSkill("s_job_war_01")` = nil / 환생 실행 시 직업 로그 없음 / 열쇠 게이트가 보는 보유 스킬 9개는 그대로 | `GameData/*.csv`, `GameData/GameData.mlua`, `Progress/{Rebirth,PlayerSkillSlots}.mlua`, `Player/PlayerStats.mlua`, `Save/*.mlua`, `UI/RebirthConfirmPanel.mlua` |
+| **환생 UI 정리** (T18-3) | 동작. "환생 가능" 버튼 삭제(`RebirthHud` 파일·스크립트 제거), 환생 창을 팝업 레이어 최상단(GroupOrder 30)으로. **규칙 문구는 `ui/RebirthConfirm.ui`의 `RuleText`에 있고 Maker에서 직접 고칠 수 있다** — 스크립트는 안 건드린다. 살아 있는 숫자는 `RecordText`만 채운다. 실측: 가방 창을 열어 둔 채 환생 창이 위에 뜨고, 9줄 문구가 안 겹친다 | `ui/RebirthConfirm.ui`, `UI/RebirthConfirmPanel.mlua` |
+| **공격력·방어력이 새 계수로 돈다** (T27-2) | 동작. **물리 공격력 = STR x5 + DEX x2 + LUK x2 / 마법 공격력 = INT x5 / 방어력 = DEX x10** (+ 장비). ⚠⚠ **`GetStatWithoutEquip`/`GetEquipBonus`의 인자는 이제 스탯 이름이 아니라 수치 이름이다** — "ATK"=물리 공격력, "INT"=마법 공격력. 여러 스탯이 한 수치에 모여 1:1이 깨졌다. ⚠ **`GetTotalLuk`만 전투 수치가 아니라 분배 포인트 수다**(포획률·드랍률용). LUK의 전투 기여분은 `GetTotalAtk`에 이미 있으니 두 번 세지 말 것. ⚠ **`scaling_stat=LUK`은 폐기됐다** — 쓰면 `PlayerAttack`이 경고를 남기고 ATK로 떨어뜨린다. ~~몬스터 곡선이 예전 플레이어에 맞춰져 있다~~ → **T28에서 해소.** 곡선을 선형으로 바꿨다(위 줄 참조). ~~장비 수치도 같이 올려야 한다~~ → **T30에서 해소** (만작 +125) | `Player/PlayerStats.mlua`, `GameData/GameBalance.csv`, `GameData/ItemTable.csv` |
+| **페리온도 포획된다** (T32-1) | 동작. 페리온 몬스터 7종에 `drop_skill_id`가 채워져 **지역 전체에서 포획이 굴러간다**(그전에는 칸이 비어 `TryCapture`가 즉시 빠져나갔다 — 천장 카운터도 안 셌다). 스킬 7종 전부 **차수 0**이라 얻는 즉시 낄 수 있다. **아이콘·이펙트·소리 전부 채웠다**(T32-2 · T32-3, 직접 그림 — 원본은 `docs/art/skill-icons/`와 `docs/art/skill-effects/`). ⚠ **소리만 새로 안 찾고 이미 쓰이던 것을 성격이 같은 것끼리 물렸다** — 오디오는 들어볼 방법이 없고(검색 결과에 이름도 안 붙는다) 직접 그린 아이콘은 원본 팩 역추적도 안 된다. 바꾸려면 `sfx_ruid` 한 칸이다. ⚠ **`SkillEffect.ShowCast`는 클라 스크립트에서 못 부른다** — 이펙트 확인은 실제로 스킬을 쓰는 경로(보스가 자기 스킬을 쓰는 것이 가장 확실하다)로 할 것. ⚠ **투사체 스킬은 없다** — `projectile_ruid`가 비면 판정 방식이 갈리므로(T19-4) 반쯤 만들지 않았다. ⚠ **성격이 겹친다**: `effect_type`이 damage/shield/heal 셋뿐이라 damage 변주를 기존 5종이 이미 다 쓴다 — 새 성격을 원하면 `effect_type`을 추가해야 한다(판정 코드가 늘어난다) | `GameData/SkillTable.csv`, `GameData/MonsterTable.csv` |
+| **스탯 이름 체계가 둘이다** (T31) | ⚠⚠⚠ **가장 헷갈리는 자리다.** (1) **분배 스탯** = `StatStr`/`StatDex`/`StatInt`/`StatLuk`, 이름은 **STR/DEX/INT/LUK**, 담는 값은 **분배한 포인트 수**다. `Allocate("STR")`·스탯 창이 이 이름을 쓴다. (2) **파생 수치** = `GetStatWithoutEquip(stat)`/`GetEquipBonus(stat)`/`GetStatPointValue(stat)`의 인자, 이름은 **ATK(물리 공격력)/INT(마법 공격력)/DEF(방어력)/LUK(포인트)**. `ItemTable`의 스탯 컬럼·`SkillTable.scaling_stat`·`RoomGate.gate_key`가 이쪽이다. **여러 스탯이 한 수치로 모이므로 1:1이 아니다**(물리 공격력 = STR x5 + DEX x2 + LUK x2). T31 전에는 (1)이 (2)의 이름을 써서 "ATK"가 두 가지를 뜻했다. ⚠ **저장 키는 `stat_str`/`stat_dex`다**(T31 이전은 `stat_atk`/`stat_def`). 읽기는 `새 키 or 옛 키 or 0`으로 하위 호환이고 쓰기는 새 키만 한다 — **되돌아갈 수는 없다**: 새 빌드로 저장한 뒤 옛 빌드로 로드하면 STR/DEX가 0이 된다 | `Player/PlayerStats.mlua`, `Save/SaveRunData.mlua` |
+| **회피는 없다** (T27-5에서 폐기) | ⚠⚠ **LUK 회피는 넣었다가 뺐다**(2026-08-27). `PlayerHit.IsHitTarget`은 **i-frame만** 본다. **왜 뺐나**: T28이 세운 "동레벨 3대에 잡고 12대 맞으면 죽는다"는 **읽히는 숫자**에 난수를 꽂기 때문이다 — 상한 0.6에서 12대가 30대가 되고 매번 다르다. 난이도를 방이 정한다는 T28의 값어치가 사라진다. **덜 맞게 하고 싶으면 실드**(`GetDamageReduction`)를 쓸 것 — 피해만 깎으므로 "몇 대"가 그대로 계산되고 상한 0.9도 걸려 있다. 되살리려면 `PlayerHit.IsHitTarget` 주석을 먼저 읽을 것. ⚠ `luk_evade_per_point`·`player_evade_max` 키도 **삭제됐다** — 옛 문서에서 보면 T27-5 이전 것이다 | `PlayerHit.mlua` |
+| ~~LUK이 공격을 피한다~~ (T27-4, **폐기**) | 동작하지 않는다. 회피율 = LUK x `luk_evade_per_point`(0.002), 상한 `player_evade_max`(0.6). 판정은 `PlayerHit.IsHitTarget` → `RollEvade`. ⚠⚠ **이 오버라이드에 `@ExecSpace`를 붙이지 말 것** — 부모 `HitComponent.IsHitTarget`이 ExecSpace=All이라 [LEA-3014] SignatureMismatch가 난다. ⚠⚠ **회피는 i-frame을 소모하지 않는다**(`LastHitTime`을 안 건드린다) — 갱신하면 피한 것만으로 1초 무적을 얻어 회피율이 표시값보다 훨씬 강해진다. **판정 순서는 i-frame → 회피**다. ⚠ **회피와 실드는 다른 것이다**: 실드(`GetDamageReduction`)는 피해를 깎고, 회피는 판정 자체를 없앤다(OnHit도 안 돌고 데미지 숫자도 안 뜬다). 그래서 `DustExplosion` 파티클로 따로 알린다 — 안 알리면 "때렸는데 아무 일도 없다"가 되어 고장으로 읽힌다 | `PlayerHit.mlua`, `Player/PlayerStats.mlua` |
+| **LUK이 공속·이속을 움직인다** (T27-3) | 동작. 주기 = `player_attack_interval` - LUK x `luk_attack_speed_per_point`(하한 `player_attack_interval_min` 0.25) / 이속 = `player_base_move_speed` x (1 + LUK x `luk_move_speed_per_point`). `PlayerStats.ApplySpeeds`가 `ApplyMaxHp`와 같은 네 자리(초기화·분배·환생·세이브 복원)에서 민다. ⚠⚠ **주기를 바꾸려면 타이머를 다시 걸어야 한다** — `SetTimerRepeat`은 걸 때의 주기를 들고 있어 값만 고치면 **에러 없이** 옛 주기로 계속 돈다. `PlayerAttack.RestartAutoAttack`을 거칠 것. ⚠⚠ **기본 이동 속도 2.4는 `DefaultPlayer.model`의 `speed`와 `player_base_move_speed` 두 곳에 있다** — 한쪽만 고치면 어긋난다. 런타임에는 `ApplySpeeds`가 덮어쓰므로 실질 정본은 CSV다. ⚠ **`PlayerDash`는 InputSpeed를 직접 만진다** — 돌진 시작에 저장하고 끝날 때 `GetMoveSpeed()`로 되돌린다(스냅샷을 쓰면 돌진 중 LUK이 오를 때 낡은 값으로 굳는다). ⚠ **회피(`luk_evade_per_point`)는 아직 아무도 안 읽는다** — `PlayerHit.IsHitTarget`에 붙이는 별도 단계다 | `Player/PlayerStats.mlua`, `PlayerAttack.mlua`, `Player/PlayerDash.mlua` |
+| **장비 수치는 "스탯 포인트 상당"이다** (T30) | 동작. ⚠⚠ **`ItemTable`의 다섯 스탯 컬럼(`stat_atk`/`int`/`def`/`luk`/`all`)은 값이 아니라 포인트다.** 무쇠 검 `stat_atk 5`는 "+5"가 아니라 **5P = 물리 공격력 +25**다. 변환은 **`GameData.GetStatPointValue` 한 곳**에서만 하고 `PlayerStats`가 분배 포인트에 쓰는 것과 **같은 계수**(`str_atk_per_point` 등)를 읽는다 — 밸런스 계수를 조정하면 장비가 저절로 따라온다. **왜 이렇게 됐나**: T27이 스탯마다 다른 계수를 주면서 같은 `+5`가 무쇠 검 1P / 가죽 갑옷 0.5P / 행운의 목걸이 5P가 되어 **목걸이가 갑옷의 10배**였다. ⚠ **표의 숫자를 그대로 화면에 띄우면 안 된다** — `InventoryPanel.StatSummary`가 `GetItemStackedStatBonus`에서 값을 받는 이유다. 그대로 띄우면 가방은 "+25"인데 스탯 창은 +125가 된다. ⚠ **올스탯(`stat_all`)만 포인트로 표시한다**(`올스탯+15P`) — 네 수치가 전부 다른 값이라 한 줄에 못 쓴다. 만작(5개) = 25P = 5레벨치 | `GameData/ItemTable.csv`, `GameData/GameData.mlua`, `UI/InventoryPanel.mlua` |
+| **몬스터 곡선이 선형이다** (T28) | 동작. **HP = 144 + 34.2x(Lv-1) / DEF = 80 + 19x(Lv-1) / ATK = 157 + 11.5x(Lv-1)**. ⚠⚠ **EXP만 기하급수다**(5 x 1.10^(Lv-1)) — 필요 EXP 곡선이 기하급수라 그쪽을 따라가야 한다. 셋과 하나가 모양이 다른 것이 의도다. ⚠⚠ **`monster_hp_ratio`/`monster_def_ratio`/`monster_atk_ratio` 키는 삭제됐다** — `monster_*_per_level`로 대체됐다. 옛 문서에서 공비를 봤다면 그건 T28 이전 것이다. **왜 바꿨나**: 플레이어 스탯이 T27에서 레벨에 선형이 되어 기하급수와 딱 한 번만 교차했다(Lv55 근처) — 아래는 전부 한 방, 위는 전부 불가능. base를 조절해도 교차점만 움직인다. **읽는 곳은 `LevelCurve` 3개 메서드와 `GameDataVerify.VerifyMonsters` 둘뿐이다.** ⚠ T53 현재 보스 배율은 **HP x10 / DEF x1 / ATK x1.5**다 — DEF와 ATK 배율은 곱해지므로 DEF는 1로 뺐고, 길이는 HP가 맡는다. ~~`boss_skill_damage_multiplier` 0.25가 근거를 잃었다~~ → **T29에서 해소.** 1로 되돌렸다 | `GameData/GameBalance.csv`, `Progress/LevelCurve.mlua`, `GameData/MonsterTable.csv` |
+| **HP가 STR로 자란다** (T27-1) | 동작. **최대 HP = 1000 + STR x 20** (처음 50이었다가 2026-08-27 대표 지시로 20 — 50이면 HP가 STR에서만 나와 STR이 딜 1등이면서 탱 1등이 된다. 20에서 STR·DEX 빌드의 버티는 대수가 8.5 vs 8.4로 붙는다). 로드·분배·환생 세 곳에서 `ApplyMaxHp()`가 적용한다. **이것이 T26-6의 벽을 푼 것이다** — 실측으로 스텀피 보스를 484 한 대만 맞고 잡았다(전에는 졌다). ⚠ **최대 HP는 저장하지 않는다** — STR에서 매번 다시 계산한다(캡 플래그와 같은 판단). 저장하면 `str_hp_per_point`를 조정했을 때 세이브가 있는 계정만 다른 HP로 논다. ⚠ **아직 HP만 배선됐다** — `GameBalance.csv`의 나머지 계수 9개(공격력·방어력·마공·공속·회피·이속)는 **데이터만 있고 아무도 안 읽는다.** 공격력·방어력은 여전히 구 계수 `atk_per_stat_point`(=1)로 돈다. ⚠ **프로퍼티 이름은 아직 `StatAtk`/`StatDef`다** — 새 코드는 `GetStr()`/`GetDex()`/`GetIntStat()`/`GetLukStat()` 창구만 쓴다. 이름을 바꿀 때 그 네 줄 + 저장 마이그레이션을 함께 한다 | `Player/PlayerStats.mlua`, `GameData/GameBalance.csv` |
+| **페리온 보스 (돌풍의 봉우리 · 스텀피)** (T26-6) | 방·포탈·귀환·타일·미니맵은 동작. **전투는 지금 보스가 이긴다** — 실측으로 플레이어가 죽었다. ⚠⚠⚠ **근본 원인: 플레이어 HP가 1000 고정이고 레벨로 안 자란다**(T13-1). 몬스터 ATK는 `24x1.08^(lv-1)`로 자라는데 받는 쪽이 그대로라 **`boss_atk_multiplier=3`은 낮은 레벨에서만 성립한다** — Lv34 이상 보스는 배율 3에서 **무조건 한 방**이다(Lv42 = 1905 데미지). **이건 앞으로 만들 모든 고레벨 콘텐츠에 걸리는 천장이다.** ⚠ **레벨을 낮춰서는 못 푼다** — 이기려면 Lv20 이하여야 하는데 그러면 바로 앞 방의 일반 몬스터(스톤골렘 Lv36)보다 약해진다. 손댈 곳은 `boss_atk_multiplier`인데 **돌 정령·히어로가 같은 값을 공유**하므로 보스별로 가르려면 `MonsterTable`에 배율 컬럼이 필요하다. ⚠ **종 레벨과 방 레벨은 갈라져 있다** — 표의 스텀피는 Lv42, 방이 26으로 덮는다(난이도 조절 = CSV 한 칸) | `GameData/{MonsterTable,RoomTable}.csv`, `GameData/GameBalance.csv` |
+| **미니맵 자동 맞춤** (T26-5) | 동작. 격자가 판을 넘으면 자동으로 줄어든다(실측 페리온 4x3 배율 0.98, 칸 97x54). 판은 440x370 / 격자판 420x310. ⚠ **칸만 줄이면 글자가 칸 밖으로 넘친다** — `Name`/`Sub`가 고정 크기(96x26 / 96x24, 글자 15/13)라 글자 상자·`FontSize`·연결선 두께를 **같은 비율로** 줄여야 한다. **판 크기는 런타임에 `RectSize`로 잰다** — `.ui`를 키우고 스크립트 상수를 안 고치면 조용히 어긋난다. ⚠ 바닥값 `minScale` 0.55 아래로는 안 줄이고 경고를 남긴다(안 보이는 지도보다 잘린 지도가 낫다) — 그 경고가 뜨면 `.ui`의 Panel/Board를 키울 것. **드래그·확대는 일부러 안 넣었다**: 미니맵은 레이캐스트 0개인 HUD이고(T23-10b) 곁눈질용이다. 방이 15개쯤 되면 HUD가 아니라 **버튼으로 여는 전체 화면 지도**에 넣을 것 | `ui/WorldMap.ui`, `UI/WorldMapPanel.mlua` |
+| **발굴 금지 구역 = 스켈레톤 지휘관** (T26-5) | 동작. ⚠⚠ **뮤테는 페리온에 나오지 않는다** — 원작 유적 발굴지는 우드/스톤 마스크와 스켈레톤 계열이다(초기 우드 마스크 → 완료 스톤 마스크 → 중단 스켈독·머미독 → 위험 사병 → 폐쇄 장교 → 미접근 지휘관). **방 이름을 원작 맵에서 따 왔으면 몬스터도 같은 출처에서 뽑을 것.** ⚠ `Models/Monsters/Skeleton.model`은 `m_skeleton`을 가리키는데 그 id는 표에 없다 — **죽은 모델**(정리 후보) | `GameData/MonsterTable.csv`, `Models/Monsters/SkeletonCommander.model` |
+| **페리온 타일 (돌 결)** (T26-4) | 동작. 페리온 7방이 `Henesys_stone` 결이다(실측 `map14` 돌 448/448). 지역 이름은 `헤네시스 근교`/`페리온`. ⚠⚠ **`Henesys_stone_3`(63)과 `stone_27`(87)은 통과 불가 타일이다** — 이름이 잔무늬 변형처럼 보이지만 벽이다. **`mapjob`에 6칸, `maptown`에 4칸이 이미 깔려 있다**(T23-11에서 모르고 흩뿌린 것). 새 방을 칠할 때 절대 섞지 말 것. ⚠⚠ **`RectTileInfo.Index`는 런타임에서 JSON+1이다**(실측). 스킬 문서(`tile.md`)의 "0-based" 설명과 다르므로, 런타임 값을 `.map`에 되쓸 때 -1 할 것. ⚠⚠ **이 타일셋은 룰타일 세트다** — 134종 중 **104종이 잔디↔길 경계 조각**이라 바닥으로 깔면 초록 파편이 박힌다. 깔아도 되는 단색은 **갈색 흙 `soil_59`/`soil_60`/`soil_61`(58·59·60)**, **회색 조약돌 `stone_1`/`stone_2`(61·62)**, **잔디 `soil_1`~`soil_5`(0~4)** 뿐이다. `stone_4`(64)/`stone_5`(65)는 **잔디 테두리**다(T23-11의 "잔무늬 변형"은 오기). **타일 그림은 썸네일 CDN에서 볼 수 있다**: `mod-thumbnail.dn.nexoncdn.co.kr/{앞2}/{다음2}/{guid}_64.png` — 134종을 받아 **색 분산**을 재면 단색과 경계가 갈린다. ⚠ **흙↔돌 경계 타일은 없다**(경계 조각이 전부 잔디 기준) — 그래서 회색 조약돌을 섞으면 덩어리 가장자리가 계단처럼 각진다. **페리온은 순수 갈색으로 간다**(대표 지시): 바위 지형은 **자갈 밀도**로 만든다 — `soil_59` 자갈 없음 / `soil_60` 2개 / `soil_61` 3~4개. ⚠ **자갈 지형은 회색 바위만큼 눈에 띄지 않는다** — 순수 갈색의 대가다. ⚠ **타일 렌더를 축소해서 판단하지 말 것** — 28px로 줄이면 자갈이 안 보인다. 한 칸 100px에 카메라 크기(13x7칸)로 잘라 볼 것. ⚠ **페리온 전용 타일셋은 없다** — 원작 페리온은 사이드뷰라 타일셋 계열(`MapleTileSetData`)이 RectTile(`MODTileSetEntry`)과 호환되지 않는다. 워크스페이스 타일셋은 `RectTileData_Henesys` 하나뿐 | `map/map1*.map`, `RootDesk/MyDesk/RectTileData_Henesys.tileset` |
+| **페리온 아랫길 (순환 완성)** (T26-3) | 동작. `r_16 아머피그의 땅`(아이언 호그 Lv28) → `r_17 불의 땅`(파이어보어 Lv32) → 북쪽으로 `r_14` 합류. **게이트가 없어 항상 열려 있다** — `r_14`의 `stat 170`을 못 넘어도 진행이 막히지 않는다. **미니맵이 순환을 그린다** — `WorldMapPanel.DrawLinks`가 격자 인접으로 긋기 때문이다. ⚠ **새 방을 이을 때 격자 좌표가 기하학적으로 닫히는지 먼저 확인할 것**: BFS가 먼저 도달한 쪽으로 좌표를 정하므로, 닫히지 않으면 순환 간선이 조용히 안 그려진다(선이 하나 모자란 것은 눈에 잘 안 띈다). **우회로가 더 안전한 길이다** — 지름길은 평타 120 → 329로 뛰고 우회로는 120 → 192 → 222 → 329다. **시작 마을 이름은 `헤네시스`**(T26-3, 대표 지시). ⚠ `AreaTable.area_01`은 아직 `시작 지역`이라 지역 선택 창의 결이 안 맞는다 | `GameData/{MonsterTable,RoomTable}.csv`, `map/{map16,map17}.map`, `UI/WorldMapPanel.mlua` |
+| **페리온 윗길** (T26-2) | 동작. `r_13`에서 **북쪽 `r_1a 발굴 금지 구역`**(미스릴 뮤테 Lv30, 게이트 `boss r_05`)과 **동쪽 `r_14 험한 바위 지대`**(스톤골렘 Lv36, 게이트 `stat 170`)로 갈린다. ⚠⚠ **새 포탈을 `placeModel`로 놓을 때 `TriggerComponent.BoxSize`를 1.5x1.5로 덮을 것** — 모델 기본값이 3x3인데 `RoomPortal.arriveInset`(2.5)은 1.5 기준으로 계산돼 있어, 그대로 놓으면 도착 즉시 트리거에 다시 걸려 **무한 왕복**이 난다. ⚠⚠ **스톤골렘 Lv36의 평타가 329**라 DEF 105 플레이어가 3대에 죽는다 — 앞 방(미스릴 뮤테 183)과 낙차가 크다. 조절은 `RoomTable.monster_level` 한 칸. ⚠ **스톤골렘은 모델이 하나다** — `m_stone_golem`을 area_01 보스방(Lv15)과 여기(Lv36)가 같이 쓴다. 모델을 고치면 양쪽이 같이 움직인다. ⚠ **T26-3 전까지 `r_14`가 유일한 진행로**다(남쪽 우회로가 아직 없다) | `GameData/{MonsterTable,RoomTable}.csv`, `map/{map13,map1a,map14}.map` |
+| **area_02 페리온 (앞 3방)** (T26-1) | 동작. `r_11 남쪽 능선`(엑스텀프 Lv18) → `r_12 바위 황무지`(다크 엑스텀프 Lv22) → `r_13 먼지바람 언덕`(와일드보어 Lv26). 진입은 **마을 동쪽 문의 지역 선택**뿐이고(area_02는 Lv30 랜드마크로 해금), 복귀는 `r_11`의 남쪽 포탈이다. ⚠⚠ **`r_town.conn_north = r_11`은 데이터에만 있고 마을에 북쪽 포탈 엔티티는 없다** — 양방향 무결성 검사를 통과시키면서 마을→페리온 도보 우회를 막는 방법이다. 마을에 북쪽 문을 실제로 놓으려면 `r_11`에 **`gate_type=rebirth` / `gate_key=area_02`**를 걸 것(그 게이트가 곧 `UnlockedAreas` 조회다). ⚠ **`drop_skill_id`가 비어 있어 페리온에서는 포획이 안 된다** — 의도된 미완이고, 스킬 7종은 별도 작업이다. ⚠ **남은 5방**(`r_14`·`r_15` 보스 스텀피·`r_16`·`r_17`·`r_1a`)은 아직 없다 — `r_13`은 지금 막다른 방이다 | `GameData/{MonsterTable,AreaTable,RoomTable}.csv`, `map/map1{1,2,3}.map` |
+| **히어로 공격 모션** (T25-4) | 동작. 아바타 몬스터가 때릴 때 `swingO1`을 재생하고, 끝나면 상태에 맞춰 `walk1`/`stand1`로 되돌아간다. ⚠⚠ **아바타는 `SpriteRUID` 교체가 안 통한다**(그 컴포넌트가 없다) — `ActionStateChangedEvent`를 **몸 엔티티**(`GetBodyEntity()`, ClientOnly)로 보낼 것. ⚠⚠ **`Onetime`은 마지막 프레임에서 멈추므로 직접 되돌려야 한다.** `AvatarStateAnimationComponent`는 우리 이벤트를 모르므로(셀렉터를 안 거친다) 대신 고쳐 주지 않는다. ⚠ `PartsActionName`을 비우면 **무기가 멈춘다.** ⚠ 동작 이름은 **무기 종류**가 정한다(`AvatarAttackAction` 프로퍼티) | `MonsterAttack.mlua` |
+| **보스 스킬 감쇄** (T25-3 → T29) | 동작. 보스가 스킬을 쓸 때만 반경 x0.667. **데미지 배율은 2026-08-27 T29에서 0.25 → 1로 되돌렸다(= 안 깎는다)** — 0.25의 근거였던 `boss_atk_multiplier` x3이 T28에서 1.5가 되면서 사라졌고, 그대로 두면 레이징 블로우가 평타의 48%라 **보스 스킬이 평타보다 약했다.** ⚠⚠ **이 값은 난이도 knob이 아니다**: 스킬은 보스 타격의 1/3뿐이라(주기 3초 · i-frame 1초) 0.25~1.0 어디에 둬도 승패 경계가 안 바뀐다. 보스가 세다/약하다는 `boss_atk_multiplier`로 조절할 것 — **두 knob이 같은 일을 하게 두면 한쪽을 고칠 때 다른 쪽이 조용히 어긋난다**(이번이 그 사고였다). 실측 히어로: 평타 274 / 레이징 526(1.92배) / 오라 434(1.58배). ⚠⚠ **`SkillTable`은 플레이어와 보스가 공유한다** — 보스가 세다고 CSV를 줄이면 **플레이어가 뺏어 쓸 스킬까지 같이 약해진다.** 보스만 깎으려면 반드시 `MonsterAttack` 쪽 배율을 쓸 것. ⚠ **평타는 안 깎는다**(보스 기본 화력은 `boss_atk_multiplier` 담당). ⚠ **방 크기가 3배 차이 난다** — 사냥방 448칸 / 시험의 방 144칸. 같은 반경이 방마다 전혀 다르게 작동한다 | `GameData/GameBalance.csv`, `MonsterAttack.mlua` |
+| **스킬 범위 확대** (T25-2) | 동작. 히어로 공격 4종 반경 **3.5/4.0/5.0/6.0**. 실측 브랜디쉬 4발 중 한 발이 2마리 동시 명중. ⚠⚠ **광역기 반경을 정할 때는 방 넓이와 몬스터 수를 같이 볼 것** — 기대 명중 = `마릿수 x πr² / 방칸수`. 사냥방 448칸에 6마리라 반경 2.0이면 **0.17마리**(사실상 단일기)였다. 이 식은 실측과 맞는다(예측 0.67 vs 실측 0.75). ⚠⚠ **히어로 보스가 같은 스킬을 쓴다** — 시험의 방은 **144칸**뿐이라 반경 6.0이 방의 78%를 덮는다. 사냥방과 3배 차이라 **같은 반경이 방마다 다르게 작동한다** | `GameData/SkillTable.csv` |
+| **전직 스킬 원작 대조** (T25-1) | 동작. 히어로 5종의 **계보·차수는 원작과 일치**한다(아이콘 RUID의 원본 팩 id로 검증 — `100`/`110`/`111`/`112`). 브랜디쉬를 광역(반경 2.2·제한 없음)으로 고쳐 반경이 차수 순으로 단조 증가한다. ⚠ **엔진에 다중 타격(hit count) 개념이 없다** — 원작의 "2회 타격 / 연속 타격"은 표현할 수 없어 계수로 대신한다. 설명에 "연속"을 쓰지 말 것. ⚠ **모든 스킬이 플레이어 중심 원형**이다(원작 전사 스킬은 전방) — 방향 판정이 필요하면 `PlayerAttack.UseSkill`의 `CircleShape`부터 바꿔야 한다. ⚠ **다중 대상 명중은 미실측**(자동 공격이 표적을 먼저 지운다) | `GameData/SkillTable.csv` |
+| **남은 창 넷 프리셋 스킨** (T24-11) | 동작. 스탯·환생·여신·지역 선택이 가방/스킬 창과 같은 결이다. **화면에서 열 수 있는 창 여섯이 전부 같은 규격.** ⚠ **키 설정 창은 스킨 안 됨** — T23-8에서 여는 버튼을 없애 화면에서 열 수 없다(창·스크립트는 남아 있다). ⚠ **미니맵·방 진척도는 일부러 어둡게 뒀다** — 창이 아니라 상시 HUD다. ⚠ 밝은 판에서 **밝은 금색 글자는 묻힌다** — 강조색은 진하게 내릴 것 | `ui/StatGroup.ui`, `ui/RebirthConfirm.ui`, `ui/GoddessWindow.ui`, `ui/AreaSelect.ui` |
+| **스킬 창 프리셋 스킨** (T24-10) | 동작. 가방 창과 같은 결(밝은 본체 + 짙은 제목 바 + 작은 X). 탭·격자 칸의 네 상태가 **색조**로 갈린다. ⚠⚠ **창을 스킨할 때 그 창을 그리는 스크립트에 `Color(`가 있는지 먼저 볼 것** — 런타임에 칠하는 색은 `.ui`를 고쳐도 안 따라온다(이 창이 그랬다). ⚠ 밝은 칸에서 "못 씀"은 **어둡게가 아니라 바래게** 해야 읽힌다 | `ui/EquipWindow.ui`, `UI/EquipPanel.mlua` |
+| **닫기 X 크기** (T24-9b) | 동작. X는 **40x40**으로 작게 그리고, 누르는 면적은 **알파 0인 88x88 버튼**이 맡는다. ⚠ 아이콘을 작게 하고 싶을 때 **그림째 줄이지 말 것** — 그림(자식)과 누름판(버튼)을 가르면 모바일 터치 목표를 지키면서 작게 그릴 수 있다. ⚠ **자식의 `RaycastTarget`은 꺼 둘 것**(안 끄면 클릭이 부모까지 안 간다). ⚠ **클릭 동작 미검증** — 안 눌리면 누름판 알파를 0 → 0.004로 | `ui/Inventory.ui` |
+| **가방 창 프리셋 스킨** (T24-9) | 동작. **밝은 본체 + 짙은 제목 바 + 오른쪽 위 X**, 줄은 띠, 글자는 어둡다. **다른 창도 같은 레시피로 옮길 수 있다.** ⚠⚠ **프리셋 스프라이트는 흰 그림이고 색은 `Color`가 만든다** — RUID만 옮기면 흰 판 위 흰 그림이 되어 **로그로는 멀쩡한데 화면에 안 보인다.** 색까지 같이 읽어 올 것. ⚠⚠ **프리셋 RUID는 리소스 검색에 없다**(404) — `ui/WorldMap.ui`의 프리셋을 런타임에 켜서 눈으로 볼 것. ⚠ 본체를 밝게 하면 **글자를 전부 어둡게** 뒤집어야 한다 | `ui/Inventory.ui` |
+| **물약 칸 정렬·글자** (T24-8) | 동작. 물약 아이콘이 칸 **한가운데**, 개수는 흰 글자 + **검은 외곽선 3**(굵게 22), 키 힌트는 스킬 칸과 같은 연노랑. ⚠⚠ **`OutlineWidth`는 런타임 조회로 못 잰다** — `.ui`에 3이 있어도 실행 중엔 0.0으로 읽힌다(외곽선이 눈에 보이는 글자도 그렇다). **화면으로 확인할 것.** ⚠ **UI 자식 좌표는 부모 사각형 기준**이다 — 화면 크기로 환산하면 안 된다 | `ui/ItemQuickSlot.ui` |
+| **스킬 바 아이콘 슬롯** (T24-7) | 동작. 스킬 칸이 **122x122 아이콘 슬롯**(아이콘·이름·키·쿨), 포션 칸도 같은 규격. 스킬 줄 y 20~142 / 포션 줄 y 154~276, 둘 다 오른쪽 끝 1900. ⚠ 칸 크기를 바꾸면 **`SkillBar.slotStepX`**(간격)와 **포션 줄 y**를 같이 고칠 것 — 자리는 `.ui`가 아니라 `SkillBar.Refresh`가 정한다. ⚠ 아이콘 비율은 `SkillTable.icon_ratio`에서 읽는다(`PreserveSprite`·`SetNativeSize()`는 여기서 못 쓴다). ⚠ 이름을 빼고 싶으면 `Name` 자식만 지우면 된다 | `ui/SkillBar.ui`, `ui/ItemQuickSlot.ui`, `UI/SkillBar.mlua` |
+| **스킬 버튼 이름** (T24-6) | 동작. 우측 맨 위 버튼이 `스탯` · **`스킬`** · `가방`. 창 제목은 `스킬 장착` 그대로다. ⚠ **대화창 크기를 눈으로 재지 말 것** — 칸은 698x439인데 아이콘과 지금 있는 메시지만 그려져 늘 작아 보인다. 값으로 확인할 것(`pos (368.973, -251.805) / size (697.723, 438.755)`가 원래 값) | `ui/EquipWindow.ui` |
+| **버튼 3개 우측 맨 위** (T24-5) | 동작. 스탯·장착·가방이 **우측 맨 위 한 줄**(x 1210~1690 / y 28~116, 152x88), 대화창은 **원래 자리**(x 20~718 / y 32~471). ⚠ 그 띠의 경계는 **오른쪽 1710~ = 엔진 시스템 UI 예약**, **아래 150~ = 방 진척도 패널**이다 — 둘 다 넘으면 가려진다. ⚠ 앵커 **top-right**(진척도·미니맵과 같은 모서리). `patch()`는 pivot을 유지하므로 앵커를 바꿀 때 **pivot을 명시**할 것. ⚠ **왼쪽 위에 버튼을 다시 놓지 말 것** — 채팅이 클릭을 먹는다(T23-8). ⚠ **클릭 동작은 미검증**(합성 클릭이 UI에 안 먹는다) | `ui/StatGroup.ui`, `ui/EquipWindow.ui`, `ui/Inventory.ui`, `ui/DefaultGroup.ui` |
+| ~~**대화창 자리** (T24-4)~~ → T24-5에 뒤집힘 | 대화창은 **원래 자리**(x 20~718 / y 32~471)로 돌아갔다. 아래 함정은 그대로 유효하다. ⚠ **대화창을 왼쪽 아래로 보내지 말 것** — 그 자리는 **모바일 조이스틱**(x 210~410 / y 750~950)이 쓴다. PC에서는 조이스틱이 안 보여서 옮겨 놓고 나서야 드러난다. ⚠ UI 겹침은 **앵커·피벗을 화면 좌표로 환산해서** 잴 것(`anchoredPosition` 직접 비교는 무의미) | `ui/DefaultGroup.ui` |
+| **조작 UI 오른쪽 배치** (T24-3) | 동작. 스킬 5칸이 **오른쪽 아래 구석**, 포션 2칸이 **그 바로 위**. 모바일 점프·공격 버튼은 **삭제**(탑다운이라 점프가 없고 공격은 자동이라 둘 다 빈 버튼이었다). ⚠⚠ 모바일 전용 UI는 **`Enable=false`로 못 끈다** — `ActivePlatform=Mobile`이면 PC에서 엔진이 알아서 꺼 두므로 PC 로그가 거짓말을 하고, 모바일에서 다시 켜진다. `PlatformType`에 "어디에도 안 뜸"이 없어 지우는 수밖에 없다. ⚠ 스킬 칸의 **자리는 `.ui`가 아니라 `SkillBar.Refresh`**가 정한다(슬롯이 1~5로 변하고 목록에 구멍이 날 수 있다) — 칸을 옮기려면 `slotRightX`/`slotStepX`를 볼 것. **모바일 실기는 아직 미검증** | `ui/SkillBar.ui`, `ui/ItemQuickSlot.ui`, `ui/DefaultGroup.ui`, `UI/SkillBar.mlua` |
+| **UI 리스타일 — 상태창 자리·글씨** (T24-2b) | 동작. HP/EXP/레벨/닉네임 HUD가 **화면 아래 가운데**(y 8~112)에 있고 글씨가 **검정**이다. ⚠ 그 위 y 120~208은 **스킬 바** 자리다 — HUD를 옮길 때 겹치는지 먼저 볼 것. ⚠ 글씨를 검정으로 두면 **이름판(프리셋 검정 30%)도 밝게 뒤집어야** 하고 **외곽선도 흰색**이어야 한다 | `ui/PlayerHud.ui` |
+| **UI 리스타일 — 상태창** (T24-2) | 동작. HP/EXP/레벨/닉네임 HUD가 **MSW 프리셋 상태창(UIMyInfo) 그대로**가 됐다. ⚠ **프리셋은 워크스페이스에 파일로 없다** — Maker 라이브러리에만 있고 대표가 월드에 넣어야 `.ui`로 생긴다. 지금 4종(상태창·인벤토리·스킬퀵슬롯·월드맵)이 `ui/WorldMap.ui` 안에 **비활성화 상태로** 들어와 있다(참고용). ⚠⚠ 프리셋 상태창의 `info_top` 배경은 **alpha 0** — 이름 뒤 검정 30% 판만 보이는 구조다. 불투명하게 두면 흰 슬래브가 되어 글자가 묻힌다. ⚠ 게이지는 **색으로만** 구분(같은 RUID), 채움 막대는 **왼쪽 pivot**. MP 줄은 뺐다 | `ui/PlayerHud.ui`, `UI/PlayerHud.mlua` |
+| **UI 리스타일 — 왼쪽 버튼 열** (T24-1) | 동작. 스탯·장착·가방 여는 버튼이 레퍼런스(`style-1-black`) 규격으로 한 열에 정렬됐다(235x88, 간격 99, 버튼 스프라이트 `6efba31a…`). ⚠⚠ **`patch()`는 pivot을 유지한다** — 앵커를 바꿀 때 pivot을 명시하지 않으면 출신이 다른 버튼끼리 겹친다(가방이 장착을 덮어 "사라진" 것처럼 보였고, **Enable·Visible·alpha가 전부 정상이라 로그로는 안 잡혔다**). ⚠ 스프라이트 RUID를 넣으면 `Color`를 흰색으로 되돌릴 것. **T24-2(창 스킨)·T24-3(HUD)은 아직이다** | `ui/StatGroup.ui`, `ui/EquipWindow.ui`, `ui/Inventory.ui` |
+| **마을 확장 + 사방 길** (T23-11) | 동작. 마을이 **28x16(448칸)**으로 사냥방과 같은 규격이 됐고, 잔디 마당에 사방 돌길이 가운데 광장에서 만난다. NPC는 길 끝에 있다(환생 서 / 여신 북 / 문 동). ⚠⚠ **맵 폭을 바꾸면 `RoomTable.portal_x`(그 맵의 반폭)도 같이 고칠 것** — 안 고치면 입장 시 타일 밖에 떨어져 쫓겨난다(T13-1c). ⚠ **타일 이름을 믿지 말 것**: `soil_*`이 흙이 아니라 **잔디**고, 갈색 흙은 "타일 없음"(배경)이다. `_1`=민무늬 채움, `_3/4/5`=잔무늬 변형. ⚠ 타일 칠하기는 빌더 밖이라 `tileMap` 배열을 직접 썼다(§1.6 갭). 난수는 고정 씨앗 | `map/maptown.map`, `GameData/RoomTable.csv` |
+| **월드 맵 (우측 상단 미니맵)** (T23-10 / 10b) | 동작. **우측 상단에 상시 표시**되는 미니맵이다(대표 정정으로 전체 화면 창에서 바뀜). 지역의 방들이 연결 그대로 격자에 그려진다(이름 · 몬스터 · 잠김, `●` 현재 위치 / `◆` 보스). **연결로 닿는 방만 그린다** — 시험의 방처럼 숨은 NPC로만 가는 방은 안 나온다. **암막도 버튼도 없어 레이캐스트를 먹는 요소가 0개**다(T23-8 재발 방지). 지역 밖에서는 숨는다. **데이터에서 그린다** — `RoomTable` 연결을 BFS로 훑어 좌표를 매기므로 방을 추가하면 CSV 한 줄로 나타난다. 잠김은 `_RoomGate:Evaluate`에 물어본다. ⚠⚠ **연결은 `room.conn_east`가 아니라 `room.connections.east`**(`GetRoomConnection`으로 읽을 것) — 컬럼 이름으로 읽으면 전부 nil이라 모든 방이 한 줄에 늘어선다. ⚠ top-center 앵커에서 자식 y는 음수. ⚠ 이모지 금지(□로 깨진다). ⚠ 여는 버튼은 Root 밖에. ⚠ 칸 12 / 선 16 풀 — 넘치면 경고 | `ui/WorldMap.ui`, `UI/WorldMapPanel.mlua` |
+| **여신 NPC — 전직 안내** (T23-9 / 9b) | 동작. 마을 오른쪽(3,3)에 **메이플월드의 여신**이 서 있고, 누르면 **창**(`ui/GoddessWindow.ui`)이 열려 지금 차수 · 슬롯 · 다음 전직 레벨을 보여 준다(T23-9b). **열릴 스킬 이름은 안 적는다** — 차수·직업이 늘면 목록이 되므로 스킬 창의 일이다(대표 지시). NPC는 창을 열기만 하고 문구는 창이 만든다. ⚠ **암막이 딸린 창은 반드시 닫아 둘 것**(T23-8과 같은 먹통이 난다). **전직을 실행하지 않는다** — 차수는 레벨로 오른다. 안내 문구는 T23-7(차수 환생 유지)과 한 몸이라, 그 규칙을 바꾸면 여기 문구도 같이 고쳐야 한다. ⚠ **`TeleportToMapPosition(엔티티, 좌표, 맵이름)`** — 순서를 틀리면 `[LEA-3005]`. `map://` 접두어 없이 맵 이름만 넘긴다. ⚠ 여신 스프라이트는 animationclip(223x274)이라 오라가 움직인다. 실측 3종(0차/2차/5차) 전부 정확 | `Room/GoddessNpc.mlua`, `Models/Npc/GoddessNpc.model`, `map/maptown.map` |
+| **스탯·장착 버튼 먹통 수정** (T23-8) | 동작. `ui/RebirthConfirm.ui`에 **채팅창이 복제**돼 있었고, 그 그룹이 최상단이라 채팅 사각형(x 20~718 / y 609~1048) 안의 클릭을 전부 가로챘다 — 스탯·장착만 그 안이었다. 복제 채팅을 지워 해결. 함께 **키 설정 버튼을 화면에서 제거**했다(창·스크립트는 남긴다 — 키 배치 저장을 스킬 바가 쓴다). ⚠ **채팅은 월드에 하나만.** ⚠ `ChatComponent`는 자식에 RaycastTarget을 안 남겨 레이캐스트 훑기로는 안 잡힌다. ⚠⚠ **`maker_mouse_input`은 UI 클릭에 안 먹는다**(ScreenTouch는 들어오지만 ButtonClickEvent가 안 뜬다) — UI 클릭은 대표 로그로만 잰다. ⚠ UI 좌표는 `.ui` 앵커 값으로 볼 것 — 런타임 `WorldPosition`은 월드 단위라 `RectSize`(픽셀)와 섞으면 오진한다(실제로 한 번 틀렸다). 실측: 같은 좌표에서 고치기 전 0건 → 고친 뒤 스탯·장착·가방 전부 도착 | `ui/RebirthConfirm.ui`, `ui/KeyConfig.ui`, `UI/KeyConfigPanel.mlua` |
+| **전직 차수 환생 유지** (T23-7) | 동작. **환생해도 차수와 슬롯이 유지된다** — 전직은 퀘스트라 한 번만 하면 된다는 대표 지시(2026-08-25)로 2026-08-21 결정을 뒤집었다. `BestTier`(영구·갱신형)와 `TierFromLevel()` 중 큰 쪽이 `GetTier()`다. ⚠ **`RecomputeSlotCount`는 `RefreshBestTier`를 먼저 부른다** — 순서가 바뀌면 전직 순간에 옛 차수로 칸을 센다. 실측: Lv30 차수2 슬롯3 → 환생 후 Lv1인데 차수2 슬롯3 / 저장 왕복 `Perm.best_tier=2` | `Progress/PlayerSkillSlots.mlua`, `Save/SavePermanentData.mlua`, `Save/PlayerDBManager.mlua` |
+| **스킬 쿨다운 표시** (T23-6) | 동작. 전에는 **스킬 바에 쿨다운이 아예 안 보였다**(서버 5.00초 / 클라 0.00). `SkillReadyAt`은 서버 시각이고 두 시계가 어긋나기 때문이다. 이제 `StartCooldown`이 **길이(초)**만 클라로 보내고 클라가 자기 시계로 센다. **쿨다운을 거는 곳도 네 군데에서 한 군데로 모았다** — T23-1(던지기에서 빠뜨림)이 그 분산 때문이었다. ⚠ **`EquipMonsterSkill`은 클라에서 안 먹는다**(서버 권한) — 시험할 때 장착은 서버에서 할 것. 실측: 돌진 3.54 / 던지기 4.56 / 방어 7.62 / 일반 3.53 (고치기 전 전부 0.00) | `PlayerAttack.mlua` |
+| **포션 3종** (T23-3/4/5) | 동작. 포션이 **모든 몬스터**에서 떨어지고(`drop_from=*`), 줍는 배너는 안 뜨고, **쿨다운 3초**가 걸린다. ⚠⚠ **`_UtilLogic.ElapsedSeconds`는 서버와 클라에서 다르다**(실측 최대 94초 차, 고정 오차 아님) — **서버 시각을 클라에서 빼면 안 된다.** 서버는 길이(초)만 보내고 클라가 자기 시계로 센다. ⚠⚠ 같은 이유로 스킬 바 쿨다운 표시도 깨져 있었다 → **T23-6에서 고쳤다.** ⚠ `GateNotice.ShowNotice`는 `Enable`이 아니라 `SetVisible`을 쓴다 — 배너 확인은 글자로 할 것 | `GameData/*`, `Inventory/{PlayerInventory,DropItem}.mlua`, `UI/ItemQuickSlotBar.mlua` |
+| **바위 던지기 8방향 + 조준** (T23-2) | 동작. 좌우로만 날아가고 거의 안 맞던 것을 고쳤다. 원인 둘: `ThrowSkill`이 **조준값을 인자로 받지 않았고**, 바위가 **항상 정확히 사거리(10.5)만큼** 떨어져 착탄 반경 0.8과 겹치는 몬스터가 거의 없었다(**바로 옆은 절대 안 맞음**). 이제 겨눈 **45도 부채꼴 안 가장 가까운 몬스터**에 떨어진다(`PickThrowTarget`) — 없으면 최대 사거리로 날아가 빗나간다. **자동 조준이 아니다.** 반각은 데이터(`projectile_aim_degrees` 22.5) — 8방향 격자와 맞물려 평면을 정확히 8등분한다. 몬스터 목록은 `RoomSpawner.spawned`에서 읽는다. ⚠ **사거리를 건드리면 명중을 같이 재야 한다** — T19-5가 이 스킬을 망가뜨린 것을 그때 못 봤다. ⚠ 보스 쪽은 원래 멀쩡했다. 실측: 8방향 전수 정확 / 226 데미지 3마리 처치 / 고치기 전 10번 던져 전부 0명 | `PlayerAttack.mlua`, `GameData/GameBalance.csv` |
+| **바위 던지기 쿨다운** (T23-1) | 동작. `PlayerAttack.ThrowSkill`이 **쿨다운을 안 걸고 반환**해 연타가 됐다 — 일반·방어·돌진 세 갈래는 걸고 있었고 던지기만 빠져 있었다. 데이터(`cooldown 5`)는 처음부터 정상이었다. ⚠ **쿨다운은 던지는 순간 건다**: 착탄 시각에 걸면 비행 0.35초 동안 비어 있어 연타가 되고, 빗나갔을 때 공짜로 다시 던지게 된다. ⚠ **설계 이력에 규칙은 있었으나 몬스터 쪽에만 구현돼 있었다.** 실측: 1회차 true 남은쿨 5.00 / 2~4회차 false | `PlayerAttack.mlua` |
+| **모바일 조이스틱 8방향** (T22-2) | 동작. 모바일이 4방향이던 원인은 `ui/DefaultGroup.ui`의 **`JoystickComponent.Axis`가 `Axis_4`(0)**였던 것 — 엔진 기본값 `Axis_8`(1)로 되돌렸다. **조이스틱은 아날로그가 아니라 방향키를 눌러 주는 장치다**: `Axis_4`면 대각선에서 키가 하나만 눌린다. 그래서 이 한 칸이 이동과 돌진을 동시에 좌우한다. ⚠ **PC는 원래부터 8방향이었다**(실측) — T22-1의 "모바일 아날로그" 설명은 틀렸다. ⚠ **`maker_keyboard_input`이 게임 창에 안 들어가** AI가 입력 경로를 직접 못 잰다; 대표가 눌러 준 로그로만 확인된다. ⚠ 모바일 실기 검증은 못 했다 | `ui/DefaultGroup.ui` |
+| **스킬 조준 8방향** (T22-1) | 동작. 돌진이 좌우만 되던 것을 8방향으로 고쳤다. ⚠ **`KinematicbodyComponent.MoveVelocity`는 항상 0**이라 방향 판단에 쓰면 안 된다(실측). 방향은 클라(`Player/PlayerAimInput.mlua`)가 재서 `RequestUseSkill`에 실어 보낸다. **`ChangedMovementInputEvent`가 키보드·모바일 조이스틱 공통 창구**다. 조준은 45도로 스냅해 8방향으로 통일했다 — 360도로 풀려면 `GetAim8`의 스냅만 빼면 된다. ⚠ ~~모바일 아날로그~~ 는 틀린 설명이다(T22-2 정정). ⚠ **모바일 실기 검증은 못 했다**(Maker PC 플레이만 가능). ~~바위 던지기는 아직 좌우뿐~~ → **T23-2에서 8방향 + 조준으로 고쳤다** | `Player/PlayerAimInput.mlua`, `PlayerAttack.mlua`, `UI/SkillBar.mlua` |
+| **몸통 박치기 돌진** (T21-2) | 동작. 가고 있는 쪽으로 3.5유닛 돌진하고 도착한 자리에서 ×1.8로 때린다. ⚠ **플레이어 이동은 서버가 못 민다**(실측 0.00) — 움직임은 `Player/PlayerDash.mlua`(클라)가 한다. ⚠ **서버가 보는 플레이어 좌표는 크게 늦어** 살아 있는 좌표로 판정하면 가는 길 한복판에서 터진다 — 도착 지점을 계산해서 잰다. 돌진 스킬을 더 만들려면 `SkillTable.dash_distance`만 채우면 된다 | `PlayerAttack.mlua`, `Player/PlayerDash.mlua` |
+| **직접 만든 스킬 이펙트** (T21-1) | 동작. 몬스터 스킬 4종의 시전 이펙트가 원작에서 빌려온 클립 → **직접 그린 스프라이트 + 스크립트 움직임**으로 바뀌었다. `SkillTable.effect_style`이 비어 있으면 원작 클립, 채워져 있으면 우리 그림이다. ⚠ **animationclip은 올릴 수 없다**(업로드 category가 sprite/audioclip/avataritem뿐) — 그래서 한 장 + `SkillCastEffect`가 움직이는 방식이다. ⚠ 새 이펙트를 넣을 때: `OrderInLayer`는 캐릭터보다 높게(500), 배율은 캐릭터(1.4유닛)보다 크게, 투명도는 끝에서만 뺄 것. 원본은 `docs/art/skill-effects/` | `Combat/SkillCastEffect.mlua`, `GameData/SkillTable.csv` |
+| **직접 그린 스킬 아이콘** (T20-6) | 동작. 몬스터 스킬 5종의 아이콘을 **직접 그려 리소스로 올렸다**(계정 리소스, `sprite/skill`). 원작에 몬스터 스킬 아이콘이 없어 검색으로는 더 못 올린다. 원본 SVG·생성기·RUID 표는 `docs/art/skill-icons/`에 있다 — **고치려면 거기서 고쳐 다시 올리고 `SkillTable.icon_ruid`도 같이 갈 것.** ⚠ `asset_update_resource_storage_info`는 생략한 필드를 지운다(name·description·subcategory를 항상 같이 넘길 것). ⚠ `msw-painter`의 `render.cjs`는 `npm ci` 실패로 못 쓴다 — `rasterize.py`로 대체했다 | `GameData/SkillTable.csv`, `docs/art/skill-icons/` |
+| **스킬 아이콘 = 쓰는 부위** (T20-5) | 동작. 몬스터 스킬 아이콘이 몬스터 카드 → **그 스킬이 실제로 쓰는 부위**로 바뀌었다(껍질 / 파란 껍질 / 포자 / 뿔 / 바위). 카드는 넷이 같은 빨간 액자라 아이콘 크기에서 구분이 안 됐다. ⚠ 원작 드랍품은 **별칭이 앞에 붙어** 이름 검색이 빗나간다(`달팽이 등껍질/슬로우/파란 달팽이의 껍질`). ⚠ 뿔은 원작 이름이 "주황버섯의 뿔"이라 우리 뿔버섯과 색이 어긋난다 — 격자 가독성을 골랐다 | `GameData/SkillTable.csv` |
+| **몬스터 스킬 아이콘** (T20-4) | 동작. 몬스터 스킬 5종이 **원작 직업 스킬 아이콘을 벗고** 그 종의 몬스터 카드(4종) + 바위 그림(바위 던지기)을 입는다. 히어로 5종은 원작 스킬 아이콘 그대로 — 갈림선은 "보스냐"가 아니라 **"원작에 실존하는 스킬이냐"**다. ⚠ **아이콘을 갈면 `SkillTable.icon_ratio`도 같이 갈 것** — 안 그러면 그림이 늘어난다(`GameDataVerify`가 잡는다). ⚠ 런타임 `SetNativeSize()` 측정은 경합이라 못 쓴다(다음 프레임 반영 + 첫 회 18x18). ⚠ `PreserveSprite=AspectOnly`도 못 쓴다(pivot으로 칸 밖으로 밀린다). ⚠ **시전 이펙트는 아직 빌려온 것** — 아이콘만 갈았다 | `GameData/SkillTable.csv`, `UI/EquipPanel.mlua` |
+| **아이콘 격자 + 스크롤** (T20-3) | 동작. 스킬 창이 글자 목록에서 **4열 아이콘 격자**로 바뀌었다. 한 화면에 12칸, 넘치면 스크롤. 칸에는 아이콘·이름만 있고 누르면 아래 상세가 뜬다(원작 스킬 창 꼴). 칸 색이 출처와 상태를 나른다. ⚠ **탭 전환 시 스크롤을 위로 되돌려야 한다** — 안 하면 빈 화면이 뜬다. ⚠ **0이 위다**(TopToBottom). ⚠ 격자 칸의 `ui_lint` L023은 오탐(런타임 배치라 `.ui` 좌표가 전부 0,0) | `ui/EquipWindow.ui`, `UI/EquipPanel.mlua` |
+| **스킬 출처 탭** (T20-2) | 동작. 장착 창에 `[몬스터 N] [모험가 N]` 탭이 생겨 출처별로 갈라 본다. **몬스터 스킬이 한 줄도 안 보이던 버그가 이걸로 풀렸다** — 5줄에 9~10개를 넣으려다 뒤가 잘렸고 id 순서상 히어로가 앞이었다. 실측: 몬스터 4종 / 모험가 5종이 각각 뜨는 화면 확인. ⚠ **한 출처가 5개를 넘으면 여전히 잘린다**(팔라딘·다크나이트가 붙으면 모험가 15종) — 넘칠 때 경고 로그를 남기게 해 뒀다. 아이콘 격자·상세 패널은 대표 판정 뒤로 미뤘다 | `ui/EquipWindow.ui`, `UI/EquipPanel.mlua` |
+| **몬스터 스킬 아이콘** (T20-1) | 데이터 계층 완료. 스킬 10종 전부 `icon_ruid`를 갖는다. 몬스터 5종은 원작 대응이 없어 비슷한 원작 스킬에서 빌렸다(돌진/워터실드/포이즌 미스트/둔갑 천근석/아머 피어싱). **아직 어디서도 안 그린다** — 장착 창은 여전히 글자 목록이고, 아이콘이 화면에 나오는 것은 T20-2다. ⚠ 아이콘 RUID에는 이름이 안 붙어 **썸네일을 받아 눈으로** 골랐다 | `SkillTable.csv`, `GameDataVerify.mlua` |
+| **바위 사거리 3배** (T19-5) | 동작. `s_mon_stone.range` 3.5 → **10.5**. 골렘에게서 조금만 떨어지면 아예 안 던지던 것이 문제였다. 비행 시간(0.35초)은 그대로라 **회피 창은 거리와 무관하게 일정**하고, 멀수록 더 빨리 날아온다. ⚠ 등속으로 바꾸면(거리에 비례한 비행 시간) 멀수록 피하기 쉬워져 지시와 반대가 된다 | `SkillTable.csv` |
+| **착탄 판정** (T19-4) | 동작. **바위가 닿는 순간** 데미지가 들어간다. 조준한 자리로 떨어지므로 **날아오는 동안 비켜서면 빗나간다**(실측 `→ 0명 (비켜섰다)`). 던지는 스킬은 던진 것만으로 쿨다운이 돈다 — 닿을지는 0.35초 뒤에 정해진다. 보라색 시전 이펙트(서먼 스트라이킹 브릭)는 제거했고 소리만 남겼다. ⚠ **비행 시간은 `projectile_seconds` 한 곳에서만 읽어야 한다** — 그림과 판정이 다른 값을 쓰면 닿기 전에 아프거나 지나간 뒤에 아프다 | `SkillTable.csv`, `MonsterAttack.mlua`, `PlayerAttack.mlua`, `Combat/SkillProjectile.mlua` |
+| **바위 던지기 투사체** (T19-3) | 동작. 돌 정령이 **진짜로 바위를 던진다** — 포물선을 그리며 돌면서 날아가고 도착하면 사라진다. Body 없는 엔티티를 서버가 스폰하고 `OnUpdate(delta)`로 옮긴다. **판정과 무관한 순수 연출**(데미지는 이미 들어갔다). ⚠ **사거리 1.0 → 3.5** — 1칸은 던지기로 안 보인다. 골렘이 원거리 견제를 갖게 되어 난이도가 오른다. ⚠ 바위 스프라이트는 이름이 없어 **썸네일을 받아 눈으로** 골랐다 | `SkillTable.csv`, `Models/Effects/SkillProjectile.model`, `Combat/SkillProjectile.mlua`, `Combat/SkillEffect.mlua` |
+| **원작 스킬 이펙트·소리** (T19-2) | 동작. 스킬 10종 전부 원작 이펙트(`effect_ruid`)와 시전음(`sfx_ruid`)을 갖는다. **아이콘 RUID로 원본 팩을 역추적**해 꺼내므로 아이콘·이펙트가 어긋날 수 없다. 재생 창구는 `Combat/SkillEffect.mlua` 하나. 방향은 서버가 `FlipX`로 넘긴다 — 원작 이펙트가 오른쪽 기준이고 부모 스케일을 안 따라간다. ⚠ 6종은 원작 대응이 없어 **비슷한 원작 스킬로 대체**했다(아이언 바디←파워 가드 등 — 설계 이력 참조). ⚠ **피격 이펙트(`hit/N`)는 아직 안 붙였다** — 팩에 들어 있으므로 붙이려면 컬럼 하나와 `OnAttack` 훅이면 된다 | `SkillTable.csv`, `Combat/SkillEffect.mlua`, `PlayerAttack.mlua`, `MonsterAttack.mlua` |
+| **보스 스킬** (T19-1) | 동작. 보스방 몬스터가 **자기가 주는 스킬**을 쓴다 — 히어로 계보 5종, 돌 정령 바위 던지기. 쓸 목록을 `npc_skill_ids` → `drop_skill_id` 순으로 **유도**하므로 새 데이터 칸이 없다. 스킬은 평타에 더해지지 않고 **평타를 대신한다**(i-frame 충돌 회피 + DPS 상한). 실측: 히어로 5종 100% 명중 / 레이징 블로우 695 vs 평타 363 / 아이언 바디 실드가 플레이어 데미지를 3 → 2로 / 일반 사냥방·빈 방에서는 안 씀. **이펙트는 아직 없다 — T19-2** | `MonsterAttack.mlua`, `Combat/RoomMonster.mlua`, `PlayerAttack.mlua`, `GameBalance.csv` |
+| **환생 보너스 단위 10레벨** (T18-5) | 동작. `rebirth_bonus_level_unit` 5 → **10** (대표 플레이 판정 — 스탯이 과했다). 스탯과 몬스터 수가 같은 키에서 나오므로 둘 다 절반이 된다. 실측: 최고 Lv22 → 레벨업당 **7P**(전 9P) · 사냥방 **+2마리**(전 +4) / Lv5·Lv9 환생 → 보너스 **0** / Lv50 → 상한 +5. 환생 창 문구(`RuleText`)도 `10레벨마다`로 고쳤다 — 이건 `.ui`에 있어 대표가 Maker에서 직접 고치는 자리다 | `GameData/GameBalance.csv`, `ui/RebirthConfirm.ui` |
+| **환생 개편** (T18-2) | 동작. 조건 없이 언제든 환생 가능하고, 보상은 최고 환생 레벨에서 나온다. **아래 수치는 단위 5 시절 실측이다 — 지금은 T18-5로 절반이다.** **실제 환생 2회를 돌려 확인했다**(대표 승인): Lv20 환생 → 최고 20 / 레벨업당 5P→**9P** / 사냥방 정원 3→**7** / 컬렉션·인벤토리·보스 기록 유지. Lv1에서 재환생 → `최고 기록(20) 이하라 보너스는 그대로다`(갱신형 확인). 보스방은 보너스 20에서도 1마리. ⚠ 그 과정에서 **`Execute`의 순서 버그**를 잡았다 — `RecomputeSlotCount`가 `ResetRun` 앞에 있어 환생 직후 차수 0인데 슬롯이 2칸이었다 | `GameBalance.csv`, `Progress/Rebirth.mlua`, `Progress/PlayerSkillSlots.mlua`, `Player/PlayerStats.mlua`, `Room/RoomSpawner.mlua`, `Save/SavePermanentData.mlua`, `Save/PlayerDBManager.mlua`, `UI/RebirthConfirmPanel.mlua`, `ui/RebirthConfirm.ui` |
+| **차수 = 전직 레벨** (T18-1) | 동작. 시작 0차 / Lv20·30·60·100·200 → 1~5차. 슬롯 = 차수+1(상한 5). 실측: Lv19 0차 1칸 → Lv20 1차 2칸(레벨업 순간 자동), Lv100 4차 5칸, Lv200 5차 5칸. 잠긴 스킬은 `[잠김] 4차` + `잠김 — Lv100 전직 필요`. ~~⚠ 환생하면 차수가 0으로 떨어진다~~ → **T23-7에서 뒤집혔다. 차수도 슬롯도 환생해도 유지된다** | `GameBalance.csv`, `SkillTable.csv`, `GameData.mlua`, `Progress/PlayerSkillSlots.mlua`, `Player/PlayerStats.mlua`, `Save/PlayerDBManager.mlua`, `UI/EquipPanel.mlua` |
+| **숨은 모험가 NPC** (T16-3d) | 동작. r_04 북서쪽 구석에 히어로가 아바타로 서 있고, 두 번 누르면 시험의 방으로 간다. 실측(마우스 클릭 시뮬레이션): 1번째 `경고 표시 — 상대 히어로` → 2번째 `이동 r_job_01 (mapjob) 0,0` → `보스 재등장 +1` → 시험의 방에 히어로가 서 있는 화면 확인. **이걸로 r_04 → 시험장 → 격파 → 스킬 획득이 한 줄로 이어진다** | `Models/Npc/HeroNpc.model`, `Room/HeroNpc.mlua`, `map/map04.map` |
+| **슬롯 5칸·차수 축** (T16-4b) | 동작. 슬롯 = 차수(환생+1), 상한 5. 실측: 차수 1 → 1칸, 보스 클리어해도 그대로, 환생 1~4회 → 2·3·4·5칸, 차수 6에서도 5칸. 장착 창은 `[선택] 1번 / 비어 있음` + `2~5번 잠김`으로 5칸이 다 보인다. ⚠ **기존 세이브는 슬롯이 줄어든다** — 보스 클리어로 얻었던 칸이 사라지고 차수만 남는다(설계 의도) | `GameBalance.csv`, `Progress/PlayerSkillSlots.mlua`, `UI/EquipPanel.mlua`, `UI/RebirthConfirmPanel.mlua`, `ui/EquipWindow.ui` |
+| **격파 지급** (T16-3c) | 동작. 히어로를 잡으면 히어로 계보 5종이 **한꺼번에** 들어온다(확정 100%). 실측: 격파 1회 5개 → 재격파 0개. 차수 1에서는 1차 둘만 장착 가능하고 2·3·4차는 보유만 된다. ⚠ **아직 히어로에게 가는 길이 없다** — 시험의 방(`mapjob`)은 포탈로 이어져 있지 않아 텔레포트로만 갈 수 있다. 숨은 NPC(r_04)는 T16-3d | `Progress/PlayerCollection.mlua`, `Combat/RoomMonster.mlua` |
+| **히어로 아바타** (T16-3b) | 동작. 시험의 방(`mapjob`)에 들어가면 히어로가 선다. 실측 HP 462 / DEF 64.8 / ATK 312(보스 ×3) — **0.5초마다 때려서 4대면 죽는다.** 모습은 스크린샷으로 확인: 검은 히어로 헤어 + 금장 흑갑 + 대검. ⚠ **공격 모션은 없다**(아바타는 SpriteRUID 교체 방식이 안 통한다). ⚠ 격파해도 아직 스킬이 안 들어온다 — 지급 코드는 T16-3c | `Models/Monsters/Hero.model`, `MonsterAttack.mlua`, `map/mapjob.map`, `RoomTable.csv` |
+| **히어로 데이터** (T16-3a) | **데이터만 있다.** 히어로 1명·스킬 5종이 표에 들어왔고 검증 로그로 확인했지만, **모델도 맵도 없어서 아직 아무 방에도 세워지지 않는다**(`model_id`는 `hero`로 적어 뒀을 뿐 `.model` 파일이 없다. 히어로는 **아바타로 세운다** — 아바타 아이템 RUID는 CLAUDE.md 설계 이력에 있다). 격파 시 지급하는 코드도 아직 없다 — `npc_skill_ids`를 읽는 곳이 `GameDataVerify` 하나뿐이다. 실물은 T16-3b(모델·맵) / T16-3c(NPC·지급) | `MonsterTable.csv`, `SkillTable.csv`, `GameData.mlua`, `GameDataVerify.mlua` |
+| **스킬 차수 잠금** (T16-4a) | 동작. 차수 = 환생 횟수 + 1. 보유는 되지만 차수 미달이면 장착이 안 된다. 실측: 1차에서 2차 스킬 장착 `false` → 환생 1회 뒤 `true`. 화면: 목록 `포자 살포 x1/5 [잠김] 2차 INT 계수 1.10 [공격]`, 설명 `잠김 — 환생 1회 더`. **현재 데이터는 9종 전부 1차라 실사용에서는 아직 아무것도 잠기지 않는다** — 잠기는 스킬은 T16-3 모험가 NPC와 함께 들어온다 | `SkillTable.csv`, `GameData.mlua`, `Progress/PlayerSkillSlots.mlua`, `UI/EquipPanel.mlua` |
+| **아이템 아이콘 칸 이탈 수정** (T17-4c) | 동작. 퀵슬롯·가방 아이콘 11곳 `PreserveSprite` AspectOnly → None. 실측: 고치기 전 물약 아이콘이 칸 위·오른쪽으로 나가 두 칸 사이 틈까지 덮었다. 고친 뒤 칸 안. 퀵슬롯 아이콘 64→48 + 글자 외곽선. 가죽 갑옷 아이콘도 원작 '옐로우 레더'(`294ea34e…`)로 교체 — 기존 RUID는 갑옷 그림이 아니었다 | `ui/ItemQuickSlot.ui`, `ui/Inventory.ui`, `ItemTable.csv` |
+| **계수 스탯 표기** (T17-4b) | 동작. 실측: 줄 `▶ 뿔 들이받기  x1/5  LUK 계수 1.20  [공격]` / 설명 `[공격] 뿔로 적 하나를 꿰뚫는다   LUK 0 → 피해 없음   대상 1   쿨 4초`. 스탯이 0이 아니면 값만 적는다(`INT 10`). 방어 스킬에는 안 붙는다. **왜**: 계수 스탯이 0이면 데미지 공식상 피해가 0인데 화면에는 계수만 있었다 | `UI/EquipPanel.mlua` (`GetMyStat`) |
+| **스킬 설명 UI** (T17-4) | 동작. 장착 창에서 줄을 누르면 설명이 뜨고 **한 번 더 눌러야 장착**된다. 실측: `[방어] 껍질에 숨어 3초간 받는 피해를 40% 줄인다   쿨 8초` / 줄 표시 `▶ 푸른 껍질  x2/5  피해 -40%  [방어]`. 창 높이 880 → 980 | `ui/EquipWindow.ui`, `UI/EquipPanel.mlua` |
+| **방어 스킬 — 실드** (T17-3b) | 동작. 푸른 껍질을 쓰면 3초간 받는 피해가 40% 줄고 쿨다운 8초가 걸린다. 실측: 뿔버섯 데미지 **44 → 26 → (만료) 44**. 화면의 데미지 숫자도 같이 줄어든다(`CalcDamage`에서 깎기 때문). 감쇄율은 **0.9로 잘린다** — 1.0이면 무적이 되므로. **회복은 배선만 돼 있다**(`effect_type=heal`) — 데이터는 T16-3 모험가 NPC 몫 | `PlayerHit.mlua`, `MonsterAttack.mlua`, `PlayerAttack.mlua` |
+| **스킬 판정 — 범위·대상 수** (T17-3a) | 동작. 스킬마다 판정 반경(`range`)과 최대 타격 수(`max_targets`)가 다르다. 실측: 반경 1.0 안에 2마리가 있는 상태에서 단일 스킬은 **1마리**, 범위 스킬(반경 2.5)은 **5마리**를 때렸다. **실드·회복은 아직 없다** — T17-3b | `GameData/SkillTable.csv`, `PlayerAttack.mlua` |
+| **스킬 메타** (T17-2) | 데이터 계층 동작. 실측: `[스킬메타] 공격 8 / 방어 1`, 스킬 9종 설명 전부 출력, 누락 경고 0. 방어 스킬(푸른 껍질)을 눌러도 `UseSkill=false` + 경고만 나가고 **데미지 로그가 없다**. 같은 자리에서 공격 스킬은 `true`로 정상 발동. **효과(실드·회복·범위)는 아직 없다 — T17-3** | `GameData/SkillTable.csv`, `GameData/GameData.mlua`, `GameData/GameDataVerify.mlua`, `PlayerAttack.mlua` |
+| **헤네시스 몬스터 5종** (T17-1) | 동작. 방마다 다른 몬스터 — 달팽이/파란 달팽이/주황 버섯/뿔버섯/돌 정령(보스). 실측: 5종 전부 `[공식 일치]`, 스킬 9개(직업 4 + 몬스터 5), 드랍표가 5종에 골고루, map01·map04에서 실제 스폰 확인. **표에서 지운 스킬이 장착에 남아 죽은 버튼이 되던 것도 고쳤다**(`DropUnknownSkills`) | `GameData/*.csv` 4종, `Models/Monsters/{Snail,BlueSnail,HornyMushroom}.model`, `Progress/PlayerSkillSlots.mlua` |
+| **직업 시험 맵** (T16-2) | 맵만 있다. `mapjob` 16×9(144칸) · 돌 계열 타일 · `r_job_01`로 등록돼 로드·카메라까지 확인. **들어가는 길도 NPC도 없다**(T16-3). 귀환 포탈은 이 방의 보스를 잡아야 열리므로, NPC가 붙기 전에 들어가면 나올 수 없다 — 지금은 텔레포트로만 접근할 것 | `map/mapjob.map`, `GameData/RoomTable.csv`, `Global/SectorConfig.config` |
+| **보스 리젠 + 강화** (T16-1) | 동작. 보스가 **재입장마다** 다시 선다(잡은 자리에 서 있으면 안 선다). 실측 전투: HP 300 / 플레이어 32 데미지 x10타 / 보스 한 대 230 데미지 / EXP 57 지급 / `이번 회차에 이미 클리어한 보스방` — 슬롯 중복 지급 없음 | `Room/RoomSpawner.mlua`, `Combat/RoomMonster.mlua`, `GameData/GameBalance.csv` |
+| **스킬 중복 강화** (T15-2) | 동작. 같은 몬스터를 다시 포획하면 계수가 비례로 오른다(5장 만작 ×1.8). 만작이면 포획을 굴리지 않는다. **직업 스킬은 제외** — 중복이 없다. 실측: 저주의 손길 4장 → 계수 `1.2 → 1.920` / 직업 스킬·기본 공격은 `1.200` 그대로 / 만작 5/5에서 "굴리지 않는다" | `GameData/GameBalance.csv`, `Combat/CombatFormula.mlua`, `PlayerAttack.mlua`, `Progress/PlayerCollection.mlua`, `UI/EquipPanel.mlua` |
+| **장비 중복 합산** (T15-1) | 동작. 같은 장비를 **5개까지** 모으고 보너스는 보유 개수만큼 곱해진다(검 5개 = ATK+25 · 반지 5개 = 올스탯+15). 실측 확인: 7개 요청 → 5에서 잘림 / 장비분 ATK+25 / `STAT_TOTAL`은 안 움직임 / 상한에 닿은 아이템은 드랍을 굴리지 않음. 스킬 쪽은 T15-2 | `GameData/ItemTable.csv`, `GameData/GameData.mlua`, `Player/PlayerStats.mlua`, `Inventory/ItemDrop.mlua`, `UI/InventoryPanel.mlua` |
+| 가방 창 (T13-5a) | 동작. 착용 중 3줄 + 가진 것 6줄, 줄을 눌러 장착·해제. 아이콘 표시까지 확인 | `ui/Inventory.ui`, `UI/InventoryPanel.mlua` |
+| **몬스터 드랍 → 바닥 아이템 → 줍기** (T13-6) | 동작. 굴림·스폰·수거·30초 만료까지 실측. LUK이 드랍률을 비례로 올린다 | `Inventory/ItemDrop.mlua`, `Inventory/DropItem.mlua`, `Models/Items/DropItem.model` |
+| **포션 사용** (T13-7) | 동작. 가방 창에서 물약 줄을 눌러 마신다. 만피면 소모하지 않는다. **쿨다운 3초** (T23-3에서 추가) | `PlayerHit.Heal`, `PlayerInventory.UseItem` |
+| **아이템 퀵슬롯** (T13-5b) | 동작. 오른쪽 아래 2칸, 키 `1`·`2`로 마신다. 올라가는 것은 자동 배정. **키 재설정은 안 만든다** — 2026-08-24 대표 지시로 취소(`1`·`2` 고정). **키 설정 버튼 자체도 2026-08-25에 화면에서 제거**(T23-8) | `ui/ItemQuickSlot.ui`, `UI/ItemQuickSlotBar.mlua` |
+| 몬스터 추격 · 공격 · DEF 감쇄 · 사망→시작방 | 동작 | `MonsterAttack.mlua`, `PlayerHit.mlua` |
+| 마을 진입 시 HP 전회복 (T13-1) | 동작 | `PlayerHit.OnMapEnter` — 유일한 회복 수단이다 |
+
+---
+
+## 3. 문서에 있으나 구현되지 않은 것 ⚠
+
+**기획서를 읽을 때 이 표를 옆에 두어야 한다.**
+모두 슬라이스 범위를 벗어난다고 **AI가 자체 판단**한 것이며, 대표의 개별 승인 절차를 거치지 않았다.
+(승인을 받은 설계 변경 10건은 CLAUDE.md "설계 변경 이력"에 있고, 그것들은 문서에 이미 반영돼 차이가 없다.)
+
+| # | 문서 | 실제 | 왜 |
+|---|---|---|---|
+| C | 기획서 §4.7 **스탯 티어 상승 5→6→7** | 미구현. `LandmarkTable`에 `tier` 보상 타입 없음 | 캡이 Lv30 1구간이라 티어 상승 지점이 없음 |
+| D | 기획서 §4.5 보상 중 **캡 확장** | 미구현 | 위와 같음 |
+| F | 기획서 §4.2 **컬렉션 → 패시브 해금** | 미구현 | 작업지시서에 **"확장 단계"로 명시적 연기** — 차이가 아니라 계획된 순서 |
+
+### 해소된 항목
+
+| # | 무엇이었나 | 어떻게 해소됐나 |
+|---|---|---|
+| L·M | 커닝시티·노틸러스 10종의 `drop_skill_id`가 비어 두 지역이 포획 불가였고 노틸러스 보상방이 임시 `stat 245`였다 | 2026-08-30 **T51에서 해소**, **T52에서 보스 역할을 교정**했다. 두 지역 모두 액티브 3 + 패시브 2를 유지하고, 노틸러스 화물칸 열쇠는 커닝 보스 교체에 따라 **`key s_mon_shade`**다 |
+| J | 장비·물약 루프와 몬스터별 전용 드랍 | T13-2~7 + T13-5b로 기본 루프가 완결됐고, T51에서 당시 포획 대상 27종 전부에 전용 장비를 붙였다. **T52 머쉬맘 추가 후 포획 대상은 28종이며 누락 0**, `ItemTable`은 29종 · 인벤토리는 29행 스크롤이다. 키 재설정은 대표 지시로 취소돼 `1`·`2` 고정 |
+| B | 기획서 §4.5 랜드마크 **구역 개방** — 판정은 도는데 `area_02`의 **방이 하나도 없어** 해금돼도 목록에서 빠졌다 | 2026-08-26 **T26에서 페리온 8방**이 실제로 섰고, 이어 **엘리니아 `area_03`**(T36, 5방) · **커닝시티 `area_04`**(T39~T41, 8방)까지 들어갔다. ⚠ 다만 소급 지급이 **두 번** 깨져 있었다: **T40-1**(레벨을 지나치면 못 받는다)과 **T41**(한 레벨에 줄이 둘이면 먼저 받은 줄이 나머지를 가린다). 지금은 원장이 **줄 단위**라 표에 줄을 더해도 그 줄만 새로 지급된다 |
+| G | 기획서 §4.7 LUK의 **드랍률** 역할이 없었다 (드랍 판정 자체가 없었다) | 2026-08-13 **T13-6에서 구현됐다.** 드랍률 = `drop_rate × (1 + LUK × drop_luk_multiplier)`. 정액이 아니라 비례인 이유는 CLAUDE.md 설계 변경 이력에 있다 — 정액이면 2% 희귀템이 LUK 100에서 7%가 되어 최종 목표템이 희귀하지 않게 된다 |
+| E | 기획서 §4.4 **링크스킬식 계승**(`JobTable.inherit_skill_id`)이 파싱만 되고 안 쓰였다 | 2026-08-21 **T18-4에서 근거째 사라졌다.** 직업이 없으므로 "직업 마스터가 다음 직업에 스킬을 물려준다"가 성립하지 않는다. `JobTable` 자체가 삭제됐다. 계승을 되살리려면 새 설계가 필요하다 — 옛 컬럼을 되찾는 일이 아니다 |
+| K | 직업 폐기(2026-08-16)로 `r_03` 열쇠 게이트(`s_job_war_02` 돌진)의 **획득 경로가 사라져 영구히 잠길 참이었다** | 같은 날 **T16-3 보스 게이트로 해소됐다.** `gate_type=boss` / `gate_key=r_05` — 스테이지 끝 보스를 한 번이라도 잡으면 열린다. 획득 경로가 늘 존재하고, 회차와 무관한 영구 해금이다 |
+| A | 기획서 §3.2의 **환생 게이트**가 `RoomTable`에 한 방도 배치돼 있지 않았다 | 2026-08-10 대표 지시로 **환생 게이트를 문 엔티티로 만들지 않기로 확정**했다. 지역 해금이 그 역할을 한다 — 잠긴 지역은 잠긴 문으로 보이는 대신 마을 게이트 목록에 뜨지 않는다. 기획서 §3.3에 반영. `RoomGate`의 `rebirth` 분기는 방 사이에 쓸 수 있게 남겨 두었다 |
+
+### 반대로, 구현에 있으나 문서 근거가 없는 것
+
+| # | 내용 |
+|---|---|
+| H | **크리티컬이 꺼져 있다.** MSW 샘플의 30%/2배를 `CalcCritical → false`로 막았다. 기획서·시트 어디에도 크리티컬 수치가 없어서다. 근거는 `PlayerAttack.mlua` 주석에 있다 |
+| ~~I~~ | ~~`monster_atk_base` 24 / `monster_atk_ratio` 1.08은 초안이다~~ → **2026-08-13 해소.** 재플레이로 확정했다(T10-3c, *"데미지는 괜찮았다"*). 값은 그대로이고 근거가 "시트에 없음"에서 **실측**으로 바뀌었다. `★초안★` 표기는 전부 제거했다 |
+
+---
+
+## 4. 임시 처리 · 정리 후보
+
+### 4.1 데이터 테이블 밖에 있는 수치
+
+CLAUDE.md 규칙 3(수치 하드코딩 금지)에 걸린다. CSV만으로 밸런스 패치를 하려면 옮겨야 한다.
+
+목록은 `docs/밸런스_확정수치.md` §1 "아직 CSV 밖에 있는 값" 표가 정본이다.
+
+- ~~i-frame 1초~~ → **T33-1에서 해소** (`GameBalance.player_iframe_seconds`).
+- ~~플레이어 HP 1000~~ → **T27-1에서 해소** (`player_base_hp` + `str_hp_per_point`).
+- ~~몬스터 공격 주기 0.5초 · 추격 범위 6.0~~ → **T33-3에서 해소.**
+  `monster_attack_interval` · `monster_detect_range`로 옮겼고, **"CSV가 기본값,
+  모델이 덮어쓴다"** 꼴로 넣어 종별 조정 여지를 남겼다(프로퍼티가 0이면 CSV).
+  ⚠ `AIChaseComponent`는 **네이티브**라 CSV를 못 읽는다 — `MonsterAttack.OnBeginPlay`가
+  값을 컴포넌트에 **써 넣는다.** 이 줄을 지우면 추격 거리가 엔진 기본값 5.0으로 조용히 바뀐다.
+- **히트박스 크기** — 옮길 수 없다. 스프라이트 크기에 맞춰 종별로 달라야 한다.
+
+### 4.2 규칙 미준수 → **T33-1에서 해소**
+
+~~`PlayerAttack.mlua`와 `MonsterAttack.mlua`에 실행공간 상단 주석이 없다~~
+→ ⚠ **이 기록이 반쯤 틀렸었다**: `MonsterAttack.mlua`에는 **원래 붙어 있었다.**
+빠진 것은 `PlayerAttack.mlua` 하나였고, T33-1에서 붙였다. **셋 다 이제 있다.**
+
+### 4.3 템플릿 잔재 → **T33-2에서 전부 정리됐다**
+
+MSW 워크스페이스 baseline에서 유입된 샘플이 **27개 파일**로 남아 있었다.
+2026-08-28 대표 지시(*"템플릿 맵까지 묶어서 다 정리하자"*)로 한꺼번에 걷어냈다.
+
+| 지운 것 | 개수 |
+|---|---|
+| 스크립트 `.mlua` + `.codeblock` | 11쌍 = 22 |
+| `.stateset` (`StateSetChaseMonsterAI` · `StateSetMoveMonsterAI`) | 2 |
+| 템플릿 맵 (`TileMapTemplate` · `RectTileMapTemplate` · `SideViewRectTileMapTemplate`) | 3 |
+
+지운 스크립트: `Monster` · `StateChaseMonster` · `StateMoveMonster` · `StateTypeChase` ·
+`StateTypeWander` · `ConditionHasTarget/IsAlive/IsDead/NoTarget` · `UIPopup` · `UIToast`.
+
+**`Global/ChaseMonster.model`·`MoveMonster.model`은 지우지 않고 고쳤다.**
+`Global/`은 삭제 금지이고 편집만 허용된다(AGENTS.md). 사라질 스크립트를 참조하던
+`script.Monster`와 `script.State*Monster` 컴포넌트만 `ModelBuilder`로 떼어냈다 —
+`StateSetId` 값도 컴포넌트와 함께 빠졌다. **`script.MonsterAttack`은 우리 게임이 쓰므로 남겼다.**
+
+> ⚠ **`ModelBuilder.write()`는 기본으로 `SpriteRUID` 자리표시자를 주입한다.**
+> 그냥 쓰면 `Global/` 모델에 없던 값이 생긴다. `{ ensure_sprite_ruid: false }`를 넘겨야
+> 의도한 변경만 들어간다 (실측 — 처음에 주입됐다가 되돌렸다).
+
+**템플릿 맵 3개는 `SectorConfig.config`에 등록조차 안 돼 있었다** (게임 맵 15개만 등록).
+그래서 지워도 끊어진 섹터 항목이 안 남는다.
+
+`MonsterAttack` / `PlayerAttack` / `PlayerHit`도 같은 출신이지만 **이 셋은 실제로 쓴다.**
+
+### 4.4 ~~죽은 모델~~ → T33-4에서 해소
+
+`Models/Monsters/Slime.model`을 지웠고, `Combat/RoomMonster.mlua`의 기본값
+`MonsterId = "m_slime"`도 **빈 문자열**로 바꿨다 (없는 종 이름을 대는 로그를 없앤다).
+
+**이걸로 헤네시스 재테마(2026-08-16) 때 표에서 빠진 두 종의 잔재가 다 걷혔다** —
+`Skeleton.model`(T33-1) · `Slime.model`(T33-4).
+
+⚠ 삭제 전에 **맵 15개 · `.model` 26개 · `.mlua` · `.csv` · `.config`/`.directory`를 전수**로
+훑어 참조 0건을 확인했다. `.map`과 `.model`은 원문 검색이 아니라 `MapBuilder`/`ModelBuilder`로
+읽어 확인해야 한다 (T33-2에서 Grep 오탐을 냈다).
+
+### 4.5 ~~바닥에 깔린 보이지 않는 벽~~ → T33-5에서 해소
+
+`Henesys_stone_3`(JSON index 63)은 이 타일셋에서 **유일하게 `IsCollidable=true`인 돌 바닥**이다
+(stone_1·2·4·5는 전부 통과 가능). 그런데 T16-2·T23-11에서 잔무늬 흩뿌림으로 깔려
+**마을 4칸 · 시험의 방 6칸**이 보이지 않는 벽이 돼 있었다 — 마을 (-6,1)·(1,1)은
+환생 NPC에서 동쪽 문으로 가는 **길 위**였다.
+
+`Henesys_stone_4`(64)로 바꿨다. 같은 흩뿌림 묶음이라 결이 안 바뀐다
+(두 맵 모두 63과 64의 칸 수가 **같았다** — 한 묶음으로 뿌린 증거다).
+
+⚠ **타일셋을 고치는 쪽이 아니다.** `.tileset`은 편집 대상이 아니고(AGENTS.md),
+`stone_3`이 원작에서 장애물로 의도된 그림일 수도 있다. 고칠 곳은 **그걸 바닥으로 깐 맵**이다.
+
+⚠ **런타임 `RectTileInfo.Index`는 JSON보다 1 크다** — `.d.mlua`에 *"It starts at 1"*로
+적혀 있다(실측: JSON 64 → 런타임 idx 65). 런타임 값을 JSON에 되쓸 때는 -1 할 것.
+
+### 4.6 코드 내 TODO — 1건
+
+`Player/PlayerStats.mlua:186` — `TODO(사운드): 레벨업 효과음 RUID가 정해지면 여기에`
+
+---
+
+## 5. 검증하지 못한 것
+
+| # | 항목 | 왜 |
+|---|---|---|
+| 1 | r_04 스켈레톤 **스프라이트가 화면에 보이는지** | 데이터·스폰·추격·데미지는 서버 로그로 확인됐다. RUID 오배정은 MSW에서 **에러 없이 안 보이는** 실패 모드라 육안 확인이 필요하다 |
+| 2 | `StatGroup`/`ToastGroup`의 `displayOrder` 4↔5 교체 결과 | 커밋 `e28e1a8`. 교체 시점에 Maker MCP가 끊겨 **화면 확인 없이 커밋**했다. 레벨업 토스트가 스탯 패널 뒤로 숨을 가능성 |
+| 3 | `밸런스시트_v0.2.xlsx` 수식 재계산 | LibreOffice가 없어 자동 재계산 실패. 수식 777개의 **캐시가 비어 있다** → Excel로 한 번 열어 저장해야 값이 생긴다. `#NAME?` 여부 미확인. (읽기용 수치는 `밸런스_확정수치.md`에 있으니 급하지 않다) |
+| ~~4~~ | ~~마을 타일이 112칸뿐~~ → **2026-08-25 T23-11에서 해소.** 448칸(28x16)으로 넓혔다. 타일 칠하기가 빌더 밖인 것은 맞지만, `tileMap` 배열은 `{type, position, tileIndex}`로 단순해 §1.6 갭 규정에 따라 직접 쓸 수 있었다 |
+| 5 | 지역 **선택 창의 실제 모양** | `[AreaSelect] 열림 — N곳`까지는 로그로 확인했다. 버튼 배치·글자 크기는 육안 확인이 필요하다 (`ui_lint`는 clean) |
+| 6 | 지역 해금 **배너가 화면에 뜨는지** | `[Rebirth] 지역 해금 알림` 로그로 클라까지 도달한 것은 확인했다. `GateNotice` 배너 자체는 육안 확인 |
+| 7 | **T52 머쉬맘 스폰·공격 모션·포자 충격 / 셰이드 보스·심연의 장막 / 새 열쇠 2개** | 이 작업 환경에는 Maker 런타임 MCP가 노출되지 않아 로컬 정적 검증까지만 했다. Maker Refresh 후 `r_05`·`r_045`·`r_29`·`r_05a`를 실제로 밟고 빌드 로그와 화면을 확인해야 한다 |
+| ~~8~~ | ~~T53 보스 상단 HUD·HP 감소·재입장 초기화·5분 제한·시간초과 퇴장·전용 장비 확정 드랍~~ | **2026-08-30 `r_055` 런타임 실측으로 해소.** 600px 보스바 비겹침·HP 동기화·방이 빈 뒤 전체 HP/300초 재시작·`r_054` 퇴장·영혼석 확정 드랍/획득·빌드 로그 0 확인. `r_job_01`의 무연결 fallback은 정적 경로만 확인했다 |
+| 9 | **T54 최종 UUID 안정화 뒤 UI 재실행 1회** | Maker 저장이 백그라운드 상태에 걸려 `maker_play`가 편집 모드로 즉시 돌아왔다. 다음 세션 첫 작업으로 Refresh → Play 후 월드맵 방 클릭 팝업의 빈 행 숨김, 가방 착용칸 이름 분리, 가방 슬롯 선택 상세를 화면으로 다시 확인한다. 빌드 로그와 정적 검증은 이미 0/통과다 |
+| ~~10~~ | ~~T55 장비 28종 최종 런타임 확인~~ | **2026-08-31 Maker 실측으로 해소.** Refresh 후 저장에 남은 `i_sword_iron`·`i_stirge_wing`를 로드 시 제외하고 `SaveNow`로 영구 정리했다. 재접속에서 두 ID 모두 `table=false / count=0`, 옛 ID 폐기 경고 0, 가방 표시 재료 0, 빌드 오류 0을 확인했다. 새 장비 7종은 모두 `equip`과 정상 슬롯으로 로드됐다 |
+
+---
+
+## 6. 다음에 할 일
+
+> **현재 이어갈 지점(T57 이후):** 보우마스터 구현과 런타임 검증은 끝났다. 다음 직업 히든 보스는 같은 패턴으로 팔라딘 또는 다크나이트를 설계할 수 있다. 별도 잔여 검증으로는 T54 최종 화면 1회 재확인 → 새 `Mushmom.model` 등록 확인 → `r_05`에서
+> 머쉬맘 상단 HP바·5분 타이머·HP 6,230·균형 반지 확정 드랍을 확인한다. 이어 `r_job_01`의
+> 시간초과 시작 마을 퇴장을 대조하고, `r_045` 셰이드·새 열쇠 2개의 T52 검증도 함께 닫는다.
+> T58 Maker 실측이 끝난 뒤 그 다음 구현 지역은 **area_07 슬리피우드(Lv61~70)**다. area_07~20 보스안은
+> `docs/지역설계_area04-area20.md`의 T52 교정표를 정본으로 삼는다.
+
+### 6.1 대표만 답할 수 있는 것 (코드 작업 없음)
+
+한 회차를 직접 플레이한 뒤에만 답이 나온다.
+
+> ⚠ **2026-08-28에 이 목록을 다시 뽑았다.** 예전 목록은 **T9 시절 것**이라 T27~T33이
+> 바꾼 것을 하나도 안 물었고, **두 항목은 사실이 틀렸다**:
+> - *"슬롯 확장 — 보스를 잡아 1→2"* → **보스는 슬롯을 안 준다.** T16-4b에서 보스 클리어
+>   축을 없앴고 슬롯은 **차수**에서만 나온다(`min(차수,5)`). 1→2는 **Lv20**에서 일어난다.
+>   2026-08-13의 *"슬롯 늘어나는건 실감이 돼"* ✅는 **없어진 축에 대한 답**이라 다시 받아야 한다.
+> - *"T10-3c `monster_atk_base` 24 확정"* → **무효다.** T28이 곡선을 통째로 갈아
+>   지금은 `157 + 11.5 x (Lv-1)` 선형이다. `GameBalance.csv`가 이미 그렇게 적어 두었다.
+
+**이번 회차의 콘텐츠 범위**: Lv1~35 · 게이트 4개 · 도달 차수 **2차** · 슬롯 최대 **3칸**.
+
+| # | 무엇을 볼 것인가 | 어디서 |
+|---|---|---|
+| 1 | **게이트 통과의 쾌감** — 막혔다가 채우고 통과할 때 | 이끼 낀 관문(분배 10P) · 험한 바위 지대(분배 **170P**) |
+| 2 | **슬롯 확장의 체감** — 1→2칸 (**차수** 축으로 바뀐 뒤 처음 받는 판정) | **Lv20**, 그리고 Lv30에 2→3칸 |
+| 3 | **히든 보스 성장 체감** — 히어로의 검을 모을 때 | 1개당 STR +10 / 최대 5개(+50)가 공격력·최대 HP에 반영되는지 |
+| 4 | **스탯 갈림의 체감** — T27이 스탯마다 효과를 여러 개 준 뒤 처음 받는 판정 | STR 물공+HP / DEX 방어+물공 / INT 마공 / LUK 물공+공속+이속+포획+드랍 |
+| 5 | **T28 난이도** — *동레벨 몬스터를 3대에 잡고 12대 맞으면 죽는다*가 맞는가 | 아무 사냥방. i-frame 1초라 **12대 = 12초** |
+| 6 | **T29 보스** — 보스 스킬이 평타보다 확실히 아픈가 (배율을 1로 되돌렸다) | 돌 정령 · 히어로 · 스텀피 |
+| 7 | **T30 장비** — 장비를 주웠을 때 세진 것이 느껴지는가 (만작 = 25P = 5레벨치) | 드랍 아무거나 |
+| 8 | **최종 검증 질문** — *"잠겨 있던 문이 내 성장으로 열리는 순간, 그 앞의 그라인딩이 보상으로 느껴지는가?"* | — |
+
+8번의 답이 갈림길이다:
+- **예** → 확장 단계 (팔라딘·다크나이트 / 회복 스킬 / 3차 콘텐츠 — 6.2)
+- **아니오** → 게이트 배치 간격·조건 표시 UX·성장 템포 재설계. **콘텐츠를 더 넣지 말 것**
+
+⚠ **히어로 스킬 5종은 플레이어 보상이 아니다.** 히어로 보스의 공격 패턴으로만 남아 있으며,
+플레이어 성장 보상은 히든 보스 장비가 제공하는 주스탯 정액 패시브다.
+
+### 6.2 코드로 할 수 있는 다음 것
+
+> **2026-08-28 대표 확정: 지역 20칸(각 10레벨, Lv1~200)으로 간다.** 곡선은 T34에서
+> 맞췄다(`exp_base` 60 · `exp_ratio` 1.105 → 지역당 10~24분). 지역 표는 CLAUDE.md 참조.
+>
+> **0. ~~지역 선택 창부터 고칠 것~~ → T35에서 해소.** 20칸 + 스크롤이 됐고,
+> 넘치면 경고를 남긴다. 지역을 20개 넘게 늘리려면 `.ui`의 칸과
+> `AreaSelectPanel.slotCount`를 **같이** 늘려야 한다 (어긋나면 뒤쪽이 조용히 안 그려진다).
+>
+> **1. area_03 엘리니아 — T37-3으로 닫혔다.**
+> 몬스터 5종 · 방 5개 · 포획 스킬 5종 · 아이콘 · 이펙트 · 소리가 다 있다.
+> **T37 묶음은 여기서 끝이고, 다음은 area_04 커닝시티(Lv31~40)다.**
+> ⚠ **이펙트를 그리면 배경색과 명도차를 재라** — 눈으로 "보인다"고 판단한 것이
+> T37-3에서 틀렸다(세 종이 차 10~17로 묻혀 있었다). 면적 12%가 넘는 색은
+> 잔디·흙 양쪽에 차 30 이상.
+> ⚠ **아이콘을 그리면 기존 것과 나란히 놓고 4배로 볼 것** — T32-2와 T37-2 둘 다
+> 절반 넘게 다른 물건으로 보였다 (솥 / 보석 / 벌레).
+>
+> **1b. T37-1b에서 몬스터를 바로잡았다.**
+> ⚠ **T36~T37-1의 몬스터 3종이 엘리니아 소속이 아니었다**(리프 퍼펫트리·참새·로얄 페어리).
+> 다크 스텀프·버블링·파우스트로 갈았다. **몬스터를 고를 때 팩 id 대역을 같이 볼 것** —
+> 93xxxxx는 이벤트, 24xxxxx는 그란디스다.
+> 남은 것은 **아이콘 5종(T37-2)**과 **이펙트·소리(T37-3)**다.
+> ⚠ 아이콘이 없어 지금은 **장착 창에서 빈 칸**으로 보인다.
+> 그다음은 area_04(커닝시티 Lv31~40)인데, ⚠ **마을 방향이 W 하나만 남았다**(아래 참고).
+>
+> ⚠ **클립 식별법**: `getResource(ruid).payload.thumbnail`로 GIF를 받아 대조 시트를 만든다.
+> **정답을 아는 몬스터를 대조군으로 같이 넣을 것.** stand는 팩의 마지막이고 순서는 알파벳순이다.
+>
+> ⚠⚠ **area_06에서 막힌다.** 마을은 방향이 넷뿐인데(N=페리온 · E=area_01 · S=엘리니아 ·
+> W만 남음) `VerifyRooms`가 양방향을 강제한다. 지역을 6번째로 늘리기 전에 정해야 한다.
+
+
+> ⚠ 이 목록은 **2026-08-28에 한 번 갈아엎었다.** 예전 두 항목(area_02 방들 / 마을 타일
+> 넓히기)은 각각 **T26**과 **T23-11**에서 이미 끝났는데 여기 남아 있었다.
+
+1. **팔라딘 · 다크나이트 히든 보스** — 히어로(T56)와 같은 방식으로 직업 스킬을 주지 않고,
+   직업 차별 없는 인벤토리 패시브 보상을 설계한다. 보스 자신의 스킬은 전투 패턴으로만 둔다.
+2. **회복 스킬** — `effect_type=heal`은 배선만 돼 있고 데이터가 없다. 앞으로는 직업 NPC 보상이
+   아니라 포획 몬스터 스킬 또는 별도 콘텐츠 보상으로 붙여야 한다.
+3. **3차 콘텐츠(Lv60)** — 히어로 오라 블레이드·레이징 블로우는 플레이어 해금 대상이 아니라
+   히어로 보스의 전투 패턴이므로 지역 레벨과 별개로 유지한다.
+4. 아래 6.1 판정이 "아니오"면 **콘텐츠를 더 넣지 말 것** — 1~3이 전부 콘텐츠다.
+
+### 6.3 결정 대기
+
+- 3절 B~F를 확장 단계로 미룰지, 슬라이스에 넣을지
+- 4.3의 미사용 샘플 11개 삭제 여부
+- **Maker 캐시에 남은 `script.RoomPortal`** — 마을 문 엔티티에서 파일상으로는 지웠지만
+  이 설치본의 Maker가 삭제를 반영하지 않는다 (CLAUDE.md 설계 변경 이력 2026-08-10).
+  코드 가드로 무해화했으므로 급하지 않다. 정리하려면 Maker Hierarchy에서
+  `maptown / Portal_E`의 `RoomPortal` 컴포넌트를 직접 제거하면 된다
+
+### 6.4 기능 영향 없는 정리 후보
+
+- ~~4.2의 실행공간 주석 2건~~ → T33-1에서 해소
+- ~~4.1의 수치를 `GameBalance.csv`로 이동~~ → T33-1(i-frame)·T33-3(공속·추격 범위)에서 해소
+- ~~4.3 템플릿 잔재~~ → T33-2에서 27개 삭제 / ~~4.4 죽은 모델~~ → T33-4 / ~~4.5 보이지 않는 벽~~ → T33-5
+- **포탈 `TriggerComponent.IsLegacy`** — `LWA-3019` 경고가 방 수만큼 늘어난다.
+  기능엔 영향 없지만 끄면 트리거 판정이 달라질 수 있어 맵 15개 전수 재검증이 필요하다.
+- **`docs/art/thumbnail/`이 추적되지 않는다** — 커밋할지 `.gitignore`할지 미정.
+- 기획서 §9 "미확인" 1번(저장 API 호출 제한)은 **T8에서 해소됐는데** 목록에 남아 있다.
+  실제 답은 작업지시서 T8 절 — Credit 방식(Set/Get `100 + 동시접속×10`/분, 4,000바이트당 1)
+- 기획서 §5 제목이 "시트 v0.1 기준"인데 현행은 v0.2
+
+---
+
+## 7. 리포지토리 상태
+
+- 기준: `codex/t57-bowmaster-hidden-boss`, PR #173
+- T57 본 작업은 `2a84813`로 푸시됐다. 후속 최종/상세 스탯 UI도 같은 PR에서 이어간다. `.agents/`·`.codex/`는 로컬 도구 파일이므로 커밋하지 않는다
+- Maker가 `.csv`·`.model`·`.ui`를 저장할 때 **UTF-8 BOM + CRLF로 재직렬화**한다.
+  전 줄 변경으로 잡히지만 내용은 동일하다. `[chore] Maker 서식 정규화` 커밋으로 분리해 왔다

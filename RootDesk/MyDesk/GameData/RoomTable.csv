@@ -1,41 +1,49 @@
 ﻿id,name,room_type,conn_north,conn_south,conn_east,conn_west,gate_type,gate_key,gate_value,map_name,monster_id,monster_count,monster_level,is_start,area_id,portal_x,portal_y
 r_town,헤네시스,town,,,,,none,,,maptown,,0,,true,,13,1
-r_01,시작 숲길,hunt,,,r_02,r_town,none,,,map01,m_snail,3,,,area_01,13,1
-r_02,이끼 낀 관문,gate,r_03,,r_04,r_01,stat,STAT_TOTAL,10,map02,m_blue_snail,4,3,,area_01,13,1
-r_03,무너진 서고,hunt,,r_02,,,boss,r_05,,map03,m_mushroom,4,8,,area_01,13,1
-r_04,돌무덤 길,hunt,,,r_05,r_02,none,,,map04,m_horny_mushroom,5,12,,area_01,13,1
-r_05,머쉬맘의 오솔길,boss,,,,r_04,none,,,map05,m_mushmom,1,15,,area_01,13,1
+r_001,버섯마을 외곽,hunt,,,r_002,r_town,none,,,map001,m_snail,4,1,,area_00,13,1
+r_002,달팽이 사냥터,hunt,,r_006,r_003,r_001,none,,,map002,m_blue_snail,4,3,,area_00,13,1
+r_003,암허스트 갈림길,hunt,r_00a,r_007,r_004,r_002,none,,,map003,m_red_snail,5,5,,area_00,13,1
+r_00a,위험한 숲,hunt,,r_003,,,stat,STAT_TOTAL,15,map00a,m_slime,4,7,,area_00,13,1
+r_004,사우스페리 선착장,hunt,,,r_005,r_003,none,,,map004,m_red_snail,5,8,,area_00,13,1
+r_005,리스항구 해안가,boss,,,,r_004,none,,,map005,m_mano,1,10,,area_00,13,1
+r_006,작은 숲속 샛길,hunt,r_002,,r_007,,none,,,map006,m_snail,5,2,,area_00,13,1
+r_007,리스항구 세갈래길,hunt,r_003,,,r_006,none,,,map007,m_slime,5,6,,area_00,13,1
+r_01,시작 숲길,hunt,,,r_02,r_town,none,,,map01,m_snail,3,11,,area_01,13,1
+r_02,이끼 낀 관문,gate,r_03,,r_04,r_01,stat,STAT_TOTAL,60,map02,m_blue_snail,4,13,,area_01,13,1
+r_03,무너진 서고,hunt,,r_02,,,boss,r_05,,map03,m_mushroom,4,18,,area_01,13,1
+r_04,돌무덤 길,hunt,,,r_05,r_02,none,,,map04,m_horny_mushroom,5,22,,area_01,13,1
+r_05,머쉬맘의 오솔길,boss,,,,r_04,none,,,map05,m_mushmom,1,25,,area_01,13,1
 r_job_01,시험의 방,boss,,,,,none,,,mapjob,m_adv_hero,1,,,area_01,0,0
 r_job_02,바람의 사격장,boss,,r_29,,,none,,,mapjob02,m_adv_bowmaster,1,30,,area_03,0,0
-r_11,남쪽 능선,hunt,,r_town,r_12,,none,,,map11,m_axe_stump,4,18,,area_02,13,1
-r_12,바위 황무지,hunt,,,r_13,r_11,none,,,map12,m_dark_axe_stump,4,22,,area_02,13,1
-r_13,먼지바람 언덕,hunt,r_1a,r_16,r_14,r_12,none,,,map13,m_wild_boar,5,26,,area_02,13,1
-r_1a,발굴 금지 구역,hunt,,r_13,,,boss,r_05,,map1a,m_skeleton_commander,4,30,,area_02,13,1
-r_14,험한 바위 지대,hunt,,r_17,r_15,r_13,stat,STAT_TOTAL,170,map14,m_stone_golem,5,36,,area_02,13,1
-r_15,돌풍의 봉우리,boss,,,,r_14,none,,,map15,m_stumpy,1,26,,area_02,13,1
-r_16,아머피그의 땅,hunt,r_13,,r_17,,none,,,map16,m_iron_hog,5,28,,area_02,13,1
-r_17,불의 땅,hunt,r_14,,,r_16,none,,,map17,m_fire_boar,5,32,,area_02,13,1
-r_041,방치된 공사장,hunt,,,r_042,r_town,boss,r_15,,map041,m_octopus,4,31,,area_04,13,1
-r_042,추락주의,hunt,,,r_043,r_041,,,,map042,m_stirge,4,33,,area_04,13,1
-r_043,지하철 매표소,hunt,r_04a,r_046,r_044,r_042,,,,map043,m_jr_wraith,5,35,,area_04,13,1
-r_04a,비어있는 지하철,hunt,,r_043,,,key,s_mon_faust,,map04a,m_wraith,4,40,,area_04,13,1
-r_044,1호선 2구간,hunt,,r_047,r_045,r_043,stat,STAT_TOTAL,165,map044,m_wraith,5,38,,area_04,13,1
-r_045,1호선 종착점,boss,,,,r_044,,,,map045,m_shade,1,40,,area_04,13,1
-r_046,2호선 1구간,hunt,r_043,,r_047,,,,,map046,m_stirge,5,34,,area_04,13,1
-r_047,2호선 3구간,hunt,r_044,,,r_046,,,,map047,m_jr_wraith,5,36,,area_04,13,1
-r_21,엘리니아 남쪽 숲,hunt,r_town,,r_22,,,,,map21,m_slime,4,11,,area_03,13,1
-r_22,솟아오른 나무,hunt,,r_26,r_23,r_21,,,,map22,m_dark_stump,4,12,,area_03,13,1
-r_23,나무 사이 오솔길,hunt,r_29,r_27,r_24,r_22,,,,map23,m_bubbling,5,14,,area_03,13,1
-r_29,요정과 나무의 숲,hunt,,r_23,,,key,s_mon_mushmom,,map29,m_fairy,4,20,,area_03,13,1
-r_24,북쪽 숲 나무던전,hunt,,,r_25,r_23,stat,STAT_TOTAL,65,map24,m_fairy,5,17,,area_03,13,1
-r_25,사악한 기운의 숲,boss,,,,r_24,,,,map25,m_faust,1,20,,area_03,13,1
-r_26,어두운 숲속,hunt,r_22,,r_27,,,,,map26,m_dark_stump,5,13,,area_03,13,1
-r_27,남쪽 숲 나무던전,hunt,r_23,,,r_26,,,,map27,m_bubbling,5,16,,area_03,13,1
-r_051,리본돼지 해안가,hunt,,,r_052,r_town,boss,r_045,,map051,m_ribbon_pig,4,41,,area_05,13,1
-r_052,파란리본 해안가,hunt,,r_056,r_053,r_051,,,,map052,m_blue_pig,4,43,,area_05,13,1
-r_053,하얀파도 선착장,hunt,r_05a,r_057,r_054,r_052,,,,map053,m_starfish,5,45,,area_05,13,1
-r_05a,노틸러스 화물칸,hunt,,r_053,,,key,s_mon_shade,,map05a,m_jellyfish,4,49,,area_05,13,1
-r_054,높은 파도 바다,hunt,,,r_055,r_053,stat,STAT_TOTAL,215,map054,m_jellyfish,5,48,,area_05,13,1
-r_055,습격당한 노틸러스 갑판,boss,,,,r_054,,,,map055,m_jr_balrog,1,50,,area_05,13,1
-r_056,얕은 여울,hunt,r_052,,r_057,,,,,map056,m_ribbon_pig,5,42,,area_05,13,1
-r_057,조개 모래톱,hunt,r_053,,,r_056,,,,map057,m_starfish,5,44,,area_05,13,1
+r_11,남쪽 능선,hunt,,r_town,r_12,,none,,,map11,m_axe_stump,4,28,,area_02,13,1
+r_12,바위 황무지,hunt,,,r_13,r_11,none,,,map12,m_dark_axe_stump,4,32,,area_02,13,1
+r_13,먼지바람 언덕,hunt,r_1a,r_16,r_14,r_12,none,,,map13,m_wild_boar,5,36,,area_02,13,1
+r_1a,발굴 금지 구역,hunt,,r_13,,,boss,r_05,,map1a,m_skeleton_commander,4,40,,area_02,13,1
+r_14,험한 바위 지대,hunt,,r_17,r_15,r_13,stat,STAT_TOTAL,220,map14,m_stone_golem,5,46,,area_02,13,1
+r_15,돌풍의 봉우리,boss,,,,r_14,none,,,map15,m_stumpy,1,36,,area_02,13,1
+r_16,아머피그의 땅,hunt,r_13,,r_17,,none,,,map16,m_iron_hog,5,38,,area_02,13,1
+r_17,불의 땅,hunt,r_14,,,r_16,none,,,map17,m_fire_boar,5,42,,area_02,13,1
+r_041,방치된 공사장,hunt,,,r_042,r_town,boss,r_15,,map041,m_octopus,4,41,,area_04,13,1
+r_042,추락주의,hunt,,,r_043,r_041,,,,map042,m_stirge,4,43,,area_04,13,1
+r_043,지하철 매표소,hunt,r_04a,r_046,r_044,r_042,,,,map043,m_jr_wraith,5,45,,area_04,13,1
+r_04a,비어있는 지하철,hunt,,r_043,,,key,s_mon_faust,,map04a,m_wraith,4,50,,area_04,13,1
+r_044,1호선 2구간,hunt,,r_047,r_045,r_043,stat,STAT_TOTAL,215,map044,m_wraith,5,48,,area_04,13,1
+r_045,1호선 종착점,boss,,,,r_044,,,,map045,m_shade,1,50,,area_04,13,1
+r_046,2호선 1구간,hunt,r_043,,r_047,,,,,map046,m_stirge,5,44,,area_04,13,1
+r_047,2호선 3구간,hunt,r_044,,,r_046,,,,map047,m_jr_wraith,5,46,,area_04,13,1
+r_21,엘리니아 남쪽 숲,hunt,r_town,,r_22,,,,,map21,m_slime,4,21,,area_03,13,1
+r_22,솟아오른 나무,hunt,,r_26,r_23,r_21,,,,map22,m_dark_stump,4,22,,area_03,13,1
+r_23,나무 사이 오솔길,hunt,r_29,r_27,r_24,r_22,,,,map23,m_bubbling,5,24,,area_03,13,1
+r_29,요정과 나무의 숲,hunt,,r_23,,,key,s_mon_mushmom,,map29,m_fairy,4,30,,area_03,13,1
+r_24,북쪽 숲 나무던전,hunt,,,r_25,r_23,stat,STAT_TOTAL,115,map24,m_fairy,5,27,,area_03,13,1
+r_25,사악한 기운의 숲,boss,,,,r_24,,,,map25,m_faust,1,30,,area_03,13,1
+r_26,어두운 숲속,hunt,r_22,,r_27,,,,,map26,m_dark_stump,5,23,,area_03,13,1
+r_27,남쪽 숲 나무던전,hunt,r_23,,,r_26,,,,map27,m_bubbling,5,26,,area_03,13,1
+r_051,리본돼지 해안가,hunt,,,r_052,r_town,boss,r_045,,map051,m_ribbon_pig,4,51,,area_05,13,1
+r_052,파란리본 해안가,hunt,,r_056,r_053,r_051,,,,map052,m_blue_pig,4,53,,area_05,13,1
+r_053,하얀파도 선착장,hunt,r_05a,r_057,r_054,r_052,,,,map053,m_starfish,5,55,,area_05,13,1
+r_05a,노틸러스 화물칸,hunt,,r_053,,,key,s_mon_shade,,map05a,m_jellyfish,4,59,,area_05,13,1
+r_054,높은 파도 바다,hunt,,,r_055,r_053,stat,STAT_TOTAL,265,map054,m_jellyfish,5,58,,area_05,13,1
+r_055,습격당한 노틸러스 갑판,boss,,,,r_054,,,,map055,m_jr_balrog,1,60,,area_05,13,1
+r_056,얕은 여울,hunt,r_052,,r_057,,,,,map056,m_ribbon_pig,5,52,,area_05,13,1
+r_057,조개 모래톱,hunt,r_053,,,r_056,,,,map057,m_starfish,5,54,,area_05,13,1

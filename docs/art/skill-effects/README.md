@@ -1,5 +1,7 @@
 # 몬스터 스킬 시전 이펙트 원본 (T21-1 · T32-3 · T37-3 · T52 감사)
 
+> **T63 이후 사용 중단:** 이 문서의 커스텀 생성형 이펙트는 현재 지역 몬스터 스킬에서 모두 제거했다. 현행 규격과 실제 적용 RUID는 `docs/몬스터_스킬_이펙트_재설계_T63.md`를 따른다. 이 문서는 변경 이력 확인용으로만 남긴다.
+
 몬스터 스킬용으로 직접 그린 **시전 이펙트 16종의 원본 보관소**다. 아이콘(`../skill-icons/`)과
 같은 방식이고, 다른 점은 **월드에 뜨는 그림**이라는 것뿐이다.
 
@@ -25,16 +27,21 @@
 `GameDataVerify`와 `verify-content-coverage.cjs`가 이제 **패시브에 연출 값이 남으면 실패**시키고,
 액티브 몬스터 스킬에 이펙트와 투사체가 둘 다 없을 때도 실패시킨다.
 
-## 왜 한 장짜리 그림인가
+## 한 장짜리 그림과 AnimationClip의 구분
 
-`asset_create_account_resource_storage_item`이 받는 category가
-**sprite / audioclip / avataritem뿐이라 animationclip은 올릴 길이 없다.**
-그래서 `_EffectService:PlayEffectAttached`(클립 재생)를 못 쓴다.
+과거 기록의 “animationclip은 올릴 길이 없다”는 설명은 **MCP 직접 업로드 API만 보면 맞지만,
+Maker 전체 기능 기준으로는 틀렸다.** `asset_create_account_resource_storage_item`은
+sprite / audioclip / avataritem만 받지만, Maker의 **AnimationClip Editor**에서는 내 sprite를
+타임라인에 프레임별로 배치한 뒤 새 animationclip으로 Resource Storage에 업로드할 수 있다.
 
-대신 **한 장을 띄워 놓고 `Combat/SkillCastEffect.mlua`가 움직인다** —
-커지고, 옅어지고, 돌고, 흐른다. 여러 장을 올려 프레임을 갈아끼우는 길도 있지만
-(SpriteRUID 교체는 T11-1에서 쓴 방법) 4종 × 5장 = 20장을 올려야 하고 그림마다
-프레임 수를 따로 관리해야 한다. 한 장 + 움직임이 싸고, 고칠 때도 한 장만 다시 올린다.
+따라서 한 장을 `Combat/SkillCastEffect.mlua`로 확대·회전·이동시키는 현재 방식은 저비용
+보조 경로일 뿐이고, **전직 캐릭터 스킬과 같은 품질을 목표로 하는 신규 몬스터 스킬은
+AnimationClip Editor로 만든 단일 animationclip RUID를 사용한다.** 그 RUID는
+`effect_style`을 비우고 `effect_ruid`에 넣어 `_EffectService:PlayEffectAttached`로 재생한다.
+
+공식 제작 순서: 개별 sprite 등록 → Window / Animation Clip Editor → Add로 각 프레임 추가 →
+타임라인 배치·Play 확인 → 이름·Skill 카테고리 지정 → Upload. Atlas Unpacker로 시트를 자를
+때는 `Add to AnimationClip`을 사용해 곧바로 편집기로 보낼 수도 있다.
 
 ## 스타일 (`SkillTable.effect_style`)
 

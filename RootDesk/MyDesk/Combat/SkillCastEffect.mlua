@@ -2,16 +2,12 @@
 --
 -- 직접 만든 스킬 시전 이펙트 (T21-1, 대표 지시 2026-08-23: "이펙트도 직접 만들어보자").
 --
--- ## 왜 애니메이션 클립이 아니라 한 장짜리 그림인가
+-- ## 한 장짜리 보조 경로
 --
--- `asset_create_account_resource_storage_item`이 받는 category가
--- **sprite / audioclip / avataritem뿐이다.** animationclip은 올릴 길이 없다.
--- 그래서 `_EffectService:PlayEffectAttached`(클립 재생)를 쓸 수 없고,
--- **한 장을 띄워 놓고 이 스크립트가 움직인다** — 커지고, 옅어지고, 돌고, 흐른다.
---
--- 여러 장을 올려 프레임을 갈아끼우는 길도 있지만(SpriteRUID 교체는 T11-1에서 쓴 방법),
--- 4종 x 5장 = 20장을 올려야 하고 그림마다 프레임 수를 따로 관리해야 한다.
--- 한 장 + 움직임이 싸고, 그림을 고칠 때도 한 장만 다시 올리면 된다.
+-- MCP의 직접 업로드 API는 animationclip을 만들 수 없지만 Maker의 AnimationClip Editor는
+-- 내 sprite 여러 장을 타임라인에 묶어 새 animationclip으로 올릴 수 있다. 전직 캐릭터
+-- 스킬급 신규 연출은 그 클립을 `EffectService`로 재생하는 것이 기준이다.
+-- 이 컴포넌트는 아직 이관하지 않은 한 장짜리 sprite 연출의 호환·보조 경로만 맡는다.
 --
 -- ## Body가 없다
 --
@@ -33,8 +29,14 @@ script SkillCastEffect extends Component
     -- 어떻게 움직일지. SkillTable.effect_style이 정한다.
     @HideFromInspector property string Style = ""
 
-    -- 흐르는 방향(초당 월드 단위). pierce/cloud만 쓴다.
+    -- 흐르는 방향(초당 월드 단위). 레이어 레시피가 스킬마다 정한다.
     @HideFromInspector property Vector3 Drift = Vector3(0, 0, 0)
+
+    -- 같은 그림도 전조/본체/충격파마다 시작 크기를 다르게 쓸 수 있게 한다.
+    @HideFromInspector property number BaseScale = 1
+
+    -- 짧은 연출은 스크린샷보다 빨리 사라지므로 생성/종료 로그를 짝지어 남긴다.
+    @HideFromInspector property string DebugName = ""
 
     @ExecSpace("ServerOnly")
     method void Play(string style, number seconds, Vector3 drift)
@@ -86,9 +88,35 @@ script SkillCastEffect extends Component
             -- 꿰뚫는 획: 앞으로 나간다. 커지는 폭이 작아야 "찌른다"로 읽힌다.
             scale = 1.4 + 0.6 * t
             fadeFrom = 0.65
+        elseif self.Style == "rush" then
+            -- 달팽이 껍질·리본처럼 몸과 함께 굴러가는 물리 돌진.
+            -- 마법진처럼 부풀리지 않고 빠르게 회전하며 앞으로 이동한다.
+            scale = 1.05 + 0.15 * t
+            spin = 720 * t
+            fadeFrom = 0.72
+        elseif self.Style == "spin" then
+            -- 제자리 회전 공격. 투사체처럼 이동하지 않고 윤곽을 오래 보여 준다.
+            scale = 1.0 + 0.2 * t
+            spin = 540 * t
+            fadeFrom = 0.68
+        elseif self.Style == "scatter" then
+            -- 포자·뼈 조각처럼 여러 방향으로 흩어지는 작은 물체.
+            scale = 0.75 + 0.45 * t
+            spin = 180 * t
+            fadeFrom = 0.62
+        elseif self.Style == "slam" then
+            -- 지면 충격 뒤 튀어 오르는 큰 조각. 회전보다 무게감 있는 확대를 쓴다.
+            scale = 0.65 + 1.15 * math.min(t * 2, 1)
+            fadeFrom = 0.58
+        elseif self.Style == "guard" then
+            -- 방어 효과는 공격처럼 돌거나 날아가지 않고 짧게 맥동한다.
+            scale = 1.0 + 0.12 * math.sin(t * math.pi * 3)
+            fadeFrom = 0.7
         else
             scale = 1.0
         end
+
+        scale = scale * self.BaseScale
 
         if t > fadeFrom then alpha = 1.0 - (t - fadeFrom) / (1.0 - fadeFrom) end
 
@@ -109,6 +137,7 @@ script SkillCastEffect extends Component
         self.Life = self.Life - delta
         if self.Life <= 0 then
             -- 남겨 두면 이펙트가 방에 쌓인다.
+            log("[이펙트 종료] " .. (self.DebugName ~= "" and self.DebugName or self.Style))
             self.Entity:Destroy()
             return
         end

@@ -64,6 +64,39 @@ script GameData extends Logic
         return out
     end
 
+    method table BuildEffectLayers(any row)
+        -- 첫 지역부터 도입한 다층 스킬 연출. 각 컬럼은 같은 순서의 파이프 목록이다.
+        -- RUID 개수만큼만 레이어를 만들고 나머지 값은 안전한 기본값으로 채운다.
+        -- 기존 effect_ruid/effect_style은 이후 지역을 순차 이관하는 동안 그대로 쓴다.
+        local ruids = self:SplitIds(self:ToText(row:GetItem("layer_ruids")))
+        local types = self:SplitIds(self:ToText(row:GetItem("layer_types")))
+        local styles = self:SplitIds(self:ToText(row:GetItem("layer_styles")))
+        local delays = self:SplitIds(self:ToText(row:GetItem("layer_delays")))
+        local durations = self:SplitIds(self:ToText(row:GetItem("layer_durations")))
+        local scales = self:SplitIds(self:ToText(row:GetItem("layer_scales")))
+        local offsetsX = self:SplitIds(self:ToText(row:GetItem("layer_offsets_x")))
+        local offsetsY = self:SplitIds(self:ToText(row:GetItem("layer_offsets_y")))
+        local driftsX = self:SplitIds(self:ToText(row:GetItem("layer_drifts_x")))
+        local driftsY = self:SplitIds(self:ToText(row:GetItem("layer_drifts_y")))
+
+        local out = {}
+        for i = 1, #ruids do
+            out[#out + 1] = {
+                ruid = ruids[i],
+                resource_type = types[i] or "sprite",
+                style = styles[i] or "burst",
+                delay = self:ToNumber(delays[i], 0),
+                duration = self:ToNumber(durations[i], 0.4),
+                scale = self:ToNumber(scales[i], 1),
+                offset_x = self:ToNumber(offsetsX[i], 0),
+                offset_y = self:ToNumber(offsetsY[i], 0),
+                drift_x = self:ToNumber(driftsX[i], 0),
+                drift_y = self:ToNumber(driftsY[i], 0),
+            }
+        end
+        return out
+    end
+
     method any GetDataSet(string setName)
         -- 데이터셋을 이름으로 가져온다. 없으면 에러 로그 후 nil.
         -- 반환 타입이 any인 이유: UserDataSet은 메서드 시그니처에 쓸 수 없다 (LSP 확인).
@@ -240,6 +273,10 @@ script GameData extends Logic
                     -- sfx_ruid     시전 소리. 비어 있으면 안 울린다.
                     effect_ruid = self:ToText(row:GetItem("effect_ruid")),
                     sfx_ruid = self:ToText(row:GetItem("sfx_ruid")),
+
+                    -- 다층 연출 레시피. 비어 있으면 위의 단일 effect_ruid 경로로
+                    -- 물러나므로 아직 이관하지 않은 지역의 스킬은 동작이 바뀌지 않는다.
+                    effect_layers = self:BuildEffectLayers(row),
 
                     -- 날아가는 투사체의 그림 (T19-3, 대표 지시 2026-08-23).
                     -- 비어 있으면 안 날린다 — 대부분의 스킬은 시전자 자리에서 터지는
@@ -516,6 +553,12 @@ script GameData extends Logic
     method table GetSkill(string id)
         -- 스킬 레코드. 없으면 nil.
         return self.skills[id]
+    end
+
+    method table GetSkillEffectLayers(string id)
+        local skill = self.skills[id]
+        if skill == nil or skill.effect_layers == nil then return {} end
+        return skill.effect_layers
     end
 
     method table GetMonsterSkillIds()
