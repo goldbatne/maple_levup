@@ -137,7 +137,30 @@ function rebuildInventory() {
       });
     }
   }
-  b.patch(box + "/BagLabel", { anchor: "top-center", pos: [0, -276], rect_size: [648, 34], pivot: [0.5, 1] });
+  // 아이템을 용도별로 바로 찾는다. 패시브는 장착하지 않지만 보유 효과를
+  // 확인하는 가방 항목이므로 독립 탭으로 둔다. 기존 물약 사용 경로도 보존한다.
+  if (b.find(box + "/BagLabel") !== null) b.remove(box + "/BagLabel");
+  const categories = [
+    ["FilterWeapon", "무기", -252],
+    ["FilterArmor", "방어구", -126],
+    ["FilterAccessory", "장신구", 0],
+    ["FilterPassive", "패시브", 126],
+    ["FilterConsume", "소비", 252],
+  ];
+  for (const [name, label, x] of categories) {
+    const path = `${box}/${name}`;
+    if (b.find(path) === null) {
+      b.button(path, label, {
+        anchor: "top-center", pos: [x, -276], rect_size: [116, 40], pivot: [0.5, 1],
+        image_ruid: SLOT_RUID, sprite_type: 1, bg_color: "#D8D3CB",
+        color: "#292E38", font_size: 16,
+      });
+    }
+    b.patch(path, { anchor: "top-center", pos: [x, -276], rect_size: [116, 40], pivot: [0.5, 1] });
+    b.patchComponent(path, "MOD.Core.TextGUIRendererComponent", {
+      BestFit: true, FontSize: 16, MinSize: 12, MaxSize: 16,
+    });
+  }
 
   if (b.find(oldGrid) !== null) b.remove(oldGrid);
   if (b.find(gridBg) === null) {
@@ -149,15 +172,15 @@ function rebuildInventory() {
 
   const bindings = {};
   const cols = 6;
-  for (let i = 0; i < 30; i += 1) {
+  for (let i = 0; i < 36; i += 1) {
     const col = i % cols;
     const row = Math.floor(i / cols);
     const cell = `${box}/ItemRow${i}`;
     if (b.find(cell) === null) {
       b.button(cell, "", {
       anchor: "top-center",
-      pos: [-250 + col * 100, -324 - row * 88],
-      rect_size: [88, 80],
+      pos: [-250 + col * 100, -324 - row * 74],
+      rect_size: [88, 72],
       pivot: [0.5, 1],
       image_ruid: SLOT_RUID,
       sprite_type: 1,
@@ -166,7 +189,7 @@ function rebuildInventory() {
       font_size: 13,
       });
       b.sprite(cell + "/Icon", {
-        anchor: "middle-center", pos: [0, -2], rect_size: [62, 62], pivot: [0.5, 0.5],
+        anchor: "middle-center", pos: [0, -2], rect_size: [54, 54], pivot: [0.5, 0.5],
         image_ruid: EMPTY_ICON_RUID, preserve_aspect: false, raycast: false,
         color: "#FFFFFF", alpha: 1,
       });
@@ -176,6 +199,15 @@ function rebuildInventory() {
       best_fit: true, min_size: 11, max_size: 15,
       });
     }
+    b.patch(cell, {
+      anchor: "top-center",
+      pos: [-250 + col * 100, -324 - row * 74],
+      rect_size: [88, 72],
+      pivot: [0.5, 1],
+    });
+    b.patch(cell + "/Icon", {
+      anchor: "middle-center", pos: [0, -2], rect_size: [54, 54], pivot: [0.5, 0.5],
+    });
     b.patchComponent(cell + "/Icon", "MOD.Core.SpriteGUIRendererComponent", {
       ImageRUID: { DataId: EMPTY_ICON_RUID },
       PreserveSprite: 0,
@@ -216,6 +248,11 @@ function rebuildInventory() {
         equipRow2: box + "/EquipRow2",
         detailTitle: detail + "/Title",
         detailBody: detail + "/Body",
+        filterWeapon: box + "/FilterWeapon",
+        filterArmor: box + "/FilterArmor",
+        filterAccessory: box + "/FilterAccessory",
+        filterPassive: box + "/FilterPassive",
+        filterConsume: box + "/FilterConsume",
         ...bindings,
       },
     },
@@ -227,6 +264,20 @@ function rebuildSkills() {
   const b = UIBuilder.load(uiPath);
   const root = "/ui/EquipWindow/Window";
   const grid = root + "/Grid";
+
+  // 플레이어가 장착하는 스킬은 이제 몬스터 포획 스킬뿐이다. 한 종류뿐인
+  // 분류 버튼은 선택지를 주지 않으므로 제거하고 제목과 목록을 위로 당긴다.
+  if (b.find(root + "/TabMonster") !== null) b.remove(root + "/TabMonster");
+  if (b.find(root + "/TabNpc") !== null) b.remove(root + "/TabNpc");
+  b.patch(root + "/LblOwned", {
+    anchor: "top-center", pos: [0, -334], rect_size: [620, 48], pivot: [0.5, 1],
+  });
+  b.patchComponent(root + "/LblOwned", "MOD.Core.TextGUIRendererComponent", {
+    Text: "보유한 몬스터 스킬", HorizontalAlignment: 2,
+  });
+  b.patch(grid, {
+    anchor: "top-center", pos: [0, -390], rect_size: [648, 404], pivot: [0.5, 1],
+  });
 
   // 현재 메이플 인벤토리의 촘촘한 슬롯 밀도를 따라 5열로 정리한다.
   b.patchComponent(grid, "MOD.Core.ScrollLayoutGroupComponent", {
@@ -240,8 +291,23 @@ function rebuildSkills() {
     Color: { r: 0.94, g: 0.93, b: 0.92, a: 1 },
   });
 
-  for (let i = 1; i <= 28; i += 1) {
+  for (let i = 1; i <= 30; i += 1) {
     const cell = `${grid}/Cell${i}`;
+    if (b.find(cell) === null) {
+      b.button(cell, "", {
+        rect_size: [116, 108], image_ruid: SLOT_RUID, sprite_type: 1,
+        bg_color: "#E0EFE8", color: "#292E38", font_size: 14,
+      });
+      b.sprite(cell + "/Icon", {
+        anchor: "top-center", pos: [0, -8], rect_size: [54, 54], pivot: [0.5, 1],
+        image_ruid: EMPTY_ICON_RUID, preserve_aspect: false, raycast: false,
+        color: "#FFFFFF", alpha: 1,
+      });
+      b.text(cell + "/Name", "", {
+        anchor: "bottom-center", pos: [0, 7], rect_size: [108, 36], pivot: [0.5, 0],
+        size: 14, color: "#292E38", best_fit: true, min_size: 10, max_size: 14,
+      });
+    }
     b.patch(cell, { rect_size: [116, 108] });
     b.patchComponent(cell, "MOD.Core.SpriteGUIRendererComponent", {
       Color: { r: 0.88, g: 0.94, b: 0.91, a: 1 },

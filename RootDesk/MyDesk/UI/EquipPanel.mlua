@@ -41,10 +41,6 @@ script EquipPanel extends Logic
     -- 설명 줄 (T17-4). 고른 스킬이 무엇을 하는지 한 줄로 보여 준다.
     property TextGUIRendererComponent lblDesc = "3bca6c15-07a1-4280-8c5e-01ea32fe6c65"
 
-    -- T56부터 직업 캐릭터 스킬은 전투 전용이고 플레이어 보상이 아니다.
-    -- 옛 모험가 탭 엔티티는 호환을 위해 남기되 런타임에서 숨긴다.
-    property ButtonComponent tabMonster = "9097cfbc-fa7b-4ee2-820d-4c0e152399e2"
-    property ButtonComponent tabNpc = "077421e4-6fd7-47b2-9b98-4dd729d00083"
     property TextGUIRendererComponent lblOwned = "e37e5106-faea-4342-924b-6e130fcbad8e"
 
     -- 플레이어가 보유·장착하는 출처는 monster 하나뿐이다.
@@ -71,8 +67,8 @@ script EquipPanel extends Logic
     property any cellHandlers = nil
 
     -- .ui에 만들어 둔 칸 수. 여기와 .ui가 어긋나면 뒤쪽 칸이 조용히 안 그려진다.
-    -- T52 현재 몬스터 포획 스킬 28종을 전부 담는다.
-    property integer cellCount = 28
+    -- T58 현재 몬스터 포획 스킬 30종을 전부 담는다.
+    property integer cellCount = 30
 
     property number refreshInterval = 0.3
 
@@ -101,9 +97,6 @@ script EquipPanel extends Logic
         self.handlers.s3 = self.slot3.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(3) end)
         self.handlers.s4 = self.slot4.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(4) end)
         self.handlers.s5 = self.slot5.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(5) end)
-
-        self.handlers.tm = self.tabMonster.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSource("monster") end)
-        if isvalid(self.tabNpc) then self.tabNpc.Entity:SetVisible(false) end
 
         -- 격자 칸은 20개라 손으로 늘어놓지 않고 돈다. 번호는 지역 변수로 잡아
         -- 클로저마다 다른 값을 갖게 한다 (안 잡으면 전부 마지막 값을 본다).
@@ -136,7 +129,6 @@ script EquipPanel extends Logic
             if self.handlers.s3 ~= nil then self.slot3.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s3) end
             if self.handlers.s4 ~= nil then self.slot4.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s4) end
             if self.handlers.s5 ~= nil then self.slot5.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.s5) end
-            if self.handlers.tm ~= nil then self.tabMonster.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.tm) end
             self.handlers = nil
         end
         if self.cellHandlers ~= nil then
@@ -284,17 +276,11 @@ script EquipPanel extends Logic
 
     @ExecSpace("ClientOnly")
     method void RenderTabs()
-        -- 지금 보고 있는 탭을 밝게 칠하고, 각 탭에 **보유 개수**를 적는다.
-        --
-        -- 개수를 적는 이유: 안 보고 있는 쪽에 뭐가 있는지 알 수 없으면 탭을 누를
-        -- 이유가 생기지 않는다. "모험가 5"가 보이면 눌러 본다.
+        -- 플레이어가 보는 출처는 몬스터 하나뿐이라 분류 버튼 없이 제목에 개수만 적는다.
         local monsterCount = #self:OwnedIdsOf("monster")
         self.currentSource = "monster"
-        self:PaintTab(self.tabMonster, "몬스터 스킬", monsterCount, true)
-        if isvalid(self.tabNpc) then self.tabNpc.Entity:SetVisible(false) end
-
         if isvalid(self.lblOwned) then
-            self.lblOwned.Text = "보유한 스킬"
+            self.lblOwned.Text = "보유한 몬스터 스킬  " .. tostring(monsterCount)
         end
     end
 

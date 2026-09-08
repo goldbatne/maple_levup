@@ -325,6 +325,7 @@ script PlayerStats extends Component
     method number GetFinalStatPoints(string statName)
         -- 일반 스탯 창에 표시할 최종 STR/DEX/INT/LUK.
         -- 분배 포인트 + 포획 컬렉션 포인트에 히든 보스 장비의 정액 주스탯을 더한다.
+        -- 최종 스탯은 소수점이 없는 정수이며, 이 값이 HP와 전투 수치에도 그대로 쓰인다.
         -- 일반 장비는 ATK/마력/DEF 같은 파생 수치를 올리므로 여기에는 섞지 않고
         -- 상세 스탯의 물리 공격력·마법 공격력·방어력에서 보여 준다.
         local points = 0
@@ -339,7 +340,7 @@ script PlayerStats extends Component
         else
             return 0
         end
-        return points + self:GetPassiveItemStatBonus(statName)
+        return math.floor(points + self:GetPassiveItemStatBonus(statName) + 0.5)
     end
 
     ---------------------------------------------------------------
@@ -500,6 +501,8 @@ script PlayerStats extends Component
     method number GetCollectionPoints(string statName)
         -- 포획 패시브가 주는 **분배 스탯 포인트** (설계 변경 2026-08-29, 대표 지시).
         -- statName은 **분배 스탯 이름** — "STR" / "DEX" / "INT" / "LUK".
+        -- 중복의 0.25 누적은 내부 계산에만 남기고, 실제 스탯으로 적용할 때는 반올림한다.
+        -- 따라서 일반 스탯과 그 스탯에서 파생되는 전투 수치에는 소수점이 생기지 않는다.
         --
         -- ## 왜 있나
         --
@@ -542,7 +545,7 @@ script PlayerStats extends Component
                 end
             end
         end
-        return total
+        return math.floor(total + 0.5)
     end
 
     method number GetCollectionBonus(string stat)
