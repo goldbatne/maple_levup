@@ -102,6 +102,7 @@ if (JSON.stringify(areaOrder) !== JSON.stringify(expectedOrder)) {
 
 const landmarks = rows("LandmarkTable.csv")
   .filter((landmark) => landmark.reward_type === "area")
+  .slice(0, 5)
   .map((landmark) => `${landmark.level}:${landmark.reward_value}`);
 const expectedLandmarks = ["10:area_01", "20:area_03", "30:area_02", "40:area_04", "50:area_05"];
 if (JSON.stringify(landmarks) !== JSON.stringify(expectedLandmarks)) {

@@ -57,9 +57,10 @@ const missingItem = allMonsters
   .filter((monster) => !items.some((item) => item.drop_from.split("|").includes(monster.id)))
   .map((monster) => monster.id);
 const validItemIcon = (item) => /^(thumbnail:\/\/)?[0-9a-f]{32}$/.test(item.icon_ruid);
+const validSkillIcon = (value) => /^(thumbnail:\/\/)?[0-9a-f]{32}$/.test(value);
 const badRuid = [
   ...skills
-    .filter((skill) => skill.source === "monster" && skill.icon_ruid.length !== 32)
+    .filter((skill) => skill.source === "monster" && !validSkillIcon(skill.icon_ruid))
     .map((skill) => "skill:" + skill.id),
   ...items
     .filter((item) => !validItemIcon(item))
@@ -71,12 +72,13 @@ const badItemTypeMapping = specificItems
   .map((item) => item.id);
 const validEquipSlots = new Set(["weapon", "armor", "accessory"]);
 const validAvatarCategories = new Set([
-  "cap", "coat", "glove", "longcoat", "shield",
+  "cap", "coat", "glove", "longcoat", "pants", "shoes", "cape", "shield",
   "onehandedweapon", "twohandedweapon", "earaccessory",
 ]);
 const badEquipment = specificItems
   .filter((item) => item.item_type === "equip")
-  .filter((item) => !validEquipSlots.has(item.slot) || !/원작 아이템 \d+/.test(item.note))
+  .filter((item) => !validEquipSlots.has(item.slot)
+    || (!/원작 아이템 \d+/.test(item.note) && !/원작 MSW 아바타 아이템/.test(item.note)))
   .map((item) => item.id);
 const badAvatarCategories = items
   .filter((item) => item.item_type === "equip"
@@ -595,7 +597,7 @@ const result = {
     && /if item\.item_type == "passive" then[\s\S]+?return\s+end\s+\s*if wasSelected == false then\s+self:Refresh\(\)\s+return\s+end/.test(mlua)
     && /log\("\[Inventory창\] 장착 요청 " .. item\.slot/.test(mlua),
   equipCells: equipEntities.filter((entity) => /EquipWindow\/Window\/Grid\/Cell\d+$/.test(entity.path)).length,
-  equipCellCountOk: /property integer cellCount = 30\b/.test(equipMlua),
+  equipCellCountOk: /property integer cellCount = 50\b/.test(equipMlua),
   skillGridColumns: skillGrid === null ? null : skillGrid.ConstraintCount,
   skillIconAlphaOk,
   skillSourceTabsRemoved,
@@ -615,7 +617,9 @@ const result = {
 
 console.log(JSON.stringify(result, null, 2));
 
-if (missingSkill.length || missingItem.length || badRuid.length
+if (monsters.length !== 50 || skills.filter((skill) => skill.source === "monster").length !== 50
+  || specificItems.filter((item) => item.item_type === "equip").length !== 50
+  || missingSkill.length || missingItem.length || badRuid.length
   || badItemTypeMapping.length || badEquipment.length || badAvatarCategories.length
   || badCorrectedPassiveEquipment.length
   || !heroPassiveOk || !heroCombatOnlyOk || !bowmasterPassiveOk || !bowmasterCombatOnlyOk
@@ -626,7 +630,7 @@ if (missingSkill.length || missingItem.length || badRuid.length
   || retiredCustomEffectResidue.length || materialSpriteEffectResidue.length
   || rejectedMismatchedEffectResidue.length
   || badGateSkills.length
-  || bossRooms.length !== 8 || bossItemMissing.length
+  || bossRooms.length !== 12 || bossItemMissing.length
   || balance.get("boss_hp_multiplier") !== 10
   || balance.get("boss_time_limit_seconds") !== 300
   || result.bossHudEntities !== 6 || !result.bossBindingsOk || !result.statBindingsOk
@@ -641,7 +645,7 @@ if (missingSkill.length || missingItem.length || badRuid.length
   || !result.inventoryCategoryBindingsOk || !result.inventoryCategoryFilterOk
   || !result.inventoryTwoClickEquipOk
   || !result.avatarEquipmentWiringOk
-  || result.equipCells !== 30 || !result.equipCellCountOk
+  || result.equipCells !== 50 || !result.equipCellCountOk
   || result.skillGridColumns !== 5 || !result.skillIconAlphaOk || !result.skillSourceTabsRemoved
   || !result.roomProgressDisabled || result.worldMapTop !== -150
   || result.worldMapButtons !== 12 || result.popupEntities !== 18 || !result.popupBindingsOk

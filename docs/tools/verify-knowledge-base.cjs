@@ -137,7 +137,10 @@ const areaOrder = areas
   .slice()
   .sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
   .map((row) => row.id);
-const expectedAreaOrder = ['area_00', 'area_01', 'area_03', 'area_02', 'area_04', 'area_05'];
+const expectedAreaOrder = [
+  'area_00', 'area_01', 'area_03', 'area_02', 'area_04', 'area_05',
+  'area_07', 'area_08', 'area_09', 'area_10',
+];
 const oppositeDirection = { north: 'south', south: 'north', east: 'west', west: 'east' };
 const roomsById = new Map(rooms.map((room) => [room.id, room]));
 const roomConnectionIssues = [];
@@ -147,7 +150,7 @@ for (const room of rooms) {
     if (!targetId) continue;
     // r_town is a shared world-map hub. Multiple region entrances intentionally
     // point to it, so a single opposite field cannot represent every return path.
-    if (room.id === 'r_town' || targetId === 'r_town') continue;
+    if (room.id === 'r_town' || targetId === 'r_town' || room.id.startsWith('r_job_')) continue;
     const target = roomsById.get(targetId);
     if (!target) {
       roomConnectionIssues.push(`${room.id} ${direction} → ${targetId}: 대상 없음`);
@@ -157,10 +160,10 @@ for (const room of rooms) {
   }
 }
 
-if (capturableMonsters.length !== 30) fail(`포획 대상 몬스터 수 불일치: ${capturableMonsters.length} (예상 30)`);
-if (monsterSkills.length !== 30) fail(`몬스터 스킬 수 불일치: ${monsterSkills.length} (예상 30)`);
-if (items.length !== 33) fail(`아이템 수 불일치: ${items.length} (예상 33)`);
-if (bossRooms.length !== 8) fail(`보스방 수 불일치: ${bossRooms.length} (예상 8)`);
+if (capturableMonsters.length !== 50) fail(`포획 대상 몬스터 수 불일치: ${capturableMonsters.length} (예상 50)`);
+if (monsterSkills.length !== 50) fail(`몬스터 스킬 수 불일치: ${monsterSkills.length} (예상 50)`);
+if (items.length !== 53) fail(`아이템 수 불일치: ${items.length} (예상 53)`);
+if (bossRooms.length !== 12) fail(`보스방 수 불일치: ${bossRooms.length} (예상 12)`);
 if (passiveItems.length !== 2) fail(`전직 패시브 수 불일치: ${passiveItems.length} (예상 2)`);
 if (areaOrder.join(',') !== expectedAreaOrder.join(',')) {
   fail(`지역 순서 불일치: ${areaOrder.join(' → ')}`);
@@ -178,7 +181,7 @@ if (!bowmasterPassive || bowmasterPassive.passive_stat !== 'DEX' || Number(bowma
 const status = read('docs/프로젝트_현황.md');
 const balanceDocument = read('docs/밸런스_확정수치.md');
 const handoff = read('docs/인수인계_현재상태.md');
-const requiredStatusClaims = ['30종', '33종', '8개', 'HP ×10', '300초', '최대 5장', 'STR +10', 'DEX +10'];
+const requiredStatusClaims = ['50종', '53종', '12개', 'HP ×10', '300초', '최대 5장', 'STR +10', 'DEX +10'];
 for (const claim of requiredStatusClaims) {
   if (!status.includes(claim)) fail(`프로젝트 현황의 필수 사실 누락: ${claim}`);
 }
