@@ -67,8 +67,8 @@ script EquipPanel extends Logic
     property any cellHandlers = nil
 
     -- .ui에 만들어 둔 칸 수. 여기와 .ui가 어긋나면 뒤쪽 칸이 조용히 안 그려진다.
-    -- T58 현재 몬스터 포획 스킬 30종을 전부 담는다.
-    property integer cellCount = 30
+    -- T64 현재 몬스터 포획 스킬 50종을 전부 담는다.
+    property integer cellCount = 50
 
     property number refreshInterval = 0.3
 
@@ -98,7 +98,7 @@ script EquipPanel extends Logic
         self.handlers.s4 = self.slot4.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(4) end)
         self.handlers.s5 = self.slot5.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectSlot(5) end)
 
-        -- 격자 칸은 20개라 손으로 늘어놓지 않고 돈다. 번호는 지역 변수로 잡아
+        -- 격자 칸은 손으로 늘어놓지 않고 돈다. 번호는 지역 변수로 잡아
         -- 클로저마다 다른 값을 갖게 한다 (안 잡으면 전부 마지막 값을 본다).
         self.cellHandlers = {}
         for i = 1, self.cellCount do

@@ -1,5 +1,5 @@
 // 몬스터 스킬 전체를 포획해도 장착 창에서 잘리지 않게 한다.
-// .ui 원문은 편집하지 않고 UIBuilder로 기존 스크롤 격자에 Cell21~28을 추가한다.
+// .ui 원문은 편집하지 않고 UIBuilder로 기존 스크롤 격자에 Cell21~50을 보장한다.
 
 const { UIBuilder } = require("../../../.agents/skills/msw-ui-system/scripts/msw_ui_builder.cjs");
 const fs = require("fs");
@@ -8,7 +8,7 @@ const uiPath = "ui/EquipWindow.ui";
 const grid = "/ui/EquipWindow/Window/Grid";
 const b = UIBuilder.load(uiPath);
 
-for (let i = 21; i <= 28; i += 1) {
+for (let i = 21; i <= 50; i += 1) {
   const cell = `${grid}/Cell${i}`;
   if (b.find(cell) === null) {
     b.button(cell, "", {
@@ -69,4 +69,4 @@ b.write(uiPath, { strict: true, lint: true });
 // Maker가 저장한 기존 파일의 CRLF를 유지해 8칸 추가가 전 파일 재직렬화로 보이지 않게 한다.
 const serialized = fs.readFileSync(uiPath, "utf8").replace(/\r?\n/g, "\r\n");
 fs.writeFileSync(uiPath, serialized, "utf8");
-console.log("[T52] EquipWindow 스킬 격자 28칸 생성 및 검증 완료");
+console.log("[T64] EquipWindow 스킬 격자 50칸 생성 및 검증 완료");
