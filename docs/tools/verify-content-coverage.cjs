@@ -160,6 +160,16 @@ const activeWithoutVisual = skills
   .filter((skill) => (skill.source === "monster" || skill.source === "boss") && skill.skill_kind !== "passive")
   .filter((skill) => !skill.effect_ruid && !skill.layer_ruids && !skill.projectile_ruid)
   .map((skill) => skill.id);
+const t68SkillIds = new Set([
+  "s_mon_official_knight_c", "s_mon_official_knight_d", "s_mon_advanced_knight_a",
+  "s_mon_advanced_knight_b", "s_mon_cygnus", "s_mon_mutant_dark_stump",
+  "s_mon_mutant_iron_hog", "s_mon_mutant_stone_mask", "s_mon_ancient_dark_golem",
+  "s_mon_mutant_stumpy",
+]);
+const invalidT68ActiveScalingStats = skills
+  .filter((skill) => t68SkillIds.has(skill.id) && skill.skill_kind !== "passive")
+  .filter((skill) => skill.scaling_stat !== "ATK" && skill.scaling_stat !== "INT")
+  .map((skill) => `${skill.id}:${skill.scaling_stat}`);
 const currentAreaLayerExpected = new Map([
   ["s_mon_snail", 2],
   ["s_mon_blue_snail", 2],
@@ -571,6 +581,7 @@ const result = {
   legacyMaterialResidue,
   passiveEffectResidue,
   activeWithoutVisual,
+  invalidT68ActiveScalingStats,
   currentAreaLayerCounts: Object.fromEntries(Array.from(currentAreaLayerExpected.keys()).map((id) => [
     id, splitPipe(skillById.get(id)?.layer_ruids).length,
   ])),
@@ -618,7 +629,7 @@ const result = {
     && /if item\.item_type == "passive" then[\s\S]+?return\s+end\s+\s*if wasSelected == false then\s+self:Refresh\(\)\s+return\s+end/.test(mlua)
     && /log\("\[Inventory창\] 장착 요청 " .. item\.slot/.test(mlua),
   equipCells: equipEntities.filter((entity) => /EquipWindow\/Window\/Grid\/Cell\d+$/.test(entity.path)).length,
-  equipCellCountOk: /property integer cellCount = 91\b/.test(equipMlua),
+  equipCellCountOk: /property integer cellCount = 101\b/.test(equipMlua),
   skillGridColumns: skillGrid === null ? null : skillGrid.ConstraintCount,
   skillIconAlphaOk,
   skillSourceTabsRemoved,
@@ -638,8 +649,8 @@ const result = {
 
 console.log(JSON.stringify(result, null, 2));
 
-if (monsters.length !== 91 || skills.filter((skill) => skill.source === "monster").length !== 91
-  || specificItems.filter((item) => item.item_type === "equip").length !== 91
+if (monsters.length !== 101 || skills.filter((skill) => skill.source === "monster").length !== 101
+  || specificItems.filter((item) => item.item_type === "equip").length !== 101
   || missingSkill.length || missingItem.length || badRuid.length
   || badItemTypeMapping.length || badEquipment.length || badAvatarCategories.length
   || badCorrectedPassiveEquipment.length
@@ -647,11 +658,12 @@ if (monsters.length !== 91 || skills.filter((skill) => skill.source === "monster
   || !result.heroPassiveWiringOk || !result.finalStatsIntegerOk || !result.collectionStackCapOk
   || !result.heroRewardSeparationOk
   || legacyMaterialResidue.length
-  || passiveEffectResidue.length || activeWithoutVisual.length || badLayerRecipes.length
+  || passiveEffectResidue.length || activeWithoutVisual.length || invalidT68ActiveScalingStats.length
+  || badLayerRecipes.length
   || retiredCustomEffectResidue.length || materialSpriteEffectResidue.length
   || rejectedMismatchedEffectResidue.length
   || badGateSkills.length
-  || bossRooms.length !== 20 || bossItemMissing.length
+  || bossRooms.length !== 22 || bossItemMissing.length
   || balance.get("boss_hp_multiplier") !== 10
   || balance.get("boss_time_limit_seconds") !== 300
   || result.bossHudEntities !== 6 || !result.bossBindingsOk || !result.statBindingsOk
@@ -669,7 +681,7 @@ if (monsters.length !== 91 || skills.filter((skill) => skill.source === "monster
   || !result.inventoryTwoClickEquipOk
   || !result.avatarEquipmentWiringOk
   || !result.avatarCategoryMappingsOk
-  || result.equipCells !== 91 || !result.equipCellCountOk
+  || result.equipCells !== 101 || !result.equipCellCountOk
   || result.skillGridColumns !== 5 || !result.skillIconAlphaOk || !result.skillSourceTabsRemoved
   || !result.roomProgressDisabled || result.worldMapTop !== -150
   || result.worldMapButtons !== 12 || result.popupEntities !== 18 || !result.popupBindingsOk

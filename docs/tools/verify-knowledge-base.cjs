@@ -141,6 +141,7 @@ const expectedAreaOrder = [
   'area_00', 'area_01', 'area_03', 'area_02', 'area_04', 'area_05',
   'area_07', 'area_08', 'area_09', 'area_10', 'area_11', 'area_12',
   'area_13', 'area_14', 'area_15', 'area_16', 'area_17', 'area_18',
+  'area_19', 'area_20',
 ];
 const oppositeDirection = { north: 'south', south: 'north', east: 'west', west: 'east' };
 const roomsById = new Map(rooms.map((room) => [room.id, room]));
@@ -161,10 +162,10 @@ for (const room of rooms) {
   }
 }
 
-if (capturableMonsters.length !== 91) fail(`포획 대상 몬스터 수 불일치: ${capturableMonsters.length} (예상 91)`);
-if (monsterSkills.length !== 91) fail(`몬스터 스킬 수 불일치: ${monsterSkills.length} (예상 91)`);
-if (items.length !== 94) fail(`아이템 수 불일치: ${items.length} (예상 94)`);
-if (bossRooms.length !== 20) fail(`보스방 수 불일치: ${bossRooms.length} (예상 20)`);
+if (capturableMonsters.length !== 101) fail(`포획 대상 몬스터 수 불일치: ${capturableMonsters.length} (예상 101)`);
+if (monsterSkills.length !== 101) fail(`몬스터 스킬 수 불일치: ${monsterSkills.length} (예상 101)`);
+if (items.length !== 104) fail(`아이템 수 불일치: ${items.length} (예상 104)`);
+if (bossRooms.length !== 22) fail(`보스방 수 불일치: ${bossRooms.length} (예상 22)`);
 if (passiveItems.length !== 2) fail(`전직 패시브 수 불일치: ${passiveItems.length} (예상 2)`);
 if (areaOrder.join(',') !== expectedAreaOrder.join(',')) {
   fail(`지역 순서 불일치: ${areaOrder.join(' → ')}`);
@@ -182,7 +183,7 @@ if (!bowmasterPassive || bowmasterPassive.passive_stat !== 'DEX' || Number(bowma
 const status = read('docs/프로젝트_현황.md');
 const balanceDocument = read('docs/밸런스_확정수치.md');
 const handoff = read('docs/인수인계_현재상태.md');
-const requiredStatusClaims = ['91종', '94종', '20개', 'HP ×10', '300초', '최대 5장', 'STR +10', 'DEX +10'];
+const requiredStatusClaims = ['101종', '104종', '22개', 'HP ×10', '300초', '최대 5장', 'STR +10', 'DEX +10'];
 for (const claim of requiredStatusClaims) {
   if (!status.includes(claim)) fail(`프로젝트 현황의 필수 사실 누락: ${claim}`);
 }
