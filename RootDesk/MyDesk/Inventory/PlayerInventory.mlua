@@ -301,9 +301,13 @@ script PlayerInventory extends Component
         if category == "coat" then return MapleAvatarItemCategory.Coat end
         if category == "glove" then return MapleAvatarItemCategory.Glove end
         if category == "longcoat" then return MapleAvatarItemCategory.Longcoat end
+        if category == "pants" then return MapleAvatarItemCategory.Pants end
+        if category == "shoes" then return MapleAvatarItemCategory.Shoes end
+        if category == "cape" then return MapleAvatarItemCategory.Cape end
         if category == "shield" then return MapleAvatarItemCategory.Shield end
         if category == "onehandedweapon" then return MapleAvatarItemCategory.OneHandedWeapon end
         if category == "twohandedweapon" then return MapleAvatarItemCategory.TwoHandedWeapon end
+        if category == "eyeaccessory" then return MapleAvatarItemCategory.EyeAccessory end
         if category == "earaccessory" then return MapleAvatarItemCategory.EarAccessory end
         return MapleAvatarItemCategory.Invalid
     end

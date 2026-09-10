@@ -27,13 +27,13 @@ const tilesets = {
   area_10:"tileset://7a100000-0000-4000-8000-000000000010",
 };
 const expectedMonsters = {
-  area_07:["m_zombie_mushroom","m_copper_drake","m_drake","m_wild_kargo","m_tauromacis"],
+  area_07:["m_zombie_mushroom","m_copper_drake","m_drake","m_wild_kargo","m_tauromacis","m_jr_balrog"],
   area_08:["m_star_pixie","m_jr_cellion","m_lunar_pixie","m_luster_pixie","m_eliza"],
   area_09:["m_jr_yeti","m_dark_jr_yeti","m_hector","m_white_fang","m_snow_witch"],
   area_10:["m_bubble_fish","m_mask_fish","m_squid","m_shark","m_pianus"],
 };
 const fileByMonster = {
-  m_zombie_mushroom:"ZombieMushroom",m_copper_drake:"CopperDrake",m_drake:"Drake",m_wild_kargo:"WildKargo",m_tauromacis:"Tauromacis",
+  m_zombie_mushroom:"ZombieMushroom",m_copper_drake:"CopperDrake",m_drake:"Drake",m_wild_kargo:"WildKargo",m_tauromacis:"Tauromacis",m_jr_balrog:"JrBalrog",
   m_star_pixie:"StarPixie",m_jr_cellion:"JrCellion",m_lunar_pixie:"LunarPixie",m_luster_pixie:"LusterPixie",m_eliza:"Eliza",
   m_jr_yeti:"JrYeti",m_dark_jr_yeti:"DarkJrYeti",m_hector:"Hector",m_white_fang:"WhiteFang",m_snow_witch:"SnowWitch",
   m_bubble_fish:"BubbleFish",m_mask_fish:"MaskFish",m_squid:"Squid",m_shark:"Shark",m_pianus:"Pianus",
@@ -91,7 +91,8 @@ for (let areaIndex = 0; areaIndex < areaIds.length; areaIndex++) {
     return skill;
   });
   const passives = areaSkills.filter((skill) => skill.skill_kind === "passive").length;
-  if (passives !== 2 || areaSkills.length - passives !== 3) fail(`${areaId}: 액티브/패시브 ${areaSkills.length-passives}/${passives}`);
+  const expectedActive = areaId === "area_07" ? 4 : 3;
+  if (passives !== 2 || areaSkills.length - passives !== expectedActive) fail(`${areaId}: 액티브/패시브 ${areaSkills.length-passives}/${passives}`);
 
   for (const room of areaRooms) {
     const map = MapBuilder.read(path.join(mapDir, `${room.map_name}.map`));
@@ -114,8 +115,8 @@ for (let areaIndex = 0; areaIndex < areaIds.length; areaIndex++) {
     if ((room.room_type === "boss") !== names.has("Portal_Return")) fail(`${room.id}: 보스 귀환 포탈 불일치`);
     if (!sectorText.includes(`\"map://${room.map_name}\"`)) sectorMissing.push(room.map_name);
   }
-  summaries.push({areaId,rooms:areaRooms.length,monsters:actualMonsterIds,active:3,passive:2});
+  summaries.push({areaId,rooms:areaRooms.length,monsters:actualMonsterIds,active:areaId === "area_07" ? 4 : 3,passive:2});
 }
 
-console.log(JSON.stringify({summaries,totalRooms:32,totalMonsters:20,totalSkills:20,totalItems:20,tileCountEach:448,reciprocalConnections:true,hazardBoundaries:true,sectorMissing}, null, 2));
+console.log(JSON.stringify({summaries,totalRooms:32,totalMonsterPlacements:21,tileCountEach:448,reciprocalConnections:true,hazardBoundaries:true,sectorMissing}, null, 2));
 if (sectorMissing.length) console.warn("Maker Refresh와 Save 뒤 SectorConfig 등록을 다시 확인해야 합니다.");

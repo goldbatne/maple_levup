@@ -13,15 +13,15 @@ const areas = [
   {
     id: "area_07", name: "슬리피우드", entry: "r_071", order: 7, unlock: 60,
     tileset: "tileset://7a070000-0000-4000-8000-000000000007",
-    prefix: "07", priorBossRoom: "r_055", priorBossSkill: "s_mon_jr_balrog", statGate: 315,
-    note: "지역 20칸의 일곱 번째 (Lv61~70). 늪과 개미굴을 지나 저주받은 신전의 타우로마시스에게 닿는다",
+    prefix: "07", priorBossRoom: "r_055", priorBossSkill: "s_mon_king_clang", statGate: 315,
+    note: "지역 20칸의 일곱 번째 (Lv61~70). 늪과 개미굴을 지나 주니어 발록의 금지된 제단에 닿는다",
     rooms: [
       ["1", "슬리피우드 늪 입구", "m_zombie_mushroom", 4, 61],
       ["2", "축축한 개미굴", "m_copper_drake", 4, 63],
       ["3", "깊은 드레이크 동굴", "m_drake", 5, 65],
       ["a", "잊힌 신전의 샛길", "m_wild_kargo", 4, 69],
-      ["4", "저주받은 신전 입구", "m_wild_kargo", 5, 68],
-      ["5", "황소 수문장의 제단", "m_tauromacis", 1, 70],
+      ["4", "황소 수문장의 회랑", "m_tauromacis", 5, 68],
+      ["5", "주니어 발록의 제단", "m_jr_balrog", 1, 70],
       ["6", "독안개 버섯굴", "m_zombie_mushroom", 5, 62],
       ["7", "용암빛 지하 통로", "m_drake", 5, 64],
     ],
@@ -29,7 +29,7 @@ const areas = [
   {
     id: "area_08", name: "오르비스", entry: "r_081", order: 8, unlock: 70,
     tileset: "tileset://7a080000-0000-4000-8000-000000000008",
-    prefix: "08", priorBossRoom: "r_075", priorBossSkill: "s_mon_tauromacis", statGate: 365,
+    prefix: "08", priorBossRoom: "r_075", priorBossSkill: "s_mon_jr_balrog", statGate: 365,
     note: "지역 20칸의 여덟 번째 (Lv71~80). 구름공원과 별빛길을 지나 엘리쟈의 정원에 닿는다",
     rooms: [
       ["1", "오르비스 구름공원", "m_star_pixie", 4, 71],
@@ -107,7 +107,7 @@ const skills = [
   {id:"s_mon_copper_drake",name:"청동 비늘",stat:"STR",kind:"passive",icon:"thumbnail://da160cd4b78c479ab8dfaa225b2dcd47",desc:"습한 동굴에서도 단단함을 잃지 않는 비늘을 익혀 보유 수만큼 STR을 높인다"},
   {id:"s_mon_drake",name:"동굴 용염",stat:"INT",coef:2.45,target:"area",max:3,range:4.6,cool:6,icon:"thumbnail://f8cfac4e30394735861603f6bfcb1932",layers:"5638984319fd476ca3d89e2aaca7f32a|a610b14bbc55477cbc78777a5a2e7ed1",delays:"0|0.12",durations:"0.65|0.78",scales:"0.8|0.95",desc:"드레이크가 품은 동굴의 열기를 전방에 터뜨려 가까운 적 셋을 휩쓴다"},
   {id:"s_mon_wild_kargo",name:"야수의 그림자 돌진",stat:"ATK",coef:2.55,target:"single",max:1,range:0,cool:6,dash:6.2,icon:"thumbnail://7d1c1d17eff44687b35ca0d5108084dc",layers:"0207c85c05dd4c4eac12f9ee735d0545|057c2da13da2492c95cb92db424803db",delays:"0|0.04",durations:"0.52|0.65",scales:"0.65|0.72",driftsX:"1.0|0",desc:"저주받은 신전을 지키는 와일드카고처럼 낮게 몸을 숙여 빠르게 돌진한다"},
-  {id:"s_mon_tauromacis",name:"수문장의 낙뢰",stat:"INT",coef:2.8,target:"area",max:0,range:5.4,cool:8,key:true,icon:"thumbnail://5ef751fd743e41609bf98e03de4df51c",layers:"3cbd85dcfe3c41c4989adec59385c257",delays:"0.08",durations:"0.82",scales:"1.2",desc:"저주받은 신전의 수문장이 창끝으로 번개를 불러 주변을 내리친다"},
+  {id:"s_mon_tauromacis",name:"수문장의 낙뢰",stat:"INT",coef:2.8,target:"area",max:0,range:5.4,cool:8,icon:"thumbnail://5ef751fd743e41609bf98e03de4df51c",layers:"3cbd85dcfe3c41c4989adec59385c257",delays:"0.08",durations:"0.82",scales:"1.2",desc:"저주받은 신전의 수문장이 창끝으로 번개를 불러 주변을 내리친다"},
 
   {id:"s_mon_star_pixie",name:"별빛 탄환",stat:"INT",coef:2.45,target:"single",max:1,range:6,cool:5,icon:"thumbnail://ca136923b7e84267af993bdbabada385",projectile:"b61e7e2a50b2405794f88fdddf44b73a",layers:"78e3188f0fc14797a8383658e626e3ea|6ffbabe486c24e5ea6cda2c54022033b",delays:"0|0.18",durations:"0.62|0.58",scales:"0.72|0.7",desc:"스타픽시의 작은 별을 쏘아 한 대상을 밝게 터뜨린다"},
   {id:"s_mon_jr_cellion",name:"붉은 뿔의 기백",stat:"STR",kind:"passive",icon:"thumbnail://016bc9a459104e2a8a2fea03d7130519",desc:"구름공원을 뛰노는 주니어 샐리온의 기백을 익혀 보유 수만큼 STR을 높인다"},
@@ -133,7 +133,7 @@ const items = [
   {id:"i_copper_chainmail",name:"블루 이너스 체인메일",slot:"armor",def:9,drop:"m_copper_drake",ruid:"30289888185f4882bfbdb782b79e781f",cat:"coat"},
   {id:"i_drake_zeco",name:"제코",slot:"weapon",atk:9,drop:"m_drake",ruid:"270d3a67004d4ff784801ee6f1ec77b9",cat:"twohandedweapon"},
   {id:"i_kargo_anakamoon",name:"다크 아나카문",slot:"armor",int:9,drop:"m_wild_kargo",ruid:"6e4f1a2f9b6e42d6ae9f03d9e50cb30d",cat:"longcoat"},
-  {id:"i_tauromacis_sledge",name:"기간틱 슬레지",slot:"weapon",atk:10,drop:"m_tauromacis",ruid:"c76fe20ed9934413837a2b3d267ef74b",cat:"onehandedweapon",boss:true},
+  {id:"i_tauromacis_sledge",name:"기간틱 슬레지",slot:"weapon",atk:10,drop:"m_tauromacis",ruid:"c76fe20ed9934413837a2b3d267ef74b",cat:"onehandedweapon"},
 
   {id:"i_star_blue_moon",name:"블루 문",slot:"accessory",luk:10,drop:"m_star_pixie",ruid:"1930b885522f4328975d192b7e3974f2",cat:"earaccessory"},
   {id:"i_cellion_moon_shoes",name:"레드 문슈즈",slot:"armor",def:10,drop:"m_jr_cellion",ruid:"003950a831b04798a44a6c98c2369d37",cat:"shoes"},
