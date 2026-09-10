@@ -322,6 +322,11 @@ script GameDataVerify extends Logic
                         --
                         -- 대표 정정: *"그냥 마을에서 우측으로 가자는거였잖아."*
                         log("    " .. dir .. " -> " .. target .. " (마을 — 역방향 면제)")
+                    elseif string.sub(id, 1, 6) == "r_job_" then
+                        -- 전직 보스방은 전용 진입 로직으로 들어오고, 연결 칸은 원래 방으로
+                        -- 돌아가는 출구에만 쓴다. 따라서 일반 탐험 방처럼 역방향 연결을
+                        -- 강제하면 정상인 단방향 귀환을 깨진 연결로 오인한다.
+                        log("    " .. dir .. " -> " .. target .. " (전직 보스방 귀환 — 역방향 면제)")
                     elseif targetRoom.connections[back] ~= id then
                         brokenCount += 1
                         log_error("    " .. dir .. " -> " .. target .. " : 역방향(" .. back .. ")이 되돌아오지 않는다")
@@ -421,9 +426,13 @@ script GameDataVerify extends Logic
                     and item.avatar_category ~= "coat"
                     and item.avatar_category ~= "glove"
                     and item.avatar_category ~= "longcoat"
+                    and item.avatar_category ~= "pants"
+                    and item.avatar_category ~= "shoes"
+                    and item.avatar_category ~= "cape"
                     and item.avatar_category ~= "shield"
                     and item.avatar_category ~= "onehandedweapon"
                     and item.avatar_category ~= "twohandedweapon"
+                    and item.avatar_category ~= "eyeaccessory"
                     and item.avatar_category ~= "earaccessory" then
                     log_error("  [아이템] " .. item.id .. " 의 아바타 분류가 이상하다: '"
                         .. item.avatar_category .. "'")

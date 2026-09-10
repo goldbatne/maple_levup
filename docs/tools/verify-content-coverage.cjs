@@ -73,12 +73,14 @@ const badItemTypeMapping = specificItems
 const validEquipSlots = new Set(["weapon", "armor", "accessory"]);
 const validAvatarCategories = new Set([
   "cap", "coat", "glove", "longcoat", "pants", "shoes", "cape", "shield",
-  "onehandedweapon", "twohandedweapon", "earaccessory",
+  "onehandedweapon", "twohandedweapon", "earaccessory", "eyeaccessory",
 ]);
 const badEquipment = specificItems
   .filter((item) => item.item_type === "equip")
   .filter((item) => !validEquipSlots.has(item.slot)
-    || (!/원작 아이템 \d+/.test(item.note) && !/원작 MSW 아바타 아이템/.test(item.note)))
+    || (!/원작 아이템 \d+/.test(item.note)
+      && !/원작 MSW 아바타 아이템/.test(item.note)
+      && !/공식 MSW 아바타 아이템/.test(item.note)))
   .map((item) => item.id);
 const badAvatarCategories = items
   .filter((item) => item.item_type === "equip"
@@ -276,6 +278,13 @@ const bossRooms = rooms.filter((room) => room.room_type === "boss");
 const bossItemMissing = bossRooms
   .filter((room) => !items.some((item) => item.drop_from.split("|").includes(room.monster_id)))
   .map((room) => room.id + ":" + room.monster_id);
+const inventoryCategoryCounts = {
+  weapon: items.filter((item) => item.item_type === "equip" && item.slot === "weapon").length,
+  armor: items.filter((item) => item.item_type === "equip" && item.slot === "armor").length,
+  accessory: items.filter((item) => item.item_type === "equip" && item.slot === "accessory").length,
+  passive: items.filter((item) => item.item_type === "passive").length,
+  consume: items.filter((item) => item.item_type === "consume").length,
+};
 
 function kinds(ids) {
   return ids.map((id) => {
@@ -327,6 +336,16 @@ const roomSpawnerMlua = fs.readFileSync("RootDesk/MyDesk/Room/RoomSpawner.mlua",
 const itemDropMlua = fs.readFileSync("RootDesk/MyDesk/Inventory/ItemDrop.mlua", "utf8");
 const playerStatsMlua = fs.readFileSync("RootDesk/MyDesk/Player/PlayerStats.mlua", "utf8");
 const playerInventoryMlua = fs.readFileSync("RootDesk/MyDesk/Inventory/PlayerInventory.mlua", "utf8");
+const avatarCategoryEnumNames = {
+  cap: "Cap", coat: "Coat", glove: "Glove", longcoat: "Longcoat",
+  pants: "Pants", shoes: "Shoes", cape: "Cape", shield: "Shield",
+  onehandedweapon: "OneHandedWeapon", twohandedweapon: "TwoHandedWeapon",
+  earaccessory: "EarAccessory", eyeaccessory: "EyeAccessory",
+};
+const avatarCategoryMappingsOk = Array.from(validAvatarCategories).every((category) =>
+  playerInventoryMlua.includes(
+    `if category == "${category}" then return MapleAvatarItemCategory.${avatarCategoryEnumNames[category]} end`,
+  ));
 const roomMonsterMlua = fs.readFileSync("RootDesk/MyDesk/Combat/RoomMonster.mlua", "utf8");
 const playerCollectionMlua = fs.readFileSync("RootDesk/MyDesk/Progress/PlayerCollection.mlua", "utf8");
 const monsterAttackMlua = fs.readFileSync("RootDesk/MyDesk/MonsterAttack.mlua", "utf8");
@@ -346,7 +365,7 @@ const topMenuRightEdges = topMenuTransforms.map(([name, transform]) => [
   name, transform === null ? null : transform.anchoredPosition.x,
 ]);
 const bindings = [];
-for (let i = 0; i < 36; i += 1) {
+for (let i = 0; i < 48; i += 1) {
   const match = mlua.match(new RegExp(
     "property ButtonComponent itemRow" + i + " = \"([^\"]+)\"",
   ));
@@ -466,14 +485,14 @@ const popupBindingsOk = Object.entries(popupBindingPaths).every(([property, path
     (entity) => entity.id === match[1] && entity.path === path,
   );
 });
-const inventoryIconAlphaOk = Array.from({ length: 36 }, (_, i) => {
+const inventoryIconAlphaOk = Array.from({ length: 48 }, (_, i) => {
   const path = "/ui/Inventory/Window/Box/ItemRow" + i + "/Icon";
   const sprite = readUiComponent("ui/Inventory.ui", path, "MOD.Core.SpriteGUIRendererComponent");
   const transform = readUiTransform("ui/Inventory.ui", path);
   return sprite !== null && sprite.Color.a === 1
     && transform !== null && transform.anchoredPosition.x === 0;
 }).every(Boolean);
-const inventoryClickTargetsOk = Array.from({ length: 36 }, (_, i) => {
+const inventoryClickTargetsOk = Array.from({ length: 48 }, (_, i) => {
   const path = "/ui/Inventory/Window/Box/ItemRow" + i;
   const button = readUiComponent("ui/Inventory.ui", path, "MOD.Core.ButtonComponent");
   const sprite = readUiComponent("ui/Inventory.ui", path, "MOD.Core.SpriteGUIRendererComponent");
@@ -487,7 +506,7 @@ const inventoryGridBackground = readUiComponent(
 );
 const inventoryGridDoesNotBlockClicks = inventoryGridBackground !== null
   && inventoryGridBackground.RaycastTarget === false;
-const inventoryPlaceholdersEmpty = Array.from({ length: 36 }, (_, i) => {
+const inventoryPlaceholdersEmpty = Array.from({ length: 48 }, (_, i) => {
   const path = "/ui/Inventory/Window/Box/ItemRow" + i + "/Icon";
   const sprite = readUiComponent("ui/Inventory.ui", path, "MOD.Core.SpriteGUIRendererComponent");
   return sprite !== null && sprite.ImageRUID.DataId === "";
@@ -547,6 +566,7 @@ const result = {
     && /CostumeManagerComponent/.test(playerInventoryMlua)
     && /string\.sub\(ruid, 1, 12\) == "thumbnail:\/\/"/.test(playerInventoryMlua)
     && /inventory:RefreshAvatarEquipment\(\)/.test(playerDbMlua),
+  avatarCategoryMappingsOk,
   badCorrectedPassiveEquipment,
   legacyMaterialResidue,
   passiveEffectResidue,
@@ -580,6 +600,7 @@ const result = {
   henesysGate: [bossGate.gate_type, bossGate.gate_key, bossGate.gate_value],
   nautilusGate: [gate.gate_type, gate.gate_key, gate.gate_value],
   inventorySlots: entities.filter((entity) => /Inventory\/Window\/Box\/ItemRow\d+$/.test(entity.path)).length,
+  inventoryCategoryCounts,
   bindingsOk: bindings.every(Boolean),
   inventoryIconAlphaOk,
   inventoryClickTargetsOk,
@@ -597,7 +618,7 @@ const result = {
     && /if item\.item_type == "passive" then[\s\S]+?return\s+end\s+\s*if wasSelected == false then\s+self:Refresh\(\)\s+return\s+end/.test(mlua)
     && /log\("\[Inventory창\] 장착 요청 " .. item\.slot/.test(mlua),
   equipCells: equipEntities.filter((entity) => /EquipWindow\/Window\/Grid\/Cell\d+$/.test(entity.path)).length,
-  equipCellCountOk: /property integer cellCount = 50\b/.test(equipMlua),
+  equipCellCountOk: /property integer cellCount = 91\b/.test(equipMlua),
   skillGridColumns: skillGrid === null ? null : skillGrid.ConstraintCount,
   skillIconAlphaOk,
   skillSourceTabsRemoved,
@@ -617,8 +638,8 @@ const result = {
 
 console.log(JSON.stringify(result, null, 2));
 
-if (monsters.length !== 50 || skills.filter((skill) => skill.source === "monster").length !== 50
-  || specificItems.filter((item) => item.item_type === "equip").length !== 50
+if (monsters.length !== 91 || skills.filter((skill) => skill.source === "monster").length !== 91
+  || specificItems.filter((item) => item.item_type === "equip").length !== 91
   || missingSkill.length || missingItem.length || badRuid.length
   || badItemTypeMapping.length || badEquipment.length || badAvatarCategories.length
   || badCorrectedPassiveEquipment.length
@@ -630,7 +651,7 @@ if (monsters.length !== 50 || skills.filter((skill) => skill.source === "monster
   || retiredCustomEffectResidue.length || materialSpriteEffectResidue.length
   || rejectedMismatchedEffectResidue.length
   || badGateSkills.length
-  || bossRooms.length !== 12 || bossItemMissing.length
+  || bossRooms.length !== 20 || bossItemMissing.length
   || balance.get("boss_hp_multiplier") !== 10
   || balance.get("boss_time_limit_seconds") !== 300
   || result.bossHudEntities !== 6 || !result.bossBindingsOk || !result.statBindingsOk
@@ -639,13 +660,16 @@ if (monsters.length !== 50 || skills.filter((skill) => skill.source === "monster
   || topMenuTransforms.some(([, transform, expectedRight]) => (
     transform === null || transform.anchoredPosition.x !== expectedRight
   ))
-  || result.inventorySlots !== 36 || !result.bindingsOk || !result.inventoryIconAlphaOk
+  || result.inventorySlots !== 48
+  || Object.values(result.inventoryCategoryCounts).some((count) => count > 48)
+  || !result.bindingsOk || !result.inventoryIconAlphaOk
   || !result.inventoryClickTargetsOk || !result.inventoryGridDoesNotBlockClicks
   || !result.inventoryPlaceholdersEmpty || !result.inventoryThumbnailCacheOk
   || !result.inventoryCategoryBindingsOk || !result.inventoryCategoryFilterOk
   || !result.inventoryTwoClickEquipOk
   || !result.avatarEquipmentWiringOk
-  || result.equipCells !== 50 || !result.equipCellCountOk
+  || !result.avatarCategoryMappingsOk
+  || result.equipCells !== 91 || !result.equipCellCountOk
   || result.skillGridColumns !== 5 || !result.skillIconAlphaOk || !result.skillSourceTabsRemoved
   || !result.roomProgressDisabled || result.worldMapTop !== -150
   || result.worldMapButtons !== 12 || result.popupEntities !== 18 || !result.popupBindingsOk

@@ -9,8 +9,8 @@
 -- 장비인가·슬롯이 맞는가·가지고 있는가는 전부 서버가 다시 본다 —
 -- 창이 보내는 값은 클라가 조작할 수 있으므로 여기의 검사는 표시용일 뿐이다.
 --
-    -- 고유 아이템은 6x6 슬롯 36칸에 그린다. area_00의 두 장비가 추가된 뒤에도
-    -- 공통 물약·몬스터 장비·히든 보스 패시브를 한 번에 담을 수 있다.
+    -- 고유 아이템은 6x8 슬롯 48칸에 그린다. T67까지 한 분류의 장비가
+    -- 36종을 넘으므로 창 높이는 유지하고 슬롯을 촘촘하게 재배치한다.
 
 @Logic
 script InventoryPanel extends Logic
@@ -66,6 +66,18 @@ script InventoryPanel extends Logic
     property ButtonComponent itemRow33 = "f1246396-1a96-4002-baa4-76a35b5cf4f6"
     property ButtonComponent itemRow34 = "19763b04-bb29-4404-850c-b9e112844d39"
     property ButtonComponent itemRow35 = "1052d676-8657-4499-862e-56cb951145d1"
+    property ButtonComponent itemRow36 = "265695c9-111f-45d8-84ed-7cbe6ca0d473"
+    property ButtonComponent itemRow37 = "c9ebcc65-6ab4-437f-afcc-e119ab5580f7"
+    property ButtonComponent itemRow38 = "db1f4bd2-d956-41e5-9e82-5cdeea9d532a"
+    property ButtonComponent itemRow39 = "ba95ec55-8890-4019-b3c9-7134f4411d11"
+    property ButtonComponent itemRow40 = "53b4996f-8c03-4d09-af31-317851334552"
+    property ButtonComponent itemRow41 = "ef863c95-d44b-42c1-bfee-d1a9bddd3353"
+    property ButtonComponent itemRow42 = "54243a55-a276-434e-9396-0c00f178438b"
+    property ButtonComponent itemRow43 = "92d1c430-3937-4add-b1c5-9bf38f2cab53"
+    property ButtonComponent itemRow44 = "e229bff1-d977-4f91-a81a-652906ae03a9"
+    property ButtonComponent itemRow45 = "2ac5144b-acea-47f1-8c89-80c537a8e21d"
+    property ButtonComponent itemRow46 = "56134336-6cd3-48cb-a645-9e79d32ca347"
+    property ButtonComponent itemRow47 = "15c84349-7fef-4d17-97a1-61ab1a1c9001"
 
     -- (엔티티, 핸들러) 병렬 배열. `handler`는 mlua 예약어라 키로 쓸 수 없다.
     property table handlerEntities = {}
@@ -84,7 +96,7 @@ script InventoryPanel extends Logic
     property string currentCategory = "weapon"
 
     property integer equipRowCount = 3
-    property integer itemRowCount = 36
+    property integer itemRowCount = 48
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -188,6 +200,18 @@ script InventoryPanel extends Logic
         if index == 34 then return self.itemRow33 end
         if index == 35 then return self.itemRow34 end
         if index == 36 then return self.itemRow35 end
+        if index == 37 then return self.itemRow36 end
+        if index == 38 then return self.itemRow37 end
+        if index == 39 then return self.itemRow38 end
+        if index == 40 then return self.itemRow39 end
+        if index == 41 then return self.itemRow40 end
+        if index == 42 then return self.itemRow41 end
+        if index == 43 then return self.itemRow42 end
+        if index == 44 then return self.itemRow43 end
+        if index == 45 then return self.itemRow44 end
+        if index == 46 then return self.itemRow45 end
+        if index == 47 then return self.itemRow46 end
+        if index == 48 then return self.itemRow47 end
         return nil
     end
 
@@ -389,8 +413,8 @@ script InventoryPanel extends Logic
                 end
                 -- 보유 아이템은 상태 표현 때문에 흐리게 만들지 않는다. 선택 여부는 슬롯 테두리로만 가른다.
                 icon.Color = Color(1, 1, 1, 1)
-                iconEntity.UITransformComponent.anchoredPosition = Vector2(0, -2)
-                iconEntity.UITransformComponent.RectSize = Vector2(62, 62)
+                iconEntity.UITransformComponent.anchoredPosition = Vector2(0, -1)
+                iconEntity.UITransformComponent.RectSize = Vector2(44, 44)
             end
         end
 
