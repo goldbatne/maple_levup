@@ -1,0 +1,161 @@
+﻿id,name,room_type,conn_north,conn_south,conn_east,conn_west,gate_type,gate_key,gate_value,map_name,monster_id,monster_count,monster_level,is_start,area_id,portal_x,portal_y
+r_town,헤네시스,town,,,,,none,,,maptown,,0,,true,,13,1
+r_001,버섯마을 외곽,hunt,,,r_002,r_town,none,,,map001,m_snail,4,1,,area_00,13,1
+r_002,달팽이 사냥터,hunt,,r_006,r_003,r_001,none,,,map002,m_blue_snail,4,3,,area_00,13,1
+r_003,암허스트 갈림길,hunt,r_00a,r_007,r_004,r_002,none,,,map003,m_red_snail,5,5,,area_00,13,1
+r_00a,위험한 숲,hunt,,r_003,,,stat,STAT_TOTAL,15,map00a,m_slime,4,7,,area_00,13,1
+r_004,사우스페리 선착장,hunt,,,r_005,r_003,none,,,map004,m_red_snail,5,8,,area_00,13,1
+r_005,리스항구 해안가,boss,,,,r_004,none,,,map005,m_mano,1,10,,area_00,13,1
+r_006,작은 숲속 샛길,hunt,r_002,,r_007,,none,,,map006,m_snail,5,2,,area_00,13,1
+r_007,리스항구 세갈래길,hunt,r_003,,,r_006,none,,,map007,m_slime,5,6,,area_00,13,1
+r_01,시작 숲길,hunt,,,r_02,r_town,none,,,map01,m_snail,3,11,,area_01,13,1
+r_02,이끼 낀 관문,gate,r_03,,r_04,r_01,stat,STAT_TOTAL,60,map02,m_blue_snail,4,13,,area_01,13,1
+r_03,무너진 서고,hunt,,r_02,,,boss,r_05,,map03,m_mushroom,4,18,,area_01,13,1
+r_04,돌무덤 길,hunt,,,r_05,r_02,none,,,map04,m_horny_mushroom,5,22,,area_01,13,1
+r_05,머쉬맘의 오솔길,boss,,,,r_04,none,,,map05,m_mushmom,1,25,,area_01,13,1
+r_job_01,시험의 방,boss,,,,,none,,,mapjob,m_adv_hero,1,,,area_01,0,0
+r_job_02,바람의 사격장,boss,,r_29,,,none,,,mapjob02,m_adv_bowmaster,1,30,,area_03,0,0
+r_11,남쪽 능선,hunt,,r_town,r_12,,none,,,map11,m_axe_stump,4,28,,area_02,13,1
+r_12,바위 황무지,hunt,,,r_13,r_11,none,,,map12,m_dark_axe_stump,4,32,,area_02,13,1
+r_13,먼지바람 언덕,hunt,r_1a,r_16,r_14,r_12,none,,,map13,m_wild_boar,5,36,,area_02,13,1
+r_1a,발굴 금지 구역,hunt,,r_13,,,boss,r_05,,map1a,m_skeleton_commander,4,40,,area_02,13,1
+r_14,험한 바위 지대,hunt,,r_17,r_15,r_13,stat,STAT_TOTAL,220,map14,m_stone_golem,5,46,,area_02,13,1
+r_15,돌풍의 봉우리,boss,,,,r_14,none,,,map15,m_stumpy,1,36,,area_02,13,1
+r_16,아머피그의 땅,hunt,r_13,,r_17,,none,,,map16,m_iron_hog,5,38,,area_02,13,1
+r_17,불의 땅,hunt,r_14,,,r_16,none,,,map17,m_fire_boar,5,42,,area_02,13,1
+r_041,방치된 공사장,hunt,,,r_042,r_town,boss,r_15,,map041,m_octopus,4,41,,area_04,13,1
+r_042,추락주의,hunt,,,r_043,r_041,,,,map042,m_stirge,4,43,,area_04,13,1
+r_043,지하철 매표소,hunt,r_04a,r_046,r_044,r_042,,,,map043,m_jr_wraith,5,45,,area_04,13,1
+r_04a,비어있는 지하철,hunt,,r_043,,,key,s_mon_faust,,map04a,m_wraith,4,50,,area_04,13,1
+r_044,1호선 2구간,hunt,,r_047,r_045,r_043,stat,STAT_TOTAL,215,map044,m_wraith,5,48,,area_04,13,1
+r_045,1호선 종착점,boss,,,,r_044,,,,map045,m_shade,1,50,,area_04,13,1
+r_046,2호선 1구간,hunt,r_043,,r_047,,,,,map046,m_stirge,5,44,,area_04,13,1
+r_047,2호선 3구간,hunt,r_044,,,r_046,,,,map047,m_jr_wraith,5,46,,area_04,13,1
+r_21,엘리니아 남쪽 숲,hunt,r_town,,r_22,,,,,map21,m_slime,4,21,,area_03,13,1
+r_22,솟아오른 나무,hunt,,r_26,r_23,r_21,,,,map22,m_dark_stump,4,22,,area_03,13,1
+r_23,나무 사이 오솔길,hunt,r_29,r_27,r_24,r_22,,,,map23,m_bubbling,5,24,,area_03,13,1
+r_29,요정과 나무의 숲,hunt,,r_23,,,key,s_mon_mushmom,,map29,m_fairy,4,30,,area_03,13,1
+r_24,북쪽 숲 나무던전,hunt,,,r_25,r_23,stat,STAT_TOTAL,115,map24,m_fairy,5,27,,area_03,13,1
+r_25,사악한 기운의 숲,boss,,,,r_24,,,,map25,m_faust,1,30,,area_03,13,1
+r_26,어두운 숲속,hunt,r_22,,r_27,,,,,map26,m_dark_stump,5,23,,area_03,13,1
+r_27,남쪽 숲 나무던전,hunt,r_23,,,r_26,,,,map27,m_bubbling,5,26,,area_03,13,1
+r_051,리본돼지 해안가,hunt,,,r_052,r_town,boss,r_045,,map051,m_ribbon_pig,4,51,,area_05,13,1
+r_052,파란리본 해안가,hunt,,r_056,r_053,r_051,,,,map052,m_blue_pig,4,53,,area_05,13,1
+r_053,하얀파도 선착장,hunt,r_05a,r_057,r_054,r_052,,,,map053,m_starfish,5,55,,area_05,13,1
+r_05a,노틸러스 화물칸,hunt,,r_053,,,key,s_mon_shade,,map05a,m_jellyfish,4,59,,area_05,13,1
+r_054,높은 파도 바다,hunt,,,r_055,r_053,stat,STAT_TOTAL,265,map054,m_jellyfish,5,58,,area_05,13,1
+r_055,킹크랑이 덮친 노틸러스 갑판,boss,,,,r_054,,,,map055,m_king_clang,1,60,,area_05,13,1
+r_056,얕은 여울,hunt,r_052,,r_057,,,,,map056,m_ribbon_pig,5,52,,area_05,13,1
+r_057,조개 모래톱,hunt,r_053,,,r_056,,,,map057,m_starfish,5,54,,area_05,13,1
+r_071,슬리피우드 늪 입구,hunt,,,r_072,r_town,boss,r_055,,map071,m_zombie_mushroom,4,61,,area_07,13,1
+r_072,축축한 개미굴,hunt,,r_076,r_073,r_071,,,,map072,m_copper_drake,4,63,,area_07,13,1
+r_073,깊은 드레이크 동굴,hunt,r_07a,r_077,r_074,r_072,,,,map073,m_drake,5,65,,area_07,13,1
+r_07a,잊힌 신전의 샛길,hunt,,r_073,,,key,s_mon_king_clang,,map07a,m_wild_kargo,4,69,,area_07,13,1
+r_074,황소 수문장의 회랑,hunt,,,r_075,r_073,stat,STAT_TOTAL,315,map074,m_tauromacis,5,68,,area_07,13,1
+r_075,주니어 발록의 제단,boss,,,,r_074,,,,map075,m_jr_balrog,1,70,,area_07,13,1
+r_076,독안개 버섯굴,hunt,r_072,,r_077,,,,,map076,m_zombie_mushroom,5,62,,area_07,13,1
+r_077,용암빛 지하 통로,hunt,r_073,,,r_076,,,,map077,m_drake,5,64,,area_07,13,1
+r_081,오르비스 구름공원,hunt,,,r_082,r_town,boss,r_075,,map081,m_star_pixie,4,71,,area_08,13,1
+r_082,붉은 뿔의 구름길,hunt,,r_086,r_083,r_081,,,,map082,m_jr_cellion,4,73,,area_08,13,1
+r_083,달빛 픽시 정원,hunt,r_08a,r_087,r_084,r_082,,,,map083,m_lunar_pixie,5,75,,area_08,13,1
+r_08a,숨은 별빛 전망대,hunt,,r_083,,,key,s_mon_jr_balrog,,map08a,m_luster_pixie,4,79,,area_08,13,1
+r_084,찬란한 구름 회랑,hunt,,,r_085,r_083,stat,STAT_TOTAL,365,map084,m_luster_pixie,5,78,,area_08,13,1
+r_085,엘리쟈의 어두운 정원,boss,,,,r_084,,,,map085,m_eliza,1,80,,area_08,13,1
+r_086,작은 별의 산책로,hunt,r_082,,r_087,,,,,map086,m_star_pixie,5,72,,area_08,13,1
+r_087,고요한 월광 구름,hunt,r_083,,,r_086,,,,map087,m_lunar_pixie,5,74,,area_08,13,1
+r_091,엘나스 눈바람 언덕,hunt,,,r_092,r_town,boss,r_085,,map091,m_jr_yeti,4,81,,area_09,13,1
+r_092,검은 눈송이 길,hunt,,r_096,r_093,r_091,,,,map092,m_dark_jr_yeti,4,83,,area_09,13,1
+r_093,헥터의 설원,hunt,r_09a,r_097,r_094,r_092,,,,map093,m_hector,5,85,,area_09,13,1
+r_09a,얼어붙은 사냥꾼 길,hunt,,r_093,,,key,s_mon_eliza,,map09a,m_white_fang,4,89,,area_09,13,1
+r_094,화이트팽 빙벽,hunt,,,r_095,r_093,stat,STAT_TOTAL,415,map094,m_white_fang,5,88,,area_09,13,1
+r_095,마녀의 추방지,boss,,,,r_094,,,,map095,m_snow_witch,1,90,,area_09,13,1
+r_096,어린 예티 골짜기,hunt,r_092,,r_097,,,,,map096,m_jr_yeti,5,82,,area_09,13,1
+r_097,늑대 발자국 협곡,hunt,r_093,,,r_096,,,,map097,m_hector,5,84,,area_09,13,1
+r_101,아쿠아로드 연안,hunt,,,r_102,r_town,boss,r_095,,map101,m_bubble_fish,4,91,,area_10,13,1
+r_102,가면 산호초,hunt,,r_106,r_103,r_101,,,,map102,m_mask_fish,4,93,,area_10,13,1
+r_103,스퀴드 먹물 해역,hunt,r_10a,r_107,r_104,r_102,,,,map103,m_squid,5,95,,area_10,13,1
+r_10a,침몰 유적의 샛길,hunt,,r_103,,,key,s_mon_snow_witch,,map10a,m_shark,4,99,,area_10,13,1
+r_104,위험한 심해,hunt,,,r_105,r_103,stat,STAT_TOTAL,465,map104,m_shark,5,98,,area_10,13,1
+r_105,피아누스의 깊은 동굴,boss,,,,r_104,,,,map105,m_pianus,1,100,,area_10,13,1
+r_106,방울물고기 산호밭,hunt,r_102,,r_107,,,,,map106,m_bubble_fish,5,92,,area_10,13,1
+r_107,검푸른 해저 협곡,hunt,r_103,,,r_106,,,,map107,m_squid,5,94,,area_10,13,1
+r_111,에오스탑 97층,hunt,,,r_112,r_town,boss,r_105,,map111,m_ratz,4,101,,area_11,13,1
+r_112,에오스탑 66층,hunt,,r_116,r_113,r_111,,,,map112,m_drumming_bunny,4,103,,area_11,13,1
+r_113,에오스탑 33층,hunt,r_11a,r_117,r_114,r_112,,,,map113,m_bloctopus,5,105,,area_11,13,1
+r_11a,태엽 장치의 샛길,hunt,,r_113,,,key,s_mon_pianus,,map11a,m_king_bloctopus,4,109,,area_11,13,1
+r_114,에오스탑 32층,hunt,,,r_115,r_113,stat,STAT_TOTAL,515,map114,m_king_bloctopus,5,108,,area_11,13,1
+r_115,숨겨진 탑,boss,,,,r_114,,,,map115,m_rombot,1,110,,area_11,13,1
+r_116,에오스탑 보급 창고,hunt,r_112,,r_117,,,,,map116,m_ratz,5,102,,area_11,13,1
+r_117,블록 장치 통로,hunt,r_113,,,r_116,,,,map117,m_bloctopus,5,104,,area_11,13,1
+r_121,구름테라스,hunt,,,r_122,r_town,boss,r_115,,map121,m_brown_teddy,4,111,,area_12,13,1
+r_122,하늘테라스,hunt,,r_126,r_123,r_121,,,,map122,m_toy_trojan,4,113,,area_12,13,1
+r_123,장난감공장 메인공정,hunt,r_12a,r_127,r_124,r_122,,,,map123,m_master_robo,5,115,,area_12,13,1
+r_12a,멈춘 시계의 비밀방,hunt,,r_123,,,key,s_mon_rombot,,map12a,m_chronos,4,119,,area_12,13,1
+r_124,시간의 길,hunt,,,r_125,r_123,stat,STAT_TOTAL,565,map124,m_chronos,5,118,,area_12,13,1
+r_125,시간의 소용돌이,boss,,,,r_124,,,,map125,m_timer,1,120,,area_12,13,1
+r_126,버려진 장난감 창고,hunt,r_122,,r_127,,,,,map126,m_brown_teddy,5,112,,area_12,13,1
+r_127,태엽 생산 라인,hunt,r_123,,,r_126,,,,map127,m_master_robo,5,114,,area_12,13,1
+r_131,아리안트 동문 밖,hunt,,,r_132,r_town,boss,r_125,,map131,m_white_sand_rabbit,4,121,,area_13,13,1
+r_132,메마른 사막,hunt,,r_136,r_133,r_131,,,,map132,m_scarf_plead,4,123,,area_13,13,1
+r_133,북쪽 사막길 1,hunt,r_13a,r_137,r_134,r_132,,,,map133,m_meercat,5,125,,area_13,13,1
+r_13a,바람에 묻힌 오아시스,hunt,,r_133,,,key,s_mon_timer,,map13a,m_sand_dwarf,4,129,,area_13,13,1
+r_134,붉은 모래 사막,hunt,,,r_135,r_133,stat,STAT_TOTAL,615,map134,m_sand_dwarf,5,128,,area_13,13,1
+r_135,잠자는 사막,boss,,,,r_134,,,,map135,m_deo,1,130,,area_13,13,1
+r_136,모래토끼 굴,hunt,r_132,,r_137,,,,,map136,m_white_sand_rabbit,5,122,,area_13,13,1
+r_137,메마른 감시길,hunt,r_133,,,r_136,,,,map137,m_meercat,5,124,,area_13,13,1
+r_141,연구소 101호,hunt,,,r_142,r_town,boss,r_135,,map141,m_cube_slime,4,131,,area_14,13,1
+r_142,연구소 B-1구역,hunt,,r_146,r_143,r_141,,,,map142,m_mithril_mutae,4,133,,area_14,13,1
+r_143,연구소 201호,hunt,r_14a,r_147,r_144,r_142,,,,map143,m_homun,5,135,,area_14,13,1
+r_14a,봉인된 연금 장치실,hunt,,r_143,,,key,s_mon_deo,,map14a,m_roid,4,139,,area_14,13,1
+r_144,연구소 C-1구역,hunt,,,r_145,r_143,stat,STAT_TOTAL,665,map144,m_roid,5,138,,area_14,13,1
+r_145,연구소 202호,boss,,,,r_144,,,,map145,m_chimera,1,140,,area_14,13,1
+r_146,제뉴미스트 배양실,hunt,r_142,,r_147,,,,,map146,m_cube_slime,5,132,,area_14,13,1
+r_147,알카드노 금속 통로,hunt,r_143,,,r_146,,,,map147,m_mithril_mutae,5,134,,area_14,13,1
+r_151,무릉 초급 수련장,hunt,,,r_152,r_town,boss,r_145,,map151,m_straw_dummy,4,141,,area_15,13,1
+r_152,무릉 중급 수련장,hunt,,r_156,r_153,r_151,,,,map152,m_wooden_dummy,4,143,,area_15,13,1
+r_153,천도 과수원,hunt,r_15a,r_157,r_154,r_152,,,,map153,m_peach_monkey,5,145,,area_15,13,1
+r_15a,안개 속 수련동굴,hunt,,r_153,,,key,s_mon_chimera,,map15a,m_blue_flower_serpent,4,149,,area_15,13,1
+r_154,하늘숲 오솔길,hunt,,,r_155,r_153,stat,STAT_TOTAL,715,map154,m_blue_flower_serpent,5,148,,area_15,13,1
+r_155,태륜의 수련장,boss,,,,r_154,,,,map155,m_tae_roon,1,150,,area_15,13,1
+r_156,도장 뒤 대나무길,hunt,r_152,,r_157,,,,,map156,m_straw_dummy,5,142,,area_15,13,1
+r_157,복숭아 계곡길,hunt,r_153,,,r_156,,,,map157,m_peach_monkey,5,144,,area_15,13,1
+r_161,하늘 둥지 입구,hunt,,,r_162,r_town,boss,r_155,,map161,m_harp,4,151,,area_16,13,1
+r_162,하프의 둥지,hunt,,r_166,r_163,r_161,,,,map162,m_blood_harp,4,153,,area_16,13,1
+r_163,와이번 협곡,hunt,r_16a,r_167,r_164,r_162,,,,map163,m_blue_wyvern,5,155,,area_16,13,1
+r_16a,고대 용의 이끼굴,hunt,,r_163,,,key,s_mon_tae_roon,,map16a,m_dark_wyvern,4,159,,area_16,13,1
+r_164,검은 와이번의 둥지,hunt,,,r_165,r_163,stat,STAT_TOTAL,765,map164,m_dark_wyvern,5,158,,area_16,13,1
+r_165,마뇽의 숲,boss,,,,r_164,,,,map165,m_manon,1,160,,area_16,13,1
+r_166,잎새 그늘 숲,hunt,r_162,,r_167,,,,,map166,m_harp,5,152,,area_16,13,1
+r_167,용비늘 오솔길,hunt,r_163,,,r_166,,,,map167,m_blue_wyvern,5,154,,area_16,13,1
+r_171,추억의 길 1,hunt,,,r_172,r_town,boss,r_165,,map171,m_memory_monk,4,161,,area_17,13,1
+r_172,추억의 길 2,hunt,,r_176,r_173,r_171,,,,map172,m_memory_monk_trainee,4,163,,area_17,13,1
+r_173,추억의 길 3,hunt,r_17a,r_177,r_174,r_172,,,,map173,m_memory_guardian,5,165,,area_17,13,1
+r_17a,잊힌 기억의 회랑,hunt,,r_173,,,key,s_mon_manon,,map17a,m_chief_memory_guardian,4,169,,area_17,13,1
+r_174,추억의 길 5,hunt,,,r_175,r_173,stat,STAT_TOTAL,815,map174,m_chief_memory_guardian,5,168,,area_17,13,1
+r_175,관조자의 방,boss,,,,r_174,,,,map175,m_dodo,1,170,,area_17,13,1
+r_176,시간의 문턱,hunt,r_172,,r_177,,,,,map176,m_memory_monk,5,162,,area_17,13,1
+r_177,부서진 시간의 회랑,hunt,r_173,,,r_176,,,,map177,m_memory_guardian,5,164,,area_17,13,1
+r_181,로스웰 초원 1,hunt,,,r_182,r_town,boss,r_175,,map181,m_mateon,4,171,,area_18,13,1
+r_182,로스웰 초원 2,hunt,,r_186,r_183,r_181,,,,map182,m_plateon,4,173,,area_18,13,1
+r_183,메카티안 초원,hunt,r_18a,r_187,r_184,r_182,,,,map183,m_mecateon,5,175,,area_18,13,1
+r_18a,회수된 UFO 내부,hunt,,r_183,,,key,s_mon_dodo,,map18a,m_chief_gray,4,179,,area_18,13,1
+r_184,쿨란 초원,hunt,,,r_185,r_183,stat,STAT_TOTAL,865,map184,m_chief_gray,5,178,,area_18,13,1
+r_185,제노의 격납고,boss,,,,r_184,,,,map185,m_zeno,1,180,,area_18,13,1
+r_186,격리 연구 통로,hunt,r_182,,r_187,,,,,map186,m_mateon,5,172,,area_18,13,1
+r_187,외계 신호 통로,hunt,r_183,,,r_186,,,,map187,m_mecateon,5,174,,area_18,13,1
+r_191,기사단 제2구역,hunt,,,r_192,r_town,boss,r_185,,map191,m_official_knight_c,4,181,,area_19,13,1
+r_192,기사단 제3구역,hunt,,r_196,r_193,r_191,,,,map192,m_official_knight_d,4,183,,area_19,13,1
+r_193,기사의 전당 1,hunt,r_19a,r_197,r_194,r_192,,,,map193,m_advanced_knight_a,5,185,,area_19,13,1
+r_19a,봉인된 꿈의 회랑,hunt,,r_193,,,key,s_mon_zeno,,map19a,m_advanced_knight_b,4,189,,area_19,13,1
+r_194,기사의 전당 2,hunt,,,r_195,r_193,stat,STAT_TOTAL,915,map194,m_advanced_knight_b,5,188,,area_19,13,1
+r_195,시그너스의 정원,boss,,,,r_194,,,,map195,m_cygnus,1,190,,area_19,13,1
+r_196,무너진 훈련장,hunt,r_192,,r_197,,,,,map196,m_official_knight_c,5,182,,area_19,13,1
+r_197,어둠의 무기고,hunt,r_193,,,r_196,,,,map197,m_advanced_knight_a,5,184,,area_19,13,1
+r_201,적막한 바위길,hunt,,,r_202,r_town,boss,r_195,,map201,m_mutant_dark_stump,4,191,,area_20,13,1
+r_202,타오르는 바위 언덕,hunt,,r_206,r_203,r_201,,,,map202,m_mutant_iron_hog,4,193,,area_20,13,1
+r_203,버려진 발굴지역 2,hunt,r_20a,r_207,r_204,r_202,,,,map203,m_mutant_stone_mask,5,195,,area_20,13,1
+r_20a,고대 골렘의 지층,hunt,,r_203,,,key,s_mon_cygnus,,map20a,m_ancient_dark_golem,4,199,,area_20,13,1
+r_204,거친 황야,hunt,,,r_205,r_203,stat,STAT_TOTAL,965,map204,m_ancient_dark_golem,5,198,,area_20,13,1
+r_205,칼바람의 묘지,boss,,,,r_204,,,,map205,m_mutant_stumpy,1,200,,area_20,13,1
+r_206,불탄 수풀길,hunt,r_202,,r_207,,,,,map206,m_mutant_dark_stump,5,192,,area_20,13,1
+r_207,가면의 발굴 통로,hunt,r_203,,,r_206,,,,map207,m_mutant_stone_mask,5,194,,area_20,13,1
