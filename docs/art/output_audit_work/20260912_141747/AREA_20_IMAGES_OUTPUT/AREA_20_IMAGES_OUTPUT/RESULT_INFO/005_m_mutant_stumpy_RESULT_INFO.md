@@ -1,0 +1,58 @@
+# RESULT_INFO — 변형된 스텀피 (m_mutant_stumpy)
+
+- Input ZIP: `AREA_20_IMAGES_INPUT_V2_4(1).zip`
+- 기준: V2.4 현행 명세
+- 작업 순번: `005`
+- 스킬: `검은 뿌리의 묘지` (`s_mon_mutant_stumpy`) / 타입: `액티브`
+- 역할 구분:
+  - `CAST`: NEW_ART
+  - `ICON`: NEW_ART
+  - 그 외 역할: OUTPUT_REQUIREMENTS 기준 `NO_RUNTIME_ROLE`
+- 원본 몬스터 이미지 출처: `area20_refs/005_MONSTER_IMAGE.png`
+- 참고 이미지 출처: 패키지 텍스트 명세 + 원본 MONSTER_IMAGE
+- 생성 원본 출처:
+  - VFX source sheet: `/mnt/data/ghostwriter_images/generated/a_clean_transparent_png_sprite_sheet_vfx_sequenc_10_batch_5.png`
+  - ICON source: `/mnt/data/ghostwriter_images/generated/a_centered_stylized_fantasy_game_icon_illustratio_15_batch_5.png`
+- Preview 파일: `PREVIEW/005_m_mutant_stumpy/labeled_preview.png`
+- Source sheet 보존 파일: `SOURCE_SHEETS/005_m_mutant_stumpy_s_mon_mutant_stumpy_CAST_SOURCE_SHEET.png`
+- Source sheet split 좌표:
+  - F00: (0, 0, 362, 362)
+  - F01: (362, 0, 724, 362)
+  - F02: (724, 0, 1086, 362)
+  - F03: (1086, 0, 1448, 362)
+  - F04: (0, 362, 362, 724)
+  - F05: (362, 362, 724, 724)
+  - F06: (724, 362, 1086, 724)
+  - F07: (1086, 362, 1448, 724)
+  - F08: (0, 724, 362, 1086)
+  - F09: (362, 724, 724, 1086)
+  - F10: (724, 724, 1086, 1086)
+  - F11: (1086, 724, 1448, 1086)
+- 실제 출력 파일:
+  - `CAST/005_m_mutant_stumpy_s_mon_mutant_stumpy_CAST_F00.png`
+  - `CAST/005_m_mutant_stumpy_s_mon_mutant_stumpy_CAST_F01.png`
+  - `CAST/005_m_mutant_stumpy_s_mon_mutant_stumpy_CAST_F02.png`
+  - `CAST/005_m_mutant_stumpy_s_mon_mutant_stumpy_CAST_F03.png`
+  - `CAST/005_m_mutant_stumpy_s_mon_mutant_stumpy_CAST_F04.png`
+  - `CAST/005_m_mutant_stumpy_s_mon_mutant_stumpy_CAST_F05.png`
+  - `CAST/005_m_mutant_stumpy_s_mon_mutant_stumpy_CAST_F06.png`
+  - `CAST/005_m_mutant_stumpy_s_mon_mutant_stumpy_CAST_F07.png`
+  - `CAST/005_m_mutant_stumpy_s_mon_mutant_stumpy_CAST_F08.png`
+  - `CAST/005_m_mutant_stumpy_s_mon_mutant_stumpy_CAST_F09.png`
+  - `CAST/005_m_mutant_stumpy_s_mon_mutant_stumpy_CAST_F10.png`
+  - `CAST/005_m_mutant_stumpy_s_mon_mutant_stumpy_CAST_F11.png`
+  - `ICON/005_m_mutant_stumpy_s_mon_mutant_stumpy_ICON.png`
+
+- 재생 정보:
+  - `CAST`: 12프레임, 캔버스 512x512 RGBA, 0.08s/frame, 총 0.96s, `non-loop one-shot`
+  - `ICON`: 1프레임, 캔버스 256x256 RGBA, static
+- 검사 결과:
+  - 파일 수/번호: PASS
+  - 크기/프레임 정보: PASS
+  - RGBA 모드: PASS
+  - 실제 alpha 존재: PASS
+  - 빈 프레임: PASS
+  - 사각 배경 잔류: PASS
+  - 몬스터·스킬·역할 대응: PASS(생성 시 수동 검토)
+  - 미충족 사항: 없음
+- USER_ART_APPROVAL: `PENDING`
