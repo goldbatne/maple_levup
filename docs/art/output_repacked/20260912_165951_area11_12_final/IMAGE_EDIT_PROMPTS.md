@@ -1,0 +1,19 @@
+# Built-in image edit history
+
+## Projectile edit
+
+Tool: image_gen.imagegen (built-in). Result: subject correction produced; alpha validation FAILED (RGB checkerboard).
+
+Use case: precise-object-edit. Edit target Image 1 is a 2x2 sprite sheet containing the four frames of ONE continuous game projectile animation, order F00 top left, F01 top right, F02 bottom left, F03 bottom right. Image 2 is the approved CAST style reference only. Image 3 is the approved ICON style reference only; DO NOT copy its cannon muzzle.
+Replace ONLY the miniature monster core in each of the four projectile cells: remove ALL eyes, facial marks, cannon muzzle/nozzle, circular holes, pink rectangular monster torso, tentacles or creature features. Instead paint a faceted purple magical CUBE BLOCK capped by the ornate gold-and-red crown, closely matching the faceted crown-block in Image 2. Flat closed block faces, no hole or eye-like dark dot anywhere. This is an inanimate crown block core, not a character. Keep the crown, violet/purple and gold luminous angular shard motif, polished 2D hand-painted game VFX style, defined dark material contours and crisp stepped highlights compatible with the approved CAST and ICON. No new creature, limbs, text, symbols or unrelated props.
+Output one clean 2x2 sheet with four equally sized square cells, no borders or labels, genuinely transparent RGBA background (not drawn checkerboard, not black/white background), ideally 1536x1536 so each cell is 768x768 and can be uniformly exported to 384x384. Keep each sprite locally centered at the exact center of its cell, preserve the same size/core geometry/crown detail in all four cells. Crown-block silhouette within central 70% and ALL shards/glow within central 85%; generous clear transparent gutters.
+Animation continuity: F00 formed crown block with 3-5 sparse angular fragments; F01 a slightly brighter core with the same fragments advancing a small relative orbit; F02 restrained peak glow and 5-7 angular fragments; F03 stable core with subdued residual glow. The core persists in all 4 frames. Relative changes only: subtle facet/core and nearby shard motion. NO whole-sprite/canvas rotation, NO change in center position, NO flight translation, NO one-sided long trail or directional arrow, NO baked travel across the sheet. The engine alone will move and Z-rotate this direction-neutral projectile. Do not mirror or spin the entire crown. No explosion replacing the core.
+Only the 4 projectile frames are deliverables. Reference CAST and ICON are immutable and should not appear as extra images in the sheet.
+
+## Alpha correction
+
+Tool: image_gen.imagegen (built-in). Local-reference call failed before generation; recent-image edit succeeded but again returned RGB with painted checkerboard. Not accepted as transparent delivery art.
+
+Background-extraction correction for the supplied 2x2 projectile animation sheet. The previous result failed because its checkerboard is PAINTED RGB pixels, not transparency. Return a PNG with a REAL RGBA alpha channel, with alpha=0 in empty background and appropriate partial alpha in violet glow edges. Remove all gray/white checkerboard pixels; do not illustrate or simulate a transparency grid. Keep all four crown block projectiles, crown details, cube facets, shard positions, shapes, framing, 2x2 equal-cell layout and colors unchanged. Do not add any text or backgrounds. Real transparent cutout PNG only. Fully transparent blank gutters and corners, no opaque white, gray or black background. Retain purple glowing edges as partially transparent pixels. No eyes, face, cannon muzzle or monster body. This is an alpha extraction edit, not a redesign.
+
+No CLI fallback or temporary vector replacement used. Technical Python alpha extraction is pending explicit user response.
