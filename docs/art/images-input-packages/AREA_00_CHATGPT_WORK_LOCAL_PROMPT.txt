@@ -1,0 +1,90 @@
+[ChatGPT Work Local 실행 지시 — AREA 00만]
+
+이 요청은 계획이나 검수 보고서 작성이 아니라 실제 이미지 자산 제작 작업이다.
+현재 작업은 AREA 00 한 개만 수행한다. AREA 01~20은 열람·수정·생성하지 않는다.
+
+작업 루트:
+D:\maplestory_levup
+
+읽기 전용 원본:
+- D:\maplestory_levup\docs\art\images-input-packages\AREA_00_IMAGES_INPUT.zip
+- D:\maplestory_levup\docs\art\images-input-packages\AREA_00_CHATGPT_PRODUCTION_PROMPT.txt
+
+결과 저장 루트:
+D:\maplestory_levup\docs\art\chatgpt-work-runs\AREA_00\<run_id>
+
+`<run_id>`는 실행 시작 시점의 한국 시간 `YYYYMMDD_HHMMSS`로 만든다. 기존 폴더, 기존 INPUT/OUTPUT ZIP, 승인 후보, 게임 데이터는 변경·삭제·덮어쓰지 않는다.
+
+1. AREA_00_IMAGES_INPUT.zip의 SHA-256을 기록하고 결과 폴더의 `_input` 아래에만 압축을 푼다.
+2. 외부 `AREA_00_CHATGPT_PRODUCTION_PROMPT.txt`와 압축 내부 `CHATGPT_IMAGES_MASTER_PROMPT.md`를 모두 읽는다. 두 파일의 SHA-256과 내용 일치 여부를 기록한다.
+3. AREA_MANIFEST, OUTPUT_NAMING_SPEC, OUTPUT_FORMAT_SPEC, QUALITY_GATE 및 모든 몬스터의 MONSTER_IMAGE, MONSTER_INFO, GENERATION_SPEC, RUNTIME_ROLE_MAP, DESIGN_REFERENCE_BRIEF를 읽는다.
+4. 각 brief가 지정한 공식 VFX 원본·연속 프레임, prepared board, AREA 00 마감 기준 프레임을 실제 이미지로 연다.
+5. 외부 제작 프롬프트의 전체 계약을 따르되, 아래 Work 실행 규칙을 추가로 적용한다.
+
+[실제 이미지 생성 규칙]
+
+- Python, Pillow, SVG, Canvas 또는 단순 도형으로 VFX/ICON 원화를 그리지 않는다. 이러한 도구는 생성 결과의 분리·리사이즈·알파 검사·Preview 합성·문서·ZIP 제작에만 사용한다.
+- 기존 실패본이나 기존 AREA 01~20 OUTPUT은 참조하지 않는다.
+- 하나의 생성 작업에는 하나의 monster_id와 하나의 skill_id만 포함한다.
+- 여러 몬스터나 여러 스킬을 한 장의 Area 콘셉트 시트로 만들지 않는다.
+- 이미지 생성·편집이 필요한 단계에서는 ChatGPT Work의 `$imagegen`을 실제로 호출한다.
+- 생성 기록의 도구명은 `native image generation/editing — version/model unverified`로 쓴다. 세부 모델명을 추측하지 않는다.
+
+각 VFX 생성 호출에는 다음 세 파일을 실제 reference image input으로 전달한다.
+
+1. 해당 몬스터의 원본 `MONSTER_IMAGE.png`
+2. 해당 skill_id의 `*_OFFICIAL_VFX_BOARD.png`
+3. 해당 skill_id의 `*_AREA00_FINISH_BOARD.png`
+
+경로를 텍스트에 적거나 이미지를 화면에 열어 본 것만으로 참조 전달을 완료했다고 기록하지 않는다. 세 파일을 `$imagegen` 호출의 실제 이미지 입력으로 연결하고, 호출 기록에 각 절대 경로와 SHA-256을 남긴다.
+
+- MONSTER_IMAGE에서는 몬스터의 색·재질·부위 모티브만 가져온다. 몬스터 몸·얼굴·캐릭터를 VFX나 ICON에 넣지 않는다.
+- OFFICIAL_VFX_BOARD에서는 메이플스토리 계열 게임 자산의 다층 명암, 중간톤 분리, 밝은 코어, 정돈된 파편, 반투명 가장자리와 프레임 진행 문법을 참고한다. 공식 스킬의 고유 실루엣·캐릭터·무기·문양을 복제하지 않는다.
+- AREA00_FINISH_BOARD에서는 작은 크기에서 읽히는 실루엣, 깔끔한 알파, 재질과 발광의 마감 수준을 참고한다. 다른 스킬의 모양·색·효과를 대상 스킬에 복사하지 않는다.
+- 최종 자산에는 텍스트, 번호, 셀 라벨, UI 패널, 체커보드, 불투명 사각 배경, 다른 스킬 조각을 넣지 않는다.
+
+[첫 스킬 앵커 게이트]
+
+먼저 `001 / m_snail / s_mon_snail_dew_trail`의 VFX 8프레임과 ICON 1개만 제작한다. 사용자 중간 승인을 요구하지 말고 다음 항목을 실제 최종 PNG로 자체 검증한다.
+
+- INPUT의 몬스터·스킬명·역할·효과·방향·프레임 수와 일치
+- 세 참조 파일이 실제 `$imagegen` 입력으로 전달됨
+- 어두운 유색 외곽·분명한 중간톤·제한된 밝은 코어·입체적 재질·깔끔한 반투명 알파를 갖춤
+- 준비→성장→절정→해체→fade가 프레임별 실제 형상 변화로 연결됨
+- 같은 256×256 canvas, 기준축, 중심축과 공통 스케일을 유지함
+- 포스터·키비주얼·한 장짜리 일러스트가 아니라 frame-separated 게임 VFX로 읽힘
+- ICON이 VFX의 색·재질·핵심 모티브를 공유하고 64px에서도 읽힘
+- 몬스터 본체·얼굴·텍스트·번호·UI·다른 소재가 없음
+
+앵커가 실패하면 나머지 네 스킬을 생성하지 않는다. 실패를 `shape/material/motion/alpha/layout/contamination/reference`로 분류하고, 같은 요청을 반복하지 말고 실패 원인에 맞게 참조 선택·프롬프트·생성 방식을 바꾼 뒤 앵커만 다시 제작한다. 실패 이미지는 positive reference로 사용하지 않는다.
+
+앵커가 통과하면 외부 제작 프롬프트의 순서대로 나머지 네 스킬을 한 스킬씩 제작한다. 각 스킬의 VFX가 자체 품질 게이트를 통과한 후에만 해당 ICON을 만들고 다음 스킬로 진행한다. 각 스킬 완료 시 `WORK_STATE.json`을 저장해 중단 시 마지막 PASS 다음부터 재개할 수 있게 한다.
+
+[패키징 및 완료 조건]
+
+모든 5스킬이 PASS일 때만 다음을 만든다.
+
+- VFX 44장: 8 + 8 + 8 + 12 + 8
+- ICON 5장
+- 최종 PNG로 합성한 전체 Preview와 labeled Preview
+- 몬스터별 contact/labeled Preview
+- 파일 기반 애니메이션 HTML
+- OUTPUT_MANIFEST.csv 및 OUTPUT_MANIFEST.md
+- VALIDATION_REPORT.md
+- REFERENCE_INPUTS.json
+- WORK_STATE.json
+- 각 몬스터 RESULT_INFO.md
+- AREA_00_IMAGES_OUTPUT.zip
+
+최종 ZIP은 결과 실행 폴더 안에 저장한다. ZIP 생성 후 CRC, 엔트리 목록, SHA-256, PNG 수량, 각 PNG의 256×256 RGBA와 실제 alpha를 다시 검사한다. 게임 실행 검증은 수행하지 않고 `RUNTIME=NOT_CHECKED`로 기록한다.
+
+하나라도 미완료이거나 아트 품질 게이트가 실패하면 정상 이름의 OUTPUT ZIP을 만들지 않는다. 보고서만 든 ZIP이나 실패 이미지 한 장짜리 ZIP으로 완료를 대신하지 않는다. 이 경우 마지막 작업 상태와 실패 증빙을 결과 폴더에 보존하고 미완료 항목을 명확히 보고한다.
+
+완료 응답에는 다음 네 가지만 간단히 보고한다.
+
+- 첫 스킬 앵커 PASS/FAIL
+- 5스킬·VFX 44장·ICON 5장 완료 여부
+- 전체 Preview의 절대 경로
+- 실제 AREA_00_IMAGES_OUTPUT.zip의 절대 경로와 SHA-256
+
+AREA 00 결과를 만든 뒤 멈춘다. AREA 01~20을 자동으로 시작하지 않는다.

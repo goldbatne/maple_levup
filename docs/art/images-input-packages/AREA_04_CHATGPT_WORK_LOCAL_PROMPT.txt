@@ -1,0 +1,17 @@
+[ChatGPT Work Local 실행 지시 — AREA 04 커닝시티]
+
+이 요청은 계획이나 보고서 작성이 아니라 AREA 04 스킬 아트를 실제 제작하는 작업이다. AREA 04만 수행하고 다른 Area를 생성하지 않는다.
+
+작업 루트: `D:\maplestory_levup`
+INPUT ZIP: `D:\maplestory_levup\docs\art\images-input-packages\AREA_04_IMAGES_INPUT.zip`
+외부 제작 명령: `D:\maplestory_levup\docs\art\images-input-packages\AREA_04_CHATGPT_PRODUCTION_PROMPT.txt`
+공통 Work 규칙: `D:\maplestory_levup\docs\art\images-input-packages\CHATGPT_WORK_LOCAL_ART_RULES.md`
+결과 루트: `D:\maplestory_levup\docs\art\chatgpt-work-runs\AREA_04\<YYYYMMDD_HHMMSS>`
+
+원본 ZIP·TXT·기존 OUTPUT·게임 데이터는 변경하거나 덮어쓰지 않는다. INPUT ZIP의 SHA-256을 기록하고 결과 실행 폴더의 `_input` 아래에만 압축을 푼다. 외부 제작 명령, 내부 `CHATGPT_IMAGES_MASTER_PROMPT.md`, 공통 Work 규칙과 압축을 푼 실제 INPUT을 모두 읽는다.
+
+대상은 Manifest의 5스킬, 필수 VFX 28프레임, ICON 5개다. 수량은 Manifest/RUNTIME_ROLE_MAP으로 재계산하고 각 스킬의 canvas·timing은 해당 `GENERATION_SPEC.md`를 따른다. ICON-only 패시브에는 VFX를 만들지 않는다.
+
+첫 필수 VFX 앵커는 `001 / m_octopus / s_mon_octopus`이다. 공통 Work 규칙의 참조 전달과 아트 게이트를 통과한 후에만 나머지를 한 스킬씩 진행한다. 모든 필수 자산이 PASS일 때만 `AREA_04_IMAGES_OUTPUT.zip`을 만들고, AREA 04 완료 후 멈춘다.
+
+완료 응답에는 앵커 PASS/FAIL, 필수 자산 완료 수량, 전체 Preview 절대 경로, 최종 ZIP 절대 경로와 SHA-256만 간단히 보고한다.

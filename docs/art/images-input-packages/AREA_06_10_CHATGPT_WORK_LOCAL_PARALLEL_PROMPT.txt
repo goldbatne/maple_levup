@@ -1,0 +1,58 @@
+[ChatGPT Work Local 단일 채팅 병렬 실행 지시 — AREA 06~10 구간]
+
+이 요청은 계획·검수 보고서 작성이 아니라 이 구간의 스킬 아트를 실제 제작하는 작업이다. 하나의 ChatGPT Work Local 채팅에서 AREA 07, 08, 09, 10을 독립 작업선으로 동시에 진행한다.
+
+AREA 06은 현재 프로젝트에 기준 `AREA_06_IMAGES_INPUT.zip`과 제작 프롬프트가 존재하지 않는 제외 Area다. AREA 06 자료를 추측·복제·생성하지 않고 `NOT_APPLICABLE_NO_CANONICAL_INPUT`으로 기록한다. AREA 01~05와 AREA 11~20은 생성·수정하지 않는다.
+
+## 작업 위치
+
+프로젝트 루트: `D:\maplestory_levup`
+
+공통 Work 규칙:
+`D:\maplestory_levup\docs\art\images-input-packages\CHATGPT_WORK_LOCAL_ART_RULES.md`
+
+입력 패키지와 제작 명령:
+
+- AREA 07 슬리피우드
+  - `D:\maplestory_levup\docs\art\images-input-packages\AREA_07_IMAGES_INPUT.zip`
+  - `D:\maplestory_levup\docs\art\images-input-packages\AREA_07_CHATGPT_PRODUCTION_PROMPT.txt`
+- AREA 08 오르비스
+  - `D:\maplestory_levup\docs\art\images-input-packages\AREA_08_IMAGES_INPUT.zip`
+  - `D:\maplestory_levup\docs\art\images-input-packages\AREA_08_CHATGPT_PRODUCTION_PROMPT.txt`
+- AREA 09 엘나스 산맥
+  - `D:\maplestory_levup\docs\art\images-input-packages\AREA_09_IMAGES_INPUT.zip`
+  - `D:\maplestory_levup\docs\art\images-input-packages\AREA_09_CHATGPT_PRODUCTION_PROMPT.txt`
+- AREA 10 아쿠아로드
+  - `D:\maplestory_levup\docs\art\images-input-packages\AREA_10_IMAGES_INPUT.zip`
+  - `D:\maplestory_levup\docs\art\images-input-packages\AREA_10_CHATGPT_PRODUCTION_PROMPT.txt`
+
+한국 시간 `YYYYMMDD_HHMMSS`의 공통 `<batch_run_id>`를 만들고 배치 상태를 다음에 저장한다.
+
+`D:\maplestory_levup\docs\art\chatgpt-work-runs\BATCH_AREA_06_10\<batch_run_id>\BATCH_WORK_STATE.json`
+
+Area별 결과는 `D:\maplestory_levup\docs\art\chatgpt-work-runs\AREA_XX\<batch_run_id>`에 분리한다. INPUT은 각 결과 폴더의 `_input` 아래에만 압축 해제한다. 기존 INPUT·OUTPUT·Work 실행 폴더·게임 데이터는 변경·삭제·덮어쓰지 않는다.
+
+## 범위와 앵커
+
+| Area | 스킬 | 필수 VFX | ICON | 첫 필수 VFX 앵커 |
+|---|---:|---:|---:|---|
+| AREA 07 | 6 | 36 | 6 | `003 / m_drake / s_mon_drake` |
+| AREA 08 | 5 | 28 | 5 | `001 / m_star_pixie / s_mon_star_pixie` |
+| AREA 09 | 5 | 28 | 5 | `003 / m_hector / s_mon_hector` |
+| AREA 10 | 5 | 28 | 5 | `003 / m_squid / s_mon_squid` |
+
+예상 합계는 21스킬, VFX 120프레임, ICON 21개다. 실제 수량은 각 AREA_MANIFEST와 RUNTIME_ROLE_MAP으로 다시 계산하며, 스킬별 canvas와 timing은 해당 GENERATION_SPEC가 최종 권위다.
+
+## 실행
+
+네 Area의 입력 해시 계산, 압축 해제, 명세 읽기, 실제 참조 이미지 확인과 앵커 작업을 독립 작업선으로 가능한 한 동시에 진행한다. 이미지 도구가 호출을 직렬 처리하더라도 네 작업선의 상태를 동시에 유지하고 한 Area가 재작업 중일 때 다른 Area의 가능한 작업을 계속한다. 사용자 중간 승인을 요구하지 않는다.
+
+각 스킬 원화 생성·편집에는 `$imagegen`을 실제 사용한다. 해당 MONSTER_IMAGE, OFFICIAL_VFX_BOARD, AREA00_FINISH_BOARD를 실제 reference image input으로 전달하고 절대 경로와 SHA-256을 기록한다. 다른 Area의 이미지와 실패 OUTPUT을 섞지 않는다.
+
+공식 VFX의 다층 명암·중간톤·코어·반투명 가장자리·프레임 문법을 우선한다. 포스터, 키비주얼, 과한 플라스틱/스티커/UI 엠블럼 마감, 검은 점·대시·매트·체커보드·인접 셀 혼입, 불연속 동작은 아트 FAIL이다.
+
+각 Area의 앵커가 통과한 뒤에만 그 Area 나머지 스킬을 한 스킬씩 진행한다. 한 Area가 FAIL이어도 다른 Area 작업선은 계속한다. 각 스킬 및 Area 상태를 `WORK_STATE.json`과 공통 `BATCH_WORK_STATE.json`에 저장한다.
+
+각 Area가 독립적으로 모두 PASS일 때만 `AREA_07_IMAGES_OUTPUT.zip`, `AREA_08_IMAGES_OUTPUT.zip`, `AREA_09_IMAGES_OUTPUT.zip`, `AREA_10_IMAGES_OUTPUT.zip`을 각각 만든다. Area들을 한 ZIP에 합치지 않는다. ZIP마다 CRC, 엔트리, SHA-256, 실제 PNG 수량과 스킬별 캔버스를 재검증한다.
+
+완료 응답에는 AREA 06 제외 상태, AREA별 앵커 결과, 완료 자산 수량, Preview 경로, ZIP 경로와 SHA-256만 표로 보고한다. 이 구간이 끝나면 멈추고 AREA 11을 자동 시작하지 않는다.

@@ -1,0 +1,42 @@
+{
+  "status": "BLOCKED_ANCHOR_FAILED",
+  "monster_id": "m_mushroom",
+  "skill_id": "s_mon_mushroom",
+  "skill_name": "포자 살포",
+  "roles": {
+    "CAST_VFX": {
+      "count": 8,
+      "canvas": [
+        384,
+        384
+      ],
+      "frame_seconds": 0.1,
+      "status": "PENDING"
+    },
+    "ICON": {
+      "count": 1,
+      "canvas": [
+        256,
+        256
+      ],
+      "status": "PENDING"
+    }
+  },
+  "method": "native RGBA individual frame generation around locked keyframe; no sprite-sheet extraction, no inferred brightness alpha",
+  "failed_runs_excluded": [
+    "20260912_212559",
+    "20260912_220728_RESTART"
+  ],
+  "batch_generation_allowed": false,
+  "packaging_allowed": false,
+  "anchor_gate": "FAIL",
+  "resume_allowed": false,
+  "blockers": [
+    "All 3 built-in outputs are RGB with baked checkerboard; no native alpha obtained",
+    "Art gate fails: decorative three-lobed composition and uncontrolled particle finish"
+  ],
+  "vfx_frames_completed": 0,
+  "icon_completed": false,
+  "zip_path": null,
+  "next_action": "Change production capability and spore art direction before anchor-only retry; never auto resume failed style"
+}
