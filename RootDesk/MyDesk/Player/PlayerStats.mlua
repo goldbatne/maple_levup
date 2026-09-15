@@ -500,7 +500,8 @@ script PlayerStats extends Component
 
     method number GetCollectionPoints(string statName)
         -- 포획 패시브가 주는 **분배 스탯 포인트** (설계 변경 2026-08-29, 대표 지시).
-        -- statName은 **분배 스탯 이름** — "STR" / "DEX" / "INT" / "LUK".
+        -- statName은 보유 패시브가 주는 스탯 이름이다.
+        -- STR/DEX/INT/LUK는 분배 스탯 포인트이고, DEF는 방어력 정액값이다.
         -- 중복의 0.25 누적은 내부 계산에만 남기고, 실제 스탯으로 적용할 때는 반올림한다.
         -- 따라서 일반 스탯과 그 스탯에서 파생되는 전투 수치에는 소수점이 생기지 않는다.
         --
@@ -567,7 +568,10 @@ script PlayerStats extends Component
             return self:GetCollectionPoints("INT") * _GameData:GetBalance("int_matk_per_point")
         end
         if stat == "DEF" then
+            -- DEX 패시브는 분배 포인트와 같은 계수로 방어력을 만들고,
+            -- DEF 패시브는 설명 그대로 방어력에 정액으로 더한다.
             return self:GetCollectionPoints("DEX") * _GameData:GetBalance("dex_def_per_point")
+                + self:GetCollectionPoints("DEF")
         end
         if stat == "LUK" then
             -- LUK만 수치가 아니라 포인트 그대로다 (GetStatWithoutEquip과 같은 이유).

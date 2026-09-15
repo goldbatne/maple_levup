@@ -431,9 +431,12 @@ script MonsterAttack extends AttackComponent
 		local flip = false
 		local firstHit = hits[1]
 		if isvalid(firstHit) and isvalid(firstHit.Entity) then
-			flip = (firstHit.Entity.TransformComponent.WorldPosition.x < worldPosition.x)
+			local targetPos = firstHit.Entity.TransformComponent.WorldPosition
+			flip = (targetPos.x < worldPosition.x)
+			_SkillEffect:PlayAttackAt(skill.id, self.Entity, targetPos, flip)
+		else
+			_SkillEffect:PlayAttackAt(skill.id, self.Entity, worldPosition, flip)
 		end
-		_SkillEffect:PlayCast(skill.id, self.Entity, flip)
 
 		log("[보스스킬] " .. monster.DisplayName .. " [" .. skill.name
 			.. "] 계수=" .. tostring(skill.coefficient)
@@ -485,8 +488,10 @@ script MonsterAttack extends AttackComponent
 		if target == nil then return false end
 
 		local toPos = target.TransformComponent.WorldPosition
-		_SkillEffect:PlayCast(skill.id, self.Entity, toPos.x < fromPos.x)
-		_SkillEffect:PlayProjectile(skill.id, self.Entity, toPos)
+		local usesNewVfx = _SkillEffect:PlayProjectile(skill.id, self.Entity, toPos)
+		if usesNewVfx == false then
+			_SkillEffect:PlayCast(skill.id, self.Entity, toPos.x < fromPos.x)
+		end
 
 		-- 바위와 **같은 시간**을 쓴다. 두 값이 갈라지면 숫자와 그림이 어긋난다.
 		local flight = _GameData:GetBalance("projectile_seconds")

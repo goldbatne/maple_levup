@@ -457,10 +457,26 @@ script EquipPanel extends Logic
         end
 
         local extra = ""
-        if skill.target_mode == "area" then
-            extra = "   범위 " .. string.format("%.1f", skill.range)
-        elseif skill.max_targets > 0 then
-            extra = "   대상 " .. tostring(math.floor(skill.max_targets))
+        if skill.skill_kind == "attack" then
+            -- 계수 1.20은 전투 공식에서 120% 피해로 쓰인다. 대상 수와 함께 한눈에
+            -- 보여 줘야 장착 전에 단일기/다수기를 구분할 수 있다.
+            local owned = self:OwnedCountOf(self.selectedSkillId)
+            local actualCoefficient = _CombatFormula:StackedCoefficient(skill.coefficient, owned)
+            extra = "   피해 " .. tostring(math.floor(actualCoefficient * 100 + 0.5)) .. "%"
+            if actualCoefficient ~= skill.coefficient then
+                extra = extra .. "(기본 " .. tostring(math.floor(skill.coefficient * 100 + 0.5)) .. "%)"
+            end
+            if skill.max_targets > 0 then
+                extra = extra .. "   최대 " .. tostring(math.floor(skill.max_targets)) .. "마리"
+            else
+                extra = extra .. "   범위 내 전체"
+            end
+            if skill.range > 0 then
+                extra = extra .. "   범위 " .. string.format("%.1f", skill.range)
+            end
+        elseif skill.skill_kind == "defense" and skill.effect_value > 0 then
+            extra = "   효과 " .. tostring(math.floor(skill.effect_value * 100 + 0.5)) .. "%"
+                .. "   지속 " .. string.format("%.0f", skill.duration) .. "초"
         end
         if skill.cooldown > 0 then
             extra = extra .. "   쿨 " .. string.format("%.0f", skill.cooldown) .. "초"

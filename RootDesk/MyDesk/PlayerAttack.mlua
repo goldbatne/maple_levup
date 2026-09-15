@@ -252,21 +252,55 @@ script PlayerAttack extends AttackComponent
 		self.hitBudget = math.floor(skill.max_targets)
 
 		-- 스킬 id를 attackInfo로 태운다. CalcDamage가 이걸로 계수와 scaling_stat을 고른다.
+		local hits = self:Attack(shape, skillId, CollisionGroups.Monster)
+		self.hitLimited = false
+
+		-- 연출 중심은 실제로 맞은 몬스터들의 중심이다. 아무도 안 맞았으면 입력 방향의
+		-- 사거리 안쪽에 둬서, 허공에 써도 캐릭터 뒤에서 번쩍이는 스킬로 보이지 않게 한다.
+		local dx = aimX
+		local dy = aimY
+		local len = math.sqrt(dx * dx + dy * dy)
+		if len <= 0.001 then
+			local ctrl = self.Entity.PlayerControllerComponent
+			dx = (isvalid(ctrl) and ctrl.LookDirectionX < 0) and -1 or 1
+			dy = 0
+		else
+			dx = dx / len
+			dy = dy / len
+		end
+		local reach = math.min(radius * 0.65, 4.0)
+		local impact = Vector3(worldPosition.x + dx * reach, worldPosition.y + dy * reach, worldPosition.z)
+		local hitCount = 0
+		local sumX = 0
+		local sumY = 0
+		if hits ~= nil then
+			for i = 1, #hits do
+				local hit = hits[i]
+				if isvalid(hit) and isvalid(hit.Entity) and isvalid(hit.Entity.TransformComponent) then
+					local p = hit.Entity.TransformComponent.WorldPosition
+					sumX = sumX + p.x
+					sumY = sumY + p.y
+					hitCount = hitCount + 1
+				end
+			end
+		end
+		if hitCount > 0 then
+			impact = Vector3(sumX / hitCount, sumY / hitCount, worldPosition.z)
+		end
+
 		log("[PlayerAttack] 스킬 사용 " .. tostring(activeIndex) .. "번 [" .. skill.name
-			.. "]  계수=" .. tostring(skill.coefficient) .. " 스탯=" .. skill.scaling_stat
+			.. "]  피해=" .. tostring(math.floor(skill.coefficient * 100 + 0.5)) .. "%"
 			.. "  반경=" .. string.format("%.2f", radius)
-			.. "  대상=" .. (self.hitLimited and (skill.target_mode .. " 최대 " .. tostring(self.hitBudget))
-				or (skill.target_mode .. " 제한 없음")))
-		self:AttackFast(shape, skillId, CollisionGroups.Monster)
+			.. "  대상=" .. (skill.max_targets > 0 and ("최대 " .. tostring(math.floor(skill.max_targets)))
+				or "제한 없음") .. "  실제=" .. tostring(hitCount) .. "명")
 
 		-- 원작 이펙트·소리 (T19-2). 판정 뒤에 부른다 — 앞에 두면 판정이 에러로 죽었을 때
 		-- 이펙트만 나가서 "때린 것 같은데 안 아픈" 화면이 된다.
 		--
 		-- 방향은 **바라보는 쪽**이다. 판정 자체는 플레이어 중심 원형이라 방향이 없지만
 		-- (UseSkill 위 주석), 이펙트는 한쪽으로 뻗는 그림이라 등 뒤로 나가면 어색하다.
-		local ctrl = self.Entity.PlayerControllerComponent
-		local flip = isvalid(ctrl) and ctrl.LookDirectionX < 0
-		_SkillEffect:PlayCast(skillId, self.Entity, flip)
+		local flip = impact.x < worldPosition.x
+		_SkillEffect:PlayAttackAt(skillId, self.Entity, impact, flip)
 
 		-- 쐈으면 쿨다운을 건다. cooldown이 0이면 걸지 않는다 (데이터로 끌 수 있게).
 		self:StartCooldown(skillId, skill.cooldown)
@@ -312,14 +346,23 @@ script PlayerAttack extends AttackComponent
 			toPos = Vector3(fromPos.x + dx * radius, fromPos.y + dy * radius, fromPos.z)
 		end
 
-		_SkillEffect:PlayCast(skillId, self.Entity, dx < 0)
-		_SkillEffect:PlayProjectile(skillId, self.Entity, toPos)
+		local usesNewVfx = _SkillEffect:PlayProjectile(skillId, self.Entity, toPos)
+		if usesNewVfx == false then
+			_SkillEffect:PlayCast(skillId, self.Entity, dx < 0)
+		end
 
 		-- 바위와 **같은 시간**을 쓴다. 갈라지면 숫자와 그림이 어긋난다.
 		local flight = _GameData:GetBalance("projectile_seconds")
 		local maxTargets = skill.max_targets
+		local hitRadius = _GameData:GetBalance("projectile_hit_radius")
+		if skill.target_mode == "area" then
+			-- 범위형 투사체는 날아가는 거리(range)와 착탄 범위가 같지는 않지만,
+			-- 단일탄과 같은 0.8 반경이면 설명의 "닿은 자리의 적을 휩쓴다"가 성립하지 않는다.
+			-- 사거리의 40%를 쓰되 2.5에서 막아 장거리 보스탄이 화면 전체를 덮지 않게 한다.
+			hitRadius = math.max(hitRadius, math.min(radius * 0.4, 2.5))
+		end
 		_TimerService:SetTimerOnce(function()
-			self:ResolveThrowHit(skillId, toPos, maxTargets)
+			self:ResolveThrowHit(skillId, toPos, maxTargets, hitRadius)
 		end, flight)
 
 		-- 쿨다운은 **던지는 순간** 건다 (설계 이력 2026-08-23).
@@ -416,6 +459,9 @@ script PlayerAttack extends AttackComponent
 
 		-- 움직이는 것은 클라다 (실측: 서버 MoveToDirection은 0.00). 그 사람에게만 보낸다.
 		_PlayerDash:Begin(dir.x, dir.y, seconds, speed, self.Entity.PlayerComponent.UserId)
+		-- 이동 스킬의 프레임은 도착 예정점에 미리 놓지 않고, 출발 순간부터 캐릭터 몸을
+		-- 따라간다. 벽에 막히거나 실제 이동량이 짧아져도 연출이 혼자 앞서 가지 않는다.
+		_SkillEffect:PlayCast(skillId, self.Entity, dir.x < 0)
 
 		-- ⚠ **서버가 보는 플레이어 좌표를 믿으면 안 된다.** 움직이는 것은 클라라
 		--   서버 쪽 좌표가 크게 늦는다 (실측: 실제 도착 -3.42 / -2.90인데 판정 시각에
@@ -468,11 +514,6 @@ script PlayerAttack extends AttackComponent
 		self.hitLimited = false
 		self.dashBonus = 0
 
-		-- 부딪히는 충격은 **도착해서** 터진다. 출발할 때 터지면 아무것도 없는 자리에서 번쩍인다.
-		local ctrl = self.Entity.PlayerControllerComponent
-		local flip = isvalid(ctrl) and ctrl.LookDirectionX < 0
-		_SkillEffect:PlayCast(skillId, self.Entity, flip)
-
 		local n = 0
 		if hits ~= nil then n = #hits end
 		log("[돌진] " .. skill.name .. "  도착 " .. string.format("%.1f,%.1f", pos.x, pos.y)
@@ -480,7 +521,7 @@ script PlayerAttack extends AttackComponent
 	end
 
 	@ExecSpace("ServerOnly")
-	method void ResolveThrowHit(string skillId, Vector3 pos, number maxTargets)
+	method void ResolveThrowHit(string skillId, Vector3 pos, number maxTargets, number hitRadius)
 		-- 바위가 떨어지는 순간의 판정. 던진 자리가 아니라 **떨어진 자리**를 본다.
 		if not isvalid(self.Entity) then return end
 
@@ -490,7 +531,8 @@ script PlayerAttack extends AttackComponent
 		self.hitLimited = (maxTargets > 0)
 		self.hitBudget = math.floor(maxTargets)
 
-		local r = _GameData:GetBalance("projectile_hit_radius")
+		local r = hitRadius
+		if r <= 0 then r = _GameData:GetBalance("projectile_hit_radius") end
 		-- 평타와 달리 Attack을 쓴다 — 몇 명 맞았는지를 로그로 남겨야 "비켜서 빗나갔다"가
 		-- 보인다. 던지는 스킬은 자주 나가지 않아 판정 테이블 비용이 문제가 안 된다.
 		local hits = self:Attack(
