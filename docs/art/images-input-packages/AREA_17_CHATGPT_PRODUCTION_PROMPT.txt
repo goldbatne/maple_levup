@@ -1,0 +1,178 @@
+# AREA 17 시간의 신전 신규 제작 실행 명령 — 단일 스킬 파이프라인
+
+이 TXT와 `AREA_17_IMAGES_INPUT.zip`을 첨부한 사용자가 “첨부한 프롬프트대로 실행해줘”라고 요청하면, 아래 작업을 실제로 수행한다. 계획·검수 보고·실패 시안 ZIP으로 대체하지 않는다.
+
+## 0. 납품 계약
+
+목표는 기존 OUTPUT을 덮어쓰지 않고 `AREA_17_IMAGES_OUTPUT/`을 새로 제작하는 것이다.
+
+- 대상: 5스킬
+- 필수 VFX: 총 28장의 frame-separated 256×256 RGBA PNG
+- 필수 ICON: 256×256 RGBA PNG 5장
+- 추가 필수: Area 전체 preview/labeled preview, 몬스터별 contact/labeled preview, 재생 HTML, manifest, 검증 기록, reference 기록, result info
+- 최종 파일: `AREA_17_IMAGES_OUTPUT.zip`
+- 상태: `REVIEW_CANDIDATE`; USER_APPROVED나 게임 반입 완료로 기록하지 않는다.
+
+필수 자산이 하나라도 없거나 아트 게이트가 실패하면 정상 이름의 OUTPUT ZIP을 만들지 않는다. `_FAILED_GENERATION_CANDIDATE`를 넣은 ZIP, 보고서만 든 ZIP, 이미지 한 장짜리 ZIP을 납품하지 않는다. 원화 생성 기능이 실제로 막힌 경우에는 실패 증빙을 ZIP 밖의 별도 경로에 보존하고, 무엇이 미완료인지 사용자에게 직접 알린다.
+
+## 1. 지침의 우선순위
+
+1. 이 TXT와 ZIP 내부 `CHATGPT_IMAGES_MASTER_PROMPT.md` — 두 파일은 같은 내용이며 실행 절차의 최종 권위다.
+2. `AREA_MANIFEST.csv/.md` — 몬스터·스킬 ID, 이름, 타입, 실제 효과·동작
+3. 각 `RUNTIME_ROLE_MAP.md`와 `GENERATION_SPEC.md` — 필수 NEW_ART, 소재, 팔레트, 프레임·캔버스·타이밍
+4. 각 `DESIGN_REFERENCE_BRIEF.md`와 `reference_resource_design/prepared_boards/` — 실제 이미지 참조와 적용/제외 범위
+5. `OUTPUT_NAMING_SPEC.md`, `OUTPUT_FORMAT_SPEC.md`, `QUALITY_GATE.md` — 파일과 검증 규격
+
+그 밖의 공통 스타일 설명은 보조 자료다. 위 문서와 충돌하는 예전의 광범위 참조 지정, “시간 구조만 참고”, Area 전체 동시 생성, 참조 입력 확인 불가를 즉시 중단 사유로 삼는 문구는 적용하지 않는다.
+
+## 2. 고정 작업 목록
+
+| 순번 | 몬스터 | 스킬 | 타입 | 필수 산출 | 실제 참조 brief |
+|---:|---|---|---|---|---|
+| 001 | 추억의 사제 / `m_memory_monk` | 추억의 묵상 / `s_mon_memory_monk` | 패시브 | ICON 1 | `monsters/001_m_memory_monk_추억의_사제/DESIGN_REFERENCE_BRIEF.md` |
+| 002 | 추억의 신관 / `m_memory_monk_trainee` | 추억의 기도파 / `s_mon_memory_monk_trainee` | 액티브 | 8× VFX + ICON 1 | `monsters/002_m_memory_monk_trainee_추억의_신관/DESIGN_REFERENCE_BRIEF.md` |
+| 003 | 추억의 수호병 / `m_memory_guardian` | 수호병의 기억갑주 / `s_mon_memory_guardian` | 패시브 | ICON 1 | `monsters/003_m_memory_guardian_추억의_수호병/DESIGN_REFERENCE_BRIEF.md` |
+| 004 | 추억의 수호대장 / `m_chief_memory_guardian` | 시간 수호진 / `s_mon_chief_memory_guardian` | 액티브 | 8× VFX + ICON 1 | `monsters/004_m_chief_memory_guardian_추억의_수호대장/DESIGN_REFERENCE_BRIEF.md` |
+| 005 | 도도 / `m_dodo` | 기억 포식 / `s_mon_dodo` | 액티브 | 12× VFX + ICON 1 | `monsters/005_m_dodo_도도/DESIGN_REFERENCE_BRIEF.md` |
+
+monster_id, skill_id, 이름, 타입, 실제 효과·동작, 소재, 팔레트, 방향, 프레임 수를 바꾸지 않는다. MONSTER_IMAGE는 색·재질·부위 모티브를 확인하는 참조다. 몬스터 몸·얼굴·캐릭터를 VFX나 ICON에 직접 넣지 않는다.
+
+## 3. 생성 전에 실제로 열 파일
+
+ZIP을 풀고 다음을 실제로 읽고 이미지로 연다.
+
+1. `README_START_HERE.md`, AREA_MANIFEST, 출력 규격과 품질 게이트
+2. 모든 몬스터의 MONSTER_IMAGE, MONSTER_INFO, GENERATION_SPEC, RUNTIME_ROLE_MAP, DESIGN_REFERENCE_BRIEF
+3. 각 brief가 지정한 공식 원본 PNG/GIF와 전체 연속 PNG
+4. `global_skill_style_library/area00_finish_baseline/full_vfx_frames/`의 기존 승인 00 전체 44프레임과 ICON
+5. 각 스킬의 `prepared_boards/*_OFFICIAL_VFX_BOARD.png`, `*_AREA00_FINISH_BOARD.png`, 대응 BOARD_MANIFEST.json
+
+준비 보드는 원본 이미지들을 보기 좋게 배치한 전달용 합성물이다. 생성 결과가 아니며, 보드의 회색 배경·격자·공식 스킬 고유 모양을 OUTPUT에 복제하지 않는다. BOARD_MANIFEST의 원본 경로와 SHA-256으로 실제 구성 파일을 추적한다.
+
+## 4. 참조 이미지를 실제 생성 호출에 전달하는 법
+
+한 스킬의 VFX 생성 호출마다 다음 세 종류를 실제 reference image input으로 전달한다.
+
+- 해당 폴더의 원본 `MONSTER_IMAGE.png` 1장
+- 해당 skill_id의 `OFFICIAL_VFX_BOARD.png` 1장
+- 해당 skill_id의 `AREA00_FINISH_BOARD.png` 1장
+
+도구가 여러 이미지를 직접 받을 수 있으면 세 이미지를 개별 입력한다. 한 장만 받을 수 있으면 세 이미지를 고해상도 참조 보드 한 장으로 기계적으로 결합한 뒤 그 보드를 실제 입력한다. 파일 경로를 프롬프트 문장에 쓰거나 이미지를 화면에 표시하는 것だけ으로 입력 완료라고 하지 않는다.
+
+준비 보드에는 각 스킬에 적합한 공식 효과의 여러 단계와 승인 00 마감 프레임이 들어 있다. 먼저 원본 연속 프레임 전체를 관찰하고, 실제 호출에는 준비 보드를 사용한다. 참조를 더 줄여야 할 때는 준비/성장/절정/해체/fade와 재질 면을 모두 남기며 선택 근거를 기록한다. 관련 없는 다른 스킬 참조를 추가하지 않는다.
+
+도구가 내부 모델명이나 개별 파일 수신 목록을 노출하지 않더라도, 준비 보드를 실제 이미지 입력으로 전달했고 그 보드의 SHA-256을 기록할 수 있으면 제작을 중단하지 않는다. 기록은 다음처럼 구분한다.
+
+- 생성 도구: `native image generation/editing — version/model unverified`
+- `REFERENCE_BOARD_USED=true/false`
+- 보드 경로와 SHA-256
+- `TOOL_INTERNAL_REFERENCE_AUDIT=UNAVAILABLE`일 수 있음
+
+보드를 실제 입력하지 않았다면 USED=true라고 쓰지 않는다.
+
+## 5. 생성 단위 — Area 전체 동시 생성 금지
+
+절대로 여러 몬스터·여러 스킬을 한 이미지에 생성하지 않는다. 하나의 생성 작업에는 한 monster_id와 한 skill_id만 존재해야 한다. 이미지 안에는 텍스트, 번호, 단계명, 행 라벨, UI 패널, 캐릭터, 몬스터 본체, 다른 스킬, ICON을 함께 넣지 않는다.
+
+### 5-1. 첫 스킬 파이프라인 게이트
+
+먼저 `002 / m_memory_monk_trainee / s_mon_memory_monk_trainee`만 제작한다. 사용자 중간 승인은 요구하지 않지만 다음 항목을 모두 통과해야 다음 스킬로 진행한다.
+
+- 실제 몬스터·공식 VFX 보드·AREA00 마감 보드가 생성 호출에 전달됨
+- GENERATION_SPEC의 핵심 소재·방향·효과로 읽히며 공식 참조의 캐릭터·무기·고유 소재로 바뀌지 않음
+- 프레임 수·캔버스·알파·축이 명세와 일치
+- 어두운 유색 면 → 분명한 중간톤 → 제한된 밝은 코어와 반투명 가장자리가 있음
+- 준비→성장→절정→해체→fade가 실제 형상 변화로 이어짐
+
+첫 생성이 실패하면 그 이미지를 다른 스킬의 참조로 사용하지 않는다. 실패 원인을 `shape/material/motion/alpha/layout/contamination`으로 구분하고, 실패한 조건을 직접 고친 프롬프트 또는 생성 방식으로 001만 다시 만든다. 같은 문구와 같은 방식의 맹목적 재시도는 금지한다. 파이프라인이 통과하지 않았는데 나머지 스킬이나 Area 전체 이미지를 생성하지 않는다.
+
+### 5-2. 스킬별 VFX 원화 제작
+
+통과 후 manifest 작업 순번대로 한 스킬씩 진행한다. 권장 기본 방식은 스킬 하나의 무라벨 투명 source sheet를 만든 뒤 고정 좌표로 분리하는 것이다.
+
+- 6프레임: 1024×1024 source sheet 안에 3열×2행의 동일 크기 정사각 셀을 배치한다.
+- 8프레임: 1024×1024 source sheet 안에 4열×2행의 동일 크기 정사각 셀을 배치한다. 위·아래 여백은 허용하지만 셀 사이 형상이 닿으면 안 된다.
+- 12프레임: 1024×1024 source sheet 안에 4열×3행의 동일 크기 정사각 셀을 배치한다.
+- 각 셀에는 동일한 VFX의 연속 단계 한 개만 둔다. 글자·번호·몬스터·배경·ICON·프레임 테두리를 넣지 않는다.
+- 목표 축과 피봇은 sheet 전체에서 고정하고, 개별 셀 자동 크롭이나 개별 중앙 맞춤을 하지 않는다.
+
+6프레임은 준비/성장/절정/해체/fade를 실제 형상으로 배분한다. 8프레임의 흐름은 F00 출현, F01 준비, F02 성장, F03 절정 직전, F04 절정, F05 해체 시작, F06 조각·잔상, F07 fade다. 12프레임은 준비 2, 성장 3, 절정 2, 해체 3, fade 2프레임으로 실제 형태를 연결한다. alpha만 낮추거나 동일 그림을 확대·축소해 애니메이션을 대신하지 않는다.
+
+source sheet가 셀 분리·축·몬스터 혼입 문제로 한 번 실패하면 같은 sheet 지시를 반복하지 않는다. 대체 방식으로 절정 프레임을 먼저 만들고, 그 프레임과 같은 참조를 사용한 native image editing으로 준비·성장·해체 프레임을 개별 또는 2프레임 단위로 만든다. 각 프레임은 실제 형상이 변해야 한다. Python/Pillow/SVG/Canvas로 원화를 새로 그리거나 단순 보간해서 채우지 않는다.
+
+source sheet에서 추출할 때만 Python 등 기계적 도구를 사용할 수 있다. 셀 좌표, source SHA-256, 추출 좌표, 리사이즈와 공통 등록 변환을 기록한다. 옆 셀 조각·절단·라벨이 섞인 셀은 추출로 억지로 살리지 않고 해당 스킬 원화를 다시 만든다.
+
+### 5-3. ICON 제작
+
+해당 스킬 VFX가 모두 통과한 다음 ICON을 별도로 만든다. ICON 호출에는 다음을 실제 입력한다.
+
+- 해당 MONSTER_IMAGE
+- 완성 VFX의 준비/절정/해체 대표 프레임
+- brief가 지정한 공식 ICON 원본
+- 기존 승인 00 ICON
+
+ICON은 VFX의 고정 핵심 모티브를 256×256 한 장에 압축한다. 공식 ICON의 명암 분리와 64px 읽힘을 참고하지만 공식 UI 프레임, 글자, 숫자, 캐릭터 얼굴, 몬스터 몸을 복제하지 않는다. ICON도 실제 투명 RGBA 기본 상태만 만들며 disabled/mouseover를 임의 추가하지 않는다.
+
+## 6. 스킬별 자동 품질 게이트
+
+각 스킬을 끝낼 때 다음을 실제 최종 PNG로 검사하고 `PASS`가 아니면 다음 스킬로 넘어가지 않는다.
+
+1. Intent: manifest의 몬스터·스킬명·타입·효과·필수 역할과 일치
+2. Identity: GENERATION_SPEC의 핵심 소재가 읽히고 공식 참조의 고유 소재로 대체되지 않음
+3. Rendering: 외곽/그림자, 중간톤 면, 국소 코어, 재질 반사와 파편이 분리됨
+4. Motion: 준비→성장→절정→해체→fade가 되감기·순간 이동 없이 이어짐
+5. Stability: 같은 canvas/pivot/축/공통 스케일이며 프레임별 자동 정렬 흔들림 없음
+6. Alpha: 투명 배경, 반투명 가장자리, 흰/검정/회색 matte와 사각 배경 없음
+7. Isolation: 몬스터 본체·얼굴·텍스트·번호·UI·다른 스킬 셀 조각 없음
+8. Icon: 64px에서 핵심 모티브가 읽히고 VFX와 색·재질·형태 언어 공유
+9. Reference: 실제 사용한 보드/원본 경로와 SHA-256 기록, 적용/제외 지시 준수
+
+파일 검사 PASS와 아트 PASS를 따로 기록한다. 모든 프레임의 해시가 같거나, 알파만 달라지고 RGB 형상이 같은 경우 Motion FAIL이다. alpha>0 bbox와 alpha>=16 bbox, 주요 형상 70%와 외곽 85%를 구분한다. 완전히 투명한 바깥 영역이 있어야 하며 알파를 단순 RGBA 변환으로 만들지 않는다. 흰색·검정색·중간 회색 배경에 합성하고 1배율·64px·2배율로 확인한다.
+
+## 7. 진행 상태와 실패 처리
+
+각 스킬이 끝날 때 `WORK_STATE.json`을 갱신한다. 최소 필드는 skill_id, state, attempt, generation method, source path/hash, extracted files, reference board paths/hashes, gate results, unresolved issues다. 상태는 `NOT_STARTED / GENERATING / VALIDATING / PASS / BLOCKED` 중 하나다. 중단되면 마지막 PASS 다음부터 이어간다.
+
+한 스킬의 실패는 Area 전체 이미지를 다시 생성할 이유가 아니다. 실패 원인에 맞게 해당 스킬만 수정한다. 참조가 부족하면 brief의 원본 연속 프레임에서 추가 이미지를 선택하고, 왜 추가했는지 기록한다. 기능이 있는 한 첫 실패에서 멈추지 않는다.
+
+참조 전달에 대한 도구 내부 영수증이 없다는 사유만으로 BLOCKED 처리하지 않는다. 실제 준비 보드 입력과 파일 해시 기록이 있으면 검증 가능한 작업 기록으로 인정한다. 반대로 생성 도구를 호출하지 않았거나 보드를 실제 입력하지 않았다면 완료라고 쓰지 않는다.
+
+## 8. 패키징 전 Area 전체 검증
+
+모든 스킬이 각각 PASS이고 다음 파일이 실제 존재할 때만 패키징한다.
+
+- VFX 28장: 8 + 8 + 12
+- ICON 5장
+- 각 VFX는 256×256 RGBA, 연속 번호, 실제 alpha
+- 각 ICON은 256×256 RGBA 기본 상태
+- 파일명과 폴더는 OUTPUT_NAMING_SPEC와 정확히 일치
+- 수정/생성 source, 셀 좌표, 변환, 참조 입력, 해시 기록 존재
+- 최종 개별 PNG에서 만든 preview/contact/animation viewer 존재
+
+Preview는 최종 PNG와 제공 MONSTER_IMAGE를 기계적으로 합성한다. Preview 자체를 이미지 생성으로 새로 그리지 않는다. 라벨은 preview에만 허용되며 VFX/ICON 원본에는 금지한다.
+
+`OUTPUT_MANIFEST.csv/.md`, 몬스터별 `RESULT_INFO.md`, `VALIDATION_REPORT.md`, `REFERENCE_INPUTS.json`, `WORK_STATE.json`, `USER_DECISIONS.md`를 작성한다. Markdown 표 안의 `ICON | VFX`는 셀 구분자가 되지 않도록 `ICON + VFX`처럼 기록한다.
+
+ZIP 생성 후 CRC, 엔트리 목록, SHA-256, PNG 수량을 다시 확인한다. 검증된 실제 `AREA_17_IMAGES_OUTPUT.zip`과 전체 preview를 제공한다. 게임 실행은 이번 이미지 제작 범위가 아니므로 `RUNTIME=NOT_CHECKED`라고 기록한다.
+
+## 9. 금지되는 실패형 산출
+
+- 모든 몬스터가 행으로 배치된 Area 전체 콘셉트 시트
+- 단계명·라벨·색 배경과 함께 생성된 VFX
+- 몬스터가 공격하는 장면이나 몬스터 얼굴이 있는 ICON
+- 다른 몬스터·캐릭터로 정체성을 바꾼 이미지
+- 한 장의 생성 이미지를 최종 44프레임처럼 보고한 패키지
+- 실패 이미지를 `_FAILED_GENERATION_CANDIDATE`에 넣고 정상 OUTPUT 이름으로 전달
+- “참조 입력 UI 감사 불가”만을 이유로 첫 시도 후 전체 중단
+- 생성하지 않은 자산을 manifest에서 PASS 처리
+
+이 명령은 AREA 17 전체 신규 제작까지만 수행한다. 다른 Area는 자동 시작하지 않는다.
+
+
+## 이 Area의 계산된 필수 수량
+
+- Area: `17` / 시간의 신전
+- manifest 스킬: 5
+- VFX 필수 스킬: 3 / 총 28프레임
+- ICON-only 또는 ICON 포함 전체: 5개 ICON
+- 패시브 ICON-only는 RUNTIME_ROLE_MAP을 우선하며 VFX를 임의 생성하지 않는다.

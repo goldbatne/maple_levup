@@ -1,5 +1,0 @@
-# INPUT V2.1 INDEPENDENT VALIDATION
-
-- Area ZIP PASS: 19/19
-- errors: 0
-- evidence ZIP: PASS
