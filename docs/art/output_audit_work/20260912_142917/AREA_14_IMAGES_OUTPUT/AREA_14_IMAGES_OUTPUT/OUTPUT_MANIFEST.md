@@ -1,0 +1,74 @@
+# OUTPUT_MANIFEST
+
+- INPUT ZIP: AREA_14_IMAGES_INPUT_V2_4(1).zip
+- Revision basis: V2.4
+- Area: area_14 / 마가티아
+- Monsters processed: 5
+- NEW_ART roles: 12 role groups
+- Approved reuse count: 0
+- USER_ART_APPROVAL for all new art: PENDING
+
+## Files
+- m_cube_slime | s_mon_cube_slime | ICON | `ICON/001_m_cube_slime_s_mon_cube_slime_ICON.png` | size 256x256 | delay static | alpha PASS
+- m_cube_slime | s_mon_cube_slime | REFERENCE | `REFERENCE/001_m_cube_slime_s_mon_cube_slime_REFERENCE_F00.png` | size 256x256 | delay 0.1 | alpha PASS
+- m_cube_slime | s_mon_cube_slime | REFERENCE | `REFERENCE/001_m_cube_slime_s_mon_cube_slime_REFERENCE_F01.png` | size 256x256 | delay 0.1 | alpha PASS
+- m_cube_slime | s_mon_cube_slime | REFERENCE | `REFERENCE/001_m_cube_slime_s_mon_cube_slime_REFERENCE_F02.png` | size 256x256 | delay 0.1 | alpha PASS
+- m_cube_slime | s_mon_cube_slime | REFERENCE | `REFERENCE/001_m_cube_slime_s_mon_cube_slime_REFERENCE_F03.png` | size 256x256 | delay 0.1 | alpha PASS
+- m_cube_slime | s_mon_cube_slime | REFERENCE | `REFERENCE/001_m_cube_slime_s_mon_cube_slime_REFERENCE_F04.png` | size 256x256 | delay 0.1 | alpha PASS
+- m_cube_slime | s_mon_cube_slime | REFERENCE | `REFERENCE/001_m_cube_slime_s_mon_cube_slime_REFERENCE_F05.png` | size 256x256 | delay 0.1 | alpha PASS
+- m_mithril_mutae | s_mon_mithril_mutae | ICON | `ICON/002_m_mithril_mutae_s_mon_mithril_mutae_ICON.png` | size 256x256 | delay static | alpha PASS
+- m_mithril_mutae | s_mon_mithril_mutae | REFERENCE | `REFERENCE/002_m_mithril_mutae_s_mon_mithril_mutae_REFERENCE_F00.png` | size 256x256 | delay 0.1 | alpha PASS
+- m_mithril_mutae | s_mon_mithril_mutae | REFERENCE | `REFERENCE/002_m_mithril_mutae_s_mon_mithril_mutae_REFERENCE_F01.png` | size 256x256 | delay 0.1 | alpha PASS
+- m_mithril_mutae | s_mon_mithril_mutae | REFERENCE | `REFERENCE/002_m_mithril_mutae_s_mon_mithril_mutae_REFERENCE_F02.png` | size 256x256 | delay 0.1 | alpha PASS
+- m_mithril_mutae | s_mon_mithril_mutae | REFERENCE | `REFERENCE/002_m_mithril_mutae_s_mon_mithril_mutae_REFERENCE_F03.png` | size 256x256 | delay 0.1 | alpha PASS
+- m_mithril_mutae | s_mon_mithril_mutae | REFERENCE | `REFERENCE/002_m_mithril_mutae_s_mon_mithril_mutae_REFERENCE_F04.png` | size 256x256 | delay 0.1 | alpha PASS
+- m_mithril_mutae | s_mon_mithril_mutae | REFERENCE | `REFERENCE/002_m_mithril_mutae_s_mon_mithril_mutae_REFERENCE_F05.png` | size 256x256 | delay 0.1 | alpha PASS
+- m_homun | s_mon_homun | ICON | `ICON/003_m_homun_s_mon_homun_ICON.png` | size 256x256 | delay static | alpha PASS
+- m_homun | s_mon_homun | CAST | `CAST/003_m_homun_s_mon_homun_CAST_F00.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_homun | s_mon_homun | CAST | `CAST/003_m_homun_s_mon_homun_CAST_F01.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_homun | s_mon_homun | CAST | `CAST/003_m_homun_s_mon_homun_CAST_F02.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_homun | s_mon_homun | CAST | `CAST/003_m_homun_s_mon_homun_CAST_F03.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_homun | s_mon_homun | CAST | `CAST/003_m_homun_s_mon_homun_CAST_F04.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_homun | s_mon_homun | CAST | `CAST/003_m_homun_s_mon_homun_CAST_F05.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_homun | s_mon_homun | CAST | `CAST/003_m_homun_s_mon_homun_CAST_F06.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_homun | s_mon_homun | CAST | `CAST/003_m_homun_s_mon_homun_CAST_F07.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_roid | s_mon_roid | ICON | `ICON/004_m_roid_s_mon_roid_ICON.png` | size 256x256 | delay static | alpha PASS
+- m_roid | s_mon_roid | CAST | `CAST/004_m_roid_s_mon_roid_CAST_F00.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_roid | s_mon_roid | CAST | `CAST/004_m_roid_s_mon_roid_CAST_F01.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_roid | s_mon_roid | CAST | `CAST/004_m_roid_s_mon_roid_CAST_F02.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_roid | s_mon_roid | CAST | `CAST/004_m_roid_s_mon_roid_CAST_F03.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_roid | s_mon_roid | CAST | `CAST/004_m_roid_s_mon_roid_CAST_F04.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_roid | s_mon_roid | CAST | `CAST/004_m_roid_s_mon_roid_CAST_F05.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_roid | s_mon_roid | CAST | `CAST/004_m_roid_s_mon_roid_CAST_F06.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_roid | s_mon_roid | CAST | `CAST/004_m_roid_s_mon_roid_CAST_F07.png` | size 384x384 | delay 0.1 | alpha PASS
+- m_roid | s_mon_roid | PROJECTILE | `PROJECTILE/004_m_roid_s_mon_roid_PROJECTILE_F00.png` | size 384x384 | delay 0.08 | alpha PASS
+- m_roid | s_mon_roid | PROJECTILE | `PROJECTILE/004_m_roid_s_mon_roid_PROJECTILE_F01.png` | size 384x384 | delay 0.08 | alpha PASS
+- m_roid | s_mon_roid | PROJECTILE | `PROJECTILE/004_m_roid_s_mon_roid_PROJECTILE_F02.png` | size 384x384 | delay 0.08 | alpha PASS
+- m_roid | s_mon_roid | PROJECTILE | `PROJECTILE/004_m_roid_s_mon_roid_PROJECTILE_F03.png` | size 384x384 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | ICON | `ICON/005_m_chimera_s_mon_chimera_ICON.png` | size 256x256 | delay static | alpha PASS
+- m_chimera | s_mon_chimera | CAST | `CAST/005_m_chimera_s_mon_chimera_CAST_F00.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | CAST | `CAST/005_m_chimera_s_mon_chimera_CAST_F01.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | CAST | `CAST/005_m_chimera_s_mon_chimera_CAST_F02.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | CAST | `CAST/005_m_chimera_s_mon_chimera_CAST_F03.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | CAST | `CAST/005_m_chimera_s_mon_chimera_CAST_F04.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | CAST | `CAST/005_m_chimera_s_mon_chimera_CAST_F05.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | CAST | `CAST/005_m_chimera_s_mon_chimera_CAST_F06.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | CAST | `CAST/005_m_chimera_s_mon_chimera_CAST_F07.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | CAST | `CAST/005_m_chimera_s_mon_chimera_CAST_F08.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | CAST | `CAST/005_m_chimera_s_mon_chimera_CAST_F09.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | CAST | `CAST/005_m_chimera_s_mon_chimera_CAST_F10.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | CAST | `CAST/005_m_chimera_s_mon_chimera_CAST_F11.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | PROJECTILE | `PROJECTILE/005_m_chimera_s_mon_chimera_PROJECTILE_F00.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | PROJECTILE | `PROJECTILE/005_m_chimera_s_mon_chimera_PROJECTILE_F01.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | PROJECTILE | `PROJECTILE/005_m_chimera_s_mon_chimera_PROJECTILE_F02.png` | size 512x512 | delay 0.08 | alpha PASS
+- m_chimera | s_mon_chimera | PROJECTILE | `PROJECTILE/005_m_chimera_s_mon_chimera_PROJECTILE_F03.png` | size 512x512 | delay 0.08 | alpha PASS
+
+## Validation summary
+- Required files present: PASS
+- Frame count and naming: PASS
+- RGBA and alpha presence: PASS
+- Approved reuse hash preservation: N/A
+- Empty frame presence: PASS
+- Text contamination: NOT_CHECKED
+- Cell fragment contamination: NOT_CHECKED
+- Detailed visual spec compliance: NOT_CHECKED

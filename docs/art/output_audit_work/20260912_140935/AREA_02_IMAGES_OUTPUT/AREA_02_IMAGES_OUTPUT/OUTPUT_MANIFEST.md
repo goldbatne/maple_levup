@@ -1,0 +1,90 @@
+# OUTPUT MANIFEST — AREA 02
+
+- input_zip: `AREA_02_IMAGES_INPUT_V2_4(1).zip`
+- input_standard: `V2.4`
+- area_id: `area_02`
+- area_name: `페리온`
+- monsters: 8
+- new_art_roles: 16
+- approved_reuse_roles: 0
+- user_art_approval: `PENDING` for all NEW_ART outputs
+- notes: Image tool source sheets were split into final frame PNGs. Checks run: file presence, frame count, canvas size, RGBA mode, alpha presence, non-empty frames. Manual preview review used for text contamination and role alignment.
+
+## File list
+- `CAST/001_m_stone_golem_s_mon_stone_CAST_F00.png` | m_stone_golem | s_mon_stone | CAST_VFX | F00 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/001_m_stone_golem_s_mon_stone_CAST_F01.png` | m_stone_golem | s_mon_stone | CAST_VFX | F01 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/001_m_stone_golem_s_mon_stone_CAST_F02.png` | m_stone_golem | s_mon_stone | CAST_VFX | F02 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/001_m_stone_golem_s_mon_stone_CAST_F03.png` | m_stone_golem | s_mon_stone | CAST_VFX | F03 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/001_m_stone_golem_s_mon_stone_CAST_F04.png` | m_stone_golem | s_mon_stone | CAST_VFX | F04 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/001_m_stone_golem_s_mon_stone_CAST_F05.png` | m_stone_golem | s_mon_stone | CAST_VFX | F05 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/001_m_stone_golem_s_mon_stone_CAST_F06.png` | m_stone_golem | s_mon_stone | CAST_VFX | F06 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/001_m_stone_golem_s_mon_stone_CAST_F07.png` | m_stone_golem | s_mon_stone | CAST_VFX | F07 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `ICON/001_m_stone_golem_s_mon_stone_ICON.png` | m_stone_golem | s_mon_stone | ICON | ICON | 256x256 RGBA | static | validation PASS | approval PENDING
+- `CAST/002_m_axe_stump_s_mon_axe_stump_CAST_F00.png` | m_axe_stump | s_mon_axe_stump | CAST_VFX | F00 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/002_m_axe_stump_s_mon_axe_stump_CAST_F01.png` | m_axe_stump | s_mon_axe_stump | CAST_VFX | F01 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/002_m_axe_stump_s_mon_axe_stump_CAST_F02.png` | m_axe_stump | s_mon_axe_stump | CAST_VFX | F02 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/002_m_axe_stump_s_mon_axe_stump_CAST_F03.png` | m_axe_stump | s_mon_axe_stump | CAST_VFX | F03 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/002_m_axe_stump_s_mon_axe_stump_CAST_F04.png` | m_axe_stump | s_mon_axe_stump | CAST_VFX | F04 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/002_m_axe_stump_s_mon_axe_stump_CAST_F05.png` | m_axe_stump | s_mon_axe_stump | CAST_VFX | F05 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/002_m_axe_stump_s_mon_axe_stump_CAST_F06.png` | m_axe_stump | s_mon_axe_stump | CAST_VFX | F06 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/002_m_axe_stump_s_mon_axe_stump_CAST_F07.png` | m_axe_stump | s_mon_axe_stump | CAST_VFX | F07 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `ICON/002_m_axe_stump_s_mon_axe_stump_ICON.png` | m_axe_stump | s_mon_axe_stump | ICON | ICON | 256x256 RGBA | static | validation PASS | approval PENDING
+- `CAST/003_m_dark_axe_stump_s_mon_dark_axe_stump_CAST_F00.png` | m_dark_axe_stump | s_mon_dark_axe_stump | CAST_VFX | F00 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/003_m_dark_axe_stump_s_mon_dark_axe_stump_CAST_F01.png` | m_dark_axe_stump | s_mon_dark_axe_stump | CAST_VFX | F01 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/003_m_dark_axe_stump_s_mon_dark_axe_stump_CAST_F02.png` | m_dark_axe_stump | s_mon_dark_axe_stump | CAST_VFX | F02 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/003_m_dark_axe_stump_s_mon_dark_axe_stump_CAST_F03.png` | m_dark_axe_stump | s_mon_dark_axe_stump | CAST_VFX | F03 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/003_m_dark_axe_stump_s_mon_dark_axe_stump_CAST_F04.png` | m_dark_axe_stump | s_mon_dark_axe_stump | CAST_VFX | F04 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/003_m_dark_axe_stump_s_mon_dark_axe_stump_CAST_F05.png` | m_dark_axe_stump | s_mon_dark_axe_stump | CAST_VFX | F05 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/003_m_dark_axe_stump_s_mon_dark_axe_stump_CAST_F06.png` | m_dark_axe_stump | s_mon_dark_axe_stump | CAST_VFX | F06 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/003_m_dark_axe_stump_s_mon_dark_axe_stump_CAST_F07.png` | m_dark_axe_stump | s_mon_dark_axe_stump | CAST_VFX | F07 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `ICON/003_m_dark_axe_stump_s_mon_dark_axe_stump_ICON.png` | m_dark_axe_stump | s_mon_dark_axe_stump | ICON | ICON | 256x256 RGBA | static | validation PASS | approval PENDING
+- `CAST/004_m_wild_boar_s_mon_wild_boar_CAST_F00.png` | m_wild_boar | s_mon_wild_boar | CAST_VFX | F00 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/004_m_wild_boar_s_mon_wild_boar_CAST_F01.png` | m_wild_boar | s_mon_wild_boar | CAST_VFX | F01 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/004_m_wild_boar_s_mon_wild_boar_CAST_F02.png` | m_wild_boar | s_mon_wild_boar | CAST_VFX | F02 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/004_m_wild_boar_s_mon_wild_boar_CAST_F03.png` | m_wild_boar | s_mon_wild_boar | CAST_VFX | F03 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/004_m_wild_boar_s_mon_wild_boar_CAST_F04.png` | m_wild_boar | s_mon_wild_boar | CAST_VFX | F04 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/004_m_wild_boar_s_mon_wild_boar_CAST_F05.png` | m_wild_boar | s_mon_wild_boar | CAST_VFX | F05 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/004_m_wild_boar_s_mon_wild_boar_CAST_F06.png` | m_wild_boar | s_mon_wild_boar | CAST_VFX | F06 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/004_m_wild_boar_s_mon_wild_boar_CAST_F07.png` | m_wild_boar | s_mon_wild_boar | CAST_VFX | F07 | 256x256 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `ICON/004_m_wild_boar_s_mon_wild_boar_ICON.png` | m_wild_boar | s_mon_wild_boar | ICON | ICON | 256x256 RGBA | static | validation PASS | approval PENDING
+- `ICON/005_m_iron_hog_s_mon_iron_hog_ICON.png` | m_iron_hog | s_mon_iron_hog | ICON | ICON | 256x256 RGBA | static | validation PASS | approval PENDING
+- `REFERENCE/005_m_iron_hog_s_mon_iron_hog_REFERENCE_F00.png` | m_iron_hog | s_mon_iron_hog | REFERENCE_VFX | F00 | 256x256 RGBA | preview-only non-loop | validation PASS | approval PENDING
+- `REFERENCE/005_m_iron_hog_s_mon_iron_hog_REFERENCE_F01.png` | m_iron_hog | s_mon_iron_hog | REFERENCE_VFX | F01 | 256x256 RGBA | preview-only non-loop | validation PASS | approval PENDING
+- `REFERENCE/005_m_iron_hog_s_mon_iron_hog_REFERENCE_F02.png` | m_iron_hog | s_mon_iron_hog | REFERENCE_VFX | F02 | 256x256 RGBA | preview-only non-loop | validation PASS | approval PENDING
+- `REFERENCE/005_m_iron_hog_s_mon_iron_hog_REFERENCE_F03.png` | m_iron_hog | s_mon_iron_hog | REFERENCE_VFX | F03 | 256x256 RGBA | preview-only non-loop | validation PASS | approval PENDING
+- `REFERENCE/005_m_iron_hog_s_mon_iron_hog_REFERENCE_F04.png` | m_iron_hog | s_mon_iron_hog | REFERENCE_VFX | F04 | 256x256 RGBA | preview-only non-loop | validation PASS | approval PENDING
+- `REFERENCE/005_m_iron_hog_s_mon_iron_hog_REFERENCE_F05.png` | m_iron_hog | s_mon_iron_hog | REFERENCE_VFX | F05 | 256x256 RGBA | preview-only non-loop | validation PASS | approval PENDING
+- `CAST/006_m_skeleton_commander_s_mon_skeleton_commander_CAST_F00.png` | m_skeleton_commander | s_mon_skeleton_commander | CAST_VFX | F00 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/006_m_skeleton_commander_s_mon_skeleton_commander_CAST_F01.png` | m_skeleton_commander | s_mon_skeleton_commander | CAST_VFX | F01 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/006_m_skeleton_commander_s_mon_skeleton_commander_CAST_F02.png` | m_skeleton_commander | s_mon_skeleton_commander | CAST_VFX | F02 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/006_m_skeleton_commander_s_mon_skeleton_commander_CAST_F03.png` | m_skeleton_commander | s_mon_skeleton_commander | CAST_VFX | F03 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/006_m_skeleton_commander_s_mon_skeleton_commander_CAST_F04.png` | m_skeleton_commander | s_mon_skeleton_commander | CAST_VFX | F04 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/006_m_skeleton_commander_s_mon_skeleton_commander_CAST_F05.png` | m_skeleton_commander | s_mon_skeleton_commander | CAST_VFX | F05 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/006_m_skeleton_commander_s_mon_skeleton_commander_CAST_F06.png` | m_skeleton_commander | s_mon_skeleton_commander | CAST_VFX | F06 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/006_m_skeleton_commander_s_mon_skeleton_commander_CAST_F07.png` | m_skeleton_commander | s_mon_skeleton_commander | CAST_VFX | F07 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `ICON/006_m_skeleton_commander_s_mon_skeleton_commander_ICON.png` | m_skeleton_commander | s_mon_skeleton_commander | ICON | ICON | 256x256 RGBA | static | validation PASS | approval PENDING
+- `CAST/007_m_fire_boar_s_mon_fire_boar_CAST_F00.png` | m_fire_boar | s_mon_fire_boar | CAST_VFX | F00 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/007_m_fire_boar_s_mon_fire_boar_CAST_F01.png` | m_fire_boar | s_mon_fire_boar | CAST_VFX | F01 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/007_m_fire_boar_s_mon_fire_boar_CAST_F02.png` | m_fire_boar | s_mon_fire_boar | CAST_VFX | F02 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/007_m_fire_boar_s_mon_fire_boar_CAST_F03.png` | m_fire_boar | s_mon_fire_boar | CAST_VFX | F03 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/007_m_fire_boar_s_mon_fire_boar_CAST_F04.png` | m_fire_boar | s_mon_fire_boar | CAST_VFX | F04 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/007_m_fire_boar_s_mon_fire_boar_CAST_F05.png` | m_fire_boar | s_mon_fire_boar | CAST_VFX | F05 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/007_m_fire_boar_s_mon_fire_boar_CAST_F06.png` | m_fire_boar | s_mon_fire_boar | CAST_VFX | F06 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `CAST/007_m_fire_boar_s_mon_fire_boar_CAST_F07.png` | m_fire_boar | s_mon_fire_boar | CAST_VFX | F07 | 384x384 RGBA | non-loop one-shot | validation PASS | approval PENDING
+- `ICON/007_m_fire_boar_s_mon_fire_boar_ICON.png` | m_fire_boar | s_mon_fire_boar | ICON | ICON | 256x256 RGBA | static | validation PASS | approval PENDING
+- `ICON/008_m_stumpy_s_mon_stumpy_ICON.png` | m_stumpy | s_mon_stumpy | ICON | ICON | 256x256 RGBA | static | validation PASS | approval PENDING
+- `PROJECTILE/008_m_stumpy_s_mon_stumpy_PROJECTILE_F00.png` | m_stumpy | s_mon_stumpy | PROJECTILE | F00 | 512x512 RGBA | non-loop complete playback within 0.35s entity lifetime | validation PASS | approval PENDING
+- `PROJECTILE/008_m_stumpy_s_mon_stumpy_PROJECTILE_F01.png` | m_stumpy | s_mon_stumpy | PROJECTILE | F01 | 512x512 RGBA | non-loop complete playback within 0.35s entity lifetime | validation PASS | approval PENDING
+- `PROJECTILE/008_m_stumpy_s_mon_stumpy_PROJECTILE_F02.png` | m_stumpy | s_mon_stumpy | PROJECTILE | F02 | 512x512 RGBA | non-loop complete playback within 0.35s entity lifetime | validation PASS | approval PENDING
+- `PROJECTILE/008_m_stumpy_s_mon_stumpy_PROJECTILE_F03.png` | m_stumpy | s_mon_stumpy | PROJECTILE | F03 | 512x512 RGBA | non-loop complete playback within 0.35s entity lifetime | validation PASS | approval PENDING
+
+## Preview files
+- `AREA_OVERVIEW_PREVIEW.png`
+- `monsters/001_m_stone_golem_스톤골렘/PREVIEW/labeled_preview.png`
+- `monsters/002_m_axe_stump_엑스텀프/PREVIEW/labeled_preview.png`
+- `monsters/003_m_dark_axe_stump_다크_엑스텀프/PREVIEW/labeled_preview.png`
+- `monsters/004_m_wild_boar_와일드보어/PREVIEW/labeled_preview.png`
+- `monsters/005_m_iron_hog_아이언_호그/PREVIEW/labeled_preview.png`
+- `monsters/006_m_skeleton_commander_스켈레톤_지휘관/PREVIEW/labeled_preview.png`
+- `monsters/007_m_fire_boar_파이어보어/PREVIEW/labeled_preview.png`
+- `monsters/008_m_stumpy_스텀피/PREVIEW/labeled_preview.png`

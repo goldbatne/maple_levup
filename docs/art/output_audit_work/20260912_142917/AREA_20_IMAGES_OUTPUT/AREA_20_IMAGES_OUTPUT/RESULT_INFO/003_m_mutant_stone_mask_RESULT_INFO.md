@@ -1,0 +1,46 @@
+# RESULT_INFO — 변형된 스톤마스크 (m_mutant_stone_mask)
+
+- Input ZIP: `AREA_20_IMAGES_INPUT_V2_4(1).zip`
+- 기준: V2.4 현행 명세
+- 작업 순번: `003`
+- 스킬: `발굴지의 석면` (`s_mon_mutant_stone_mask`) / 타입: `패시브`
+- 역할 구분:
+  - `REFERENCE`: NEW_ART
+  - `ICON`: NEW_ART
+  - 그 외 역할: OUTPUT_REQUIREMENTS 기준 `NO_RUNTIME_ROLE`
+- 원본 몬스터 이미지 출처: `area20_refs/003_MONSTER_IMAGE.png`
+- 참고 이미지 출처: 패키지 텍스트 명세 + 원본 MONSTER_IMAGE
+- 생성 원본 출처:
+  - VFX source sheet: `/mnt/data/ghostwriter_images/generated/a_transparent_background_image_png_style_with_a_8_batch_3.png`
+  - ICON source: `/mnt/data/ghostwriter_images/generated/a_clean_standalone_icon_illustration_on_a_transpar_13_batch_3.png`
+- Preview 파일: `PREVIEW/003_m_mutant_stone_mask/labeled_preview.png`
+- Source sheet 보존 파일: `SOURCE_SHEETS/003_m_mutant_stone_mask_s_mon_mutant_stone_mask_REFERENCE_SOURCE_SHEET.png`
+- Source sheet split 좌표:
+  - F00: (0, 0, 512, 512)
+  - F01: (512, 0, 1024, 512)
+  - F02: (1024, 0, 1536, 512)
+  - F03: (0, 512, 512, 1024)
+  - F04: (512, 512, 1024, 1024)
+  - F05: (1024, 512, 1536, 1024)
+- 실제 출력 파일:
+  - `REFERENCE/003_m_mutant_stone_mask_s_mon_mutant_stone_mask_REFERENCE_F00.png`
+  - `REFERENCE/003_m_mutant_stone_mask_s_mon_mutant_stone_mask_REFERENCE_F01.png`
+  - `REFERENCE/003_m_mutant_stone_mask_s_mon_mutant_stone_mask_REFERENCE_F02.png`
+  - `REFERENCE/003_m_mutant_stone_mask_s_mon_mutant_stone_mask_REFERENCE_F03.png`
+  - `REFERENCE/003_m_mutant_stone_mask_s_mon_mutant_stone_mask_REFERENCE_F04.png`
+  - `REFERENCE/003_m_mutant_stone_mask_s_mon_mutant_stone_mask_REFERENCE_F05.png`
+  - `ICON/003_m_mutant_stone_mask_s_mon_mutant_stone_mask_ICON.png`
+
+- 재생 정보:
+  - `REFERENCE`: 6프레임, 캔버스 256x256 RGBA, 0.10s/frame, 총 0.60s, `preview-only non-loop`
+  - `ICON`: 1프레임, 캔버스 256x256 RGBA, static
+- 검사 결과:
+  - 파일 수/번호: PASS
+  - 크기/프레임 정보: PASS
+  - RGBA 모드: PASS
+  - 실제 alpha 존재: PASS
+  - 빈 프레임: PASS
+  - 사각 배경 잔류: PASS
+  - 몬스터·스킬·역할 대응: PASS(생성 시 수동 검토)
+  - 미충족 사항: 없음
+- USER_ART_APPROVAL: `PENDING`

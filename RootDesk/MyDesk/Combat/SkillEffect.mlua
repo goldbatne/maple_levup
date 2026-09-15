@@ -51,7 +51,8 @@ script SkillEffect extends Logic
         if #layers > 0 then
             for i = 1, #layers do
                 local layer = layers[i]
-                if layer.resource_type == "sprite" or layer.resource_type == "animationclip" then
+                if layer.resource_type == "sprite" or layer.resource_type == "animationclip"
+                    or layer.resource_type == "sprite_sequence" then
                     if layer.delay > 0 then
                         local scheduledLayer = layer
                         local scheduledOrder = i
@@ -80,17 +81,80 @@ script SkillEffect extends Logic
     end
 
     @ExecSpace("ServerOnly")
+    method void PlayAttackAt(string skillId, Entity caster, Vector3 targetPos, boolean flipX)
+        -- 공격 연출은 시전자 뒤가 아니라 실제 판정 지점에서 재생한다. 새 반입 자산은
+        -- 프레임 자체에 준비→절정→해체가 들어 있으므로 위치만 판정과 맞춘다.
+        if skillId == "" or not isvalid(caster) then return end
+        local skill = _GameData:GetSkill(skillId)
+        if skill == nil then return end
+        local layers = skill.effect_layers or {}
+        if #layers == 0 then
+            -- 아직 다층 자산으로 이관하지 않은 기존 스킬은 기존 호환 경로를 보존한다.
+            self:PlayCast(skillId, caster, flipX)
+            return
+        end
+
+        local map = caster.CurrentMap
+        if map == nil then return end
+        local h = _GameData:GetBalance("skill_effect_height")
+        local anchor = Vector3(targetPos.x, targetPos.y + h, targetPos.z)
+
+        for i = 1, #layers do
+            local layer = layers[i]
+            if layer.resource_type == "sprite" or layer.resource_type == "animationclip"
+                or layer.resource_type == "sprite_sequence" then
+                if layer.delay > 0 then
+                    local scheduledLayer = layer
+                    local scheduledOrder = i
+                    _TimerService:SetTimerOnce(function()
+                        self:SpawnLayerAt(skill, scheduledLayer, caster, flipX, map,
+                            scheduledOrder, anchor, false, "타격 지점")
+                    end, layer.delay)
+                else
+                    self:SpawnLayerAt(skill, layer, caster, flipX, map,
+                        i, anchor, false, "타격 지점")
+                end
+            end
+        end
+
+        local users = _UserService:GetUsersByMapName(map.Name)
+        if users == nil then return end
+        for i = 1, #users do
+            local pc = users[i].PlayerComponent
+            if isvalid(pc) then self:ShowCast(skillId, caster, flipX, pc.UserId) end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
     method void SpawnLayer(table skill, table layer, Entity caster, boolean flipX, Entity map, integer order)
         if layer == nil or layer.ruid == "" then return end
         if not isvalid(caster) or not isvalid(map) then return end
 
         local pos = caster.TransformComponent.WorldPosition
         local h = _GameData:GetBalance("skill_effect_height")
+        local anchor = Vector3(pos.x, pos.y + h, pos.z)
+        local overlay = skill.skill_kind == "defense" or skill.dash_distance > 0
+        local placement = "시전자"
+        if skill.skill_kind == "defense" then
+            placement = "몸 오버레이"
+        elseif skill.dash_distance > 0 then
+            placement = "이동 동기화"
+        end
+        self:SpawnLayerAt(skill, layer, caster, flipX, map, order,
+            anchor, overlay, placement)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SpawnLayerAt(table skill, table layer, Entity caster, boolean flipX, Entity map,
+        integer order, Vector3 anchor, boolean followCaster, string placement)
+        if layer == nil or layer.ruid == "" then return end
+        if not isvalid(caster) or not isvalid(map) then return end
+
         local dir = flipX and -1 or 1
         local at = Vector3(
-            pos.x + layer.offset_x * dir,
-            pos.y + h + layer.offset_y,
-            pos.z)
+            anchor.x + layer.offset_x * dir,
+            anchor.y + layer.offset_y,
+            anchor.z)
         local drift = Vector3(layer.drift_x * dir, layer.drift_y, 0)
 
         local entity = _SpawnService:SpawnByModelId("skillcasteffect", "SkillCastEffect", at, map)
@@ -103,6 +167,8 @@ script SkillEffect extends Logic
         if isvalid(sprite) then
             sprite.SpriteRUID = layer.ruid
             sprite.FlipX = flipX
+            sprite.SortingLayer = "MapLayer0"
+            sprite.OrderInLayer = followCaster and 900 or (540 + order)
         end
 
         ---@type SkillCastEffect
@@ -113,12 +179,21 @@ script SkillEffect extends Logic
             return
         end
         fx.BaseScale = layer.scale
+        fx.FrameRUIDs = layer.frame_ruids or {}
+        if followCaster then
+            local casterPos = caster.TransformComponent.WorldPosition
+            fx.FollowTarget = caster
+            fx.FollowOffset = Vector3(at.x - casterPos.x, at.y - casterPos.y, at.z - casterPos.z)
+        end
+        if #fx.FrameRUIDs > 0 then
+            fx.FrameSeconds = layer.duration / #fx.FrameRUIDs
+        end
         fx.DebugName = skill.name .. " #" .. tostring(order)
         fx:Play(layer.style, layer.duration, drift)
 
         log("[다층 이펙트] " .. skill.name .. " #" .. tostring(order)
             .. " " .. layer.style .. " delay=" .. string.format("%.2f", layer.delay)
-            .. "  " .. string.format("%.1f,%.1f", at.x, at.y))
+            .. "  " .. placement .. " " .. string.format("%.1f,%.1f", at.x, at.y))
     end
 
     @ExecSpace("ServerOnly")
@@ -147,7 +222,7 @@ script SkillEffect extends Logic
     end
 
     @ExecSpace("ServerOnly")
-    method void PlayProjectile(string skillId, Entity caster, Vector3 targetPos)
+    method boolean PlayProjectile(string skillId, Entity caster, Vector3 targetPos)
         -- 날아가는 그림 (T19-3). `projectile_ruid`가 비어 있으면 아무것도 안 한다.
         --
         -- **그림만 담당한다.** 데미지는 던진 쪽이 같은 비행 시간짜리 타이머로 건다
@@ -156,25 +231,85 @@ script SkillEffect extends Logic
         -- 이펙트(PlayCast)와 달리 **서버에서 엔티티를 스폰한다.** 스폰된 엔티티는
         -- 저절로 복제되므로 클라마다 RPC를 보낼 필요가 없고, 날아가는 동안의 위치도
         -- 엔진이 맞춰 준다. 매 프레임 좌표를 RPC로 보내면 그게 낭비다.
-        if skillId == "" then return end
-        if not isvalid(caster) then return end
+        if skillId == "" then return false end
+        if not isvalid(caster) then return false end
 
         local skill = _GameData:GetSkill(skillId)
-        if skill == nil or skill.projectile_ruid == "" then return end
+        if skill == nil or skill.projectile_ruid == "" then return false end
 
         local map = caster.CurrentMap
-        if map == nil then return end
+        if map == nil then return false end
 
         local from = caster.TransformComponent.WorldPosition
         local h = _GameData:GetBalance("skill_effect_height")
         from = Vector3(from.x, from.y + h, from.z)
         local to = Vector3(targetPos.x, targetPos.y + h, from.z)
 
+        -- 새 AREA 자산에 sprite_sequence가 있으면 그것이 이 스킬의 실제 투사체다.
+        -- 이전 범용 돌/초록 구체 RUID는 판정 종류를 표시하던 레거시 값으로만 남기고
+        -- 화면에는 섞지 않는다.
+        local layers = skill.effect_layers or {}
+        local sequence = {}
+        local hasSequence = false
+        for i = 1, #layers do
+            if layers[i].resource_type == "sprite_sequence" then
+                sequence = layers[i]
+                hasSequence = true
+                break
+            end
+        end
+        if hasSequence then
+            local flight = _GameData:GetBalance("projectile_seconds")
+            if flight <= 0 then flight = 0.35 end
+            local entity = _SpawnService:SpawnByModelId("skillcasteffect", "SkillProjectileVFX", from, map)
+            if not isvalid(entity) then
+                log_warning("[SkillEffect] 신규 투사체 VFX 스폰 실패: " .. skillId)
+                return true
+            end
+
+            local sprite = entity.SpriteRendererComponent
+            local frames = sequence.frame_ruids or {}
+            if isvalid(sprite) then
+                sprite.SpriteRUID = (#frames > 0) and frames[1] or sequence.ruid
+                sprite.FlipX = to.x < from.x
+                sprite.SortingLayer = "MapLayer0"
+                sprite.OrderInLayer = 620
+            end
+
+            ---@type SkillCastEffect
+            local fx = entity:GetComponent("script.SkillCastEffect")
+            if fx == nil then
+                entity:Destroy()
+                return true
+            end
+            fx.BaseScale = sequence.scale
+            fx.FrameRUIDs = frames
+            if #frames > 0 then fx.FrameSeconds = flight / #frames end
+            fx.DebugName = skill.name .. " 투사체"
+            fx:Play("sequence", flight, Vector3(
+                (to.x - from.x) / flight,
+                (to.y - from.y) / flight,
+                0))
+            local users = _UserService:GetUsersByMapName(map.Name)
+            if users ~= nil then
+                for i = 1, #users do
+                    local pc = users[i].PlayerComponent
+                    if isvalid(pc) then
+                        self:ShowCast(skillId, caster, to.x < from.x, pc.UserId)
+                    end
+                end
+            end
+            log("[투사체 VFX] " .. skill.name .. " 신규 프레임 " .. tostring(#frames)
+                .. "장  " .. string.format("%.1f,%.1f", from.x, from.y) .. " → "
+                .. string.format("%.1f,%.1f", to.x, to.y))
+            return true
+        end
+
         -- ⚠ parent에 nil을 넘기면 런타임 에러다 (개발 규칙 · platform.md 8).
         local entity = _SpawnService:SpawnByModelId("skillprojectile", "SkillProjectile", from, map)
         if not isvalid(entity) then
             log_warning("[SkillEffect] 투사체 스폰 실패: " .. skillId)
-            return
+            return false
         end
 
         -- 그림은 스킬마다 다르다. 모델의 기본 SpriteRUID를 여기서 갈아끼운다 —
@@ -187,7 +322,7 @@ script SkillEffect extends Logic
         if proj == nil then
             log_warning("[SkillEffect] 투사체에 SkillProjectile이 없다")
             entity:Destroy()
-            return
+            return false
         end
         proj:Launch(from, to,
             _GameData:GetBalance("projectile_seconds"),
@@ -198,6 +333,7 @@ script SkillEffect extends Logic
         log("[투사체] " .. skill.name .. "  "
             .. string.format("%.1f,%.1f", from.x, from.y) .. " → "
             .. string.format("%.1f,%.1f", to.x, to.y))
+        return false
     end
 
     @ExecSpace("Client")

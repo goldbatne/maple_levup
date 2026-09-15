@@ -1,0 +1,50 @@
+# RESULT_INFO — 변형된 아이언호그 (m_mutant_iron_hog)
+
+- Input ZIP: `AREA_20_IMAGES_INPUT_V2_4(1).zip`
+- 기준: V2.4 현행 명세
+- 작업 순번: `002`
+- 스킬: `황야의 철갑 돌진` (`s_mon_mutant_iron_hog`) / 타입: `액티브`
+- 역할 구분:
+  - `CAST`: NEW_ART
+  - `ICON`: NEW_ART
+  - 그 외 역할: OUTPUT_REQUIREMENTS 기준 `NO_RUNTIME_ROLE`
+- 원본 몬스터 이미지 출처: `area20_refs/002_MONSTER_IMAGE.png`
+- 참고 이미지 출처: 패키지 텍스트 명세 + 원본 MONSTER_IMAGE
+- 생성 원본 출처:
+  - VFX source sheet: `/mnt/data/ghostwriter_images/generated/a_clean_transparent_background_sprite_sheet_game_7_batch_2.png`
+  - ICON source: `/mnt/data/ghostwriter_images/generated/a_clean_action_icon_style_illustration_on_a_transp_12_batch_2.png`
+- Preview 파일: `PREVIEW/002_m_mutant_iron_hog/labeled_preview.png`
+- Source sheet 보존 파일: `SOURCE_SHEETS/002_m_mutant_iron_hog_s_mon_mutant_iron_hog_CAST_SOURCE_SHEET.png`
+- Source sheet split 좌표:
+  - F00: (0, 0, 444, 444)
+  - F01: (444, 0, 887, 444)
+  - F02: (887, 0, 1330, 444)
+  - F03: (1330, 0, 1774, 444)
+  - F04: (0, 444, 444, 887)
+  - F05: (444, 444, 887, 887)
+  - F06: (887, 444, 1330, 887)
+  - F07: (1330, 444, 1774, 887)
+- 실제 출력 파일:
+  - `CAST/002_m_mutant_iron_hog_s_mon_mutant_iron_hog_CAST_F00.png`
+  - `CAST/002_m_mutant_iron_hog_s_mon_mutant_iron_hog_CAST_F01.png`
+  - `CAST/002_m_mutant_iron_hog_s_mon_mutant_iron_hog_CAST_F02.png`
+  - `CAST/002_m_mutant_iron_hog_s_mon_mutant_iron_hog_CAST_F03.png`
+  - `CAST/002_m_mutant_iron_hog_s_mon_mutant_iron_hog_CAST_F04.png`
+  - `CAST/002_m_mutant_iron_hog_s_mon_mutant_iron_hog_CAST_F05.png`
+  - `CAST/002_m_mutant_iron_hog_s_mon_mutant_iron_hog_CAST_F06.png`
+  - `CAST/002_m_mutant_iron_hog_s_mon_mutant_iron_hog_CAST_F07.png`
+  - `ICON/002_m_mutant_iron_hog_s_mon_mutant_iron_hog_ICON.png`
+
+- 재생 정보:
+  - `CAST`: 8프레임, 캔버스 384x384 RGBA, 0.10s/frame, 총 0.80s, `non-loop one-shot`
+  - `ICON`: 1프레임, 캔버스 256x256 RGBA, static
+- 검사 결과:
+  - 파일 수/번호: PASS
+  - 크기/프레임 정보: PASS
+  - RGBA 모드: PASS
+  - 실제 alpha 존재: PASS
+  - 빈 프레임: PASS
+  - 사각 배경 잔류: PASS
+  - 몬스터·스킬·역할 대응: PASS(생성 시 수동 검토)
+  - 미충족 사항: 없음
+- USER_ART_APPROVAL: `PENDING`

@@ -1,0 +1,68 @@
+# OUTPUT MANIFEST — AREA 04
+
+- input_zip: `AREA_04_IMAGES_INPUT_V2_4(1).zip`
+- standard: `README_START_HERE.md` + `PACKAGE_REVISION_V2_4.md` + `AREA_MANIFEST` + `FULL_ART_SCOPE.csv` + `OUTPUT_REQUIREMENTS.csv` + per-monster specs
+- area_id: `area_04`
+- area_name: `커닝시티`
+- monster_count: 5
+- produced_new_art_roles: 10
+- approved_reuse_roles: 0
+- no_runtime_roles_skipped: 20
+- user_art_approval: PENDING for all NEW_ART assets
+
+## Role summary
+- 001 / 옥토퍼스 / 먹물 폭발 / ICON / NEW_ART
+  - files: ICON/001_m_octopus_s_mon_octopus_ICON.png
+  - frame_count: 1 / canvas: 256x256 RGBA / playback: static
+  - source_sheet: SOURCE_SHEETS/001_m_octopus_s_mon_octopus_ICON_source.png
+  - split_coords: full image scaled to 256x256
+- 001 / 옥토퍼스 / 먹물 폭발 / CAST_VFX / NEW_ART
+  - files: CAST/001_m_octopus_s_mon_octopus_CAST_F00.png|CAST/001_m_octopus_s_mon_octopus_CAST_F01.png|CAST/001_m_octopus_s_mon_octopus_CAST_F02.png|CAST/001_m_octopus_s_mon_octopus_CAST_F03.png|CAST/001_m_octopus_s_mon_octopus_CAST_F04.png|CAST/001_m_octopus_s_mon_octopus_CAST_F05.png|CAST/001_m_octopus_s_mon_octopus_CAST_F06.png|CAST/001_m_octopus_s_mon_octopus_CAST_F07.png
+  - frame_count: 8 / canvas: 384x384 RGBA / playback: non-loop one-shot
+  - source_sheet: SOURCE_SHEETS/001_m_octopus_s_mon_octopus_CAST_sheet.png
+  - split_coords: F00:0,0,444,444 | F01:444,0,887,444 | F02:887,0,1330,444 | F03:1330,0,1774,444 | F04:0,444,444,887 | F05:444,444,887,887 | F06:887,444,1330,887 | F07:1330,444,1774,887
+- 002 / 스티지 / 밤의 감각 / ICON / NEW_ART
+  - files: ICON/002_m_stirge_s_mon_stirge_ICON.png
+  - frame_count: 1 / canvas: 256x256 RGBA / playback: static
+  - source_sheet: SOURCE_SHEETS/002_m_stirge_s_mon_stirge_ICON_source.png
+  - split_coords: full image scaled to 256x256
+- 002 / 스티지 / 밤의 감각 / REFERENCE_VFX / NEW_ART
+  - files: REFERENCE/002_m_stirge_s_mon_stirge_REFERENCE_F00.png|REFERENCE/002_m_stirge_s_mon_stirge_REFERENCE_F01.png|REFERENCE/002_m_stirge_s_mon_stirge_REFERENCE_F02.png|REFERENCE/002_m_stirge_s_mon_stirge_REFERENCE_F03.png|REFERENCE/002_m_stirge_s_mon_stirge_REFERENCE_F04.png|REFERENCE/002_m_stirge_s_mon_stirge_REFERENCE_F05.png
+  - frame_count: 6 / canvas: 256x256 RGBA / playback: preview-only non-loop
+  - source_sheet: SOURCE_SHEETS/002_m_stirge_s_mon_stirge_REFERENCE_sheet.png
+  - split_coords: F00:0,0,512,512 | F01:512,0,1024,512 | F02:1024,0,1536,512 | F03:0,512,512,1024 | F04:512,512,1024,1024 | F05:1024,512,1536,1024
+- 003 / 주니어 레이스 / 망령 충격 / ICON / NEW_ART
+  - files: ICON/003_m_jr_wraith_s_mon_jr_wraith_ICON.png
+  - frame_count: 1 / canvas: 256x256 RGBA / playback: static
+  - source_sheet: SOURCE_SHEETS/003_m_jr_wraith_s_mon_jr_wraith_ICON_source.png
+  - split_coords: full image scaled to 256x256
+- 003 / 주니어 레이스 / 망령 충격 / CAST_VFX / NEW_ART
+  - files: CAST/003_m_jr_wraith_s_mon_jr_wraith_CAST_F00.png|CAST/003_m_jr_wraith_s_mon_jr_wraith_CAST_F01.png|CAST/003_m_jr_wraith_s_mon_jr_wraith_CAST_F02.png|CAST/003_m_jr_wraith_s_mon_jr_wraith_CAST_F03.png|CAST/003_m_jr_wraith_s_mon_jr_wraith_CAST_F04.png|CAST/003_m_jr_wraith_s_mon_jr_wraith_CAST_F05.png|CAST/003_m_jr_wraith_s_mon_jr_wraith_CAST_F06.png|CAST/003_m_jr_wraith_s_mon_jr_wraith_CAST_F07.png
+  - frame_count: 8 / canvas: 384x384 RGBA / playback: non-loop one-shot
+  - source_sheet: SOURCE_SHEETS/003_m_jr_wraith_s_mon_jr_wraith_CAST_sheet.png
+  - split_coords: F00:0,0,444,444 | F01:444,0,887,444 | F02:887,0,1330,444 | F03:1330,0,1774,444 | F04:0,444,444,887 | F05:444,444,887,887 | F06:887,444,1330,887 | F07:1330,444,1774,887
+- 004 / 레이스 / 원혼의 기운 / ICON / NEW_ART
+  - files: ICON/004_m_wraith_s_mon_wraith_ICON.png
+  - frame_count: 1 / canvas: 256x256 RGBA / playback: static
+  - source_sheet: SOURCE_SHEETS/004_m_wraith_s_mon_wraith_ICON_source.png
+  - split_coords: full image scaled to 256x256
+- 004 / 레이스 / 원혼의 기운 / REFERENCE_VFX / NEW_ART
+  - files: REFERENCE/004_m_wraith_s_mon_wraith_REFERENCE_F00.png|REFERENCE/004_m_wraith_s_mon_wraith_REFERENCE_F01.png|REFERENCE/004_m_wraith_s_mon_wraith_REFERENCE_F02.png|REFERENCE/004_m_wraith_s_mon_wraith_REFERENCE_F03.png|REFERENCE/004_m_wraith_s_mon_wraith_REFERENCE_F04.png|REFERENCE/004_m_wraith_s_mon_wraith_REFERENCE_F05.png
+  - frame_count: 6 / canvas: 256x256 RGBA / playback: preview-only non-loop
+  - source_sheet: SOURCE_SHEETS/004_m_wraith_s_mon_wraith_REFERENCE_sheet.png
+  - split_coords: F00:0,0,512,512 | F01:512,0,1024,512 | F02:1024,0,1536,512 | F03:0,512,512,1024 | F04:512,512,1024,1024 | F05:1024,512,1536,1024
+- 005 / 셰이드 / 심연의 장막 / ICON / NEW_ART
+  - files: ICON/005_m_shade_s_mon_shade_ICON.png
+  - frame_count: 1 / canvas: 256x256 RGBA / playback: static
+  - source_sheet: SOURCE_SHEETS/005_m_shade_s_mon_shade_ICON_source.png
+  - split_coords: full image scaled to 256x256
+- 005 / 셰이드 / 심연의 장막 / CAST_VFX / NEW_ART
+  - files: CAST/005_m_shade_s_mon_shade_CAST_F00.png|CAST/005_m_shade_s_mon_shade_CAST_F01.png|CAST/005_m_shade_s_mon_shade_CAST_F02.png|CAST/005_m_shade_s_mon_shade_CAST_F03.png|CAST/005_m_shade_s_mon_shade_CAST_F04.png|CAST/005_m_shade_s_mon_shade_CAST_F05.png|CAST/005_m_shade_s_mon_shade_CAST_F06.png|CAST/005_m_shade_s_mon_shade_CAST_F07.png|CAST/005_m_shade_s_mon_shade_CAST_F08.png|CAST/005_m_shade_s_mon_shade_CAST_F09.png|CAST/005_m_shade_s_mon_shade_CAST_F10.png|CAST/005_m_shade_s_mon_shade_CAST_F11.png
+  - frame_count: 12 / canvas: 512x512 RGBA / playback: non-loop one-shot
+  - source_sheet: SOURCE_SHEETS/005_m_shade_s_mon_shade_CAST_sheet.png
+  - split_coords: F00:0,0,362,362 | F01:362,0,724,362 | F02:724,0,1086,362 | F03:1086,0,1448,362 | F04:0,362,362,724 | F05:362,362,724,724 | F06:724,362,1086,724 | F07:1086,362,1448,724 | F08:0,724,362,1086 | F09:362,724,724,1086 | F10:724,724,1086,1086 | F11:1086,724,1448,1086
+
+## Validation summary
+- Checked: role/file existence, frame counts, numbering, PNG RGBA mode, alpha min/max, blank frames, bounding-box edge-touch suspicion.
+- Not applicable: approved reuse byte/hash preservation (no AREA00_APPROVED_REUSE rows in current Area 04 scope).
+- Warnings: none blocking. Some assets touch frame edges in generated composition; retained and flagged in CSV when detected.

@@ -148,7 +148,8 @@ script GameDataVerify extends Logic
                     if layer.ruid == "" then
                         log_error("  [다층이펙트] " .. id .. " #" .. tostring(i) .. " RUID가 비었다")
                     end
-                    if layer.resource_type ~= "sprite" and layer.resource_type ~= "animationclip" then
+                    if layer.resource_type ~= "sprite" and layer.resource_type ~= "animationclip"
+                        and layer.resource_type ~= "sprite_sequence" then
                         log_error("  [다층이펙트] " .. id .. " #" .. tostring(i)
                             .. " 자원 형식이 이상하다: " .. tostring(layer.resource_type))
                     end
@@ -192,11 +193,12 @@ script GameDataVerify extends Logic
                 -- 포획 패시브 (설계 변경 2026-08-29). **슬롯을 안 먹고 보유만 해도 켜진다.**
                 passiveCount += 1
                 if skill.passive_stat ~= "STR" and skill.passive_stat ~= "DEX"
-                    and skill.passive_stat ~= "INT" and skill.passive_stat ~= "LUK" then
+                    and skill.passive_stat ~= "INT" and skill.passive_stat ~= "LUK"
+                    and skill.passive_stat ~= "DEF" then
                     -- 비어 있으면 **아무 스탯도 안 주는 패시브**가 된다 — 끼울 수도 없고
                     -- 주지도 않아 그냥 죽은 줄이다. 에러도 안 나므로 여기서 잡는다.
                     log_error("  [패시브] " .. id .. " 의 passive_stat이 비었거나 모르는 값: '"
-                        .. tostring(skill.passive_stat) .. "' (STR/DEX/INT/LUK 중 하나여야 한다)")
+                        .. tostring(skill.passive_stat) .. "' (STR/DEX/INT/LUK/DEF 중 하나여야 한다)")
                 end
             else
                 log_error("  [스킬메타] " .. id .. " 의 skill_kind가 비었거나 모르는 값: '"

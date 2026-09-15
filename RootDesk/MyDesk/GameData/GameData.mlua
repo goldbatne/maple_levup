@@ -64,6 +64,16 @@ script GameData extends Logic
         return out
     end
 
+    method table SplitFrameIds(string raw)
+        -- 한 레이어 안의 프레임 RUID 목록을 쉼표 기준으로 나눈다.
+        local out = {}
+        if raw == nil or raw == "" then return out end
+        for token in string.gmatch(raw, "([^,]+)") do
+            table.insert(out, token)
+        end
+        return out
+    end
+
     method table BuildEffectLayers(any row)
         -- 첫 지역부터 도입한 다층 스킬 연출. 각 컬럼은 같은 순서의 파이프 목록이다.
         -- RUID 개수만큼만 레이어를 만들고 나머지 값은 안전한 기본값으로 채운다.
@@ -81,9 +91,17 @@ script GameData extends Logic
 
         local out = {}
         for i = 1, #ruids do
+            local resourceType = types[i] or "sprite"
+            local frameRuids = {}
+            local firstRuid = ruids[i]
+            if resourceType == "sprite_sequence" then
+                frameRuids = self:SplitFrameIds(ruids[i])
+                if #frameRuids > 0 then firstRuid = frameRuids[1] end
+            end
             out[#out + 1] = {
-                ruid = ruids[i],
-                resource_type = types[i] or "sprite",
+                ruid = firstRuid,
+                frame_ruids = frameRuids,
+                resource_type = resourceType,
                 style = styles[i] or "burst",
                 delay = self:ToNumber(delays[i], 0),
                 duration = self:ToNumber(durations[i], 0.4),

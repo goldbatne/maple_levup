@@ -38,6 +38,16 @@ script SkillCastEffect extends Component
     -- 짧은 연출은 스크린샷보다 빨리 사라지므로 생성/종료 로그를 짝지어 남긴다.
     @HideFromInspector property string DebugName = ""
 
+    -- 방어·버프 이펙트는 시전자 몸에 덮여 있어야 한다. 맵 루트에 스폰한 뒤
+    -- 시전자가 움직여도 떨어져 남지 않도록 서버에서 같은 오프셋을 따라간다.
+    @HideFromInspector property Entity FollowTarget = nil
+    @HideFromInspector property Vector3 FollowOffset = Vector3(0, 0, 0)
+
+    -- Maker AnimationClip으로 묶이지 않은 신규 원화 프레임을 순서대로 재생한다.
+    @HideFromInspector property table FrameRUIDs = {}
+    @HideFromInspector property number FrameSeconds = 0.1
+    @HideFromInspector property integer CurrentFrame = 0
+
     @ExecSpace("ServerOnly")
     method void Play(string style, number seconds, Vector3 drift)
         -- 스폰한 쪽이 바로 부른다. 여기서부터 OnUpdate가 움직인다.
@@ -112,6 +122,10 @@ script SkillCastEffect extends Component
             -- 방어 효과는 공격처럼 돌거나 날아가지 않고 짧게 맥동한다.
             scale = 1.0 + 0.12 * math.sin(t * math.pi * 3)
             fadeFrom = 0.7
+        elseif self.Style == "sequence" then
+            -- 프레임 원화가 크기와 알파 변화를 이미 포함하므로 추가 변형하지 않는다.
+            scale = 1.0
+            fadeFrom = 1.0
         else
             scale = 1.0
         end
@@ -145,9 +159,33 @@ script SkillCastEffect extends Component
         -- 지나온 비율로 정한다. 속도를 누적하지 않는 이유는 SkillProjectile과 같다 —
         -- 프레임이 튀어도 끝나는 모습이 항상 같다.
         local t = 1 - (self.Life / self.LifeTotal)
+
+        if isvalid(self.FollowTarget) then
+            local targetTransform = self.FollowTarget.TransformComponent
+            local transform = self.Entity.TransformComponent
+            if isvalid(targetTransform) and isvalid(transform) then
+                local p = targetTransform.WorldPosition
+                transform.WorldPosition = Vector3(
+                    p.x + self.FollowOffset.x,
+                    p.y + self.FollowOffset.y,
+                    p.z + self.FollowOffset.z)
+            end
+        end
+
+        if #self.FrameRUIDs > 0 and self.FrameSeconds > 0 then
+            local elapsed = self.LifeTotal - self.Life
+            local frame = math.floor(elapsed / self.FrameSeconds) + 1
+            if frame < 1 then frame = 1 end
+            if frame > #self.FrameRUIDs then frame = #self.FrameRUIDs end
+            if frame ~= self.CurrentFrame then
+                local sprite = self.Entity.SpriteRendererComponent
+                if isvalid(sprite) then sprite.SpriteRUID = self.FrameRUIDs[frame] end
+                self.CurrentFrame = frame
+            end
+        end
         self:Apply(t)
 
-        if self.Drift.x ~= 0 or self.Drift.y ~= 0 then
+        if not isvalid(self.FollowTarget) and (self.Drift.x ~= 0 or self.Drift.y ~= 0) then
             local transform = self.Entity.TransformComponent
             if isvalid(transform) then
                 local p = transform.WorldPosition

@@ -1,0 +1,123 @@
+# OUTPUT_MANIFEST — AREA_05_IMAGES_OUTPUT
+
+- input_zip: AREA_05_IMAGES_INPUT_V2_4(1).zip
+- 기준: V2.4
+- area: area_05 / 노틸러스
+- generated_new_art_roles: 10 (5 ICON, 3 CAST_VFX sets, 2 REFERENCE_VFX sets)
+- approved_reuse_roles: 0
+- user_art_approval: PENDING
+
+## Source sheets and split coordinates
+- `SOURCE_SHEETS/icons_SOURCE_SHEET.png` / grid=3x2 / cell=256x256
+  - idx 0: (0, 0, 256, 256)
+  - idx 1: (256, 0, 512, 256)
+  - idx 2: (512, 0, 768, 256)
+  - idx 3: (0, 256, 256, 512)
+  - idx 4: (256, 256, 512, 512)
+  - idx 5: (512, 256, 768, 512)
+- `SOURCE_SHEETS/ribbon_cast_SOURCE_SHEET.png` / grid=4x2 / cell=384x384
+  - idx 0: (0, 0, 384, 384)
+  - idx 1: (384, 0, 768, 384)
+  - idx 2: (768, 0, 1152, 384)
+  - idx 3: (1152, 0, 1536, 384)
+  - idx 4: (0, 384, 384, 768)
+  - idx 5: (384, 384, 768, 768)
+  - idx 6: (768, 384, 1152, 768)
+  - idx 7: (1152, 384, 1536, 768)
+- `SOURCE_SHEETS/blue_ref_SOURCE_SHEET.png` / grid=3x2 / cell=256x256
+  - idx 0: (0, 0, 256, 256)
+  - idx 1: (256, 0, 512, 256)
+  - idx 2: (512, 0, 768, 256)
+  - idx 3: (0, 256, 256, 512)
+  - idx 4: (256, 256, 512, 512)
+  - idx 5: (512, 256, 768, 512)
+- `SOURCE_SHEETS/starfish_cast_SOURCE_SHEET.png` / grid=4x2 / cell=384x384
+  - idx 0: (0, 0, 384, 384)
+  - idx 1: (384, 0, 768, 384)
+  - idx 2: (768, 0, 1152, 384)
+  - idx 3: (1152, 0, 1536, 384)
+  - idx 4: (0, 384, 384, 768)
+  - idx 5: (384, 384, 768, 768)
+  - idx 6: (768, 384, 1152, 768)
+  - idx 7: (1152, 384, 1536, 768)
+- `SOURCE_SHEETS/jelly_ref_SOURCE_SHEET.png` / grid=3x2 / cell=256x256
+  - idx 0: (0, 0, 256, 256)
+  - idx 1: (256, 0, 512, 256)
+  - idx 2: (512, 0, 768, 256)
+  - idx 3: (0, 256, 256, 512)
+  - idx 4: (256, 256, 512, 512)
+  - idx 5: (512, 256, 768, 512)
+- `SOURCE_SHEETS/king_cast_SOURCE_SHEET.png` / grid=4x3 / cell=512x512
+  - idx 0: (0, 0, 512, 512)
+  - idx 1: (512, 0, 1024, 512)
+  - idx 2: (1024, 0, 1536, 512)
+  - idx 3: (1536, 0, 2048, 512)
+  - idx 4: (0, 512, 512, 1024)
+  - idx 5: (512, 512, 1024, 1024)
+  - idx 6: (1024, 512, 1536, 1024)
+  - idx 7: (1536, 512, 2048, 1024)
+  - idx 8: (0, 1024, 512, 1536)
+  - idx 9: (512, 1024, 1024, 1536)
+  - idx 10: (1024, 1024, 1536, 1536)
+  - idx 11: (1536, 1024, 2048, 1536)
+
+## Produced files
+- m_ribbon_pig / s_mon_ribbon_pig / ICON / `ICON/001_m_ribbon_pig_s_mon_ribbon_pig_ICON.png` / frame=0 / size=256x256 / runtime_use=ui / playback=static / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_ribbon_pig / s_mon_ribbon_pig / CAST_VFX / `CAST/001_m_ribbon_pig_s_mon_ribbon_pig_CAST_F00.png` / frame=0 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_ribbon_pig / s_mon_ribbon_pig / CAST_VFX / `CAST/001_m_ribbon_pig_s_mon_ribbon_pig_CAST_F01.png` / frame=1 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_ribbon_pig / s_mon_ribbon_pig / CAST_VFX / `CAST/001_m_ribbon_pig_s_mon_ribbon_pig_CAST_F02.png` / frame=2 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_ribbon_pig / s_mon_ribbon_pig / CAST_VFX / `CAST/001_m_ribbon_pig_s_mon_ribbon_pig_CAST_F03.png` / frame=3 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_ribbon_pig / s_mon_ribbon_pig / CAST_VFX / `CAST/001_m_ribbon_pig_s_mon_ribbon_pig_CAST_F04.png` / frame=4 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=WARN, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_ribbon_pig / s_mon_ribbon_pig / CAST_VFX / `CAST/001_m_ribbon_pig_s_mon_ribbon_pig_CAST_F05.png` / frame=5 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_ribbon_pig / s_mon_ribbon_pig / CAST_VFX / `CAST/001_m_ribbon_pig_s_mon_ribbon_pig_CAST_F06.png` / frame=6 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_ribbon_pig / s_mon_ribbon_pig / CAST_VFX / `CAST/001_m_ribbon_pig_s_mon_ribbon_pig_CAST_F07.png` / frame=7 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_blue_pig / s_mon_blue_pig / ICON / `ICON/002_m_blue_pig_s_mon_blue_pig_ICON.png` / frame=0 / size=256x256 / runtime_use=ui / playback=static / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_blue_pig / s_mon_blue_pig / REFERENCE_VFX / `REFERENCE/002_m_blue_pig_s_mon_blue_pig_REFERENCE_F00.png` / frame=0 / size=256x256 / runtime_use=false / playback=preview-only non-loop / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_blue_pig / s_mon_blue_pig / REFERENCE_VFX / `REFERENCE/002_m_blue_pig_s_mon_blue_pig_REFERENCE_F01.png` / frame=1 / size=256x256 / runtime_use=false / playback=preview-only non-loop / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_blue_pig / s_mon_blue_pig / REFERENCE_VFX / `REFERENCE/002_m_blue_pig_s_mon_blue_pig_REFERENCE_F02.png` / frame=2 / size=256x256 / runtime_use=false / playback=preview-only non-loop / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_blue_pig / s_mon_blue_pig / REFERENCE_VFX / `REFERENCE/002_m_blue_pig_s_mon_blue_pig_REFERENCE_F03.png` / frame=3 / size=256x256 / runtime_use=false / playback=preview-only non-loop / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_blue_pig / s_mon_blue_pig / REFERENCE_VFX / `REFERENCE/002_m_blue_pig_s_mon_blue_pig_REFERENCE_F04.png` / frame=4 / size=256x256 / runtime_use=false / playback=preview-only non-loop / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_blue_pig / s_mon_blue_pig / REFERENCE_VFX / `REFERENCE/002_m_blue_pig_s_mon_blue_pig_REFERENCE_F05.png` / frame=5 / size=256x256 / runtime_use=false / playback=preview-only non-loop / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_starfish / s_mon_starfish / ICON / `ICON/003_m_starfish_s_mon_starfish_ICON.png` / frame=0 / size=256x256 / runtime_use=ui / playback=static / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_starfish / s_mon_starfish / CAST_VFX / `CAST/003_m_starfish_s_mon_starfish_CAST_F00.png` / frame=0 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_starfish / s_mon_starfish / CAST_VFX / `CAST/003_m_starfish_s_mon_starfish_CAST_F01.png` / frame=1 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_starfish / s_mon_starfish / CAST_VFX / `CAST/003_m_starfish_s_mon_starfish_CAST_F02.png` / frame=2 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_starfish / s_mon_starfish / CAST_VFX / `CAST/003_m_starfish_s_mon_starfish_CAST_F03.png` / frame=3 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_starfish / s_mon_starfish / CAST_VFX / `CAST/003_m_starfish_s_mon_starfish_CAST_F04.png` / frame=4 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_starfish / s_mon_starfish / CAST_VFX / `CAST/003_m_starfish_s_mon_starfish_CAST_F05.png` / frame=5 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=WARN, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_starfish / s_mon_starfish / CAST_VFX / `CAST/003_m_starfish_s_mon_starfish_CAST_F06.png` / frame=6 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=WARN, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_starfish / s_mon_starfish / CAST_VFX / `CAST/003_m_starfish_s_mon_starfish_CAST_F07.png` / frame=7 / size=384x384 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_jellyfish / s_mon_jellyfish / ICON / `ICON/004_m_jellyfish_s_mon_jellyfish_ICON.png` / frame=0 / size=256x256 / runtime_use=ui / playback=static / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_jellyfish / s_mon_jellyfish / REFERENCE_VFX / `REFERENCE/004_m_jellyfish_s_mon_jellyfish_REFERENCE_F00.png` / frame=0 / size=256x256 / runtime_use=false / playback=preview-only non-loop / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_jellyfish / s_mon_jellyfish / REFERENCE_VFX / `REFERENCE/004_m_jellyfish_s_mon_jellyfish_REFERENCE_F01.png` / frame=1 / size=256x256 / runtime_use=false / playback=preview-only non-loop / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_jellyfish / s_mon_jellyfish / REFERENCE_VFX / `REFERENCE/004_m_jellyfish_s_mon_jellyfish_REFERENCE_F02.png` / frame=2 / size=256x256 / runtime_use=false / playback=preview-only non-loop / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_jellyfish / s_mon_jellyfish / REFERENCE_VFX / `REFERENCE/004_m_jellyfish_s_mon_jellyfish_REFERENCE_F03.png` / frame=3 / size=256x256 / runtime_use=false / playback=preview-only non-loop / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_jellyfish / s_mon_jellyfish / REFERENCE_VFX / `REFERENCE/004_m_jellyfish_s_mon_jellyfish_REFERENCE_F04.png` / frame=4 / size=256x256 / runtime_use=false / playback=preview-only non-loop / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_jellyfish / s_mon_jellyfish / REFERENCE_VFX / `REFERENCE/004_m_jellyfish_s_mon_jellyfish_REFERENCE_F05.png` / frame=5 / size=256x256 / runtime_use=false / playback=preview-only non-loop / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_king_clang / s_mon_king_clang / ICON / `ICON/005_m_king_clang_s_mon_king_clang_ICON.png` / frame=0 / size=256x256 / runtime_use=ui / playback=static / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_king_clang / s_mon_king_clang / CAST_VFX / `CAST/005_m_king_clang_s_mon_king_clang_CAST_F00.png` / frame=0 / size=512x512 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=WARN, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_king_clang / s_mon_king_clang / CAST_VFX / `CAST/005_m_king_clang_s_mon_king_clang_CAST_F01.png` / frame=1 / size=512x512 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=WARN, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_king_clang / s_mon_king_clang / CAST_VFX / `CAST/005_m_king_clang_s_mon_king_clang_CAST_F02.png` / frame=2 / size=512x512 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=WARN, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_king_clang / s_mon_king_clang / CAST_VFX / `CAST/005_m_king_clang_s_mon_king_clang_CAST_F03.png` / frame=3 / size=512x512 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_king_clang / s_mon_king_clang / CAST_VFX / `CAST/005_m_king_clang_s_mon_king_clang_CAST_F04.png` / frame=4 / size=512x512 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=WARN, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_king_clang / s_mon_king_clang / CAST_VFX / `CAST/005_m_king_clang_s_mon_king_clang_CAST_F05.png` / frame=5 / size=512x512 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=WARN, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_king_clang / s_mon_king_clang / CAST_VFX / `CAST/005_m_king_clang_s_mon_king_clang_CAST_F06.png` / frame=6 / size=512x512 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=WARN, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_king_clang / s_mon_king_clang / CAST_VFX / `CAST/005_m_king_clang_s_mon_king_clang_CAST_F07.png` / frame=7 / size=512x512 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=PASS, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_king_clang / s_mon_king_clang / CAST_VFX / `CAST/005_m_king_clang_s_mon_king_clang_CAST_F08.png` / frame=8 / size=512x512 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=WARN, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_king_clang / s_mon_king_clang / CAST_VFX / `CAST/005_m_king_clang_s_mon_king_clang_CAST_F09.png` / frame=9 / size=512x512 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=WARN, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_king_clang / s_mon_king_clang / CAST_VFX / `CAST/005_m_king_clang_s_mon_king_clang_CAST_F10.png` / frame=10 / size=512x512 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=WARN, edge_touch=SUSPECT_TOUCHING_EDGE)
+- m_king_clang / s_mon_king_clang / CAST_VFX / `CAST/005_m_king_clang_s_mon_king_clang_CAST_F11.png` / frame=11 / size=512x512 / runtime_use=true / playback=non-loop one-shot / validation(mode=PASS, alpha=PASS, transparent_corners=WARN, edge_touch=SUSPECT_TOUCHING_EDGE)
+
+## Mandatory previews
+- `AREA_OVERVIEW_PREVIEW.png`
+- `monsters/001_m_ribbon_pig/PREVIEW/labeled_preview.png`
+- `monsters/002_m_blue_pig/PREVIEW/labeled_preview.png`
+- `monsters/003_m_starfish/PREVIEW/labeled_preview.png`
+- `monsters/004_m_jellyfish/PREVIEW/labeled_preview.png`
+- `monsters/005_m_king_clang/PREVIEW/labeled_preview.png`
+
+## Unmet / warnings
+- Approved reuse byte/hash preservation: N/A (no AREA00_APPROVED_REUSE rows in current area)
+- Runtime import / in-engine playback verification: NOT_CHECKED
+- Cell-fragment contamination exact audit: NOT_CHECKED
+- New art approval remains PENDING
