@@ -1,3 +1,9 @@
+// Default: current Mega Area data integrity. Historical RPG assertions below
+// remain reproducible with --legacy-rpg and retain their original failure status.
+if (!process.argv.includes('--legacy-rpg')) {
+  require('./verify-current-content.cjs').main();
+} else {
+console.error('HISTORICAL_RPG_CHECK: not the current Mega Area release gate');
 const fs = require("fs");
 
 function readCsv(filepath) {
@@ -691,4 +697,5 @@ if (monsters.length !== 101 || skills.filter((skill) => skill.source === "monste
   || bossGate.gate_type !== "key" || bossGate.gate_key !== "s_mon_mushmom"
   || gate.gate_type !== "key" || gate.gate_key !== "s_mon_shade") {
   process.exitCode = 1;
+}
 }

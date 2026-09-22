@@ -7,15 +7,26 @@
 @Struct
 script SavePermanentData
 
-    property integer schema_version = 1
+    property integer schema_version = 5
 
-    -- 스킬 컬렉션. id -> 보유 개수. 중복 포획은 강화 카운트로 쌓인다 (기획서 4.8).
+    -- 레거시 스킬 컬렉션 미러. 신규 모드에서는 직접 수정하지 않는다.
     property table owned_skills = {}
+
+    -- v5 M2A: 신규 모드의 수집·해금·강화 Single Source of Truth.
+    -- monster_id -> 1~5. OwnedSkills는 레거시 호환 미러로만 남긴다.
+    property table tamed_monsters = {}
+
+    -- v5 M2A: 선택한 비전투 동행 몬스터. 빈 문자열이면 동행 없음.
+    property string selected_companion_monster_id = ""
 
     -- 종별 천장 카운터. monsterId -> 마지막 포획 이후 누적 킬.
     -- 영구에 두는 이유: 천장의 목적이 "빈손 방지"인데 회차마다 0으로 돌아가면
     -- 운 나쁜 플레이어가 환생을 반복해도 계속 빈손일 수 있다.
     property table species_kills = {}
+
+    -- v4: 신규 모드 누적 처치 기록. species_kills는 과거 포획 실패 카운터라
+    -- 마이그레이션하지 않고 별도 원장을 0부터 시작한다.
+    property table total_monster_kills = {}
 
     property integer rebirth_count = 0
     property integer highest_level = 1
@@ -45,6 +56,9 @@ script SavePermanentData
     -- 영구에 두는 이유: 조작 설정은 계정의 것이고 환생과 무관하다.
     property string key_order = ""
 
+    -- Phase 2 특성. 구버전 세이브에는 없으며 Deserialize가 균형으로 이관한다.
+    property string selected_trait = "balance"
+
     -- 인벤토리 (T13-3). itemId -> 개수.
     -- 영구에 두는 이유: 장비가 환생해도 남는 것은 확정된 설계다(2026-08-12 대표 지시).
     -- 소비 아이템까지 같은 표에 담아 통째로 영구로 간다 — 근거는 PlayerInventory 주석.
@@ -55,12 +69,24 @@ script SavePermanentData
     -- 개수 옆에 플래그를 붙이면 같은 장비 2개를 들었을 때 어느 쪽이 장착인지 모른다.
     property table equipped = {}
 
+    -- 별도 RoguelitePermanent namespace. 과거 RPG/M2 진행을 시작 전투력으로
+    -- 변환하지 않고, 발견·클리어·선택 조우·설정만 영구 보존한다.
+    property integer roguelite_schema_version = 1
+    property table roguelite_discovered_monsters = {}
+    property table roguelite_discovered_abilities = {}
+    property table roguelite_area_clears = {}
+    property table roguelite_optional_encounters = {}
+    property table roguelite_settings = {}
+
     method void Init(number startingSlotCount)
         -- 신규 계정 기본값. startingSlotCount는 호출자가 GameBalance의
         -- monster_slot_start에서 읽어 넘긴다 (구조체가 데이터 소스에 의존하지 않도록).
-        self.schema_version = 1
+        self.schema_version = 5
         self.owned_skills = {}
+        self.tamed_monsters = {}
+        self.selected_companion_monster_id = ""
         self.species_kills = {}
+        self.total_monster_kills = {}
         self.rebirth_count = 0
         self.best_rebirth_level = 0
         self.best_tier = 0
@@ -70,11 +96,18 @@ script SavePermanentData
         self.monster_slot_count = startingSlotCount
         self.bosses_cleared = {}
         self.key_order = ""
+        self.selected_trait = "balance"
         self.inventory = {}
         self.equipped = {}
+        self.roguelite_schema_version = 1
+        self.roguelite_discovered_monsters = {}
+        self.roguelite_discovered_abilities = {}
+        self.roguelite_area_clears = {}
+        self.roguelite_optional_encounters = {}
+        self.roguelite_settings = {}
     end
 
-    method boolean HasAny(table t)
+    method boolean HasAny(any t)
         -- 빈 테이블인가.
         --
         -- 왜 필요한가 (T8 실측): _HttpService:JSONEncode는 **중첩된 빈 테이블**을
@@ -83,7 +116,7 @@ script SavePermanentData
         --   JSONEncode({ Perm = { lv = 1, own = {} } })  -> LEA-3001
         -- 최상위 빈 테이블은 조용히 빈 문자열을 돌려줘서 더 헷갈린다.
         -- Deserialize가 없는 필드를 기본값으로 채우므로 빼도 잃는 게 없다.
-        if t == nil then return false end
+        if type(t) ~= "table" then return false end
         return next(t) ~= nil
     end
 
@@ -100,38 +133,75 @@ script SavePermanentData
         body["monster_slot_count"] = self.monster_slot_count
 
         if self:HasAny(self.owned_skills) then body["owned_skills"] = self.owned_skills end
+        if self:HasAny(self.tamed_monsters) then body["tamed_monsters"] = self.tamed_monsters end
+        if self.selected_companion_monster_id ~= "" then
+            body["selected_companion_monster_id"] = self.selected_companion_monster_id
+        end
         if self:HasAny(self.species_kills) then body["species_kills"] = self.species_kills end
+        if self:HasAny(self.total_monster_kills) then body["total_monster_kills"] = self.total_monster_kills end
         if self:HasAny(self.landmark_claimed) then body["landmark_claimed"] = self.landmark_claimed end
         if self:HasAny(self.unlocked_areas) then body["unlocked_areas"] = self.unlocked_areas end
         if self:HasAny(self.bosses_cleared) then body["bosses_cleared"] = self.bosses_cleared end
         -- 기본값을 쓰는 계정은 아예 넣지 않는다. 바이트를 아끼기도 하지만,
         -- 더 중요한 건 "설정을 건드린 적 있는가"가 값의 유무로 남는다는 것이다.
         if self.key_order ~= "" then body["key_order"] = self.key_order end
+        body["selected_trait"] = self.selected_trait
         if self:HasAny(self.inventory) then body["inventory"] = self.inventory end
         if self:HasAny(self.equipped) then body["equipped"] = self.equipped end
+
+        local rogue = {}
+        out["RoguelitePermanent"] = rogue
+        rogue["schema_version"] = self.roguelite_schema_version
+        if self:HasAny(self.roguelite_discovered_monsters) then
+            rogue["discovered_monsters"] = self.roguelite_discovered_monsters
+        end
+        if self:HasAny(self.roguelite_discovered_abilities) then
+            rogue["discovered_abilities"] = self.roguelite_discovered_abilities
+        end
+        if self:HasAny(self.roguelite_area_clears) then
+            rogue["area_clears"] = self.roguelite_area_clears
+        end
+        if self:HasAny(self.roguelite_optional_encounters) then
+            rogue["optional_encounters"] = self.roguelite_optional_encounters
+        end
+        if self:HasAny(self.roguelite_settings) then rogue["settings"] = self.roguelite_settings end
         return true
     end
 
     method boolean Deserialize(table src)
         -- 역직렬화. 없는 필드는 Init() 기본값 유지 (구버전 세이브 호환).
         local body = src["Perm"]
-        if body == nil then return true end
+        if body ~= nil then
+            self.schema_version = body["schema_version"] or 1
+            self.owned_skills = body["owned_skills"] or {}
+            self.tamed_monsters = body["tamed_monsters"] or {}
+            self.selected_companion_monster_id = body["selected_companion_monster_id"] or ""
+            self.species_kills = body["species_kills"] or {}
+            self.total_monster_kills = body["total_monster_kills"] or {}
+            self.rebirth_count = body["rebirth_count"] or 0
+            -- 옛 저장에는 없다. 0이면 보너스도 0이라 기존 플레이어는 그대로 시작한다.
+            self.best_rebirth_level = body["best_rebirth_level"] or 0
+            self.best_tier = body["best_tier"] or 0
+            self.highest_level = body["highest_level"] or 1
+            self.landmark_claimed = body["landmark_claimed"] or {}
+            self.unlocked_areas = body["unlocked_areas"] or {}
+            self.monster_slot_count = body["monster_slot_count"] or self.monster_slot_count
+            self.bosses_cleared = body["bosses_cleared"] or {}
+            self.key_order = body["key_order"] or ""
+            self.selected_trait = body["selected_trait"] or "balance"
+            self.inventory = body["inventory"] or {}
+            self.equipped = body["equipped"] or {}
+        end
 
-        self.schema_version = body["schema_version"] or 1
-        self.owned_skills = body["owned_skills"] or {}
-        self.species_kills = body["species_kills"] or {}
-        self.rebirth_count = body["rebirth_count"] or 0
-        -- 옛 저장에는 없다. 0이면 보너스도 0이라 기존 플레이어는 그대로 시작한다.
-        self.best_rebirth_level = body["best_rebirth_level"] or 0
-        self.best_tier = body["best_tier"] or 0
-        self.highest_level = body["highest_level"] or 1
-        self.landmark_claimed = body["landmark_claimed"] or {}
-        self.unlocked_areas = body["unlocked_areas"] or {}
-        self.monster_slot_count = body["monster_slot_count"] or self.monster_slot_count
-        self.bosses_cleared = body["bosses_cleared"] or {}
-        self.key_order = body["key_order"] or ""
-        self.inventory = body["inventory"] or {}
-        self.equipped = body["equipped"] or {}
+        local rogue = src["RoguelitePermanent"]
+        if type(rogue) == "table" then
+            self.roguelite_schema_version = rogue["schema_version"] or 1
+            if type(rogue["discovered_monsters"]) == "table" then self.roguelite_discovered_monsters = rogue["discovered_monsters"] else self.roguelite_discovered_monsters = {} end
+            if type(rogue["discovered_abilities"]) == "table" then self.roguelite_discovered_abilities = rogue["discovered_abilities"] else self.roguelite_discovered_abilities = {} end
+            if type(rogue["area_clears"]) == "table" then self.roguelite_area_clears = rogue["area_clears"] else self.roguelite_area_clears = {} end
+            if type(rogue["optional_encounters"]) == "table" then self.roguelite_optional_encounters = rogue["optional_encounters"] else self.roguelite_optional_encounters = {} end
+            if type(rogue["settings"]) == "table" then self.roguelite_settings = rogue["settings"] else self.roguelite_settings = {} end
+        end
         return true
     end
 

@@ -1,0 +1,24 @@
+﻿Kind,Name,Classification,RuntimeOrStaticState,CurrentRole,Evidence
+UI,AreaSelect,A,로비에서 실제 노출/상호작용,Area 선택 및 준비/시작으로 재사용,AreaSelect.ui; AreaSelectPanel.mlua
+UI,PlayerHud-HP,A,Run 스크린샷에서 HP 1000/1000 노출,신규 Run 핵심 HUD,PlayerHud.ui; PlayerHud.mlua
+UI,PlayerHud-Level/EXP,B,"UI 파일/컴포넌트는 존재, Run에서 비활성",레거시 RPG 표시,PlayerHud.mlua:96-110
+UI,SkillBar,A,Run 스크린샷에서 5칸/단축키 노출,고정 5슬롯·쿨다운·교체 UI,SkillBar.ui; SkillBar.mlua
+UI,RoomProgress,A,Run 스크린샷에서 Area/목표/Seed 노출,신규 Run 목표 HUD,RoomProgress.ui; RoomProgressHud.mlua
+UI,WorldMap,A,Run 스크린샷에서 Room 그래프 패널 노출,기존 월드맵을 Run graph로 재사용,WorldMap.ui; WorldMapPanel.mlua
+UI,GateNotice,A,조건부 toast,능력 발견/준비/거부 안내,GateNotice.ui; GateNotice.mlua
+UI,EquipWindow/Collection,A/B,"로비에서는 컬렉션 버튼, Run 중 자동 숨김",장비창 대신 발견 컬렉션으로 재사용,EquipPanel.mlua:157-188
+UI,Inventory,B,UI/코드는 존재하나 신규 모드에서 패널·버튼 비활성,레거시 가방,InventoryPanel.mlua:106-111
+UI,ItemQuickSlot,B,슬롯 엔티티를 신규 모드에서 비활성,레거시 포션 단축키,ItemQuickSlotBar.mlua:47-63
+UI,StatGroup,B,패널/버튼을 신규 모드에서 비활성,레거시 STR/DEX/INT/LUK,StatPanel.mlua:92-100
+UI,TraitWindow,B,실제 Runtime에서 창·버튼 비활성 로그 확인,폐기된 Trait,"TraitPanel.mlua:22-29,69-74"
+UI,RebirthConfirm,B,닫힌 채 초기화; Run 중 Open 거부,레거시 환생,"RebirthConfirmPanel.mlua:51-55,85-88"
+UI,GoddessWindow,B,닫힌 채 초기화; Run 중 Open 거부,레거시 전직 안내,"GoddessPanel.mlua:38-42,67-69"
+UI,KeyConfig,A,"파일/스크립트 활성, 메뉴에서 열 수 있음",현재 스킬 키 확인/설정,KeyConfig.ui; KeyConfigPanel.mlua
+UI,Quest,D,전용 UI/실행 경로 미확인,미사용,ui 디렉터리 전수 목록
+UI,Taming/Companion,C,일부 모델·레거시 데이터는 존재하나 신규 Run UI 없음,신규 모드 미사용,Models/Companions; PlayerCollection 레거시 필드
+UI,PvP/Ranking,D,전용 UI/실행 경로 미확인,미사용,ui 디렉터리 전수 목록
+NPC,TownGate/Portal_E,A,maptown에서 실제 사용,Area 선택창을 여는 현재 진입점,map/maptown.map; TownGate.mlua
+NPC,RebirthNpc,A,maptown에 보이고 TouchEvent 등록 로그 확인,환생은 거부 안내만 함; 잘못된 balance key 경고 존재,map/maptown.map; RebirthNpc.mlua
+NPC,GoddessNpc,A,maptown에 보이고 TouchEvent 등록 로그 확인,전직 폐지 안내만 함; 잘못된 balance key 경고 존재,map/maptown.map; GoddessNpc.mlua
+NPC,HeroNpc,B,map04에 배치되나 신규 모드 상호작용 guard,레거시 히어로 시험/안내,map/map04.map; HeroNpc.mlua
+NPC,BowmasterNpc,B,map29에 배치되나 신규 모드 상호작용 guard,레거시 보우마스터 시험/안내,map/map29.map; HeroNpc.mlua

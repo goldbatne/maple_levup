@@ -32,6 +32,10 @@ script PlayerDBManager extends Component
     -- 흩어놓으면 오타 하나로 빈 컨테이너가 새로 생긴다 (datastorage §2).
     property string KeyPerm = "Perm"
     property string KeyRun = "Run"
+    property string KeyRogue = "RoguelitePermanentV1"
+    property boolean RogueStorageMode = false
+    property boolean StorageWriteBlocked = false
+    property table RogueSavedPayload = {}
 
     -- 로드가 끝나기 전에는 절대 저장하지 않는다. 이 게이트가 없으면
     -- 로드 실패 시 기본값(Lv1·빈 컬렉션)으로 저장을 덮어써 세이브가 날아간다.
@@ -54,6 +58,11 @@ script PlayerDBManager extends Component
     property table LandmarkClaimed = {}
     property integer HighestLevel = 1
 
+    -- RoguelitePermanent 별도 namespace의 런타임 원장.
+    property table RogueAreaClears = {}
+    property table RogueOptionalEncounters = {}
+    property table RogueSettings = {}
+
     -- 현재 방. OnMapEnter가 갱신하고 Run 키에 실린다.
     property string CurrentRoom = ""
 
@@ -68,9 +77,19 @@ script PlayerDBManager extends Component
 
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
+        -- 저장 모드를 세션 시작에 고정한다. Maker는 실계정 진행 키를 쓰지 않는다.
+        self.RogueStorageMode = _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5
+        if self.RogueStorageMode and Environment:IsMakerPlay() then
+            self.KeyRogue = "MakerTest_RoguelitePermanentV1"
+        end
+        -- 외부 파일 병합 직후 Maker가 새 table 프로퍼티의 기본값을 nil로 보존한
+        -- 세션에서도 별도 RoguelitePermanent 원장을 안전하게 초기화한다.
+        if type(self.RogueAreaClears) ~= "table" then self.RogueAreaClears = {} end
+        if type(self.RogueOptionalEncounters) ~= "table" then self.RogueOptionalEncounters = {} end
+        if type(self.RogueSettings) ~= "table" then self.RogueSettings = {} end
         -- 로그인 로드. BatchGet은 블로킹이지만 여기서는 블로킹이 맞다 —
         -- 로드가 끝나기 전에 플레이가 시작되면 어차피 빈 값으로 논다.
-        log("[PlayerDB] 로드 시작  profileCode=" .. tostring(self.Entity.PlayerComponent.ProfileCode))
+        log("[PlayerDB] 로드 시작")
         self:LoadFromDB()
 
         if self.IsLoadSuccess == false then
@@ -81,6 +100,19 @@ script PlayerDBManager extends Component
         -- 진행 로깅의 세션 카운터를 연다 (작업지시서 T8). 로드가 끝난 뒤에 여는
         -- 이유: 로드 실패 세션은 어차피 저장도 로깅도 의미가 없다.
         _ProgressLog:Begin(self.Entity.PlayerComponent.UserId)
+
+        if _GameData.RogueRunActive then _GameData:RegisterRunParticipant(self.Entity) end
+
+        -- 최종 로그라이트 모드는 매 Run을 서버가 확정한 시작 맵에서 시작한다.
+        -- 레거시 RPG Run.current_room을 복원하면 새 InstanceRoom 입장 직후 지난
+        -- 사냥방으로 다시 이동해 Seed 그래프의 시작점과 클라이언트가 갈라진다.
+        -- 저장 필드는 호환을 위해 그대로 읽되, 신규 모드에서는 이동·기록에 쓰지 않는다.
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            self.CurrentRoom = ""
+            self.roomRestored = true
+            log("[PlayerDB] Roguelite 모드 — 레거시 방 복원 생략")
+            return
+        end
 
         -- 방 복원은 조금 뒤에 한다. OnBeginPlay 시점에는 플레이어가 아직 맵에
         -- 자리잡기 전이라 곧바로 텔레포트하면 출발 맵과 도착 맵이 엉킨다.
@@ -106,6 +138,7 @@ script PlayerDBManager extends Component
     @ExecSpace("ServerOnly")
     method void OnMapEnter(Entity enterEntity)
         -- 방 전환 = 저장 트리거 (작업지시서 T8).
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then return end
         if self.roomRestored == false then return end
 
         local map = self.Entity.CurrentMap
@@ -151,6 +184,12 @@ script PlayerDBManager extends Component
 
     @ExecSpace("ServerOnly")
     method void LoadFromDB()
+        -- 테이블 미등록/부분 로드 상태에서 기본값으로 기존 저장을 덮지 않는다.
+        if self:ValidateStorageData() == false then return end
+        if self.RogueStorageMode then
+            self:LoadRogueliteRecords()
+            return
+        end
         local profileCode = self.Entity.PlayerComponent.ProfileCode
         local loadKeys = { self.KeyPerm, self.KeyRun }
 
@@ -197,6 +236,9 @@ script PlayerDBManager extends Component
         local slotsAfterLoad = self.Entity:GetComponent("script.PlayerSkillSlots")
         if slotsAfterLoad ~= nil then
             slotsAfterLoad:RecomputeSlotCount()
+            -- OnBeginPlay 시점에는 OwnedSkills 복원이 끝나지 않았을 수 있다. 저장 적용 뒤
+            -- 다시 초기화해야 보유 종수와 무관한 랜덤 5칸 재고가 실제 세이브와 일치한다.
+            slotsAfterLoad:InitializeRuntimeSkills()
 
             -- **안 받은 랜드마크를 소급 지급한다** (2026-08-29).
             --
@@ -212,7 +254,8 @@ script PlayerDBManager extends Component
             -- Lv1로 읽혀 아무것도 안 준다 (슬롯 계산과 같은 함정).
             ---@type PlayerStats
             local statsAfterLoad = self.Entity:GetComponent("script.PlayerStats")
-            if statsAfterLoad ~= nil then
+            if statsAfterLoad ~= nil
+                and _GameData:GetBalance("phase3_simplified_growth_enabled") < 0.5 then
                 _Rebirth:GrantLandmarksUpTo(statsAfterLoad.Level, self, slotsAfterLoad)
             end
         end
@@ -266,26 +309,110 @@ script PlayerDBManager extends Component
         if collection ~= nil then
             local stackMax = math.floor(_GameData:GetBalance("skill_stack_max"))
             if stackMax < 1 then stackMax = 1 end
+
+            -- 복구/재로드 경로에서도 이전 런타임 값이 남지 않게 알려진 키 공간을 비운다.
+            for _, id in ipairs(_GameData:GetAllSkillIds()) do collection.OwnedSkills[id] = nil end
+            for _, monsterId in ipairs(_GameData:GetTameableMonsterIds()) do
+                -- 로드 초기화도 동일한 단일 쓰기 창구를 사용한다. 이 호출이 대응
+                -- OwnedSkills 미러까지 함께 비워 두 원장이 갈라지지 않게 한다.
+                collection:SetTamedCount(monsterId, 0)
+            end
+
+            -- 스키마 v5부터 TamedMonsters가 신규 모드의 유일한 원장이다.
+            -- v4 이하는 현재 MonsterTable의 명시적 101개 관계만 한 번 변환한다.
+            -- 매핑이 없는 레거시 s_mon_snail은 OwnedSkills 호환 기록으로만 보존된다.
+            local migrated = 0
             for id, count in pairs(perm.owned_skills) do
                 local skill = _GameData:GetSkill(id)
-                -- T56: 직업 캐릭터의 전투 전용 스킬은 더 이상 플레이어 보상이 아니다.
-                -- 옛 저장에 남은 s_hero_*는 로드하지 않고 다음 저장에서 자연스럽게 제거한다.
                 if skill ~= nil and skill.source == "monster" then
                     local owned = math.floor(count)
                     if owned > stackMax then
-                        log_warning("[PlayerDB] 포획 중복 상한 초과를 " .. tostring(stackMax)
+                        log_warning("[PlayerDB] 테이밍 중복 상한 초과를 " .. tostring(stackMax)
                             .. "장으로 보정한다: " .. tostring(id) .. " " .. tostring(owned))
                         owned = stackMax
                     end
-                    if owned > 0 then collection.OwnedSkills[id] = owned end
+                    if owned > 0 then
+                        local monsterId = _GameData:GetMonsterIdByDropSkillId(id)
+                        if perm.schema_version < 5 and monsterId ~= "" then
+                            collection:SetTamedCount(monsterId, owned)
+                            migrated += 1
+                        elseif monsterId == "" then
+                            -- 현재 몬스터와 대응하지 않는 과거 스킬은 자동 테이밍 변환 금지.
+                            collection.OwnedSkills[id] = owned
+                        end
+                    end
                 else
                     log_warning("[PlayerDB] 포획 스킬이 아닌 옛 보유 기록을 버린다: " .. tostring(id))
                 end
             end
+
+            if perm.schema_version >= 5 then
+                for monsterId, count in pairs(perm.tamed_monsters) do
+                    if _GameData:IsTameableMonster(monsterId) then
+                        collection:SetTamedCount(monsterId, math.floor(count))
+                    else
+                        log_warning("[PlayerDB] 테이밍 대상이 아닌 v5 기록을 보류한다: "
+                            .. tostring(monsterId))
+                    end
+                end
+            else
+                self.permDirty = true
+                self.permGen += 1
+                log("[PlayerDB] schema v" .. tostring(perm.schema_version)
+                    .. " → v5 테이밍 마이그레이션 " .. tostring(migrated) .. "종")
+            end
+
+            local companionId = perm.selected_companion_monster_id
+            if companionId ~= "" and collection:GetTamedCount(companionId) > 0 then
+                collection.SelectedCompanionMonsterId = companionId
+            else
+                collection.SelectedCompanionMonsterId = ""
+            end
+
             for id, kills in pairs(perm.species_kills) do
                 collection.SpeciesKills[id] = math.floor(kills)
             end
+            -- 새 schema 필드는 기존 .codeblock 메타가 갱신되기 전에도 구세이브를
+            -- 안전하게 읽도록 동적 별칭으로 접근한다. 런타임 타입은 각각 동일하다.
+            ---@type any
+            local permV4 = perm
+            ---@type any
+            local collectionV4 = collection
+            -- 같은 엔티티에 데이터를 다시 적용하는 복구/재로드 경로에서도 옛 값이
+            -- 남지 않게 먼저 비운다. 구 schema에는 표가 없으므로 이 단계가 곧 0 이관이다.
+            for id, _ in pairs(collectionV4.TotalMonsterKills) do
+                collectionV4.TotalMonsterKills[id] = nil
+            end
+            local savedTotalKills = permV4.total_monster_kills
+            if type(savedTotalKills) ~= "table" then savedTotalKills = {} end
+            for id, kills in pairs(savedTotalKills) do
+                collectionV4.TotalMonsterKills[id] = math.floor(kills)
+            end
+            for _, monsterId in ipairs(_GameData:GetAllMonsterIds()) do
+                collection.RogueDiscoveredMonsters[monsterId] = nil
+            end
+            for _, skillId in ipairs(_GameData:GetAllSkillIds()) do
+                collection.RogueDiscoveredAbilities[skillId] = nil
+            end
+            local savedDiscoveredMonsters = perm.roguelite_discovered_monsters
+            if type(savedDiscoveredMonsters) ~= "table" then savedDiscoveredMonsters = {} end
+            for monsterId, discovered in pairs(savedDiscoveredMonsters) do
+                if _GameData:GetMonster(monsterId) ~= nil and discovered then
+                    collection.RogueDiscoveredMonsters[monsterId] = 1
+                end
+            end
+            local savedDiscoveredAbilities = perm.roguelite_discovered_abilities
+            if type(savedDiscoveredAbilities) ~= "table" then savedDiscoveredAbilities = {} end
+            for skillId, discovered in pairs(savedDiscoveredAbilities) do
+                if _GameData:GetSkill(skillId) ~= nil and discovered then
+                    collection.RogueDiscoveredAbilities[skillId] = 1
+                end
+            end
         end
+
+        if type(perm.roguelite_area_clears) == "table" then self.RogueAreaClears = perm.roguelite_area_clears else self.RogueAreaClears = {} end
+        if type(perm.roguelite_optional_encounters) == "table" then self.RogueOptionalEncounters = perm.roguelite_optional_encounters else self.RogueOptionalEncounters = {} end
+        if type(perm.roguelite_settings) == "table" then self.RogueSettings = perm.roguelite_settings else self.RogueSettings = {} end
 
         ---@type PlayerSkillSlots
         local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
@@ -311,6 +438,8 @@ script PlayerDBManager extends Component
             slots.BossesCleared = cleared
             -- 키 배치 (T14-2). 빈 문자열이면 SkillBar가 자기 기본값을 쓴다.
             slots.KeyOrder = perm.key_order
+            -- schema v1 이하에는 값이 없다. SavePermanentData가 balance로 이관한다.
+            slots.SelectedTrait = slots:NormalizeTraitId(perm.selected_trait)
             -- ⚠ 슬롯 계산은 **여기서 하지 않는다.** 차수가 레벨에서 나오게 되면서
             -- (2026-08-21) 슬롯이 레벨에 의존하는데, 레벨은 ApplyRun이 복원한다.
             -- 여기서 부르면 Level이 아직 1이라 **차수 0 · 슬롯 1칸**으로 계산되고,
@@ -375,7 +504,11 @@ script PlayerDBManager extends Component
             stats.UnspentPoints = run.unspent_points
             -- 캡 플래그는 저장하지 않고 레벨에서 다시 판정한다.
             -- 저장해두면 캡 수치를 조정했을 때 옛 플래그가 남아 어긋난다.
-            stats.CanRebirth = _LevelCurve:IsAtCap(run.level)
+            if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then
+                stats.CanRebirth = false
+            else
+                stats.CanRebirth = _LevelCurve:IsAtCap(run.level)
+            end
 
             -- 최대 HP도 STR에서 다시 판정한다 (T27-1). 저장하지 않는 이유는 캡
             -- 플래그와 같다 — 계수(`str_hp_per_point`)를 조정했을 때 옛 값이 남으면
@@ -457,8 +590,16 @@ script PlayerDBManager extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method void RecordRogueliteAreaClear(string areaId)
+        if areaId == nil or areaId == "" or _GameData:GetArea(areaId) == nil then return end
+        self.RogueAreaClears[areaId] = (self.RogueAreaClears[areaId] or 0) + 1
+        self:MarkPermDirty("Roguelite Area 클리어")
+    end
+
+    @ExecSpace("ServerOnly")
     method void MarkRunDirty(string reason)
         -- 회차 데이터가 바뀌었다. 부르는 쪽: 레벨업 / 분배 / 장착 / 방 전환.
+        if self.RogueStorageMode then return end
         self.runDirty = true
         self.runGen += 1
         self:RequestSave(reason)
@@ -554,6 +695,7 @@ script PlayerDBManager extends Component
     @ExecSpace("ServerOnly")
     method void SaveToDB(boolean isLeaving, string reason)
         if self.IsLoadSuccess == false then return end
+        if self.StorageWriteBlocked or self:ValidateStorageData() == false then return end
 
         -- saveData / savedGenerations는 **지역 변수**다. 저장 두 개가 동시에
         -- 떠 있어도(퇴장 저장이 진행 중인 비동기 저장과 겹칠 때) 각자 자기
@@ -561,11 +703,23 @@ script PlayerDBManager extends Component
         local saveData = {}
         local savedGens = {}
 
-        if self.permDirty then
+        if self.RogueStorageMode then
+            if self.permDirty then
+                local encodedOk, encoded = pcall(function()
+                    return _HttpService:JSONEncode(self:GatherRogueliteRecords())
+                end)
+                if encodedOk == false then
+                    log_error("[PlayerDB] 로그라이트 직렬화 실패 — 기존 저장 보존, dirty 유지")
+                    return
+                end
+                saveData[self.KeyRogue] = encoded
+                savedGens[self.KeyRogue] = self.permGen
+            end
+        elseif self.permDirty then
             saveData[self.KeyPerm] = _HttpService:JSONEncode(self:GatherPerm())
             savedGens[self.KeyPerm] = self.permGen
         end
-        if self.runDirty then
+        if self.runDirty and self.RogueStorageMode == false then
             saveData[self.KeyRun] = _HttpService:JSONEncode(self:GatherRun())
             savedGens[self.KeyRun] = self.runGen
         end
@@ -608,7 +762,7 @@ script PlayerDBManager extends Component
         -- 성공했다고 무조건 더티를 내리면 그 사이 변경이 조용히 사라진다.
         for i = 1, #successKeys do
             local key = successKeys[i]
-            if key == self.KeyPerm then
+            if key == self.KeyPerm or key == self.KeyRogue then
                 if savedGens[key] ~= nil and savedGens[key] == self.permGen then
                     self.permDirty = false
                 end
@@ -623,6 +777,161 @@ script PlayerDBManager extends Component
     ---------------------------------------------------------------
     -- 직렬화 — 컴포넌트에서 긁어모아 구조체로
     ---------------------------------------------------------------
+
+    @ExecSpace("ServerOnly")
+    method boolean ValidateStorageData()
+        -- 필수 데이터가 없으면 해당 세션 저장을 잠근다. 재접속 전 자동 해제하지 않는다.
+        if self.StorageWriteBlocked then return false end
+        for _, name in ipairs({"GameBalance", "SkillTable", "MonsterTable", "RoomTable", "AreaTable", "ItemTable", "LandmarkTable"}) do
+            local data = _DataService:GetTable(name)
+            if data == nil or data:GetRowCount() <= 0 then
+                self.StorageWriteBlocked = true
+                log_error("[PlayerDB] 저장 보호: 필수 테이블 미로드 " .. name)
+                return false
+            end
+        end
+        if #_GameData:GetAllSkillIds() == 0 or #_GameData:GetAllMonsterIds() == 0
+            or #_GameData:GetAllItemIds() == 0 or #_GameData:GetAllAreaIds() == 0 then
+            self.StorageWriteBlocked = true
+            log_error("[PlayerDB] 저장 보호: 데이터 캐시 불완전")
+            return false
+        end
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method table DecodeRogueliteRecord(string raw, boolean legacyEnvelope)
+        -- 순수 역직렬화: 테스트 가능한 입력만 받고 실제 저장/플레이어 상태는 변경하지 않는다.
+        local ok, decoded = pcall(function() return _HttpService:JSONDecode(raw) end)
+        if not ok or type(decoded) ~= "table" then return nil end
+        if legacyEnvelope then
+            if decoded.RoguelitePermanent == nil then return {} end
+            if type(decoded.RoguelitePermanent) ~= "table" then return nil end
+            decoded = decoded.RoguelitePermanent
+            if decoded.schema_version ~= nil and decoded.schema_version ~= 1 then return nil end
+        elseif decoded.schema_version ~= 1 then
+            return nil
+        end
+        if self:ValidateRogueliteRecord(decoded) == false then return nil end
+        return decoded
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean ValidateRogueliteRecord(table payload)
+        -- 누락 필드만 기본값으로 채운다. 잘못된 타입/미래 schema는 자동 덮어쓰지 않는다.
+        for _, field in ipairs({"discovered_monsters", "discovered_abilities", "area_clears", "optional_encounters", "settings"}) do
+            if payload[field] ~= nil and type(payload[field]) ~= "table" then return false end
+            if payload[field] == nil then payload[field] = {} end
+        end
+        for _, field in ipairs({"discovered_monsters", "discovered_abilities"}) do
+            for id, value in pairs(payload[field]) do
+                if type(id) ~= "string" then return false end
+                if value ~= true and value ~= false and value ~= 0 and value ~= 1 then return false end
+            end
+        end
+        for id, count in pairs(payload.area_clears) do
+            if type(id) ~= "string" or type(count) ~= "number" then return false end
+            if count ~= count or count < 0 or count >= math.huge or count ~= math.floor(count) then return false end
+        end
+        if payload.settings.key_order ~= nil and type(payload.settings.key_order) ~= "string" then return false end
+        payload.schema_version = 1
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void LoadRogueliteRecords()
+        -- 신규 모드에서는 RPG/M2 필드를 적용하거나 저장하지 않는다.
+        local keys = {self.KeyRogue}
+        if Environment:IsMakerPlay() == false then keys[#keys + 1] = self.KeyPerm end
+        local loaded = {}
+        if self:BatchGetAndWait(self.Entity.PlayerComponent.ProfileCode, keys, loaded) == false then return end
+        local payload = {}
+        local item = loaded[self.KeyRogue]
+        if item ~= nil and item.Value ~= nil and item.Value ~= "" then
+            payload = self:DecodeRogueliteRecord(item.Value, false)
+            if payload == nil then
+                self.StorageWriteBlocked = true
+                log_error("[PlayerDB] 로그라이트 저장 형식 불일치 — 원본 보존")
+                return
+            end
+        elseif loaded[self.KeyPerm] ~= nil and loaded[self.KeyPerm].Value ~= nil and loaded[self.KeyPerm].Value ~= "" then
+            -- 이전 Perm 내부의 신규 모드 기록만 단방향 이관. Perm 자체는 쓰지 않는다.
+            local legacy = self:DecodeRogueliteRecord(loaded[self.KeyPerm].Value, true)
+            if legacy == nil then
+                self.StorageWriteBlocked = true
+                log_error("[PlayerDB] 레거시 로그라이트 기록 읽기 실패 — 원본 보존")
+                return
+            end
+            if legacy.schema_version == 1 then
+                payload = legacy
+                self.permDirty = true
+                self.permGen += 1
+            end
+        end
+        if self:ValidateRogueliteRecord(payload) == false then
+            self.StorageWriteBlocked = true
+            log_error("[PlayerDB] 로그라이트 저장 필드 불일치 — 원본 보존")
+            return
+        end
+        payload.schema_version = 1
+        self.RogueSavedPayload = payload
+        self.RogueAreaClears = payload.area_clears
+        self.RogueOptionalEncounters = payload.optional_encounters
+        self.RogueSettings = payload.settings
+        ---@type PlayerSkillSlots
+        local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
+        if slots ~= nil and type(payload.settings.key_order) == "string" then
+            slots.KeyOrder = payload.settings.key_order
+        end
+        ---@type PlayerCollection
+        local collection = self.Entity:GetComponent("script.PlayerCollection")
+        if collection == nil then return end
+        for id, value in pairs(payload.discovered_monsters) do
+            if (value == true or value == 1) and _GameData:GetMonster(id) ~= nil then collection.RogueDiscoveredMonsters[id] = 1 end
+        end
+        for id, value in pairs(payload.discovered_abilities) do
+            if (value == true or value == 1) and _GameData:GetSkill(id) ~= nil then collection.RogueDiscoveredAbilities[id] = 1 end
+        end
+        self.IsLoadSuccess = true
+        self.roomRestored = true
+        log("[PlayerDB] 로그라이트 전용 로드 완료 key=" .. self.KeyRogue .. " legacyWrites=false")
+    end
+
+    @ExecSpace("ServerOnly")
+    method table GatherRogueliteRecords()
+        -- 미등록/미래 식별자도 기존 payload에 보존하고 발견 기록만 추가한다.
+        local payload = self.RogueSavedPayload
+        ---@type PlayerCollection
+        local collection = self.Entity:GetComponent("script.PlayerCollection")
+        for _, id in ipairs(_GameData:GetAllMonsterIds()) do
+            if collection ~= nil and collection.RogueDiscoveredMonsters[id] ~= nil then payload.discovered_monsters[id] = 1 end
+        end
+        for _, id in ipairs(_GameData:GetAllSkillIds()) do
+            if collection ~= nil and collection.RogueDiscoveredAbilities[id] ~= nil then payload.discovered_abilities[id] = 1 end
+        end
+        payload.area_clears = self.RogueAreaClears
+        payload.optional_encounters = self.RogueOptionalEncounters
+        payload.settings = self.RogueSettings
+        ---@type PlayerSkillSlots
+        local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
+        if slots ~= nil then payload.settings.key_order = slots.KeyOrder end
+        -- Maker JSONEncode는 중첩된 빈 table을 UnknownType으로 거부한다.
+        -- 원장 자체는 보존하고 직렬화 사본에서만 빈 컨테이너를 생략한다.
+        -- 로더는 생략된 필드를 {}로 복원한다. 재귀 처리로 설정 하위 항목도 보호.
+        local function serializableCopy(source)
+            local out = {}
+            for key, value in pairs(source) do
+                if type(value) == "table" then
+                    local child = serializableCopy(value)
+                    if next(child) ~= nil then out[key] = child end
+                else
+                    out[key] = value
+                end
+            end
+            return out
+        end
+        return serializableCopy(payload)
+    end
 
     @ExecSpace("ServerOnly")
     method table GatherPerm()
@@ -645,13 +954,58 @@ script PlayerDBManager extends Component
             end
             perm.owned_skills = owned
 
+            -- v5 신규 원장. 101개 명시적 몬스터 키만 저장하며 0개는 생략한다.
+            local tamed = {}
+            for _, monsterId in ipairs(_GameData:GetTameableMonsterIds()) do
+                local n = collection:GetTamedCount(monsterId)
+                if n > 0 then tamed[monsterId] = n end
+            end
+            perm.tamed_monsters = tamed
+            if collection.SelectedCompanionMonsterId ~= ""
+                and collection:GetTamedCount(collection.SelectedCompanionMonsterId) > 0 then
+                perm.selected_companion_monster_id = collection.SelectedCompanionMonsterId
+            else
+                perm.selected_companion_monster_id = ""
+            end
+
             local kills = {}
             for _, id in ipairs(_GameData:GetAllMonsterIds()) do
                 local n = collection.SpeciesKills[id]
                 if n ~= nil and n > 0 then kills[id] = n end
             end
             perm.species_kills = kills
+
+            local totalKills = {}
+            for _, id in ipairs(_GameData:GetAllMonsterIds()) do
+                ---@type any
+                local collectionV4 = collection
+                local n = collectionV4.TotalMonsterKills[id]
+                if n ~= nil and n > 0 then totalKills[id] = n end
+            end
+            ---@type any
+            local permV4 = perm
+            permV4.total_monster_kills = totalKills
+
+            local discoveredMonsters = {}
+            for _, monsterId in ipairs(_GameData:GetAllMonsterIds()) do
+                if collection.RogueDiscoveredMonsters[monsterId] ~= nil then
+                    discoveredMonsters[monsterId] = 1
+                end
+            end
+            perm.roguelite_discovered_monsters = discoveredMonsters
+
+            local discoveredAbilities = {}
+            for _, skillId in ipairs(_GameData:GetAllSkillIds()) do
+                if collection.RogueDiscoveredAbilities[skillId] ~= nil then
+                    discoveredAbilities[skillId] = 1
+                end
+            end
+            perm.roguelite_discovered_abilities = discoveredAbilities
         end
+
+        perm.roguelite_area_clears = self.RogueAreaClears
+        perm.roguelite_optional_encounters = self.RogueOptionalEncounters
+        perm.roguelite_settings = self.RogueSettings
 
         ---@type PlayerSkillSlots
         local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
@@ -661,6 +1015,7 @@ script PlayerDBManager extends Component
             perm.best_tier = slots.BestTier
             perm.monster_slot_count = slots.MonsterSlotCount
             perm.key_order = slots.KeyOrder
+            perm.selected_trait = slots:NormalizeTraitId(slots.SelectedTrait)
 
             local bosses = {}
             for _, roomId in ipairs(_GameData:GetAllRoomIds()) do

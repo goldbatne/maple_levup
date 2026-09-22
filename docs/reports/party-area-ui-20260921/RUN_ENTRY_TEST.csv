@@ -1,0 +1,10 @@
+test_id,mode,party_size,area,run_mode,expected,actual,status
+R01,Solo,1,mega_01,NORMAL,"즉시 Run 시작","InstanceRoom 생성; seed 909121",PASS_RUNTIME
+R02,Solo,1,mega_01,MONSTER_SKILL,"선택 상태 반영","UI 선택 및 서버 요청 상태 반영",PASS_RUNTIME
+R03,Party,1,mega_03,MONSTER_SKILL,"2인 미만 시작 거부","시작 거부",PASS_RUNTIME
+R04,Party,2,mega_03,MONSTER_SKILL,"전원 준비 후 시작 가능","서버 상태 시뮬레이션 통과",PASS_STATIC_SERVER_SIM
+R05,Party,3,mega_03,MONSTER_SKILL,"전원 준비 후 시작 가능","서버 상태 시뮬레이션 통과",PASS_STATIC_SERVER_SIM
+R06,Party,4,mega_03,MONSTER_SKILL,"전원 준비 후 시작 가능","서버 상태 시뮬레이션 통과",PASS_STATIC_SERVER_SIM
+R07,Solo,1,mega_01,NORMAL,"ABANDON 후 로비 복귀","Instance context 종료; maptown 복귀",PASS_RUNTIME
+R08,Solo,1,mega_01,NORMAL,"다음 Run 상태 초기화","seed 909122;slots=0;pending=0;hp=1000/1000;objective=false",PASS_RUNTIME
+

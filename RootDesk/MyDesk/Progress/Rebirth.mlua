@@ -32,6 +32,9 @@ script Rebirth extends Logic
         if player == nil then
             return { passed = false, reason = "플레이어를 찾을 수 없다" }
         end
+        if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then
+            return { passed = false, reason = "영구 레벨 성장에서는 환생을 사용하지 않는다" }
+        end
 
         ---@type PlayerStats
         local stats = player:GetComponent("script.PlayerStats")
@@ -277,29 +280,8 @@ script Rebirth extends Logic
 
     @ExecSpace("ServerOnly")
     method void ReturnToStart(Entity player, PlayerDBManager db)
-        -- 저장된 방까지 함께 바꾼다. 안 바꾸면 재접속했을 때 초기화된 스탯으로
-        -- 깊은 방에서 시작한다.
-        local startRoom = _GameData:GetStartRoom()
-        if startRoom == nil then
-            log_error("[Rebirth] RoomTable에 is_start 방이 없다 — 복귀하지 못했다")
-            return
-        end
-        if startRoom.map_name == "" then
-            log_error("[Rebirth] 시작방 " .. startRoom.id .. " 에 map_name이 없다")
-            return
-        end
-
-        if db ~= nil then db.CurrentRoom = startRoom.id end
-
-        local map = player.CurrentMap
-        if map ~= nil and map.Name == startRoom.map_name then
-            log("[Rebirth] 이미 시작방(" .. startRoom.id .. ")에 있다 — 이동 없음")
-            return
-        end
-
-        -- 도착점은 방 한가운데(0,0,0). 포탈은 가장자리에 있어 트리거에 걸리지 않는다.
-        log("[Rebirth] 시작방 복귀 → " .. startRoom.id .. "(" .. startRoom.map_name .. ")")
-        _TeleportService:TeleportToMapPosition(player, Vector3(0, 0, 0), startRoom.map_name)
+        -- 레거시 호출 호환용 위임. 실제 이동 책임은 환생과 무관한 PlayerTravel에 있다.
+        _PlayerTravel:ReturnToStart(player, db)
     end
 
 end

@@ -47,6 +47,14 @@ script GateNotice extends Logic
         end
     end
 
+    @ExecSpace("Client")
+    method void ShowGateBlocked(string roomId, string reason)
+        -- 포탈은 맵 전환 중 클라이언트에서 제거될 수 있다. 안내 RPC의 수신자는
+        -- 맵 엔티티가 아닌 이 세션 수명의 Logic이어야 한다.
+        log("[RoomGate] 통과 불가 (" .. roomId .. "): " .. reason)
+        self:Show(reason)
+    end
+
     @ExecSpace("ClientOnly")
     method void Show(string reason)
         -- 잠긴 문 사유. 제목은 항상 "잠겨 있다"다.
@@ -73,6 +81,12 @@ script GateNotice extends Logic
             self.banner:SetVisible(false)
             self.hideTimer = nil
         end, self.showSeconds)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void HideNotice()
+        self:ClearHideTimer()
+        if isvalid(self.banner) then self.banner:SetVisible(false) end
     end
 
 end

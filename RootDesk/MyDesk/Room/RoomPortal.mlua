@@ -21,6 +21,10 @@ script RoomPortal extends Component
     -- 값이 바뀌면 RefreshVisual()이 스프라이트를 갈아끼운다.
     @Sync property boolean locked = false
 
+    -- Mega Run에서는 그래프가 채택한 간선만 실제 포탈로 동작한다. 맵 파일에 남아
+    -- 있는 레거시 포탈은 삭제하지 않고 이 플래그로 시각/트리거 동작만 끈다.
+    @Sync property boolean runPortalActive = true
+
     -- 개방/잠김 스프라이트. RUID를 코드에 박지 않고 모델 Values에서 주입받는다.
     property string openRUID = ""
     property string lockedRUID = ""
@@ -63,16 +67,19 @@ script RoomPortal extends Component
             return
         end
 
-        -- 스프라이트는 양쪽에서 각자 세팅한다 (렌더러는 클라 소유).
-        self:RefreshVisual()
-
         -- 진입 감지와 이동은 서버 권한.
         if self:IsServer() then
             if self.direction == "" then
                 log_warning("[RoomPortal] direction이 비어 있다: " .. self.Entity.Name)
             end
-            self.enterHandler = self.Entity:ConnectEvent(TriggerEnterEvent, self.OnTriggerEnter)
+            self:RefreshRunBinding()
+            if self.runPortalActive then
+                self.enterHandler = self.Entity:ConnectEvent(TriggerEnterEvent, self.OnTriggerEnter)
+            end
         end
+
+        -- 스프라이트는 양쪽에서 각자 세팅한다 (렌더러는 클라 소유).
+        self:RefreshVisual()
 
         if self:IsClient() then
             -- 게이트 잠금 표시는 **사람마다 다르다**. locked(@Sync)로는 표현할 수 없어서
@@ -86,14 +93,36 @@ script RoomPortal extends Component
     @ExecSpace("ClientOnly")
     method void OnSyncProperty(string name, any value)
         -- 서버가 locked를 바꾸면 클라 스프라이트도 따라 바뀐다 (T6에서 쓰인다).
-        if name == "locked" then
+        if name == "locked" or name == "runPortalActive" then
             self:RefreshVisual()
         end
     end
 
     method void RefreshVisual()
+        if _GameData.RogueRunActive and self.runPortalActive == false then
+            self.Entity:SetVisible(false)
+            return
+        end
+        self.Entity:SetVisible(true)
         -- 작가가 건 잠금(locked, 모두에게 동일)에 맞는 스프라이트. 시작 시 한 번 쓴다.
         self:ApplySprite(self.locked)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RefreshRunBinding()
+        self.runPortalActive = true
+        if _GameData.RogueRunActive == false then return end
+        local map = self.Entity.CurrentMap
+        if map == nil then self.runPortalActive = false return end
+        local room = _GameData:GetRoomByMapName(map.Name)
+        if room == nil or _GameData.RogueRoomRoles[room.id] == nil then
+            self.runPortalActive = false
+            return
+        end
+        local targetRoomId = self:ToText(_GameData:GetRunRoomConnection(room.id, self.direction))
+        self.runPortalActive = targetRoomId ~= ""
+        log("[RunPortalBinding] room=" .. room.id .. " direction=" .. self.direction
+            .. " active=" .. tostring(self.runPortalActive) .. " target=" .. targetRoomId)
     end
 
     method void ApplySprite(boolean showLocked)
@@ -118,6 +147,11 @@ script RoomPortal extends Component
         -- 왜 서버가 안 하고 클라가 하는가: 게이트 조건은 사람마다 다른데
         -- locked는 @Sync라 모두에게 같은 값이 방송된다. 서버가 한 사람의 판정으로
         -- locked를 바꾸면 다른 사람 화면의 문까지 바뀐다 (CanPass 주석 참고).
+        if _GameData.RogueRunActive and self.runPortalActive == false then
+            self.Entity:SetVisible(false)
+            return
+        end
+        self.Entity:SetVisible(true)
         local me = _UserService.LocalPlayer
         if me == nil then return end
 
@@ -137,7 +171,7 @@ script RoomPortal extends Component
         local room = _GameData:GetRoomByMapName(map.Name)
         if room == nil then return end
 
-        local targetRoomId = self:ToText(room.connections[self.direction])
+        local targetRoomId = self:ToText(_GameData:GetRunRoomConnection(room.id, self.direction))
         if targetRoomId == "" then return end
 
         local targetRoom = _GameData:GetRoom(targetRoomId)
@@ -172,12 +206,15 @@ script RoomPortal extends Component
 
     @ExecSpace("ServerOnly")
     method void TryPass(Entity player)
+        if _GameData.RogueRunActive and self.runPortalActive == false then return end
         -- 현재 방 → 이 방향의 다음 방을 RoomTable에서 찾아 이동시킨다.
         local currentMap = self.Entity.CurrentMap
         if currentMap == nil then
             log_error("[RoomPortal] CurrentMap이 nil")
             return
         end
+        -- 전환 직전 발생한 중복 Trigger가 이전 맵 엔티티에서 RPC를 보내지 않게 한다.
+        if not isvalid(player) or player.CurrentMap ~= currentMap then return end
 
         local room = _GameData:GetRoomByMapName(currentMap.Name)
         if room == nil then
@@ -185,7 +222,7 @@ script RoomPortal extends Component
             return
         end
 
-        local targetRoomId = self:ToText(room.connections[self.direction])
+        local targetRoomId = self:ToText(_GameData:GetRunRoomConnection(room.id, self.direction))
         if targetRoomId == "" then
             log_warning("[RoomPortal] " .. room.id .. " 의 " .. self.direction .. " 연결이 비어 있다")
             return
@@ -216,8 +253,44 @@ script RoomPortal extends Component
         end
 
         -- 도착 좌표는 **목적지 방**의 크기로 계산한다. 맵마다 폭이 달라서다.
-        local arrive = self:ArrivePosition(targetRoom)
+        local arrive = self:ArrivePosition(targetRoom, room.id)
         if arrive == nil then return end   -- 방향이 잘못됐다. 이미 로그를 남겼다.
+
+        if _GameData.RogueRunActive then
+            -- 이미 확정된 전환의 중복 Trigger는 집결 실패가 아니다.
+            if _GameData.RogueTransitionLocked then return end
+            local portalPosition = self.Entity.TransformComponent.WorldPosition
+            if _GameData:TryBeginRogueliteTransition(currentMap.Name, portalPosition) == false then
+                if _GameData.RogueTransitionLocked then return end
+                if not isvalid(player) or player.CurrentMap ~= currentMap then return end
+                -- 맵 포탈 컴포넌트는 전환 중 클라이언트에서 없어질 수 있으므로
+                -- 세션 수명의 Logic으로 안내 RPC를 보낸다.
+                _GateNotice:ShowGateBlocked(targetRoomId,
+                    "생존한 참가자가 포탈 근처에 모여야 이동할 수 있습니다", userId)
+                return
+            end
+
+            -- 사망자는 집결 조건에서 제외한다. 전환 확정 뒤 목적지에서 재합류시킨다.
+            _GameData:ReviveRunSpectatorsAtTransition(targetRoomId, arrive)
+            _GameData:SetRunSubzone(targetRoomId)
+            local runUsers = _UserService:GetUsersByMapName(currentMap.Name)
+            for i = 1, #runUsers do
+                local runPlayer = runUsers[i]
+                if isvalid(runPlayer)
+                    and _GameData:IsRunParticipant(runPlayer.PlayerComponent.UserId)
+                    and _GameData.RogueAliveParticipants[runPlayer.PlayerComponent.UserId] == true then
+                    local runUserId = runPlayer.PlayerComponent.UserId
+                    _PortalGuard:Mark(runUserId)
+                    _TeleportService:TeleportToMapPosition(runPlayer, arrive, targetRoom.map_name)
+                    self:StopAfterArrive(runPlayer, runUserId)
+                end
+            end
+            log("[RunPortalRuntime] PASS " .. room.id .. " --" .. self.direction .. "--> "
+                .. targetRoomId .. " arrive=(" .. string.format("%.2f", arrive.x) .. ","
+                .. string.format("%.2f", arrive.y) .. ")")
+            _TimerService:SetTimerOnce(function() _GameData:TryCompleteRunAtFinal() end, 0.5)
+            return
+        end
 
         _PortalGuard:Mark(userId)
         log("[RoomPortal] " .. room.id .. "(" .. currentMap.Name .. ") --" .. self.direction
@@ -249,6 +322,9 @@ script RoomPortal extends Component
 
     @ExecSpace("ServerOnly")
     method boolean CanPass(Entity player, table targetRoom)
+        -- Run 그래프 자체가 유효성 검사를 통과한 진행 규칙이다. 레벨·스탯·보스·전직
+        -- 게이트는 신규 모드에 적용하지 않는다.
+        if _GameData.RogueRunActive then return true end
         -- locked는 작가가 걸어둔 잠금(모두에게 동일)이다. 게이트와 별개로 먼저 막는다.
         if self.locked then
             log("[RoomPortal] " .. self.Entity.Name .. " 은 잠겨 있다 (" .. targetRoom.id .. ")")
@@ -270,20 +346,12 @@ script RoomPortal extends Component
         -- 대상 userId는 **마지막** 인자로 붙인다. 선언부에는 넣지 않는다.
         -- 첫 인자로 넘겼다가 엔진이 reason을 userId로 읽고 실패했다 (실측):
         --   [LEA-3032] TargetUserId '공격력 20 필요 — 현재 10'은 유효하지 않습니다
-        self:ShowGateBlocked(targetRoom.id, gate.reason, player.PlayerComponent.UserId)
+        _GateNotice:ShowGateBlocked(targetRoom.id, gate.reason, player.PlayerComponent.UserId)
         return false
     end
 
-    @ExecSpace("Client")
-    method void ShowGateBlocked(string roomId, string reason)
-        -- 왜 못 지나가는지 당사자에게만 알린다.
-        -- 문구는 RoomGate가 만든 것을 그대로 넘긴다 (해석을 두 곳에 두지 않는다).
-        log("[RoomGate] 통과 불가 (" .. roomId .. "): " .. reason)
-        _GateNotice:Show(reason)
-    end
-
     @ExecSpace("ServerOnly")
-    method any ArrivePosition(table targetRoom)
+    method any ArrivePosition(table targetRoom, string sourceRoomId)
         -- 반대편 포탈 바로 안쪽. 도착 즉시 그 포탈에 다시 닿으면 무한 왕복이 된다.
         -- 방향이 잘못됐으면 nil (Vector3가 아니라 any인 이유).
         --
@@ -291,6 +359,32 @@ script RoomPortal extends Component
         -- portalX(=13)를 썼는데, 그건 "모든 맵이 28칸 폭"이라는 가정이었다.
         -- 마을은 14칸 폭이라 r_01에서 서쪽으로 들어오면 x=+10.5, 즉 타일 밖에
         -- 떨어졌고 → 타일 경계로 밀려나 마을 문 트리거에 얹혀 즉시 쫓겨났다. (T13-1c 실측)
+        -- Run에서는 실제 목적지 맵의 반대편 RoomPortal 엔티티 좌표를 정본으로 쓴다.
+        -- RoomTable의 portal_x/y는 레거시 근사값일 뿐이라 크기·지형이 다른 맵에서
+        -- 벽/맵 중앙/다른 포탈 위에 도착할 수 있다.
+        if _GameData.RogueRunActive and targetRoom ~= nil then
+            local targetMap = _EntityService:GetEntityByPath("/maps/" .. targetRoom.map_name)
+            local opposite = self:OppositeDirection(self.direction)
+            if isvalid(targetMap) then
+                for _, child in ipairs(targetMap.Children:ToTable()) do
+                    local portal = child:GetComponent("script.RoomPortal")
+                    if portal ~= nil and portal.direction == opposite then
+                        local back = self:ToText(_GameData:GetRunRoomConnection(targetRoom.id, opposite))
+                        if back == sourceRoomId and child.TransformComponent ~= nil then
+                            local p = child.TransformComponent.WorldPosition
+                            if opposite == "west" then return Vector3(p.x + self.arriveInset, p.y, 0) end
+                            if opposite == "east" then return Vector3(p.x - self.arriveInset, p.y, 0) end
+                            if opposite == "north" then return Vector3(p.x, p.y - self.arriveInset, 0) end
+                            if opposite == "south" then return Vector3(p.x, p.y + self.arriveInset, 0) end
+                        end
+                    end
+                end
+            end
+            log_error("[RunPortalRuntime] 목적지 실제 포탈을 찾지 못함 source=" .. sourceRoomId
+                .. " target=" .. targetRoom.id .. " expectedDirection=" .. opposite)
+            return nil
+        end
+
         local px = self.portalX
         local py = self.portalYSide
         if targetRoom ~= nil then
@@ -320,6 +414,14 @@ script RoomPortal extends Component
         log_error("[RoomPortal] direction이 4방향(east/west/north/south)이 아니다: '"
             .. self.direction .. "' (" .. self.Entity.Name .. ") — 이동을 취소한다")
         return nil
+    end
+
+    method string OppositeDirection(string raw)
+        if raw == "east" then return "west" end
+        if raw == "west" then return "east" end
+        if raw == "north" then return "south" end
+        if raw == "south" then return "north" end
+        return ""
     end
 
     method string ToText(string raw)

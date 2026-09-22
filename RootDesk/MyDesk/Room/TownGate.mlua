@@ -50,6 +50,13 @@ script TownGate extends Component
         -- 2를 빼먹으면 아직 방을 안 만든 지역으로 보내 빈 곳에 떨어뜨린다.
         local out = {}
 
+        -- 신규 로그라이트 로비는 기존 20개 순차 지역을 5개 Mega Area 카드로 묶는다.
+        -- 레벨/보스/전직 잠금은 적용하지 않으며, 실제 시작 가능성은 서버 시작 요청에서
+        -- 다시 검증한다.
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            return _GameData:GetMegaAreaIds()
+        end
+
         ---@type PlayerSkillSlots
         local slots = player:GetComponent("script.PlayerSkillSlots")
         if slots == nil then return out end
@@ -114,13 +121,16 @@ script TownGate extends Component
         local ids = ""
         local names = ""
         for i = 1, #areaIds do
-            local area = _GameData:GetArea(areaIds[i])
             if i > 1 then
                 ids = ids .. "|"
                 names = names .. "|"
             end
             ids = ids .. areaIds[i]
-            names = names .. (area ~= nil and area.name or areaIds[i])
+            if _GameData:IsMegaArea(areaIds[i]) then
+                names = names .. _GameData:GetMegaAreaDisplayName(areaIds[i])
+            else
+                names = names .. _GameData:GetAreaDisplayName(areaIds[i])
+            end
         end
 
         log("[TownGate] 선택 창 — " .. tostring(#areaIds) .. "곳: " .. names)
@@ -155,6 +165,8 @@ script TownGate extends Component
     @ExecSpace("ServerOnly")
     method void SendToArea(Entity player, string areaId)
         -- 지역의 진입 방으로 보낸다.
+        -- 신규 모드는 준비/참가자 검증 후 InstanceRoom으로만 입장한다.
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then return end
         local area = _GameData:GetArea(areaId)
         if area == nil then return end
 

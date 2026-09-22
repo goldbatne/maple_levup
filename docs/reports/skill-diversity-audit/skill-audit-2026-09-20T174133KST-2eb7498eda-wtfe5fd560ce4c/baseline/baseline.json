@@ -1,0 +1,691 @@
+{
+  "baseline_id": "skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c",
+  "analysis_started_utc": "2026-09-20T08:41:33.426Z",
+  "analysis_started_kst": "2026-09-20 174133 KST",
+  "repository_root": "D:/maplestory_levup",
+  "branch": "codex/art-packages-cleanup-20260915",
+  "head_commit": "2eb7498eda8f53440648ef6107d6c933ba55d5c6",
+  "upstream": "origin/codex/art-packages-cleanup-20260915",
+  "dirty": true,
+  "working_tree_fingerprint_sha256": "fe5fd560ce4c992e562fcc91c0ed6c5cc07443de9224eccd4dc428269b351d82",
+  "report_root_excluded_from_fingerprint": "docs/reports/skill-diversity-audit",
+  "git_status_porcelain_v2": [
+    "# branch.oid 2eb7498eda8f53440648ef6107d6c933ba55d5c6",
+    "# branch.head codex/art-packages-cleanup-20260915",
+    "# branch.upstream origin/codex/art-packages-cleanup-20260915",
+    "# branch.ab +0 -0",
+    "1 .M N... 100644 100644 100644 b9120201770dd1af13bcfc1f94eff62778267d4c b9120201770dd1af13bcfc1f94eff62778267d4c .maplestory-skill-maker-ledger.md",
+    "1 .M N... 100644 100644 100644 a4cec118a9120905a0fa859713047c1eb99939ae a4cec118a9120905a0fa859713047c1eb99939ae RootDesk/MyDesk/GameData/GameBalance.csv",
+    "1 .M N... 100644 100644 100644 ad68f37c31db4afc33ada20ffc88c5eea7ca2891 ad68f37c31db4afc33ada20ffc88c5eea7ca2891 RootDesk/MyDesk/GameData/GameData.mlua",
+    "1 .M N... 100644 100644 100644 5bdf1423672e57e852025de708f14a20abe392af 5bdf1423672e57e852025de708f14a20abe392af RootDesk/MyDesk/GameData/GameDataVerify.mlua",
+    "1 .M N... 100644 100644 100644 1829ceb1cbb17c7f6709d74d74fa6c77bcc9ab63 1829ceb1cbb17c7f6709d74d74fa6c77bcc9ab63 RootDesk/MyDesk/GameData/MonsterTable.csv",
+    "1 .M N... 100644 100644 100644 632edb0ed001167a0f0982b678d21257b097a9f8 632edb0ed001167a0f0982b678d21257b097a9f8 RootDesk/MyDesk/Inventory/ItemDrop.mlua",
+    "1 .M N... 100644 100644 100644 761d2457be0091a69b7b1a8a415d78d4a71ea06e 761d2457be0091a69b7b1a8a415d78d4a71ea06e RootDesk/MyDesk/MonsterAttack.mlua",
+    "1 .M N... 100644 100644 100644 ef49d034409acd577e85585cfad936301f51ed54 ef49d034409acd577e85585cfad936301f51ed54 RootDesk/MyDesk/Player/PlayerStats.mlua",
+    "1 .M N... 100644 100644 100644 85b98d09f7886d2697066708fcf32f4b8d92f7e9 85b98d09f7886d2697066708fcf32f4b8d92f7e9 RootDesk/MyDesk/PlayerAttack.mlua",
+    "1 .M N... 100644 100644 100644 535201b10d3c69652eda9ff73a2d276add3cd68e 535201b10d3c69652eda9ff73a2d276add3cd68e RootDesk/MyDesk/PlayerHit.mlua",
+    "1 .M N... 100644 100644 100644 d2de5f0789f8d6c337327373f475bd3c31248204 d2de5f0789f8d6c337327373f475bd3c31248204 RootDesk/MyDesk/Progress/PlayerCollection.mlua",
+    "1 .M N... 100644 100644 100644 eec2110bacfba1ec46f50ab16866b4d40177a52f eec2110bacfba1ec46f50ab16866b4d40177a52f RootDesk/MyDesk/Progress/PlayerSkillSlots.mlua",
+    "1 .M N... 100644 100644 100644 e4c99807d89e5aa6e618fb9d183d347455eee15a e4c99807d89e5aa6e618fb9d183d347455eee15a RootDesk/MyDesk/Progress/Rebirth.mlua",
+    "1 .M N... 100644 100644 100644 e8fd21472b758a538ca50dee10860fbe9d07135e e8fd21472b758a538ca50dee10860fbe9d07135e RootDesk/MyDesk/Room/GoddessNpc.mlua",
+    "1 .M N... 100644 100644 100644 b1fb493ffa4eb0aeaec5925103d2983cac2c6c54 b1fb493ffa4eb0aeaec5925103d2983cac2c6c54 RootDesk/MyDesk/Room/RoomGate.mlua",
+    "1 .M N... 100644 100644 100644 a7e76feac92579817120301288404d5c7d18189f a7e76feac92579817120301288404d5c7d18189f RootDesk/MyDesk/Room/TownGate.mlua",
+    "1 .M N... 100644 100644 100644 bae9ad4bd5d7dc665ed378f1544e5d83d2ad86c4 bae9ad4bd5d7dc665ed378f1544e5d83d2ad86c4 RootDesk/MyDesk/Save/PlayerDBManager.mlua",
+    "1 .M N... 100644 100644 100644 004551a0109e95eb945b78045126e9f86064419f 004551a0109e95eb945b78045126e9f86064419f RootDesk/MyDesk/Save/SavePermanentData.mlua",
+    "1 .M N... 100644 100644 100644 39679619d696f27de39b20f55f116e098a5d1433 39679619d696f27de39b20f55f116e098a5d1433 RootDesk/MyDesk/Save/SaveRunData.mlua",
+    "1 .M N... 100644 100644 100644 9c3772192af7a785b50e11127115654c44c3ec6f 9c3772192af7a785b50e11127115654c44c3ec6f RootDesk/MyDesk/UI/EquipPanel.mlua",
+    "1 .M N... 100644 100644 100644 2a4c6db170b3007c3d514ebed32fc0136722f6fc 2a4c6db170b3007c3d514ebed32fc0136722f6fc RootDesk/MyDesk/UI/SkillBar.mlua",
+    "1 .M N... 100644 100644 100644 5e7d1623d78156d4ac2b73fbee3c946cf83d0120 5e7d1623d78156d4ac2b73fbee3c946cf83d0120 RootDesk/MyDesk/UI/StatPanel.mlua",
+    "1 .M N... 100644 100644 100644 918afbf85d3c43b759abe8788e059904609141e6 918afbf85d3c43b759abe8788e059904609141e6 RootDesk/MyDesk/UI/WorldMapPanel.mlua",
+    "1 .M N... 100644 100644 100644 becdf28ef982ad49a7c1df56d5867c7326ef7fe0 becdf28ef982ad49a7c1df56d5867c7326ef7fe0 map/map077.map",
+    "1 .M N... 100644 100644 100644 e35284ba3d688ae641e4ee737297f31d4d7aad38 e35284ba3d688ae641e4ee737297f31d4d7aad38 ui/AreaSelect.ui",
+    "1 .M N... 100644 100644 100644 65212db60a8f1ab9ce7740e7447c8aa072193a6f 65212db60a8f1ab9ce7740e7447c8aa072193a6f ui/GoddessWindow.ui",
+    "1 .M N... 100644 100644 100644 006bd0cc96e8e38c6f487c3b9ab2cf1684a477d5 006bd0cc96e8e38c6f487c3b9ab2cf1684a477d5 ui/Inventory.ui",
+    "1 .M N... 100644 100644 100644 02d4a17f34d6c21214ce5f898effd5e9ccb431c5 02d4a17f34d6c21214ce5f898effd5e9ccb431c5 ui/ItemQuickSlot.ui",
+    "1 .M N... 100644 100644 100644 d4294b965f900b0212c384b81eca638d151326b3 d4294b965f900b0212c384b81eca638d151326b3 ui/KeyConfig.ui",
+    "1 .M N... 100644 100644 100644 cda3f32c1f5c526ae5aeafea2475bb9ab9b36996 cda3f32c1f5c526ae5aeafea2475bb9ab9b36996 ui/RebirthConfirm.ui",
+    "1 .M N... 100644 100644 100644 a490bcf56137918540189cde33563d7e800d7ba7 a490bcf56137918540189cde33563d7e800d7ba7 ui/RoomProgress.ui",
+    "1 .M N... 100644 100644 100644 dfdab4593d442555e85167ce25d3fd9081081c45 dfdab4593d442555e85167ce25d3fd9081081c45 ui/WorldMap.ui",
+    "? Archive/As-built.md",
+    "? RootDesk/MyDesk/GameData/LevelGrowthTable.csv",
+    "? RootDesk/MyDesk/GameData/LevelGrowthTable.userdataset",
+    "? RootDesk/MyDesk/GameData/TraitTable.csv",
+    "? RootDesk/MyDesk/GameData/TraitTable.userdataset",
+    "? RootDesk/MyDesk/Models/Companions.directory",
+    "? RootDesk/MyDesk/Models/Companions/CompanionVisual.model",
+    "? RootDesk/MyDesk/Progress/PlayerTravel.codeblock",
+    "? RootDesk/MyDesk/Progress/PlayerTravel.mlua",
+    "? RootDesk/MyDesk/UI/TraitPanel.codeblock",
+    "? RootDesk/MyDesk/UI/TraitPanel.mlua",
+    "? docs/maple-levup-M1-GDD.md",
+    "? docs/maple-levup-M1-Phase1.md",
+    "? docs/maple-levup-M1-Phase2.md",
+    "? docs/maple-levup-M1-Phase3.5.md",
+    "? docs/maple-levup-M1-Phase3.6.md",
+    "? docs/maple-levup-M1-Phase3.md",
+    "? docs/maple-levup-M1-Phase4-map-builder.cjs",
+    "? docs/maple-levup-M1-Phase4.md",
+    "? docs/maple-levup-M2A-verify.cjs",
+    "? docs/maple-levup-M2A.md",
+    "? docs/maple-levup-Roadmap.md",
+    "? map/map003_p4b.map",
+    "? map/map003_p4c.map",
+    "? map/map077_p4c.map",
+    "? ui/TraitWindow.ui"
+  ],
+  "changed_file_manifest": [
+    {
+      "path": ".maplestory-skill-maker-ledger.md",
+      "state": "tracked_changed",
+      "size": 22679,
+      "sha256": "fd216bcbe1fe963c85aa22022b186119ae69493917098917c7355302e42614b4"
+    },
+    {
+      "path": "Archive/As-built.md",
+      "state": "untracked",
+      "size": 2416,
+      "sha256": "fa912c83e4137394243132bb5f577b487f1c2a216fff5e3c54e2d76abcca9729"
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/GameBalance.csv",
+      "state": "tracked_changed",
+      "size": 14885,
+      "sha256": "cf4070af15c35af12902c859a9ec6f638bda4fbf9ba15f5b865ddb5b02d38245"
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/GameData.mlua",
+      "state": "tracked_changed",
+      "size": 59165,
+      "sha256": "5ebaa7772b83b5462539137ec1023653dd4aecf39a6fbddb76996c11fd869bd4"
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/GameDataVerify.mlua",
+      "state": "tracked_changed",
+      "size": 39274,
+      "sha256": "783cb949b9c51195af2149482e29d5ee9567f8c711bf817d51059f3e9e4e1aea"
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/LevelGrowthTable.csv",
+      "state": "untracked",
+      "size": 3894,
+      "sha256": "fb89a24e1e234d5325438544742163f22b661f7f0e05c3dc0e77c54657405644"
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/LevelGrowthTable.userdataset",
+      "state": "untracked",
+      "size": 543,
+      "sha256": "6687fc3cc12cfa871132f29612713e29188eea4cbd076ceceb18d8d26cfe8686"
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/MonsterTable.csv",
+      "state": "tracked_changed",
+      "size": 14574,
+      "sha256": "6783014b6990f67988b4d17d5ae3b0b741896433fcefe3849449b7e06073b5e2"
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/TraitTable.csv",
+      "state": "untracked",
+      "size": 584,
+      "sha256": "063e5c2e6d9420fd3019607e008ca9e6a7151b88bd849f64c32b32698c1243a1"
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/TraitTable.userdataset",
+      "state": "untracked",
+      "size": 537,
+      "sha256": "ebf27a2a6678f7112967ab6b38212c8325ed7013d50b7a49de8864f347124def"
+    },
+    {
+      "path": "RootDesk/MyDesk/Inventory/ItemDrop.mlua",
+      "state": "tracked_changed",
+      "size": 6821,
+      "sha256": "ae63dafbfbdbda5696ccb4af52a10c14f8a52ca5b03ae37a816c1a638ac7dec3"
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Companions.directory",
+      "state": "untracked",
+      "size": 524,
+      "sha256": "871aae18ec7685ea94604974e4d707dcee5c536569bfbe81040b28f8d6c1849c"
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Companions/CompanionVisual.model",
+      "state": "untracked",
+      "size": 2415,
+      "sha256": "28434a94925608a3e929e3f96362e6135da7a09ff515ede39844a7d7ec987b49"
+    },
+    {
+      "path": "RootDesk/MyDesk/MonsterAttack.mlua",
+      "state": "tracked_changed",
+      "size": 48029,
+      "sha256": "e08ee5a9ff6ca98b90f31a8f1664c9efbd181b341fed71d3c8f70b0af83cdfd7"
+    },
+    {
+      "path": "RootDesk/MyDesk/Player/PlayerStats.mlua",
+      "state": "tracked_changed",
+      "size": 41475,
+      "sha256": "43c033a828ec05cbb800bb33d84169c9c6d88c72e761503717fbb0669264912e"
+    },
+    {
+      "path": "RootDesk/MyDesk/PlayerAttack.mlua",
+      "state": "tracked_changed",
+      "size": 40067,
+      "sha256": "ead1a55528f55dcb73444bf1c6a36eca2290bceba2ad3c704d856699a8da10ab"
+    },
+    {
+      "path": "RootDesk/MyDesk/PlayerHit.mlua",
+      "state": "tracked_changed",
+      "size": 11032,
+      "sha256": "0a878e59b857548fecc35d4768e0986ba52fb668a92f1adfbe0d62c3de3007b9"
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/PlayerCollection.mlua",
+      "state": "tracked_changed",
+      "size": 22053,
+      "sha256": "8a03ae1069c343d50c532a01ac1975eb22ea6cbad98c3bf027d9624ef37d9888"
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/PlayerSkillSlots.mlua",
+      "state": "tracked_changed",
+      "size": 47684,
+      "sha256": "d8a56c0d56f135e33fa45a5f96c8718f699db78fabda5fbbe0dac5aa7c1f8c92"
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/PlayerTravel.codeblock",
+      "state": "untracked",
+      "size": 701,
+      "sha256": "2c0cbfb267e03026b189f731c91b9694a78311ea69b3044f319b64c444169398"
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/PlayerTravel.mlua",
+      "state": "untracked",
+      "size": 1147,
+      "sha256": "d585d304968a76ae093381b545e158d37a5bb8f1df82df8dfa0237116894f9e1"
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/Rebirth.mlua",
+      "state": "tracked_changed",
+      "size": 15673,
+      "sha256": "b0862efadd93d08828b503cf02725e88be165544c40ebf616e6a2b52300ed1a4"
+    },
+    {
+      "path": "RootDesk/MyDesk/Room/GoddessNpc.mlua",
+      "state": "tracked_changed",
+      "size": 2707,
+      "sha256": "9d36fba0bf9c197da5dfc3bad2d6e211330f6b60f10d2972e6fe057a83aea5cf"
+    },
+    {
+      "path": "RootDesk/MyDesk/Room/RoomGate.mlua",
+      "state": "tracked_changed",
+      "size": 9697,
+      "sha256": "314411121868b7e4337f9a6b5a65068c40e60d866e74ad9062fe778d3f6722cb"
+    },
+    {
+      "path": "RootDesk/MyDesk/Room/TownGate.mlua",
+      "state": "tracked_changed",
+      "size": 8861,
+      "sha256": "370af9c8b6da36e20e01ebb8146ea823c48a92766ba465f1f391a67774ba5167"
+    },
+    {
+      "path": "RootDesk/MyDesk/Save/PlayerDBManager.mlua",
+      "state": "tracked_changed",
+      "size": 39709,
+      "sha256": "52ce7d09961247c8a4ab07b1d6bbd50634f5b3445251d1a33c43ab057c138ec6"
+    },
+    {
+      "path": "RootDesk/MyDesk/Save/SavePermanentData.mlua",
+      "state": "tracked_changed",
+      "size": 8861,
+      "sha256": "3673bf8a4993147b12b83eadf3c40035a99b85f7636145ca8cad614838aec9d9"
+    },
+    {
+      "path": "RootDesk/MyDesk/Save/SaveRunData.mlua",
+      "state": "tracked_changed",
+      "size": 4684,
+      "sha256": "6b733f4726bc88bf4636d0347ea9b57ec73fc76e6326019064c66e9d0be14c29"
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/EquipPanel.mlua",
+      "state": "tracked_changed",
+      "size": 42955,
+      "sha256": "fa2a2f57644e85f4a8c2adf8c95e84887cb062aad3df69e972204e8981b66f4f"
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/SkillBar.mlua",
+      "state": "tracked_changed",
+      "size": 26027,
+      "sha256": "065b1a1baaf1929f214f31b7ada0ed17baf3e5b94b1d116977eba12d44be19c7"
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/StatPanel.mlua",
+      "state": "tracked_changed",
+      "size": 20811,
+      "sha256": "e185bd4b9a76c962535558a157b6e5ced4753a0e34594674b6a68a238a77edc9"
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/TraitPanel.codeblock",
+      "state": "untracked",
+      "size": 699,
+      "sha256": "e58eaf0d00f5e86a0304737de334b6a132a9c7ee91436cff3118587d2380b5f5"
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/TraitPanel.mlua",
+      "state": "untracked",
+      "size": 6319,
+      "sha256": "2a75da355ad7e71910a524a8c6db0d90aee318eadf45e0489b3be3321ed64cbd"
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/WorldMapPanel.mlua",
+      "state": "tracked_changed",
+      "size": 32954,
+      "sha256": "b71c9e7bcf51beab8fc063f1942e8736f89e1f7679e2cd32ecce99f01cfa1f25"
+    },
+    {
+      "path": "docs/maple-levup-M1-GDD.md",
+      "state": "untracked",
+      "size": 15524,
+      "sha256": "381607cbe619cf0505316e24c27caf20625bf8044cf91807d75a5f9988e5dfe7"
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase1.md",
+      "state": "untracked",
+      "size": 5419,
+      "sha256": "b9314b92d4cc5f0c5795c62f8384008ca040186dcc70b8ba1fedd2dc257dabbe"
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase2.md",
+      "state": "untracked",
+      "size": 10346,
+      "sha256": "98b1f064acdf89ab4fe4ae9238a2ad3462b13c3e4a147c73e20279122c9874c2"
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase3.5.md",
+      "state": "untracked",
+      "size": 4922,
+      "sha256": "24a00d48ce271255fed320fc3245d044ac8b48afb84f0a72874a7986f48470f4"
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase3.6.md",
+      "state": "untracked",
+      "size": 3001,
+      "sha256": "4125dc95504cf5176b51d501968fa2b166eaa8fe6d0d02bfd7555425a95c3b62"
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase3.md",
+      "state": "untracked",
+      "size": 7036,
+      "sha256": "38ed5c4de5f8d90e01f32e844afea0f656c74ea7ffc04cbe2a68a68cf1624391"
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase4-map-builder.cjs",
+      "state": "untracked",
+      "size": 3164,
+      "sha256": "6067f7758d6dd35873ffc5946bcc4985db440e7fcf5792eb0daf72b50c9864bb"
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase4.md",
+      "state": "untracked",
+      "size": 19389,
+      "sha256": "dab162b5ebc49fa3172b41f618b1ca474dee3af390321347e9841a6e315560c4"
+    },
+    {
+      "path": "docs/maple-levup-M2A-verify.cjs",
+      "state": "untracked",
+      "size": 7959,
+      "sha256": "ef1f10fe18687f3a2565fd9421b6bf4a4579d2b91e05702e080fd90695a5d6f7"
+    },
+    {
+      "path": "docs/maple-levup-M2A.md",
+      "state": "untracked",
+      "size": 6640,
+      "sha256": "8e602cc02892b78e5a86637d3348483294e24f37df3137b59d0589cd17a68a35"
+    },
+    {
+      "path": "docs/maple-levup-Roadmap.md",
+      "state": "untracked",
+      "size": 2232,
+      "sha256": "5502138b67b3e11bb2bd29cc91de324a3b25fb3faf0fc207123a0f4b22f677a9"
+    },
+    {
+      "path": "map/map003_p4b.map",
+      "state": "untracked",
+      "size": 78237,
+      "sha256": "1a63bcf45e7d77a7aca900c546beef2bb1a92658c6f5a7dea235aa99917dd506"
+    },
+    {
+      "path": "map/map003_p4c.map",
+      "state": "untracked",
+      "size": 91582,
+      "sha256": "38f218e57c129bf917d51c0fa14755286eda4277b90dbefc023d7f7590b8b31d"
+    },
+    {
+      "path": "map/map077.map",
+      "state": "tracked_changed",
+      "size": 111437,
+      "sha256": "a73cf87c832f17dfa45b25e5d10d20938615c5ebb1d91713e9effa91d47b38f7"
+    },
+    {
+      "path": "map/map077_p4c.map",
+      "state": "untracked",
+      "size": 86261,
+      "sha256": "2d9f40ae91c62e48b7df58b47b8e0c9b58061b2960d6a99c57446e2bb5f0985a"
+    },
+    {
+      "path": "ui/AreaSelect.ui",
+      "state": "tracked_changed",
+      "size": 179534,
+      "sha256": "7f3b2b6d535329f88bf4b86038fa25fcdc30605499900a8aabf62af37733774e"
+    },
+    {
+      "path": "ui/GoddessWindow.ui",
+      "state": "tracked_changed",
+      "size": 67974,
+      "sha256": "4fe0d61b373c15cd541dd1111805c52d28c68a0cefc772f10b4a9a056f143009"
+    },
+    {
+      "path": "ui/Inventory.ui",
+      "state": "tracked_changed",
+      "size": 1014190,
+      "sha256": "ec2d57e74fe66ff9bd4e2546d4f3b1448b0ed1896c02b29b760e207d4b661e88"
+    },
+    {
+      "path": "ui/ItemQuickSlot.ui",
+      "state": "tracked_changed",
+      "size": 50402,
+      "sha256": "a4feb3087d483ae864a2d2a6247553c145a960c40fd0baad18b8ce203650a5f9"
+    },
+    {
+      "path": "ui/KeyConfig.ui",
+      "state": "tracked_changed",
+      "size": 76225,
+      "sha256": "137add30c4550b60a85ea0ef731f93cb474020276a420064da2a0dc35e4dca0b"
+    },
+    {
+      "path": "ui/RebirthConfirm.ui",
+      "state": "tracked_changed",
+      "size": 75820,
+      "sha256": "ed1867da031e9fbb335719a068f75983a2f3f003183876a277fc712ccd5b52d5"
+    },
+    {
+      "path": "ui/RoomProgress.ui",
+      "state": "tracked_changed",
+      "size": 31167,
+      "sha256": "18a8b63acc43b5281f7bec3c093e0f406ce01df7e0f9d2e27fb2a90a75346f60"
+    },
+    {
+      "path": "ui/TraitWindow.ui",
+      "state": "untracked",
+      "size": 80979,
+      "sha256": "4d308a7b6dd0885c2fc2a51922c95389cfb451acc387f4d68e892404bc3709f8"
+    },
+    {
+      "path": "ui/WorldMap.ui",
+      "state": "tracked_changed",
+      "size": 616564,
+      "sha256": "7b42fa439a13f01701acd7e645bb860cde8ee8a5a758091de5433f5038880be9"
+    }
+  ],
+  "untracked_snapshot": {
+    "copied_count": 26,
+    "excluded_sensitive_count": 0,
+    "copied": [
+      {
+        "path": "Archive/As-built.md",
+        "size": 2416,
+        "sha256": "fa912c83e4137394243132bb5f577b487f1c2a216fff5e3c54e2d76abcca9729"
+      },
+      {
+        "path": "RootDesk/MyDesk/GameData/LevelGrowthTable.csv",
+        "size": 3894,
+        "sha256": "fb89a24e1e234d5325438544742163f22b661f7f0e05c3dc0e77c54657405644"
+      },
+      {
+        "path": "RootDesk/MyDesk/GameData/LevelGrowthTable.userdataset",
+        "size": 543,
+        "sha256": "6687fc3cc12cfa871132f29612713e29188eea4cbd076ceceb18d8d26cfe8686"
+      },
+      {
+        "path": "RootDesk/MyDesk/GameData/TraitTable.csv",
+        "size": 584,
+        "sha256": "063e5c2e6d9420fd3019607e008ca9e6a7151b88bd849f64c32b32698c1243a1"
+      },
+      {
+        "path": "RootDesk/MyDesk/GameData/TraitTable.userdataset",
+        "size": 537,
+        "sha256": "ebf27a2a6678f7112967ab6b38212c8325ed7013d50b7a49de8864f347124def"
+      },
+      {
+        "path": "RootDesk/MyDesk/Models/Companions.directory",
+        "size": 524,
+        "sha256": "871aae18ec7685ea94604974e4d707dcee5c536569bfbe81040b28f8d6c1849c"
+      },
+      {
+        "path": "RootDesk/MyDesk/Models/Companions/CompanionVisual.model",
+        "size": 2415,
+        "sha256": "28434a94925608a3e929e3f96362e6135da7a09ff515ede39844a7d7ec987b49"
+      },
+      {
+        "path": "RootDesk/MyDesk/Progress/PlayerTravel.codeblock",
+        "size": 701,
+        "sha256": "2c0cbfb267e03026b189f731c91b9694a78311ea69b3044f319b64c444169398"
+      },
+      {
+        "path": "RootDesk/MyDesk/Progress/PlayerTravel.mlua",
+        "size": 1147,
+        "sha256": "d585d304968a76ae093381b545e158d37a5bb8f1df82df8dfa0237116894f9e1"
+      },
+      {
+        "path": "RootDesk/MyDesk/UI/TraitPanel.codeblock",
+        "size": 699,
+        "sha256": "e58eaf0d00f5e86a0304737de334b6a132a9c7ee91436cff3118587d2380b5f5"
+      },
+      {
+        "path": "RootDesk/MyDesk/UI/TraitPanel.mlua",
+        "size": 6319,
+        "sha256": "2a75da355ad7e71910a524a8c6db0d90aee318eadf45e0489b3be3321ed64cbd"
+      },
+      {
+        "path": "docs/maple-levup-M1-GDD.md",
+        "size": 15524,
+        "sha256": "381607cbe619cf0505316e24c27caf20625bf8044cf91807d75a5f9988e5dfe7"
+      },
+      {
+        "path": "docs/maple-levup-M1-Phase1.md",
+        "size": 5419,
+        "sha256": "b9314b92d4cc5f0c5795c62f8384008ca040186dcc70b8ba1fedd2dc257dabbe"
+      },
+      {
+        "path": "docs/maple-levup-M1-Phase2.md",
+        "size": 10346,
+        "sha256": "98b1f064acdf89ab4fe4ae9238a2ad3462b13c3e4a147c73e20279122c9874c2"
+      },
+      {
+        "path": "docs/maple-levup-M1-Phase3.5.md",
+        "size": 4922,
+        "sha256": "24a00d48ce271255fed320fc3245d044ac8b48afb84f0a72874a7986f48470f4"
+      },
+      {
+        "path": "docs/maple-levup-M1-Phase3.6.md",
+        "size": 3001,
+        "sha256": "4125dc95504cf5176b51d501968fa2b166eaa8fe6d0d02bfd7555425a95c3b62"
+      },
+      {
+        "path": "docs/maple-levup-M1-Phase3.md",
+        "size": 7036,
+        "sha256": "38ed5c4de5f8d90e01f32e844afea0f656c74ea7ffc04cbe2a68a68cf1624391"
+      },
+      {
+        "path": "docs/maple-levup-M1-Phase4-map-builder.cjs",
+        "size": 3164,
+        "sha256": "6067f7758d6dd35873ffc5946bcc4985db440e7fcf5792eb0daf72b50c9864bb"
+      },
+      {
+        "path": "docs/maple-levup-M1-Phase4.md",
+        "size": 19389,
+        "sha256": "dab162b5ebc49fa3172b41f618b1ca474dee3af390321347e9841a6e315560c4"
+      },
+      {
+        "path": "docs/maple-levup-M2A-verify.cjs",
+        "size": 7959,
+        "sha256": "ef1f10fe18687f3a2565fd9421b6bf4a4579d2b91e05702e080fd90695a5d6f7"
+      },
+      {
+        "path": "docs/maple-levup-M2A.md",
+        "size": 6640,
+        "sha256": "8e602cc02892b78e5a86637d3348483294e24f37df3137b59d0589cd17a68a35"
+      },
+      {
+        "path": "docs/maple-levup-Roadmap.md",
+        "size": 2232,
+        "sha256": "5502138b67b3e11bb2bd29cc91de324a3b25fb3faf0fc207123a0f4b22f677a9"
+      },
+      {
+        "path": "map/map003_p4b.map",
+        "size": 78237,
+        "sha256": "1a63bcf45e7d77a7aca900c546beef2bb1a92658c6f5a7dea235aa99917dd506"
+      },
+      {
+        "path": "map/map003_p4c.map",
+        "size": 91582,
+        "sha256": "38f218e57c129bf917d51c0fa14755286eda4277b90dbefc023d7f7590b8b31d"
+      },
+      {
+        "path": "map/map077_p4c.map",
+        "size": 86261,
+        "sha256": "2d9f40ae91c62e48b7df58b47b8e0c9b58061b2960d6a99c57446e2bb5f0985a"
+      },
+      {
+        "path": "ui/TraitWindow.ui",
+        "size": 80979,
+        "sha256": "4d308a7b6dd0885c2fc2a51922c95389cfb451acc387f4d68e892404bc3709f8"
+      }
+    ],
+    "excluded": []
+  },
+  "key_input_manifest": [
+    {
+      "path": "Mislocated/MyDesk/GameData/SkillTable.csv",
+      "exists": true,
+      "size": 51766,
+      "sha256": "3a84b837edc8615e423dcc1da6a89a0237a36d3c481f310338fbe016a211023b"
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData/SkillTable.userdataset",
+      "exists": true,
+      "size": 537,
+      "sha256": "188fba090e7aa4be6925c974070e533759a78c5d7237a493b974062573ca61b2"
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/MonsterTable.csv",
+      "exists": true,
+      "size": 14574,
+      "sha256": "6783014b6990f67988b4d17d5ae3b0b741896433fcefe3849449b7e06073b5e2"
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/MonsterTable.userdataset",
+      "exists": true,
+      "size": 539,
+      "sha256": "72c4580adaf33c9e7b89491a00ecceef2043236e4e1ed80121735662bc4cb73b"
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/GameBalance.csv",
+      "exists": true,
+      "size": 14885,
+      "sha256": "cf4070af15c35af12902c859a9ec6f638bda4fbf9ba15f5b865ddb5b02d38245"
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/GameBalance.userdataset",
+      "exists": true,
+      "size": 538,
+      "sha256": "c5fa8dc880eb230e89a8957845efbae09475235e2512b642ede70b0f28e3811b"
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/GameData.mlua",
+      "exists": true,
+      "size": 59165,
+      "sha256": "5ebaa7772b83b5462539137ec1023653dd4aecf39a6fbddb76996c11fd869bd4"
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/PlayerCollection.mlua",
+      "exists": true,
+      "size": 22053,
+      "sha256": "8a03ae1069c343d50c532a01ac1975eb22ea6cbad98c3bf027d9624ef37d9888"
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/PlayerSkillSlots.mlua",
+      "exists": true,
+      "size": 47684,
+      "sha256": "d8a56c0d56f135e33fa45a5f96c8718f699db78fabda5fbbe0dac5aa7c1f8c92"
+    },
+    {
+      "path": "RootDesk/MyDesk/PlayerAttack.mlua",
+      "exists": true,
+      "size": 40067,
+      "sha256": "ead1a55528f55dcb73444bf1c6a36eca2290bceba2ad3c704d856699a8da10ab"
+    },
+    {
+      "path": "RootDesk/MyDesk/MonsterAttack.mlua",
+      "exists": true,
+      "size": 48029,
+      "sha256": "e08ee5a9ff6ca98b90f31a8f1664c9efbd181b341fed71d3c8f70b0af83cdfd7"
+    },
+    {
+      "path": "RootDesk/MyDesk/Combat/SkillEffect.mlua",
+      "exists": true,
+      "size": 18106,
+      "sha256": "d43198db5a5b6b3b2bf2e44cf05f275ca8c6c5c507adac47fca9f24d51d8b830"
+    },
+    {
+      "path": "RootDesk/MyDesk/Combat/SkillProjectile.mlua",
+      "exists": true,
+      "size": 4138,
+      "sha256": "db94b038c38e568942be36f6236dc51c6f3e290306a565c5b09ddd2283d6b90f"
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/SkillBar.mlua",
+      "exists": true,
+      "size": 26027,
+      "sha256": "065b1a1baaf1929f214f31b7ada0ed17baf3e5b94b1d116977eba12d44be19c7"
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/EquipPanel.mlua",
+      "exists": true,
+      "size": 42955,
+      "sha256": "fa2a2f57644e85f4a8c2adf8c95e84887cb062aad3df69e972204e8981b66f4f"
+    },
+    {
+      "path": "RootDesk/MyDesk/Save/PlayerDBManager.mlua",
+      "exists": true,
+      "size": 39709,
+      "sha256": "52ce7d09961247c8a4ab07b1d6bbd50634f5b3445251d1a33c43ab057c138ec6"
+    },
+    {
+      "path": "RootDesk/MyDesk/Save/SavePermanentData.mlua",
+      "exists": true,
+      "size": 8861,
+      "sha256": "3673bf8a4993147b12b83eadf3c40035a99b85f7636145ca8cad614838aec9d9"
+    },
+    {
+      "path": "docs/art/import-runs/ALL_AREAS_20260914_151243/RESOURCE_MAP.jsonl",
+      "exists": true,
+      "size": 277474,
+      "sha256": "66dc7456b6df81df32db23217346569400e325b5ea0c316d45c922a31821c907"
+    },
+    {
+      "path": "docs/art/area00-images-output/AREA_00_IMAGES_RESOURCE_MAP.csv",
+      "exists": true,
+      "size": 2254,
+      "sha256": "954e62b64b9b45b9abf526a7e782512128e4519ab6a57494b8fbf8dbf8c66c3b"
+    }
+  ],
+  "preservation": {
+    "head_commit": "2eb7498eda8f53440648ef6107d6c933ba55d5c6",
+    "repository_note": "기존 저장소의 HEAD 객체를 기준으로 재현한다. 전체 git bundle은 대용량 저장소에서 장시간 고정되는 문제 때문에 만들지 않았다.",
+    "tracked_patch": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c/baseline/tracked-working-tree.patch",
+    "untracked_copy_root": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c/baseline/untracked",
+    "reconstruction": [
+      "동일 저장소에서 git checkout 2eb7498eda8f53440648ef6107d6c933ba55d5c6로 기준 커밋을 체크아웃한다.",
+      "git apply --binary tracked-working-tree.patch를 적용한다.",
+      "baseline/untracked 아래 파일을 저장된 상대 경로로 복사한다.",
+      "민감 이름 정책으로 제외된 파일은 보고서에 내용이 포함되지 않으므로 원래 안전 저장소에서 별도로 복구한다."
+    ]
+  }
+}

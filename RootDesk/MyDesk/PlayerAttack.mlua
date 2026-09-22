@@ -21,6 +21,8 @@ script PlayerAttack extends AttackComponent
 	--   hitLimited=true   hitBudget 만큼만 맞고 나머지는 걸러낸다
 	@HideFromInspector property boolean hitLimited = false
 	@HideFromInspector property integer hitBudget = 0
+	-- Phase 1 기본 공격의 이번 한 대상. AttackComponent가 후보를 훑을 때 이 엔티티만 통과시킨다.
+	@HideFromInspector property any basicTarget = nil
 
 	-- 이번 한 방에 얹을 돌진 보너스 (T21-2). 0이면 없다.
 	-- hitLimited/hitBudget과 같은 방식 — 한 방 앞에서 걸고 바로 지운다.
@@ -94,16 +96,73 @@ script PlayerAttack extends AttackComponent
 
 	@ExecSpace("ServerOnly")
 	method void AttackNormal()
-		-- 플레이어를 중심으로 한 원형 판정. 방향에 상관없이 닿는 몬스터를 전부 친다.
+		if self:CanActInCurrentRun() == false then return end
+		-- 기능 플래그가 켜진 Phase 1에서는 범위 안 가장 가까운 살아 있는 한 마리만 친다.
 		local transform = self.Entity.TransformComponent
 		if not isvalid(transform) then return end
 
 		local worldPosition = transform.WorldPosition
 		-- 발밑이 원점이라 반 칸 올려야 몸통 높이에서 판정된다.
 		self.Shape.Position = Vector2(worldPosition.x, worldPosition.y + 0.5)
-		-- 기본 공격은 예나 지금이나 닿는 것을 전부 친다. 제한을 걸지 않는다.
+
+		if _GameData:GetBalance("phase1_random_combat_enabled") >= 0.5 then
+			local radius = _GameData:GetBalance("player_attack_range")
+			if radius <= 0 then radius = 1.2 end
+			self.basicTarget = self:PickNearestBasicTarget(worldPosition, radius)
+			if self.basicTarget == nil then return end
+			self.hitLimited = false
+			self:AttackFast(self.Shape, nil, CollisionGroups.Monster)
+			self.basicTarget = nil
+			return
+		end
+
+		-- 플래그를 끄면 기존의 범위 내 전체 타격을 그대로 사용한다.
 		self.hitLimited = false
 		self:AttackFast(self.Shape, nil, CollisionGroups.Monster)
+	end
+
+	@ExecSpace("ServerOnly")
+	method boolean CanActInCurrentRun()
+		if _GameData:GetBalance("roguelite_run_mode_enabled") < 0.5 then return true end
+		local pc = self.Entity.PlayerComponent
+		if not isvalid(pc) or pc:IsDead() or pc.Hp <= 0 then return false end
+		if not _GameData.RogueRunActive or _GameData.RogueRunComplete or _GameData.RogueRunFailed then return false end
+		local userId = pc.UserId
+		return _GameData:IsRunParticipant(userId) and _GameData.RogueAliveParticipants[userId] == true
+	end
+
+	@ExecSpace("ServerOnly")
+	method any PickNearestBasicTarget(Vector3 fromPos, number radius)
+		-- 방의 단일 스폰 원장에서 거리와 이름 순으로 결정해 같은 틱의 결과를 안정화한다.
+		local map = self.Entity.CurrentMap
+		if map == nil then return nil end
+		---@type RoomSpawner
+		local spawner = map:GetComponent("script.RoomSpawner")
+		if spawner == nil then return nil end
+
+		local best = nil
+		local bestDistSq = radius * radius + 0.0001
+		local bestName = ""
+		for i = 1, #spawner.spawned do
+			local e = spawner.spawned[i]
+			if isvalid(e) then
+				local mon = e:GetComponent("script.RoomMonster")
+				if mon ~= nil and mon.IsDead == false then
+					local p = e.TransformComponent.WorldPosition
+					local dx, dy = p.x - fromPos.x, p.y - fromPos.y
+					local distSq = dx * dx + dy * dy
+					local name = tostring(e.Name)
+					if distSq <= radius * radius
+						and (best == nil or distSq < bestDistSq - 0.0001
+							or (math.abs(distSq - bestDistSq) <= 0.0001 and name < bestName)) then
+						best = e
+						bestDistSq = distSq
+						bestName = name
+					end
+				end
+			end
+		end
+		return best
 	end
 
 	@ExecSpace("ServerOnly")
@@ -121,10 +180,21 @@ script PlayerAttack extends AttackComponent
 			return false
 		end
 
+		local effectMultiplier = 1
+		---@type PlayerSkillSlots
+		local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
+		if slots ~= nil then effectMultiplier = slots:GetTraitEffectMultiplierForSkill(skill.id) end
+		-- 공격 계수와 같은 ★1~★5 성장 계약을 방어/회복 효과에도 적용한다.
+		-- 신규 모드의 개수는 TamedMonsters에서 읽고, 동행 선택은 관여하지 않는다.
+		---@type PlayerCollection
+		local collection = self.Entity:GetComponent("script.PlayerCollection")
+		if collection ~= nil then effectMultiplier *= collection:GetAbilityMultiplier(skill.id) end
+		local adjustedValue = skill.effect_value * effectMultiplier
+
 		if skill.effect_type == "shield" then
-			hit:ApplyShield(skill.effect_value, skill.duration)
+			hit:ApplyShield(adjustedValue, skill.duration)
 			log("[PlayerAttack] 방어 스킬 [" .. skill.name .. "] 실드 "
-				.. tostring(math.floor(skill.effect_value * 100)) .. "% / "
+				.. tostring(math.floor(adjustedValue * 100)) .. "% / "
 				.. tostring(skill.duration) .. "초")
 			return true
 		end
@@ -133,7 +203,7 @@ script PlayerAttack extends AttackComponent
 			-- 회복 스킬은 아직 데이터에 없다 (모험가 NPC 몫 — T16-3). 미리 열어 두면
 			-- 그때 CSV 한 줄로 붙는다. 만피면 0을 돌려받아 쿨다운도 안 걸린다
 			-- (포션과 같은 규칙 — 효과가 없으면 대가도 없다).
-			local healed = hit:Heal(skill.effect_value)
+			local healed = hit:Heal(adjustedValue)
 			if healed <= 0 then
 				log("[PlayerAttack] [" .. skill.name .. "] 이미 체력이 가득해 쓰지 않았다")
 				return false
@@ -156,6 +226,7 @@ script PlayerAttack extends AttackComponent
 		-- 왜 이 훅에서 세는가: 엔진에 최대 타격 수가 없다. 판정 후보를 하나씩 물어보는
 		-- 곳이 여기뿐이라, 예산을 깎아 가며 false를 돌려주는 것이 유일한 방법이다.
 		if __base:IsAttackTarget(defender, attackInfo) == false then return false end
+		if self.basicTarget ~= nil then return defender == self.basicTarget end
 		if self.hitLimited == false then return true end
 		if self.hitBudget <= 0 then return false end
 
@@ -181,6 +252,7 @@ script PlayerAttack extends AttackComponent
 
 	@ExecSpace("ServerOnly")
 	method boolean UseSkill(integer activeIndex, number aimX, number aimY)
+		if self:CanActInCurrentRun() == false then return false end
 		-- GetActiveSkills()의 순번으로 쏜다. 호출부는 스킬의 출처를 구분하지 않는다
 		-- (작업지시서 T5 요청 3: 사용 인터페이스는 통일).
 		---@type PlayerSkillSlots
@@ -198,16 +270,15 @@ script PlayerAttack extends AttackComponent
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then return false end
 
-		-- 쿨다운 판정은 서버가 한다. 클라 HUD도 같은 값을 보고 버튼을 흐리지만,
-		-- 그건 안내일 뿐이고 실제로 막는 건 여기다 (개발 규칙 2).
-		--
-		-- 공격·방어 갈래보다 **앞에** 둔다. 방어 스킬만 쿨다운을 안 타면
-		-- 실드를 연타해 계속 유지할 수 있다.
-		local remain = self:GetCooldownRemain(skillId)
-		if remain > 0 then
-			log("[PlayerAttack] 쿨다운 중 [" .. skill.name .. "] "
-				.. string.format("%.1f", remain) .. "초 남음")
-			return false
+        -- Mega Area 랜덤 재고 모드에서는 슬롯 토큰이 재사용 제한이다. SkillTable
+        -- 쿨다운은 몬스터 특수 스킬과 레거시 전투에만 남긴다.
+        if slots:IsRogueliteRunMode() == false and slots:IsPhase1CombatEnabled() == false then
+			local remain = self:GetCooldownRemain(skillId)
+			if remain > 0 then
+				log("[PlayerAttack] 쿨다운 중 [" .. skill.name .. "] "
+					.. string.format("%.1f", remain) .. "초 남음")
+				return false
+			end
 		end
 
 		-- 방어 스킬은 때리지 않는다 (T17-3b). 여기서 갈라 보내지 않으면
@@ -218,8 +289,9 @@ script PlayerAttack extends AttackComponent
 			-- 이펙트만 터지면 "썼는데 안 먹었다"가 화면에서 안 읽힌다.
 			-- 방어 스킬은 자기 몸에 걸리는 연출이라 방향을 안 뒤집는다.
 			_SkillEffect:PlayCast(skillId, self.Entity, false)
-			self:StartCooldown(skillId, skill.cooldown)
-			return true
+            if slots:IsRogueliteRunMode() then slots:ConsumeRandomSlot(activeIndex, skillId)
+            else self:StartCooldown(skillId, self:GetEffectiveCooldown(skill)) end
+            return true
 		end
 
 		-- 판정 모양은 스킬마다 다르다 (T17-3). range가 0이면 기본 근접 반경을 쓴다.
@@ -235,14 +307,18 @@ script PlayerAttack extends AttackComponent
 
 		-- 던지는 스킬은 **닿을 때** 아프다 (T19-4). 보스 쪽과 같은 규칙이라
 		-- 같은 스킬을 누가 쓰든 화면에서 같은 일이 일어난다.
-		if skill.projectile_ruid ~= "" then
-			return self:ThrowSkill(skillId, skill, worldPosition, radius, aimX, aimY)
+        if skill.projectile_ruid ~= "" then
+            local used = self:ThrowSkill(skillId, skill, worldPosition, radius, aimX, aimY)
+            if used and slots:IsRogueliteRunMode() then slots:ConsumeRandomSlot(activeIndex, skillId) end
+            return used
 		end
 
 		-- 돌진하는 스킬은 **도착해서** 아프다 (T21-2). 던지는 스킬과 같은 꼴이다 —
 		-- 연출이 끝나는 자리에서 판정한다.
-		if skill.dash_distance > 0 then
-			return self:DashSkill(skillId, skill, radius, aimX, aimY)
+        if skill.dash_distance > 0 then
+            local used = self:DashSkill(skillId, skill, radius, aimX, aimY)
+            if used and slots:IsRogueliteRunMode() then slots:ConsumeRandomSlot(activeIndex, skillId) end
+            return used
 		end
 
 		local shape = CircleShape(Vector2(worldPosition.x, worldPosition.y + 0.5), radius)
@@ -302,9 +378,9 @@ script PlayerAttack extends AttackComponent
 		local flip = impact.x < worldPosition.x
 		_SkillEffect:PlayAttackAt(skillId, self.Entity, impact, flip)
 
-		-- 쐈으면 쿨다운을 건다. cooldown이 0이면 걸지 않는다 (데이터로 끌 수 있게).
-		self:StartCooldown(skillId, skill.cooldown)
-		return true
+        if slots:IsRogueliteRunMode() then slots:ConsumeRandomSlot(activeIndex, skillId)
+        else self:StartCooldown(skillId, self:GetEffectiveCooldown(skill)) end
+        return true
 	end
 
 	@ExecSpace("ServerOnly")
@@ -365,13 +441,16 @@ script PlayerAttack extends AttackComponent
 			self:ResolveThrowHit(skillId, toPos, maxTargets, hitRadius)
 		end, flight)
 
-		-- 쿨다운은 **던지는 순간** 건다 (설계 이력 2026-08-23).
+		-- 레거시 쿨다운은 **던지는 순간** 건다 (설계 이력 2026-08-23).
 		-- 닿을지는 0.35초 뒤에 정해지므로 착탄 시각에 걸면 두 가지가 깨진다:
 		--   1) 빗나가면 공짜로 다시 던지게 되어 "비켜서기"가 무의미해진다
 		--   2) 비행 중에는 아직 안 걸려 있어 **연타로 계속 던질 수 있다**
 		-- ⚠ 2번이 실제로 났다 (대표 발견 2026-08-24: "바위 던지기가 쿨타임이 없더라고").
 		--   이 갈래만 쿨다운을 안 걸고 return 했다 — 일반 공격·방어·돌진은 전부 걸고 있었다.
-		self:StartCooldown(skillId, skill.cooldown)
+		---@type PlayerSkillSlots
+		if _GameData.RogueRunActive == false then
+			self:StartCooldown(skillId, self:GetEffectiveCooldown(skill))
+		end
 
 		log("[PlayerAttack] [" .. skill.name .. "] 던짐 "
 			.. string.format("%.2f,%.2f", dx, dy)
@@ -480,9 +559,12 @@ script PlayerAttack extends AttackComponent
 			self:ResolveDashHit(skillId, toPos, radius, maxTargets)
 		end, seconds)
 
-		-- 쿨다운은 **떠나는 순간** 건다. 도착해서 걸면 벽에 막혀 못 간 경우에
+		-- 레거시 쿨다운은 **떠나는 순간** 건다. 도착해서 걸면 벽에 막혀 못 간 경우에
 		-- 공짜로 다시 쓸 수 있다 (던지는 스킬을 던진 순간에 거는 것과 같은 이유).
-		self:StartCooldown(skillId, skill.cooldown)
+		---@type PlayerSkillSlots
+		if _GameData.RogueRunActive == false then
+			self:StartCooldown(skillId, self:GetEffectiveCooldown(skill))
+		end
 
 		log("[PlayerAttack] [" .. skill.name .. "] 돌진 방향 "
 			.. string.format("%.2f,%.2f", dir.x, dir.y)
@@ -570,6 +652,17 @@ script PlayerAttack extends AttackComponent
 		return remain
 	end
 
+	method number GetEffectiveCooldown(table skill)
+		-- 정상 CSV 값은 그대로 쓴다. 0/누락은 신규 모드에서 무제한 연타가 되지 않도록
+		-- 별도 설정값으로만 보완한다. 레거시 데이터 값을 고친 것으로 취급하지 않는다.
+		if skill ~= nil and skill.cooldown ~= nil and skill.cooldown > 0 then
+			return skill.cooldown
+		end
+		local fallback = _GameData:GetBalance("run_skill_cooldown_fallback")
+		if fallback <= 0 then fallback = 4 end
+		return fallback
+	end
+
 	@ExecSpace("ServerOnly")
 	method void StartCooldown(string skillId, number cooldown)
 		-- 쿨다운을 거는 **유일한 창구**. 스킬이 나간 갈래마다 이걸 부른다.
@@ -621,7 +714,11 @@ script PlayerAttack extends AttackComponent
 		end
 
 		local power = _GameData:GetBalance("player_base_atk")
-		if stats ~= nil then
+		if _GameData.RogueRunActive then
+			-- 신규 Run은 레벨·장비·수집 단계와 무관한 공통 기본 공격력을 쓴다.
+			power = _GameData:GetBalance("run_player_base_attack")
+			if power < 1 then power = 35 end
+		elseif stats ~= nil then
 			if statName == "INT" then
 				power = stats:GetTotalInt()
 			elseif statName == "LUK" then
@@ -666,13 +763,14 @@ script PlayerAttack extends AttackComponent
 		-- 보유수 0으로 읽혀 계수가 깎인다.
 		local coefficient = _CombatFormula:GetSkillCoefficient(attackInfo)
 		local stack = 1
-		if attackInfo ~= nil and attackInfo ~= "" then
+		local rogueliteMode = _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5
+		if rogueliteMode == false and attackInfo ~= nil and attackInfo ~= "" then
 			local skill = _GameData:GetSkill(attackInfo)
 			if skill ~= nil and skill.source == "monster" then
 				---@type PlayerCollection
 				local collection = attacker:GetComponent("script.PlayerCollection")
 				if collection ~= nil then
-					local owned = collection:GetOwnedCount(attackInfo)
+            local owned = collection:GetAbilityStackCount(attackInfo)
 					if owned > 1 then
 						stack = owned
 						coefficient = _CombatFormula:StackedCoefficient(coefficient, owned)
@@ -685,6 +783,16 @@ script PlayerAttack extends AttackComponent
 		-- 데미지 산술은 CombatFormula 한 곳에만 두고, 여기서는 **계수만** 만든다.
 		if self.dashBonus > 0 then
 			coefficient = coefficient * (1 + self.dashBonus)
+		end
+
+		-- Phase 2 특성은 선호 타입의 기존 성능에만 데이터 배율을 한 번 얹는다.
+		-- 비선호·레거시 모드·포획 경로가 없는 옛 스킬은 항상 1배다.
+		if rogueliteMode == false and attackInfo ~= nil and attackInfo ~= "" then
+			---@type PlayerSkillSlots
+			local slots = attacker:GetComponent("script.PlayerSkillSlots")
+			if slots ~= nil then
+				coefficient = coefficient * slots:GetTraitEffectMultiplierForSkill(attackInfo)
+			end
 		end
 
 		local damage = _CombatFormula:CalcDamage(power, def, coefficient)

@@ -120,6 +120,24 @@ script DropItem extends Component
 
     @ExecSpace("ServerOnly")
     method void Pickup(Entity player)
+        -- Mega Area의 빨간 포션은 Run 전용 즉시 회복 픽업이다. 가방/장비 성장과
+        -- 연결하지 않으며, 서버가 현재 HP를 직접 제한 범위 안에서 갱신한다.
+        if _GameData.RogueRunActive and self.ItemId == "i_potion_red" then
+            local pc = player.PlayerComponent
+            if not isvalid(pc) or pc:IsDead() then return end
+            local ratio = _GameData:GetBalance("run_potion_heal_ratio")
+            if ratio <= 0 then ratio = 0.25 end
+            local before = pc.Hp
+            pc.Hp = math.min(pc.MaxHp, pc.Hp + math.floor(pc.MaxHp * ratio + 0.5))
+            self.taken = true
+            log("[RunPotion] PICKUP user=" .. pc.UserId .. " heal="
+                .. tostring(math.floor(pc.Hp - before + 0.5)) .. " hp="
+                .. tostring(math.floor(pc.Hp + 0.5)) .. "/" .. tostring(math.floor(pc.MaxHp + 0.5)))
+            self:Cleanup()
+            self.Entity:Destroy()
+            return
+        end
+
         ---@type PlayerInventory
         local inv = player:GetComponent("script.PlayerInventory")
         if inv == nil then return end

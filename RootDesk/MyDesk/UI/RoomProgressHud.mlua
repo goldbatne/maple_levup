@@ -30,6 +30,25 @@ script RoomProgressHud extends Logic
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            if isvalid(self.panel) then
+                -- 신규 HUD는 우측 월드맵과 겹치지 않게 배치한다.
+                local rt = self.panel.UITransformComponent
+                rt.AlignmentOption = AlignmentType.TopLeft
+                rt.Pivot = Vector2(0, 1)
+                rt.anchoredPosition = Vector2(20, -175)
+                rt.RectSize = Vector2(420, 92)
+                for _, label in ipairs({self.lblTitle, self.lblRow1, self.lblRow2, self.lblRow3}) do
+                    if isvalid(label) then label.Entity.UITransformComponent.RectSize = Vector2(500, 36) end
+                end
+            end
+            if isvalid(self.panel) then self.panel.Enable = true end
+            self.refreshTimer = _TimerService:SetTimerRepeat(function() self:Refresh() end,
+                self.refreshInterval)
+            self:Refresh()
+            log("[Run목표] HUD 활성")
+            return
+        end
         -- T54: 상시 획득 현황은 월드맵 방 클릭 팝업으로 옮겼다.
         -- 예전 패널은 기존 월드와 UUID 호환을 위해 남겨 두되 화면과 타이머를 모두 끈다.
         if isvalid(self.panel) then self.panel.Enable = false end
@@ -73,6 +92,28 @@ script RoomProgressHud extends Logic
     @ExecSpace("ClientOnly")
     method void Refresh()
         if not isvalid(self.panel) then return end
+
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 and _GameData.RogueRunActive == false then
+            self.panel.Enable = false
+            return
+        end
+
+        if _GameData.RogueRunActive then
+            self.panel.Enable = true
+            self:SetRow(self.lblTitle, "목표")
+            local objective = "보스를 찾아 처치하세요."
+            if _GameData.RogueObjectiveComplete then objective = "목표 달성" end
+            if _GameData.RogueRunComplete then objective = "AREA CLEAR · 메뉴 복귀 중" end
+            if _GameData.RogueRunFailed then objective = "RUN FAILED · 메뉴 복귀 중" end
+            self:SetRow(self.lblRow1, objective)
+            self:SetRow(self.lblRow2, "")
+            if _GameData.RogueRunComplete or _GameData.RogueRunFailed then
+                self:SetRow(self.lblRow3, _GameData.RogueDamageSummary)
+            else
+                self:SetRow(self.lblRow3, "")
+            end
+            return
+        end
 
         local room = self:GetRoom()
         -- 몬스터가 없는 방(마을·시험장)에서는 보여 줄 것이 없다. 빈 창을 띄우면

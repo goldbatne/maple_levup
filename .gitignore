@@ -45,6 +45,11 @@ __pycache__/
 # 프로젝트 루트의 일회성 검사·추출 작업 공간
 /tmp/
 
+# 스킬 감사의 실패/중단 시도에서 생성되는 대용량 Git bundle 임시 파일.
+# 확정 기준본은 tracked patch, 해시 목록, 최종 HTML/JSON과 별도 복원 ZIP으로 보존한다.
+/docs/reports/skill-diversity-audit/**/baseline/repository-head.bundle
+/docs/reports/skill-diversity-audit/**/baseline/repository-head.bundle.lock
+
 # 아트 생성의 원시 실행본·후보·다운로드 캐시.
 # 승인 INPUT/OUTPUT, 검수 보고서, 전달본과 반입 기록은 아래 경로가 아니라
 # docs/art의 정식 폴더에서 계속 버전 관리한다.

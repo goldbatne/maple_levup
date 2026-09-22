@@ -26,6 +26,14 @@ script PlayerStats extends Component
     -- 클라가 표시에 쓰므로 동기화한다.
     @TargetUserSync property boolean CanRebirth = false
 
+    method boolean IsSimplifiedGrowth()
+        return _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5
+    end
+
+    method boolean IsRogueliteRunMode()
+        return _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5
+    end
+
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
         -- 시트 공식: 분배 가능 P 누적 = (Lv - 1) x stat_points_per_level.
@@ -63,6 +71,10 @@ script PlayerStats extends Component
     @ExecSpace("ServerOnly")
     method boolean Allocate(string statName, integer amount)
         -- 실제 분배. 검증에 실패하면 아무것도 바꾸지 않고 false.
+        if self:IsSimplifiedGrowth() then
+            log_warning("[PlayerStats] Phase 3 영구 성장 모드에서는 직접 스탯 분배를 사용하지 않는다")
+            return false
+        end
         if amount <= 0 then
             log_warning("[PlayerStats] 분배량이 0 이하: " .. tostring(amount))
             return false
@@ -133,12 +145,18 @@ script PlayerStats extends Component
     @ExecSpace("ServerOnly")
     method void AddExp(number amount)
         -- 몬스터 처치 EXP. 누적 → 레벨업 판정까지 여기서 끝낸다.
+        if self:IsRogueliteRunMode() then return end
         if amount <= 0 then return end
+
+        if self:IsSimplifiedGrowth() and _LevelCurve:IsAtCap(self.Level) then
+            self.Exp = 0
+            return
+        end
 
         -- 캡 도달 시 EXP 획득 정지 (작업지시서 T4).
         -- 판정 위치를 여기로 둔 이유: EXP가 들어오는 문이 하나뿐이라,
         -- 나중에 퀘스트·이벤트로 EXP를 주더라도 전부 이 문을 지난다.
-        if self.CanRebirth then
+        if self.CanRebirth and not self:IsSimplifiedGrowth() then
             log("[PlayerStats] 레벨 캡(" .. tostring(_LevelCurve:LevelCap())
                 .. ") 도달 상태라 EXP를 받지 않는다: +" .. tostring(amount))
             return
@@ -157,6 +175,11 @@ script PlayerStats extends Component
                 -- 캡에서는 남은 EXP를 버리고 정지한다. 이월하면 환생 후
                 -- 시작하자마자 레벨이 튀어 회차 설계가 깨진다.
                 self.Exp = 0
+                if self:IsSimplifiedGrowth() then
+                    self.CanRebirth = false
+                    self:MarkSave("영구 레벨 캡 도달")
+                    return
+                end
                 if self.CanRebirth == false then
                     self.CanRebirth = true
                     log("[PlayerStats] 레벨 캡 도달 Lv" .. tostring(self.Level) .. " — 환생 가능")
@@ -171,19 +194,21 @@ script PlayerStats extends Component
 
             self.Exp = self.Exp - need
             self.Level = self.Level + 1
-            self:GrantLevelPoints(1)
+            if not self:IsSimplifiedGrowth() then self:GrantLevelPoints(1) end
 
             log("[PlayerStats] 레벨업 → Lv" .. tostring(self.Level)
                 .. "  (필요EXP " .. tostring(need) .. " 소모, 잔여 " .. tostring(self.Exp) .. ")"
                 .. "  미분배P=" .. tostring(self.UnspentPoints))
 
             self:OnLevelUp(self.Level, self.Entity.PlayerComponent.UserId)
+            self:ApplyMaxHp()
+            self:ApplySpeeds()
             self:MarkSave("레벨업")
             self:NoteHighestLevel()
             -- 차수가 **레벨로** 오르므로(2026-08-21) 전직 레벨을 밟는 순간 슬롯이 열린다.
             -- 여기서 안 부르면 다시 접속할 때까지 칸이 안 늘어난다 — 에러 없이 늦게 열려서
             -- "전직했는데 아무 일도 없다"로 보인다.
-            self:RefreshTierRewards()
+            if not self:IsSimplifiedGrowth() then self:RefreshTierRewards() end
             _ProgressLog:LevelUp(self.Entity.PlayerComponent.UserId, self.Level)
         end
     end
@@ -250,6 +275,7 @@ script PlayerStats extends Component
         --
         -- 실행공간을 비워 두는 이유: 서버는 지급에, 클라는 환생 창의 안내 문구에 쓴다.
         -- 두 곳이 각자 계산하면 창이 거짓말을 하게 된다.
+        if self:IsSimplifiedGrowth() then return 0 end
         local base = _GameData:GetBalance("stat_points_per_level")
         ---@type PlayerSkillSlots
         local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
@@ -268,6 +294,10 @@ script PlayerStats extends Component
     @ExecSpace("ServerOnly")
     method void ResetRun()
         -- 회차 초기화. 환생(T7)이 이걸 부른다. 영구 데이터는 건드리지 않는다.
+        if self:IsSimplifiedGrowth() then
+            log_warning("[PlayerStats] Phase 3 영구 성장 모드에서 ResetRun을 차단했다")
+            return
+        end
         self.Level = 1
         self.Exp = 0
         self.StatStr = 0
@@ -328,6 +358,7 @@ script PlayerStats extends Component
         -- 최종 스탯은 소수점이 없는 정수이며, 이 값이 HP와 전투 수치에도 그대로 쓰인다.
         -- 일반 장비는 ATK/마력/DEF 같은 파생 수치를 올리므로 여기에는 섞지 않고
         -- 상세 스탯의 물리 공격력·마법 공격력·방어력에서 보여 준다.
+        if self:IsSimplifiedGrowth() then return 0 end
         local points = 0
         if statName == "STR" then
             points = self:GetStr() + self:GetCollectionPoints("STR")
@@ -359,6 +390,17 @@ script PlayerStats extends Component
         -- 읽는 값이 @TargetUserSync라 양쪽 결과가 같다.
         -- 포획 패시브의 STR도 여기 얹힌다 (설계 변경 2026-08-29) — 분배 STR과 같은
         -- 계수를 쓴다. 환생 직후 HP가 1200에서 1380이 되는 것이 이 한 줄이다.
+        if self:IsRogueliteRunMode() then
+            local value = _GameData:GetBalance("run_player_base_hp")
+            if value < 1 then value = 1000 end
+            return value
+        end
+        if self:IsSimplifiedGrowth() then
+            local growth = _GameData:GetLevelGrowth(self.Level)
+            if growth ~= nil then
+                return _GameData:ToNumber(tostring(growth["base_max_hp"]), 1)
+            end
+        end
         local base = _GameData:GetBalance("player_base_hp")
         local perPoint = _GameData:GetBalance("str_hp_per_point")
         return base + self:GetFinalStatPoints("STR") * perPoint
@@ -394,11 +436,16 @@ script PlayerStats extends Component
             pc.Hp = newMax
         end
 
-        log("[PlayerStats] 최대 HP " .. tostring(oldMax) .. " → " .. tostring(newMax)
-            .. "  (STR " .. tostring(self:GetStr() + self:GetCollectionPoints("STR"))
-            .. " + 패시브 " .. tostring(self:GetPassiveItemStatBonus("STR")) .. ") x "
-            .. tostring(_GameData:GetBalance("str_hp_per_point"))
-            .. "  현재 HP=" .. tostring(pc.Hp))
+        if self:IsSimplifiedGrowth() then
+            log("[PlayerStats] 최대 HP " .. tostring(oldMax) .. " → " .. tostring(newMax)
+                .. "  (Lv" .. tostring(self.Level) .. " 자동 성장)  현재 HP=" .. tostring(pc.Hp))
+        else
+            log("[PlayerStats] 최대 HP " .. tostring(oldMax) .. " → " .. tostring(newMax)
+                .. "  (STR " .. tostring(self:GetStr() + self:GetCollectionPoints("STR"))
+                .. " + 패시브 " .. tostring(self:GetPassiveItemStatBonus("STR")) .. ") x "
+                .. tostring(_GameData:GetBalance("str_hp_per_point"))
+                .. "  현재 HP=" .. tostring(pc.Hp))
+        end
     end
 
     ---------------------------------------------------------------
@@ -414,6 +461,7 @@ script PlayerStats extends Component
         --
         -- 실행공간을 비워 둔다: 서버는 타이머에, 클라는 스탯 창 표시에 쓴다.
         local base = _GameData:GetBalance("player_attack_interval")
+        if self:IsSimplifiedGrowth() then return base end
         local perPoint = _GameData:GetBalance("luk_attack_speed_per_point")
         local floorValue = _GameData:GetBalance("player_attack_interval_min")
         local interval = base - self:GetTotalLuk() * perPoint
@@ -431,6 +479,7 @@ script PlayerStats extends Component
         -- 상한을 안 두는 이유: 주기·회피와 달리 빨라져도 규칙이 깨지지 않는다.
         -- LUK 1000이어도 2배일 뿐이다.
         local base = _GameData:GetBalance("player_base_move_speed")
+        if self:IsSimplifiedGrowth() then return base end
         local perPoint = _GameData:GetBalance("luk_move_speed_per_point")
         return base * (1 + self:GetTotalLuk() * perPoint)
     end
@@ -525,6 +574,7 @@ script PlayerStats extends Component
         --   T15-2의 계수 강화(1.0 → 1.8)와 **같은 모양**이 된다.
         --
         -- 실행공간을 비워 둔다 — 서버는 실제 적용에, 클라는 스탯 창 표시에 쓴다.
+        if self:IsSimplifiedGrowth() then return 0 end
         if statName == "" then return 0 end
         ---@type PlayerCollection
         local collection = self.Entity:GetComponent("script.PlayerCollection")
@@ -583,6 +633,7 @@ script PlayerStats extends Component
     method number GetPassiveItemStatBonus(string statName)
         -- 인벤토리에 **보유만 해도** 적용되는 패시브 아이템의 주스탯 정액 합계 (T57-2).
         -- 장착 슬롯과 무관하며 종류별 stack_max가 자연스럽게 상한이다.
+        if self:IsSimplifiedGrowth() then return 0 end
         ---@type PlayerInventory
         local inventory = self.Entity:GetComponent("script.PlayerInventory")
         if inventory == nil then return 0 end
@@ -642,6 +693,18 @@ script PlayerStats extends Component
         -- ("ATK" = 물리 공격력, "INT" = 마법 공격력, "DEF" = 방어력).
         -- 문자열을 그대로 둔 이유는 `ItemTable.stat_type` · `SkillTable.scaling_stat` ·
         -- `RoomGate.gate_key`가 전부 이 값을 쓰기 때문이다 — 이름 변경은 별도 단계다.
+        if self:IsSimplifiedGrowth() then
+            local growth = _GameData:GetLevelGrowth(self.Level)
+            if growth == nil then return 0 end
+            if stat == "ATK" or stat == "INT" then
+                return _GameData:ToNumber(tostring(growth["base_attack"]), 0)
+            end
+            if stat == "DEF" then
+                return _GameData:ToNumber(tostring(growth["base_defense"]), 0)
+            end
+            if stat == "LUK" then return 0 end
+            return 0
+        end
         if stat == "ATK" then
             return _GameData:GetBalance("player_base_atk")
                 + self:GetStr() * _GameData:GetBalance("str_atk_per_point")
@@ -672,6 +735,14 @@ script PlayerStats extends Component
         -- T27-2: 세 스탯이 여기로 모인다. STR(5)이 주축이고 DEX(2)·LUK(2)이 얹힌다 —
         -- **어느 스탯을 찍어도 딜이 0이 되지 않게** 하려는 것이다. 예전에는 DEF나 LUK에
         -- 몰빵하면 딜이 1~3이라 게임이 멈췄다.
+        if self:IsRogueliteRunMode() then
+            local value = _GameData:GetBalance("run_player_base_attack")
+            if value < 1 then value = _GameData:GetBalance("player_base_atk") end
+            return value
+        end
+        if self:IsSimplifiedGrowth() then
+            return self:GetStatWithoutEquip("ATK") + self:GetEquipBonus("ATK")
+        end
         return self:GetStatWithoutEquip("ATK") + self:GetEquipBonus("ATK")
             + self:GetCollectionBonus("ATK") + self:GetPassiveItemBonus("ATK")
     end
@@ -686,12 +757,28 @@ script PlayerStats extends Component
         -- 메서드 이름을 GetTotalMatk로 안 바꾼 이유: 부르는 곳이 PlayerAttack ·
         -- 스탯 창 · EquipPanel에 걸쳐 있고, 이름 정리는 저장 마이그레이션과 함께
         -- 별도 단계로 묶여 있다.
+        if self:IsRogueliteRunMode() then
+            local value = _GameData:GetBalance("run_player_base_attack")
+            if value < 1 then value = _GameData:GetBalance("player_base_atk") end
+            return value
+        end
+        if self:IsSimplifiedGrowth() then
+            return self:GetStatWithoutEquip("INT") + self:GetEquipBonus("INT")
+        end
         return self:GetStatWithoutEquip("INT") + self:GetEquipBonus("INT")
             + self:GetCollectionBonus("INT") + self:GetPassiveItemBonus("INT")
     end
 
     method number GetTotalDef()
         -- **방어력.** DEX가 만든다 (DEX x 10). 피격 감쇄는 MonsterAttack이 이 값을 읽는다.
+        if self:IsRogueliteRunMode() then
+            local value = _GameData:GetBalance("run_player_base_defense")
+            if value < 0 then value = 0 end
+            return value
+        end
+        if self:IsSimplifiedGrowth() then
+            return self:GetStatWithoutEquip("DEF") + self:GetEquipBonus("DEF")
+        end
         return self:GetStatWithoutEquip("DEF") + self:GetEquipBonus("DEF")
             + self:GetCollectionBonus("DEF") + self:GetPassiveItemBonus("DEF")
     end
@@ -707,6 +794,7 @@ script PlayerStats extends Component
         -- 기획서 4.8과 어긋난다.
         --
         -- 장비 LUK은 여기 포함되므로 **포획률에도 얹힌다** (기획서 4.7).
+        if self:IsSimplifiedGrowth() then return 0 end
         return self:GetStatWithoutEquip("LUK") + self:GetEquipBonus("LUK")
             + self:GetCollectionBonus("LUK") + self:GetPassiveItemBonus("LUK")
     end
@@ -722,12 +810,16 @@ script PlayerStats extends Component
         --      총합 = 5 x (레벨 - 1) - 미분배 포인트
         --   레벨 게이트와 다른 점은 **미분배로 쌓아 둔 포인트는 쳐주지 않는다**는 것
         --   하나뿐이다. 즉 "레벨을 올렸는가"가 아니라 "올리고 실제로 찍었는가"를 묻는다.
+        if self:IsSimplifiedGrowth() then return 0 end
         return self.StatStr + self.StatDex + self.StatInt + self.StatLuk
     end
 
     method number GetCaptureRate()
         -- 포획 확률 = 기본 + LUK x LUK당 보정 (기획서 4.8).
         local base = _GameData:GetBalance("capture_base_rate")
+        if self:IsSimplifiedGrowth() then
+            return base * _GameData:GetBalance("capture_rate_global_multiplier")
+        end
         local perLuk = _GameData:GetBalance("capture_luk_bonus")
         return base + self:GetTotalLuk() * perLuk
     end

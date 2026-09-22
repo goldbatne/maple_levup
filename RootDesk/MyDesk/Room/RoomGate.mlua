@@ -25,6 +25,12 @@ script RoomGate extends Logic
             return { passed = false, reason = "방 정보가 없다" }
         end
 
+        -- Phase 3의 일반 탐험은 입장 제한을 쓰지 않는다. 게이트 데이터와 보스 기록은
+        -- 향후 콘텐츠 재사용을 위해 그대로 보존하고 레거시 모드에서만 판정한다.
+        if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then
+            return { passed = true, reason = "" }
+        end
+
         local gateType = room.gate_type
         if gateType == nil or gateType == "" or gateType == "none" then
             return { passed = true, reason = "" }

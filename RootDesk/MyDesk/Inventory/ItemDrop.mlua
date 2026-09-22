@@ -49,6 +49,11 @@ script ItemDrop extends Logic
         end
 
         local multiplier = 1 + luk * _GameData:GetBalance("drop_luk_multiplier")
+        local multiplierLabel = "LUK배율"
+        if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then
+            multiplier = _GameData:GetBalance("drop_rate_global_multiplier")
+            multiplierLabel = "독립 드랍배율"
+        end
         local dropped = 0
 
         -- 보스방의 **전용 장비**는 확정 드랍한다 (T53). `drop_from=*`인 빨간 포션까지
@@ -95,7 +100,7 @@ script ItemDrop extends Logic
                     .. "  굴림=" .. string.format("%.3f", roll)
                     .. " / 확률=" .. string.format("%.3f", chance)
                     .. " (기본 " .. string.format("%.3f", item.drop_rate)
-                    .. " x LUK배율 " .. string.format("%.2f", multiplier) .. ")"
+                    .. " x " .. multiplierLabel .. " " .. string.format("%.2f", multiplier) .. ")"
                     .. (guaranteedBossItem and " [보스 전용 확정]" or "")
                     .. (roll < chance and "  → 드랍" or ""))
             end

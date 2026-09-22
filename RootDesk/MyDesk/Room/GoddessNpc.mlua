@@ -22,6 +22,12 @@ script GoddessNpc extends Component
     property any touchHandler = nil
 
     method void OnBeginPlay()
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            self.Entity:SetVisible(false)
+            self.Entity.Enable = false
+            log("[GoddessNpc] Mega Run — NPC 비표시/비활성")
+            return
+        end
         -- 터치는 클라에서만 받는다. 서버에는 입력이 오지 않는다.
         if self:IsClient() then
             self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.OnTouch)
@@ -46,6 +52,16 @@ script GoddessNpc extends Component
         local me = _UserService.LocalPlayer
         if me == nil then return end
 
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            log("[GoddessNpc] 로그라이트 모드 — 전직 상호작용 거부")
+            return
+        end
+
+        if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then
+            log("[GoddessNpc] Phase 3 — 전직 안내 비활성")
+            _GateNotice:ShowNotice("전직은 사라졌다", "이제 특성이 플레이 스타일을 결정한다")
+            return
+        end
         log("[GoddessNpc] 전직 안내 창 열기")
         _GoddessPanel:Open()
     end

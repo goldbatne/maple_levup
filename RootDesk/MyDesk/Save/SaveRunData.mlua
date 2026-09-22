@@ -7,7 +7,7 @@
 @Struct
 script SaveRunData
 
-    property integer schema_version = 1
+    property integer schema_version = 2
 
     property integer level = 1
     property number exp = 0
@@ -35,7 +35,7 @@ script SaveRunData
 
     method void Init()
         -- 새 회차 시작값. 환생 시에도 이 값으로 되돌린다.
-        self.schema_version = 1
+        self.schema_version = 2
         self.level = 1
         self.exp = 0
         self.stat_str = 0

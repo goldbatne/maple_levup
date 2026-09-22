@@ -1,0 +1,4424 @@
+{
+  "checkedAt": "2026-09-22T06:13:26.764Z",
+  "branch": "codex/mega-area-pr-readiness-20260922",
+  "head": "1ec91d5dc95f3638a6e5ac855274a10289070982",
+  "protectedFiles": 484,
+  "protectedChanges": [
+    {
+      "path": "RootDesk/MyDesk/GameData/GameData.mlua",
+      "before": "9fee1dbe7a71b3ecc94e1bc0cdf3c823a3a3fbee599e93743263c4da7d910130",
+      "after": "eda915d2642176f3e8d42cca0cd4451544b333621d146d07614ca2c98aa01a36"
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/PlayerCollection.mlua",
+      "before": "48aa55b745d4e5572e9273f4ac959847ee5cabc7569653449fdf9abbd18cb8bb",
+      "after": "1221af64f8ba0bc55ad38bb169b86e5704bed090f88cb2f2d5bf6b1c5146f3a7"
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/PlayerSkillSlots.mlua",
+      "before": "d41d5b58338960cda632549feb2a097edd795f3b7630bf4e80b1663d8ef4d88e",
+      "after": "0d36aa6a7afe765d91ae43e6fa7d0c15795ff7bfe85dd0017c2695394b0da11b"
+    },
+    {
+      "path": "RootDesk/MyDesk/Room/RoomPortal.mlua",
+      "before": "dfd22fadcd3705a4496d3362110d6f120ce779b391aad719f7dc9a352165825e",
+      "after": "c308ebe8aef8cf064305e7e3dc3703b98063a667dd953cc0818a841a5b2f04d6"
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/AreaSelectPanel.mlua",
+      "before": "1394759f378509b678b0df3ae9b288bc8ebd9b46482f5285156871f39734f355",
+      "after": "a2009e5966a0383c044e0840dac913bc4b8ef3ffb2396c8cf8620e70d06008f3"
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/GateNotice.mlua",
+      "before": "72da86533ea03cc80f005a95de4dd0cbc4da061376c2135cba3dbf66b7d02d3c",
+      "after": "c35f3b0c1f4eb6221ff7ec6d9702c204a846992d138cba003154b3da85f6a918"
+    }
+  ],
+  "protectedAdded": [],
+  "files": [
+    {
+      "path": ".gitattributes",
+      "group": "repository",
+      "status": "MODIFIED",
+      "bytes": 798,
+      "sha256": "f1f739a43b23f61342e2d4f2b9fae276c76232facba498c3a726d8b57f95f78e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": ".gitignore",
+      "group": "repository",
+      "status": "MODIFIED",
+      "bytes": 4101,
+      "sha256": "e1253fb67a5248069db9d7b9b11429943cf5ce49943d38fc034cad15aa0508fd",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": ".maplestory-skill-maker-ledger.md",
+      "group": "repository",
+      "status": "MODIFIED",
+      "bytes": 23933,
+      "sha256": "b8c7dbe00d0cb6beef2ba222ada656f44764a038874c5698c374f8891cd2a910",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "Archive/As-built.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 2416,
+      "sha256": "fa912c83e4137394243132bb5f577b487f1c2a216fff5e3c54e2d76abcca9729",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "Mislocated/MyDesk.directory",
+      "group": "entry-relocation",
+      "status": "MODIFIED",
+      "bytes": 520,
+      "sha256": "b81758d3c6c105c37b06c84f7c8dfb082b87e85b3cd88c1f5ed2023b948af9f1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData.directory",
+      "group": "entry-relocation",
+      "status": "MODIFIED",
+      "bytes": 522,
+      "sha256": "779783a769fec7e72620706d61b4db7e8b0a127b08efb9a9201f5bd9c796b1db",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData/AreaTable.csv",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/GameData/AreaTable.csv",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData/AreaTable.userdataset",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/GameData/AreaTable.userdataset",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData/ItemTable.csv",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/GameData/ItemTable.csv",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData/ItemTable.userdataset",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/GameData/ItemTable.userdataset",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData/LandmarkTable.csv",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/GameData/LandmarkTable.csv",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData/LandmarkTable.userdataset",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/GameData/LandmarkTable.userdataset",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData/MonsterTable.csv",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/GameData/MonsterTable.csv",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData/MonsterTable.userdataset",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/GameData/MonsterTable.userdataset",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData/RoomTable.csv",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/GameData/RoomTable.csv",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData/RoomTable.userdataset",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/GameData/RoomTable.userdataset",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData/SkillTable.csv",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/GameData/SkillTable.csv",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/GameData/SkillTable.userdataset",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/GameData/SkillTable.userdataset",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/Models.directory",
+      "group": "entry-relocation",
+      "status": "MODIFIED",
+      "bytes": 520,
+      "sha256": "ac5c866c9bec4abc73cfa56441d3f1eeb3bf85bb94e0c36ee419bd3079ac24cb",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "Mislocated/MyDesk/Models/Monsters.directory",
+      "group": "entry-relocation",
+      "status": "MODIFIED",
+      "bytes": 522,
+      "sha256": "772a5d34707bb095c3306343ffb2d369f4330111ca77d62734bcb465395d0c10",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "Mislocated/MyDesk/Models/Monsters/20. 황혼의 페리온.directory",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/Models/Monsters/20. 황혼의 페리온.directory",
+      "replacementExists": false
+    },
+    {
+      "path": "Mislocated/MyDesk/Models/Monsters/AdvancedKnightA.model",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/Models/Monsters/AdvancedKnightA.model",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/Models/Monsters/AdvancedKnightB.model",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/Models/Monsters/AdvancedKnightB.model",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/Models/Monsters/AncientDarkGolem.model",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/Models/Monsters/AncientDarkGolem.model",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/Models/Monsters/Cygnus.model",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/Models/Monsters/Cygnus.model",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/Models/Monsters/MutantDarkStump.model",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/Models/Monsters/MutantDarkStump.model",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/Models/Monsters/MutantIronHog.model",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/Models/Monsters/MutantIronHog.model",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/Models/Monsters/MutantStoneMask.model",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/Models/Monsters/MutantStoneMask.model",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/Models/Monsters/MutantStumpy.model",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/Models/Monsters/MutantStumpy.model",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/Models/Monsters/OfficialKnightC.model",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/Models/Monsters/OfficialKnightC.model",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/Models/Monsters/OfficialKnightD.model",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/Models/Monsters/OfficialKnightD.model",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/RectTileData_ElNath.tileset",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/RectTileData_ElNath.tileset",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/MyDesk/RectTileData_Sleepywood.tileset",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": "RootDesk/MyDesk/RectTileData_Sleepywood.tileset",
+      "replacementExists": true
+    },
+    {
+      "path": "Mislocated/area_20_twilight_perion.directory",
+      "group": "entry-relocation",
+      "status": "DELETED",
+      "bytes": 0,
+      "sha256": null,
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "README.md",
+      "group": "repository",
+      "status": "MODIFIED",
+      "bytes": 1691,
+      "sha256": "13b5f94e1f8a401e133464c3f97fc5eb903ce2c676be65994c9b00bdc0a2df1d",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Combat/RoomMonster.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 15280,
+      "sha256": "b9237554fdf905adb1dc2397619c63faaf2b658e8bc1c1203f83dcbab66e31f2",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Combat/SkillCastEffect.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 9653,
+      "sha256": "2058447d2cfff5749ac1bb65d7ea9f4827c93f1519c3e3d3ddcaf6e245bcf908",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/GameBalance.csv",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 18252,
+      "sha256": "c06eecadb8d850db7010f40eced59e64d02948aba1b7010cc724e1f1ecde6574",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/GameData.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 179310,
+      "sha256": "eda915d2642176f3e8d42cca0cd4451544b333621d146d07614ca2c98aa01a36",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/GameDataVerify.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 39274,
+      "sha256": "783cb949b9c51195af2149482e29d5ee9567f8c711bf817d51059f3e9e4e1aea",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/LevelGrowthTable.csv",
+      "group": "runtime-data",
+      "status": "UNTRACKED",
+      "bytes": 3894,
+      "sha256": "fb89a24e1e234d5325438544742163f22b661f7f0e05c3dc0e77c54657405644",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/LevelGrowthTable.userdataset",
+      "group": "runtime-data",
+      "status": "UNTRACKED",
+      "bytes": 543,
+      "sha256": "6687fc3cc12cfa871132f29612713e29188eea4cbd076ceceb18d8d26cfe8686",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/MonsterTable.csv",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 14574,
+      "sha256": "6783014b6990f67988b4d17d5ae3b0b741896433fcefe3849449b7e06073b5e2",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/SkillTable.csv",
+      "group": "runtime-data",
+      "status": "UNTRACKED",
+      "bytes": 51879,
+      "sha256": "3a4af00f0cc9ef3439e9c4cbda4e80f0cfe86cd4072202ad5b08a994a5828c36",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/SkillTable.userdataset",
+      "group": "runtime-data",
+      "status": "UNTRACKED",
+      "bytes": 537,
+      "sha256": "188fba090e7aa4be6925c974070e533759a78c5d7237a493b974062573ca61b2",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/TraitTable.csv",
+      "group": "runtime-data",
+      "status": "UNTRACKED",
+      "bytes": 584,
+      "sha256": "063e5c2e6d9420fd3019607e008ca9e6a7151b88bd849f64c32b32698c1243a1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/GameData/TraitTable.userdataset",
+      "group": "runtime-data",
+      "status": "UNTRACKED",
+      "bytes": 537,
+      "sha256": "ebf27a2a6678f7112967ab6b38212c8325ed7013d50b7a49de8864f347124def",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Inventory/DropItem.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 7418,
+      "sha256": "d49fbedfe86d62c3b7ebf45bb000f3debd11082ddd98dbe42c4787ef9731072e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Inventory/ItemDrop.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 6821,
+      "sha256": "ae63dafbfbdbda5696ccb4af52a10c14f8a52ca5b03ae37a816c1a638ac7dec3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Inventory/PlayerInventory.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 24358,
+      "sha256": "e575e4e332f83d60a01b426aa1105a383a34d7eec6ae0d59d7ceb41546d627c1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Companions.directory",
+      "group": "runtime-data",
+      "status": "UNTRACKED",
+      "bytes": 524,
+      "sha256": "871aae18ec7685ea94604974e4d707dcee5c536569bfbe81040b28f8d6c1849c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Companions/CompanionVisual.model",
+      "group": "runtime-data",
+      "status": "UNTRACKED",
+      "bytes": 2415,
+      "sha256": "28434a94925608a3e929e3f96362e6135da7a09ff515ede39844a7d7ec987b49",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Monsters/AdvancedKnightA.model",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 12337,
+      "sha256": "ccca731dcacc0b4574b9bd2362ecc075aae28f7aeadb0e3af6b240df954cdb32",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Monsters/AdvancedKnightB.model",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 12338,
+      "sha256": "e01164534e47ae44dce86528e98d496c038afdfe627c9e679e456d4f6fa58168",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Monsters/AncientDarkGolem.model",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 12340,
+      "sha256": "de33f20bfaed300c8c11840a41c0a9393bb6b440a93b07659b3bf0d19a1ab680",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Monsters/Cygnus.model",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 12300,
+      "sha256": "00573cb529348e868d2a9028d417943412e29a17c1f0f21142f6bb710eca1245",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Monsters/MutantDarkStump.model",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 12337,
+      "sha256": "16ef8d9b9ac5b06bd7d7b7757374b84f79057774e5ac3fe1a5521fbf20e9e78c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Monsters/MutantIronHog.model",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 12330,
+      "sha256": "c0ac25e30b58558d6ed18ba76abf0be4aadf0f48e809bdd4e8ec7cc3083e9bc5",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Monsters/MutantStoneMask.model",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 12338,
+      "sha256": "7218d5bdd86e8b4b0f0c330f4f772c50bfacc45f3cd0dde22e056f4363ca8ca3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Monsters/MutantStumpy.model",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 12324,
+      "sha256": "4dca204599d2859fdf282339b41b4139556bf88662092b83a5df79a792cd24a3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Monsters/OfficialKnightC.model",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 12338,
+      "sha256": "f49fa6a87860262b8216e0c2677d3be3a9b23270ef1b4356fab092daf967831c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Models/Monsters/OfficialKnightD.model",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 12338,
+      "sha256": "736c93b1ac044c86cbd909d353a300f38cba4d0bb8b08a3dc7162be3f31f30f6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/MonsterAttack.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 51304,
+      "sha256": "8d297a8a7fc6e68a9211e86e23ebd644b56f97db66c0d0fb8cb832391a4b69f1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Player/PlayerStats.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 42510,
+      "sha256": "1285e3244ccf094b0d31e7e6a37868956545eb94fd4b9ba45a53f6748bf080e7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/PlayerAttack.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 41449,
+      "sha256": "82c95d480e4b8fb2df5afa0dee11d82f6378532f366e76e1694690cd5cae0b18",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/PlayerHit.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 11487,
+      "sha256": "6c83f7a0248ba22154328b8eb4d89e127ca8f92cb90f27af1b693bbb38cf7380",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/PlayerCollection.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 27562,
+      "sha256": "1221af64f8ba0bc55ad38bb169b86e5704bed090f88cb2f2d5bf6b1c5146f3a7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/PlayerSkillSlots.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 59947,
+      "sha256": "0d36aa6a7afe765d91ae43e6fa7d0c15795ff7bfe85dd0017c2695394b0da11b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/PlayerTravel.codeblock",
+      "group": "runtime-data",
+      "status": "UNTRACKED",
+      "bytes": 701,
+      "sha256": "2c0cbfb267e03026b189f731c91b9694a78311ea69b3044f319b64c444169398",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/PlayerTravel.mlua",
+      "group": "runtime-data",
+      "status": "UNTRACKED",
+      "bytes": 1754,
+      "sha256": "f7eb057c011dfb6405b706c67dc68cd64aef28317201e1666873ad211478b486",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Progress/Rebirth.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 15673,
+      "sha256": "b0862efadd93d08828b503cf02725e88be165544c40ebf616e6a2b52300ed1a4",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/RectTileData_ElNath.tileset",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 3012,
+      "sha256": "5ff70b1fb42ff90e70773c2ff4f67b4d6c503d68302adb45b35be0172f1eb14d",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/RectTileData_Sleepywood.tileset",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 3077,
+      "sha256": "4066d20661d650ffaff9589248a24c56a163440b83bfba05a2fbc22646894929",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Room/GoddessNpc.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 3154,
+      "sha256": "2044ee6d09d2e7af08ce22d75131c001ddda3e4eb02e9da91a23e1c8ae4701ea",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Room/HeroNpc.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 5886,
+      "sha256": "b97652009b0598718bca906fc4c79e46daddf98e3ce0ef694fd3938b362590ea",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Room/RebirthNpc.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 3436,
+      "sha256": "04ed069d6e2532a892ed4d9dcb824958772390de8159cf2722e0746e1a5ba032",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Room/RoomGate.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 9697,
+      "sha256": "314411121868b7e4337f9a6b5a65068c40e60d866e74ad9062fe778d3f6722cb",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Room/RoomPortal.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 22547,
+      "sha256": "c308ebe8aef8cf064305e7e3dc3703b98063a667dd953cc0818a841a5b2f04d6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Room/RoomSpawner.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 33836,
+      "sha256": "27aa9793caa27ef4f3d37f12cf64c19165ae178798cdece19fbdb5f1b04be22c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Room/TownGate.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 9546,
+      "sha256": "51c23be790c57f596a08b9704db31dd228c9f70b858873f4e569c351618721f0",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Save/PlayerDBManager.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 53866,
+      "sha256": "f2074590a1859876cb826911b26df0bcf409970d1fd62bc91a7196618f5b8284",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Save/SavePermanentData.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 11525,
+      "sha256": "0a107cb38556f9c857d24f73766db16dcdfb2f792d45f04c3ba7bb174692e891",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/Save/SaveRunData.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 4684,
+      "sha256": "6b733f4726bc88bf4636d0347ea9b57ec73fc76e6326019064c66e9d0be14c29",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/AreaSelectPanel.codeblock",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 711,
+      "sha256": "ace957d9b4fe819fff4e4c444132b950e1c8a5be3fb836bc6aee426dcead2a37",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/AreaSelectPanel.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 14955,
+      "sha256": "a2009e5966a0383c044e0840dac913bc4b8ef3ffb2396c8cf8620e70d06008f3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/EquipPanel.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 52270,
+      "sha256": "3d0195a283273dd5e9ceb043a4cca2dc5fff9ebdefd5e39f2d7aa6884fed5988",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/GateNotice.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 3727,
+      "sha256": "c35f3b0c1f4eb6221ff7ec6d9702c204a846992d138cba003154b3da85f6a918",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/GoddessPanel.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 5085,
+      "sha256": "d0069cc4d8e137faca88817e6bbffffb85111251e056523e4d22b0ea2cf4809b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/InventoryPanel.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 30288,
+      "sha256": "7e5936be276011cc9afd55de4dbde364b0e9309f18eeabcd39f13b9408672608",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/ItemQuickSlotBar.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 10853,
+      "sha256": "84ae5caae2423f33afe1eab9ed0a90def47888a152459f037d8cb45829ff865b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/PlayerHud.codeblock",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 698,
+      "sha256": "1b61901dd7949bca59c2efd773386eba9bbf1b2bb2bf4ee4ce3143898b9e0cef",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/PlayerHud.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 10219,
+      "sha256": "2b9caf2169cbd30245a5f3decfc53f3a05f2cc9a8e9cf53e5b5cf35860923b8b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/RebirthConfirmPanel.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 13149,
+      "sha256": "f8c0b0d1066e0416b464577714f42d3097a33294a884d491e035eff6b9c0e801",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/RoomProgressHud.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 8998,
+      "sha256": "6a005ee43da758b3eb93a3fa16402ceb496723f1865bd8c9f278d0a4a5e525c1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/SkillBar.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 32337,
+      "sha256": "b87039d5d4d9b8e2d29dab495aa78d4cb3857cd1980b9ef24a0faeb14dc7fe47",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/StatPanel.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 21446,
+      "sha256": "1c33b1b32504f994070e0f22de238c8e859430ed113cf238c1df3a6f874d7e8a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/TraitPanel.codeblock",
+      "group": "runtime-data",
+      "status": "UNTRACKED",
+      "bytes": 699,
+      "sha256": "e58eaf0d00f5e86a0304737de334b6a132a9c7ee91436cff3118587d2380b5f5",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/TraitPanel.mlua",
+      "group": "runtime-data",
+      "status": "UNTRACKED",
+      "bytes": 6499,
+      "sha256": "6327c04b08e701757d9a6052e296e8d200b680a459e45b43f268ae80cdfa036a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "RootDesk/MyDesk/UI/WorldMapPanel.mlua",
+      "group": "runtime-data",
+      "status": "MODIFIED",
+      "bytes": 35160,
+      "sha256": "7f72ed27b633ed1aaa48d4495fd6425cfecc76c55e60baca3f38d041858c53bb",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/CURRENT_GAME_STATE.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 5496,
+      "sha256": "b32a716effc96ce06123fd7bef4ee3210cd7e4f81d6ed8c43e1383a89839d58a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/README.md",
+      "group": "documentation-evidence",
+      "status": "MODIFIED",
+      "bytes": 4775,
+      "sha256": "4fd9a62c7894267b8a9b6e957ce87372b693bf9294b3dbcef9018fbd31613a44",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/Roguelite-Recovery-Phase.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3538,
+      "sha256": "c64cf2b477ae3f903e2371069a4ade9658697fec46eb1be52c6a545e5d182cfa",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/maple-levup-M1-GDD.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 15524,
+      "sha256": "381607cbe619cf0505316e24c27caf20625bf8044cf91807d75a5f9988e5dfe7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase1.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 5419,
+      "sha256": "b9314b92d4cc5f0c5795c62f8384008ca040186dcc70b8ba1fedd2dc257dabbe",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase2.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 10346,
+      "sha256": "98b1f064acdf89ab4fe4ae9238a2ad3462b13c3e4a147c73e20279122c9874c2",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase3.5.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 4922,
+      "sha256": "24a00d48ce271255fed320fc3245d044ac8b48afb84f0a72874a7986f48470f4",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase3.6.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3001,
+      "sha256": "4125dc95504cf5176b51d501968fa2b166eaa8fe6d0d02bfd7555425a95c3b62",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase3.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 7036,
+      "sha256": "38ed5c4de5f8d90e01f32e844afea0f656c74ea7ffc04cbe2a68a68cf1624391",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase4-map-builder.cjs",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3164,
+      "sha256": "6067f7758d6dd35873ffc5946bcc4985db440e7fcf5792eb0daf72b50c9864bb",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/maple-levup-M1-Phase4.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 19389,
+      "sha256": "dab162b5ebc49fa3172b41f618b1ca474dee3af390321347e9841a6e315560c4",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/maple-levup-M2A-verify.cjs",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 7959,
+      "sha256": "ef1f10fe18687f3a2565fd9421b6bf4a4579d2b91e05702e080fd90695a5d6f7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/maple-levup-M2A.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 6640,
+      "sha256": "8e602cc02892b78e5a86637d3348483294e24f37df3137b59d0589cd17a68a35",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/maple-levup-Roadmap.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 2232,
+      "sha256": "5502138b67b3e11bb2bd29cc91de324a3b25fb3faf0fc207123a0f4b22f677a9",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/FILE_AND_REPORT_CLEANUP_20260922.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 4242,
+      "sha256": "656610661bd9e8f146352c450f043f684b810e12d14e95667a8e9543968bffb7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/README.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3361,
+      "sha256": "e95d9c8b36c44270d6e727c0f07c1b05cea74793b42cc11177d92bfa9a2133f2",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/ROGUELITE_RECOVERY_RISKS_20260921.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 10233,
+      "sha256": "1f614e5b8b9cdc2aa5fd81b5279dfc9fac2c9342d7d96e2af9a2654adfc73ddd",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/commit-preparation-20260922/CLEANUP_REPORT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 5976,
+      "sha256": "607769f6e404123e75f944c5a2e8823b1b691038740e1d04089d7c18fdcb1118",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/commit-preparation-20260922/PROTECTED_FILES_BEFORE.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 82677,
+      "sha256": "46cd2a367f9f0d41c6cf05997b1991259dc4ec86461f189afba92bb1cff19773",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/current-design-audit-20260921/AREA_CURRENT_STATE.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 10189,
+      "sha256": "6981f14a718cf57165ac30cafc52ff60f7896c9c160e8f5524cdbb54834da03f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/current-design-audit-20260921/CURRENT_DESIGN_AUDIT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 31819,
+      "sha256": "58e5e40c594d8c0dd5ecf3af71a4fc83bee4ab620fe114475f199a595c845a7f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/current-design-audit-20260921/LEGACY_UI_NPC_AUDIT.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3060,
+      "sha256": "d47815e81c0f5364a0ccfaf09d31c82664028551ffafb8b79527803697153c27",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/current-design-audit-20260921/MONSTER_ENCOUNTER_AUDIT.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 10686,
+      "sha256": "7da0543784a2a73820a35b45a2ed7b70f3b33bf91cfadce69a7681581c4a8beb",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/current-design-audit-20260921/RANDOMNESS_MATRIX.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 2124,
+      "sha256": "1a5c5080b168529f8091c9a1957872b1b04f47d990b875c2ef0886c0720340e0",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/current-design-audit-20260921/RUNTIME_SAMPLE_RUNS.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1291,
+      "sha256": "ce780a8884fa9ba043e80fabdee898799499f254c0e47d1a0ab9f873bd9b81a4",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/current-design-audit-20260921/build_current_design_audit.py",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 45580,
+      "sha256": "a9adb75ebda8958681ad81853f06405602e7418d6db98ac2ec456e035396bcb4",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/current-design-audit-20260921/evidence/maker_area00_run_20260921.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 294675,
+      "sha256": "e7e54e9795c97b4530b6be5872d91e783124f83ed19de3c82fa03f10a78081aa",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/current-design-audit-20260921/evidence/maker_lobby_20260921.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 555440,
+      "sha256": "fff3220305afd19fe244384cfe747d87b1f0c4d81d95af2f5aaf270950e28324",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-connectivity-respawn-20260921/ABILITY_UI_AUDIT.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1100,
+      "sha256": "67fc37e28e2f1e9f8ddfd543ccfd0d9fd2389c65bf087826af09034ac7e62af0",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-connectivity-respawn-20260921/BOSS_CLEAR_RUNTIME.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 418,
+      "sha256": "219464da86d80a3761c5536abc6fe88847d1254b0f4a9091ad7e92aead404e96",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-connectivity-respawn-20260921/FINAL_REPORT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 4583,
+      "sha256": "d75baf3fbee4cb436e62f4101eeeac4647769b034ee9a386b32ee92422a730bb",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-connectivity-respawn-20260921/LEGACY_UI_NPC_AUDIT.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 798,
+      "sha256": "886ed6648416cec0994a88ab8ee588661cc526f893b54c04031d09270855f15b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-connectivity-respawn-20260921/MAP_FULL_AUDIT.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 18103,
+      "sha256": "41962b06020de331613bc19c10ae3f0b57656a9e0be645f6bb9ebdf37a2ae407",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-connectivity-respawn-20260921/MEGA_AREA_GRAPH_AUDIT.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1171,
+      "sha256": "14fa8682f387ffa7c198092d941a02048c6ad2ac18c38d7129cb75f2127337fa",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-connectivity-respawn-20260921/PORTAL_CONNECTIVITY_AUDIT.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 27493,
+      "sha256": "3cb457b434ea588fff0c9160f25995d30dbc46d65233c3361698bfe3bb680648",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-connectivity-respawn-20260921/PORTAL_RUNTIME_EXHAUSTIVE.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 16754,
+      "sha256": "afcd8bac645d45c8d3880b5bba084f3ce3e1c1918adee3db0cdb79aa805aa67a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-connectivity-respawn-20260921/RESPAWN_RUNTIME_RESULTS.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 696,
+      "sha256": "c0327474260985e41e6e72db28edbdc02d7bf85e6d3c7a92cef76d3dc09c824b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-connectivity-respawn-20260921/UNREACHABLE_MAPS.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 43,
+      "sha256": "60db3e6d34d4152715d986e67ac7004199d6d1d6ceceb3739e8cbebf98113e1e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-connectivity-respawn-20260921/ui-ability-toast.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 105945,
+      "sha256": "d6e6214087a160781b6fd51cf94a54610b4505755dd1ee21b9f81885194c80b6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-connectivity-respawn-20260921/ui-run-clean.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 281884,
+      "sha256": "54ebdf1615fbf332512543c17b0ca663ff83a1241e9d67c72754c2e108e22a1a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-random-encounter-20260921/ART_ASSET_REUSE.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 566,
+      "sha256": "02d97165f8fb08aaa8b163a39213491e3ae07cd0d62126db591418e62eb78ce1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-random-encounter-20260921/BOSS_POOL.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 597,
+      "sha256": "ea9d78c253a61e3b145e8aa4fb4730d9e50635c70a0c54932c4a55d6057a19f3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-random-encounter-20260921/ENCOUNTER_RULES.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 468,
+      "sha256": "693fa9f25a836dbdf64bfe942a10b93a53e0a178d3daa1572b090d7c0a892caa",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-random-encounter-20260921/FINAL_MIGRATION_SUMMARY.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1672,
+      "sha256": "ab49c15778d3418d9be4acc5d8cf274e04908cda8cf27cb180b9cae69689f59b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-random-encounter-20260921/LEGACY_HUD_REMOVAL.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 567,
+      "sha256": "e3919f8f865237b4c9cdf6f9e8be94f0cf61e4438f18d32bc3071236e625b4eb",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-random-encounter-20260921/LEGACY_NPC_DISABLE.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 400,
+      "sha256": "a659703ffd77f4b83e35653104fcdb771ee5342c3ccfbe616abbfe7083fb3813",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-random-encounter-20260921/MEGA_AREA_MAPPING.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1107,
+      "sha256": "bbc24b46395c7e3bf750e3002f057712c5393bf0cbd506548033b5fa7acc194c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-random-encounter-20260921/MEGA_AREA_RUNTIME.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 941,
+      "sha256": "29916956570b543b75375ff8355a334c2c98f3b5d1cbdbe31e89f1a5aea12f37",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-random-encounter-20260921/MONSTER_SKILL_MODE.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 467,
+      "sha256": "9d4a7d8ef36dd38e87f9ae33233e586bbdc0625feda13daec6e78a41c7c54c22",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-random-encounter-20260921/RUNTIME_TEST_LOG.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 2236,
+      "sha256": "50abde6ec474022c661afa954d2a8630d28bb9019097b3902720195a5708a851",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-random-encounter-20260921/SAVE_NAMESPACE.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1020,
+      "sha256": "85078acc3f8aa6858b358c319b82e7b26bea2df5424d7ef37feb2451b3bf8165",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/mega-area-random-encounter-20260921/SKILL_DIVERSITY_UNCHANGED.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 871,
+      "sha256": "c8ed15be73a4ebe9250c6ade54b0ee0fc0ef57da5d4017908612febf0eb0bfca",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/AREA_SELECT_UI_AUDIT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1764,
+      "sha256": "c698ced8d9008ed3ea57a79d39fed3d477f9d6ce069ca845f807e363c74b0fca",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/DUNGEON_LEAVE_UI_AUDIT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1871,
+      "sha256": "293829d5c3a4553624be3633d2f698e14b5afded587461bc86fa5173c366266f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/FINAL_REPORT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 4803,
+      "sha256": "fea5ad99245ab9d51ce63aae6f348332fc5d45e0c53d6bb3d840fce35ca7a447",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/PARTY_STATE_TEST.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1642,
+      "sha256": "3fdf2979cbec63214905116f174b2b00a10994ba4d66b00b28e553f664becb3f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/RUN_ENTRY_TEST.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 989,
+      "sha256": "d5f27eb53353f04e2b1b9371535dea0c1867c5ed2ca3d6f3a30d276ecc8521ce",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/UI_REGRESSION.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1251,
+      "sha256": "425cb4cd331f0e62c551190655e961dc301176eb14d96542cd380ac9ef2828a6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/evidence/area_select_monster_skill.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 351615,
+      "sha256": "be93ac04319636c4fdfa32cb90ba5577a7f737db0938d7fa5e59d56afef6409c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/evidence/area_select_normal.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 351477,
+      "sha256": "3009c2b4b03a7e8ee00f8269ea085dadd2b4da40f88493842c853aeecf79b157",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/evidence/area_select_party.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 355113,
+      "sha256": "fa03911ddc2a990b74153fe1c14ffd22015fe745d3da172177e8a16c280abad7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/evidence/area_select_solo.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 351477,
+      "sha256": "3009c2b4b03a7e8ee00f8269ea085dadd2b4da40f88493842c853aeecf79b157",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/evidence/dungeon_leave_cancelled.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 282932,
+      "sha256": "203562af4fcdc96fa000c04473d002999df2cea20b5eacadcb6c86f30681b385",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/evidence/dungeon_leave_confirm.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 275313,
+      "sha256": "ef626b10b876ad32ae07eef8d8bd5944d9eb2449d15194ead45c42be28424fda",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/evidence/dungeon_run_menu.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 283711,
+      "sha256": "e25d2fc5e856cbf7baca7c9ed368a287be9eec0ecd19047c5a5a647b27c41603",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/party-area-ui-20260921/evidence/party_window.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 480709,
+      "sha256": "9331fd1d13eef23bed2ab9ded64a753441011e968afa35d9fa314704ef862210",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/PACKAGE_READONLY_RECHECK.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 6831,
+      "sha256": "cbe0c9136b79a423924f1ecc602959d9e94563e3235aa1301ded637f2a9d2331",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/PR_READINESS_REPORT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 8588,
+      "sha256": "aafa49b2b3706949d52314b4dd1ad857b5d2d1c32921e1010e6481baf32e4be4",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/SKILL_RUNTIME_OBSERVED.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 28367,
+      "sha256": "36b6702a27f9215f22457a339b06e64a555292d165f7e651fb1ce2d828482dc8",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/abandon-post-fix-server-sim.lua",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 5802,
+      "sha256": "074afd1f27f06fb8fd80e9ce52ae219a15bc91e0fff2fb4b65704b1113c312f1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/abandon-pre-fix-server-sim.lua",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 5494,
+      "sha256": "01c6b17f2139d5a13f789eb5affe0fda10f4988e948325b917bc122b1c30f4de",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/discovery-save-runtime-qa.lua",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 4153,
+      "sha256": "a9c226c8ed51f4a1a436d743fb97fce70c11227b0b6b45e0426f12e645f385e7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/evidence/abandon-confirm.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 279251,
+      "sha256": "1a1a0fab7890b7d5be859984b5d9393b851929713f46020cbc19cd9bea4c6c22",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/evidence/area-selection.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 359241,
+      "sha256": "9afd62403577e0797f97a532742bf86352837093ba3a0a8f93362e5bc52e5a7f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/evidence/area05-boss.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 98437,
+      "sha256": "8f79e5df472c6cc6b80180a4a91a26cd8b5746696bbd1c2ce8b737fd492328ef",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/evidence/lobby-hud.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 553393,
+      "sha256": "758422594d7ef6f541f6f390735e8711e05a3a537f3f7c82e918d84888acfa26",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/evidence/natural-combat.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 309076,
+      "sha256": "1d4e6179686a4f146be3a3cd2f948750ee13b4a629eaedcc5ac892570ac4aeca",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/evidence/owned-ability-window.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 267142,
+      "sha256": "646330c1ebb8d5927c981d0343de360b34940a080b1bd7fe1d95f5498154adf1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/evidence/party-window.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 483568,
+      "sha256": "e954748d5dd46754d7059037692136a0a0684ed40d7421877c8acf297b026c53",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/generator-runtime-qa.lua",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3283,
+      "sha256": "0b7894051cc68d10478c154e24b6356e233c90803b60dca378e69f9b13440709",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/skill-runtime-qa.lua",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 10454,
+      "sha256": "423d5dcada0543206b91ef6cdfd2c6cbe63ddf648f5d7eb6bd533d443b0af160",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/test-discovery-settlement.cjs",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 7811,
+      "sha256": "2964d1ee57142e05238a66a8e06169dbc0c3498f25d3e1b9c12a0426a4a73d90",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/test-portal-notice-regression.cjs",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3120,
+      "sha256": "886ed42bfaf9348815d2f71ff79bd8f4d47a5149e62844b056ad43f597e1290f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/test-preflight-state-regression.cjs",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 2748,
+      "sha256": "14af2abd20ed511075d5f3cd209b3433a027ee70bb919ee937d797f52bb6d350",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/pr-readiness-20260922/traverse-and-boss-qa.lua",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3476,
+      "sha256": "2ec45ed5e63e0570f900b0966f07bb6b9c1a66f14eaa032f1c489a5e87e8e372",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/AREA_RUNTIME_RESULTS.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 4184,
+      "sha256": "57186dc7f04d7a590f5808f019d7c63cb61e4de657f69a4dfbc9a8bdea32b10c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/FINAL_COMPLETION_AUDIT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 13977,
+      "sha256": "9dbf6331848b0b6c20b729c7169345a24bf6d2815b1f74c0b8bc78dde093ec13",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/INITIAL_AUDIT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3854,
+      "sha256": "e09cbf15099ca6de6318162fa2c21f50f10a3688f77de5affc8950794a2db74b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/LEGACY_ENTRYPOINT_AUDIT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1789,
+      "sha256": "77c2dfe43f23a2b9b148e3418f9eda3364e04f3a650edc42b3be94f528e74732",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/MAP_INVENTORY.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 152488,
+      "sha256": "20819783abcc750c38cd200e668735754d6cd53d32cce9d3e7ecacaac9b11192",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/MAP_POOL_VERIFIED.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 157453,
+      "sha256": "49836a480c598d572ba54e977bdabb631f6e5e557ef0dfef6e8814aad89caace",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/MULTIPLAYER_ENVIRONMENT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1558,
+      "sha256": "6b2e46fd5d230b6b72e5de6afccac02bf4aebf4a38abbf299b9873e16aef4a79",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/REQUIREMENT_MATRIX.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 4460,
+      "sha256": "9fa40782a2259f8d30553e1b7955e12f24e3a6895fff1f1e481b0526fdfe0c98",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/SKILL_RUNTIME_FINAL.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 10552,
+      "sha256": "30924430c3f77f01f684d666228aad7d76f3e9d88fed4f5c5ceb5f69b00062c0",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/SKILL_RUNTIME_PROGRESS.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 5837,
+      "sha256": "464fca556eaea791531994180000c4a9de8809b02ac1a89a3221d6cefce8618b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/area-02-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 2586618,
+      "sha256": "1adb05da3ce069b95c61d585909520dd8f3af4fb69e005d224dcd840f1e91fa5",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/area-03-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 355819,
+      "sha256": "cb2d3f070d83f1cae63dc72c831c35505839668f7289ec334ae2d2ddc89c008d",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/area-04-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 407147,
+      "sha256": "92b49acab027deb5976bf295a6a7a13829d2af84d49e7960e712f446bed26c73",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/area-05-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 62626,
+      "sha256": "2a132ff5e067a04139de27d61d4a26dfa9bc860cd77af04d777868108cd23afa",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/area-05-straight-route-stalled.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 53261,
+      "sha256": "099ad2600b78141dbdf5a885d8abe99f5b35e60ba1d62228511caafc9335069b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/area-client-qa.lua",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 4772,
+      "sha256": "7f5abe3cf07509c24acdc42375ce033318de41eee161de1c7a5672b55aae2bc5",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/area-server-observer.lua",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1666,
+      "sha256": "a719ef0db877fef9581aef901034f7bcfb79da2ac8ed8ab7b56cdebd64c025d3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_07-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 90576,
+      "sha256": "c7f12ab6302bdbf8ca6545f8366e66283077e70594075b509d550f1a5df89f2e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_08-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 84346,
+      "sha256": "69d4c26ec652796ad44a8284fbf63afb3eb42d7296e475f75cfa749d0ce95fe3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_09-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 111232,
+      "sha256": "8c4f085981ff895fef9f00e8eee7cbbe0245d8213229ba12aa65e34fba23de36",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_10-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 87561,
+      "sha256": "fb1a8011aed9c0c5e9b45216ebe84720b7f1d0bf6f29e476946240dc6d54803c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_11-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 72213,
+      "sha256": "75ead76d0d9fd565181ee2acc95635b206353e52b204cf6792f96781e879ad23",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_12-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 90376,
+      "sha256": "a0edf146bf4c0595337eb3c6bd07ece35b870b8fb0e9d961cfcd68ea3215f68c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_13-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 89497,
+      "sha256": "3f75e1eee60d47bfb46bf1d1b11429f47347306d9c93cdbb3299eae0f14db1a1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_14-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 82986,
+      "sha256": "7d50abd34225ca21d33b9e68df4258cde06f1a91de128e7a7fea6356af167de9",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_15-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 93044,
+      "sha256": "8d1e6a28c3ad7602f5885a968e3fac6a4ee090d37bca1738b85ea2775f0a2abd",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_16-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 91718,
+      "sha256": "509219d50903aca92e0870bf260288fa6c7524b0f07631777062653114c27bbd",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_17-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 90370,
+      "sha256": "4a2f8d16a7eaa46358cefbbc01f2fe0531abe1072e01d3f316e82c2baccb0c7a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_18-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 97476,
+      "sha256": "eb5b7806fe5c272c2fa187cd35d633f02155765b9512c50729b343a8d252c154",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_19-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 100074,
+      "sha256": "2be30dea6b1555fd017d8f09c58a000a748849074daf319f5bc107672ac742c5",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/batch-area_20-runtime-assisted.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 103458,
+      "sha256": "27828593049b7f5a480c72876272c8ffd7ffe99ccb1e6d50dd01e866c2acfc2a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/pre-generator-fix.tar",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 123904,
+      "sha256": "88b2ce12f7e0ce3dda6a0997515530c76664fa23b54cbbc587567dce4aa47539",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/pre-instance-metadata.tar",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 544256,
+      "sha256": "92c6df06414276a284aa65409d2b37ea13e8f904c2211d30948744f6550fba3b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/runtime-area02-fail.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 169079,
+      "sha256": "0177ad5ff58f1b0654c2a4061af97ce75a0cfd448a64fb1dbdbaf76adb1c8ec7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/runtime-before-vfx-fix.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 2528534,
+      "sha256": "e34c407a4ae1ca9a0b635370ed26ede6e02ee2b83fe57052e1e61e0d7ae4cf58",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/runtime-skills-v2.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 643370,
+      "sha256": "78bafa6f229e7f241248ccebdb9bdd5d6ce507e9febc815ca8cbc1bd6575a6d2",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/save-parser-qa.lua",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1647,
+      "sha256": "b3b61a997b2893b5d1f81e101bdc0c5a7a4a5f6984776fdb534c843f03c7feab",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/save-parser-runtime.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 2139,
+      "sha256": "49d59fd803e48bc84ca15ad5b21de894a0e33d25ce2b13396dd6e903b2c745d0",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/seed-before.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 19084,
+      "sha256": "8b587f6e2bdb7c6fc4d103a815bc7603a2c71a32e1f2e57d90c7397254c45cf8",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/seed-final-graph.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 19279,
+      "sha256": "5bc0fd326bd589bcc2984f2a4d27f3d539db301852d475d87019da4cf8ed82a2",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/seed-intermediate.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 19163,
+      "sha256": "f7a758a05d73fdcfccb0062bd5e86e0909d2096195765bc3db5a13d4c5475544",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/seed-reproduction-qa.lua",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1721,
+      "sha256": "1f77be9338feb5a9a401ae32e31dcc1b66aa10d84668efda75333f7fbf0ee143",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/seed-v2-reproduction-final.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 18849,
+      "sha256": "11cfdd018957ae4e301024e57022ed31b4643ce7446f685acfaa64d12a9adc83",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/seed-v2-reproduction.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3278,
+      "sha256": "f8bcb936a5a2657781e43082f721482826a4dd2af7c5854eaa050655863f6ee2",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/skill-runtime-qa.lua",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3274,
+      "sha256": "4cea25a975e2edef1a66b6ade15881bfa259652353ba7676c4c108520a6cd025",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/static-inventory.cjs",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 2545,
+      "sha256": "15ead615fa256013741cc390f447e37e87fbda7a39886b71f19531187d8a97e6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-completion-20260921/walk-main-path-qa.lua",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1450,
+      "sha256": "3d65713c1ef3ca6b15c47bb50845ad3771518efbfdec29b7378e6dbc10f9c78a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-merge-20260921/INSTANCE_MAP_MIGRATION.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 40566,
+      "sha256": "ba5c7f6fb1b3b7cc0e4d64a6c660baa76f85d64e9da6588abcce626519a5f8de",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-merge-20260921/MERGE_RUNTIME_REPORT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 9582,
+      "sha256": "7a3cdc3be241c16db583fdbb3c191db78ee36505e01ac3fbf8aab69b037b267f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-merge-20260921/rework-plan/BASELINE_AND_WORKCOPY.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1444,
+      "sha256": "4a67737ccf66c8a5e113b980703df5932aec39b01a3614fa94509b6e485f0578",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-merge-20260921/rework-plan/CHANGED_FILE_HASHES.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 4088,
+      "sha256": "8f3b12c1cbeeaa80e75cf4ebc9533ec48324500a142f4af7eaed9dd6e73f7c80",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-merge-20260921/rework-plan/CHANGED_FROM_SKILL_AUDIT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1109,
+      "sha256": "4251ad69d7f5ddbf37136f4f41631dfd4f986d2f73d207b9fa9e57bd59880b82",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-merge-20260921/rework-plan/IMPLEMENTATION_REPORT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 18326,
+      "sha256": "5608316502254946a93b82af28d3b8ee6a973f7104a7ea07a6a4e895f91ffc75",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-merge-20260921/rework-plan/MAP_ASSET_CLASSIFICATION.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 17962,
+      "sha256": "dc33ec4f8dc447cf5503e731dd6fcc1119a6eb00517fa8164f9f6301000f4dfa",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-merge-20260921/rework-plan/ROADMAP.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1741,
+      "sha256": "e2c7a9710384d47197bf8ba7b17e3315140b07405603ccf5f9dfa9a58922afb5",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-merge-20260921/rework-plan/ROGUELITE-GDD.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3772,
+      "sha256": "75a51d6947cf0d8a797412da31250f14dd86792caf098b52c8981dddb21ae25c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-recovery-20260921/LOBBY_RUNTIME_FOLLOWUP.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 5708,
+      "sha256": "4c39eab8b2f848e7f9333315494eef3f14f2bd396def11fee71961220070db72",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-recovery-20260921/RECOVERY_STATUS.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 10170,
+      "sha256": "ce61115969981b0f1ca33263b9f8c45d4fcab59576e8603b02b80a451396b02e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-recovery-20260921/lobby-runtime-evidence.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 215930,
+      "sha256": "4414fbec5f59e68b55c1345efc76e442509c4ba3b0a5fe6fcac9a1d64cd50d93",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-recovery-20260921/maker_play_20260921_075146_931.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 315648,
+      "sha256": "321e923882def5349a563ec439bb56302097fad2514a158ac1b139851212aaf6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-recovery-20260921/maker_play_20260921_075830_191.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 314980,
+      "sha256": "70a144b915c58b5ae68487db884f3701243d3e119381f98a80b0c0c5830569b9",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-recovery-20260921/maker_play_20260921_080224_854.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 302433,
+      "sha256": "bb30420f5a2c98d1aa7de3df68e5ca4dfc9ec6af0b2936ab69a16f60ee3c497f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-recovery-20260921/pre-lobby-save-20260921.tar",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 25733632,
+      "sha256": "5471f5f9f8d1bf663b2729c8181f1a9b02966a7b6b04edb8dcdd93f3a2cb9ef7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-recovery-20260921/pre-recovery.zip",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1397014,
+      "sha256": "ea72c01706ed4f739056585dd9f87d80295a586f1eff8baa578f209ad58fa198",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-recovery-20260921/runtime-evidence.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 49545,
+      "sha256": "cfa7dec2e24f59d725af72a4f747da7879fcb130225d320e1b1f8e8b21c18dd3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-recovery-20260921/update-recovery-ui.cjs",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1268,
+      "sha256": "d182c33e5a11ac4b4ca7e66ef2284d6b90a14e056acd657a13cba87a976a8330",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-ui-residue-audit-20260922/ROGUELITE_UI_RESIDUE_AUDIT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3552,
+      "sha256": "700ae3ece3739f7dc7dab97f01576a7f3f07ca7112ab7c733ab720dbc1da6980",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-ui-residue-audit-20260922/evidence/01_maptown_hud.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 553393,
+      "sha256": "758422594d7ef6f541f6f390735e8711e05a3a537f3f7c82e918d84888acfa26",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-ui-residue-audit-20260922/evidence/02_mega01_hud.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 287393,
+      "sha256": "8b141103862bcbe6d26bdee3a27830158a5f955594dd2ae69ea5ee27c63475ba",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/roguelite-ui-residue-audit-20260922/evidence/03_mega05_hud.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 59351,
+      "sha256": "e006eaf509e28c0d7b4ceb3bcc25a38d6c904b6ee6edd4a42294724b3bd8181d",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/LATEST_BASELINE.txt",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 94,
+      "sha256": "03716b4e2e365cd4b684827e2de0ac778e0a8a208cf259091a4a6f6514901f58",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/build-skill-diversity-audit.cjs",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 38013,
+      "sha256": "0b411f0cc0f6d465fb18d76bf0a757035bb4d37f381a6485eb0666e5d8eddfdf",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/capture-baseline.cjs",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 8733,
+      "sha256": "b98be84067031613a1985bf98cb146fcff2e59652231f87fa63e7bb73f7b6f65",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T173637KST-2eb7498eda-wtfe5fd560ce4c/baseline/baseline.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 27855,
+      "sha256": "2b5596ece38323274be7eeb4f1093f5cb53a97f556268712e28792fd1383b10d",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T173637KST-2eb7498eda-wtfe5fd560ce4c/baseline/changed-files-sha256.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 6817,
+      "sha256": "53e3a04b781f5c0c38c26bbf368c08da98b8cd88e92856a53031623ba6f91e4e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T173637KST-2eb7498eda-wtfe5fd560ce4c/baseline/key-inputs-sha256.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 2302,
+      "sha256": "a5ee4ce7f1292481589b201a4b6b04637db7e5a915c5e02369cbf69c0d5e514a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T173637KST-2eb7498eda-wtfe5fd560ce4c/baseline/tracked-working-tree.patch",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 430195,
+      "sha256": "a1505b0c70b8998f7239bc455214455208da5f5de091fa476b261ae309a973ef",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T173637KST-2eb7498eda-wtfe5fd560ce4c/baseline/working-tree-status.txt",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 5781,
+      "sha256": "750424a9c69c75b53690e44ae8d0a68c002ac1d17f5413a2a96c549b0ca04373",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c/AUDIT_VALIDATION.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 345,
+      "sha256": "e3554a0ffd6e7296cb864a8dec300b329d4818ecdf91ec3950ee5e6d2493a8c7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c/WORKTREE_INTEGRITY.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 488,
+      "sha256": "778727ddad812f4ad01ac7f70bb782b243a2cde9ddadbbaca78df32b4238e81a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c/audit-summary.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 239,
+      "sha256": "980b45f5a2c18b849e1764b6b40cf8cc4a0320187196b091aab5a97c35cce001",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c/baseline/baseline.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 27999,
+      "sha256": "bf03f7f54f7200d741f7ec553784673fbefe1d44f34ee594fb2ef25cefd6a61e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c/baseline/changed-files-sha256.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 6817,
+      "sha256": "53e3a04b781f5c0c38c26bbf368c08da98b8cd88e92856a53031623ba6f91e4e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c/baseline/key-inputs-sha256.csv",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 2302,
+      "sha256": "a5ee4ce7f1292481589b201a4b6b04637db7e5a915c5e02369cbf69c0d5e514a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c/baseline/tracked-working-tree.patch",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 430195,
+      "sha256": "a1505b0c70b8998f7239bc455214455208da5f5de091fa476b261ae309a973ef",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c/baseline/working-tree-status.txt",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 5781,
+      "sha256": "750424a9c69c75b53690e44ae8d0a68c002ac1d17f5413a2a96c549b0ca04373",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c/skill-audit-baseline.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 2330,
+      "sha256": "2f8bcce0792c7010a7c9387bca21db6517595223d9a7e3098bfcb35afbbb885e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c/skill-diversity-audit.html",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 10088511,
+      "sha256": "fcdb4b6330d59fe2a2d5165ac993a1b6adc253ee10e4b80aa1e554b90ebc69e4",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/skill-audit-2026-09-20T174133KST-2eb7498eda-wtfe5fd560ce4c/skill-diversity-data.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 10188348,
+      "sha256": "da58a7854bda4cdb9b0bc597f16398719bd18bb551a4ab00a48fcefefdd9b062",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/skill-diversity-audit/verify-worktree-integrity.cjs",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1766,
+      "sha256": "188c37834a87d425163c100806fc19f077fda8b00cc9b32c06ee573b506d02b6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/ui-button-size-audit-20260922/UI_BUTTON_SIZE_AUDIT.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 4548,
+      "sha256": "d8813ad1b8b72558c13797ad5c49ea9edf5f867ce774ecb7cf0d68c2c6ccd8c9",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/ui-button-size-audit-20260922/evidence/01_lobby_buttons.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 553808,
+      "sha256": "106f4f6a5d347efc655fc69b1320fd2ea6bfc33ef1f91d533cc4f23f6adcba19",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/ui-button-size-audit-20260922/evidence/02_party_join_buttons.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 484059,
+      "sha256": "bd4816011738fa21ac587619326385733d11a87a6aea37b48010c273e1376eaf",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/ui-button-size-audit-20260922/evidence/03_party_member_buttons.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 484372,
+      "sha256": "f1a6b9eca2627e0dc92db2b0b9707d34ad89cf3b78f9da50d36fc7ab783320f5",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/ui-button-size-audit-20260922/evidence/04_area_select_buttons.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 353508,
+      "sha256": "e58c9b9e7c216a4fc1afb04b094bdae8d6a99c26ec9284043acb618725bcbecb",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/ui-button-size-audit-20260922/evidence/05_run_menu_buttons.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 284782,
+      "sha256": "1e314c4660122fa95da193c9cbbab806dc265c4a349c291baafb32296a08450b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/ui-button-size-audit-20260922/evidence/06_abandon_confirm_buttons.png",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 276231,
+      "sha256": "861ff32ff1cd91153d9864d3b73b4d4ead59ea3a02cce35a06ffdc5ac070090c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/workspace-entry-cleanup-20260921/ARCHIVE_SHA256.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 1110,
+      "sha256": "b1fbeaa0a05852934e71e6709c796b5724e8fcc30bd3f341afdfd0f90311bc6f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/workspace-entry-cleanup-20260921/ENTRY_SNAPSHOT_MANIFEST.json",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 52432,
+      "sha256": "776718d32944c5403b78a94659449b9f85114a13a0ee98cfb6dd2507650534c7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/workspace-entry-cleanup-20260921/Mislocated.zip",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 64955,
+      "sha256": "65f0e73bef326080f1a1fe553875f1434868048a44208817f3acc4f13eed7145",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/workspace-entry-cleanup-20260921/README.md",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 3066,
+      "sha256": "31ce27c97e609458fe18b042e686dc2bc2c76271fbaccffba579a166fa7a5945",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/workspace-entry-cleanup-20260921/pre-relocation-mislocated-mydesk.zip",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 481694,
+      "sha256": "84dad2859a2641a0ada5f79a4a20615d334136a7c576473485ef67df02237497",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/workspace-entry-cleanup-20260921/pre-rework-table-replacement/MonsterTable.csv.pre-rework.snapshot",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 7851,
+      "sha256": "b023900caf8dc6d6ed97cc19a26663fe6c0a43ac4112e490fd49a7cab9c49e8d",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/workspace-entry-cleanup-20260921/pre-rework-table-replacement/MonsterTable.userdataset.pre-rework.snapshot",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 539,
+      "sha256": "72c4580adaf33c9e7b89491a00ecceef2043236e4e1ed80121735662bc4cb73b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/workspace-entry-cleanup-20260921/roguelite-mislocated-backup.zip",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 7981,
+      "sha256": "cc5e9558adce7b6be9c6cf2d9709908f3b386aa8916720ae2d375e06f19024d0",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/workspace-entry-cleanup-20260921/roguelite-preinstance-maps.zip",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 635008,
+      "sha256": "b7334eaa76dc9b11f812289fc61546927b084ebb7fdd2ab03365d156b53c0a14",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/workspace-entry-cleanup-20260921/roguelite-premerge.zip",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 173620,
+      "sha256": "ae0c928bc919c469ffc896b65ba1250bb3af4757c952e385d710d9ae24d161ca",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/workspace-entry-cleanup-20260921/skill-audit-173637-untracked.zip",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 65963,
+      "sha256": "413ca8175e6b748d5ec2f153eec9a00e36f750ba236fe3ece355b0af63bbbaf0",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/reports/workspace-entry-cleanup-20260921/skill-audit-174133-untracked.zip",
+      "group": "documentation-evidence",
+      "status": "UNTRACKED",
+      "bytes": 65963,
+      "sha256": "413ca8175e6b748d5ec2f153eec9a00e36f750ba236fe3ece355b0af63bbbaf0",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/README.md",
+      "group": "tooling",
+      "status": "MODIFIED",
+      "bytes": 4195,
+      "sha256": "65c832b6645bc11a593dc0fb2073dfa2803f307825e68b8fe7bd73d2032932ac",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/audit-mega-connectivity.cjs",
+      "group": "tooling",
+      "status": "UNTRACKED",
+      "bytes": 10057,
+      "sha256": "090edc0794d2f271de72508d7bcaaa27a4142615f6056e1d7afc190d664f10b5",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/enable-roguelite-instance-maps.cjs",
+      "group": "tooling",
+      "status": "UNTRACKED",
+      "bytes": 3241,
+      "sha256": "e7272b6862cc404ed3fc3b1cc8c8d4492cb4f4fd3f99e5b2242d291b844b7503",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/prepare-commit-inventory.cjs",
+      "group": "tooling",
+      "status": "UNTRACKED",
+      "bytes": 4726,
+      "sha256": "42183eda4ea5b4e8e3bb627b63e994dc2d09284cc759f53e8ac6095256e327a4",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/rebuild-party-area-ui.cjs",
+      "group": "tooling",
+      "status": "UNTRACKED",
+      "bytes": 15774,
+      "sha256": "6b9bd8dff39e9f33cbf2faf150838f07c7d72e6ae09000f2d1945039e91504ce",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/rebuild-roguelite-player-hud.cjs",
+      "group": "tooling",
+      "status": "UNTRACKED",
+      "bytes": 1890,
+      "sha256": "34590f8de2c4da607a003d52b6b3da1947be0ee19486f6129b6a37d907a7348b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/rebuild-run-abandon-ui.cjs",
+      "group": "tooling",
+      "status": "UNTRACKED",
+      "bytes": 4254,
+      "sha256": "b036ce67db45509933ef5de89cb1bbd1431c268e7534025b456fdf4b5991bbe3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/rebuild-run-owned-skills-window.cjs",
+      "group": "tooling",
+      "status": "UNTRACKED",
+      "bytes": 2500,
+      "sha256": "dbd4b8a0266ffdd335f35bb739176fb8ea39ff4a1461849095800d60909a7d7f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/set-area-instance-mode.cjs",
+      "group": "tooling",
+      "status": "UNTRACKED",
+      "bytes": 1259,
+      "sha256": "2931f65e732fb39ea3747d4ef01906ecdc379e8500f2abf606c3b0e24b68889f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/test-current-content.cjs",
+      "group": "tooling",
+      "status": "UNTRACKED",
+      "bytes": 3238,
+      "sha256": "570b1cc0af676c18c3c8fbca9ffb6e3476cea54bb7abb5d332513de1c1478f73",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/verify-content-coverage.cjs",
+      "group": "tooling",
+      "status": "MODIFIED",
+      "bytes": 34112,
+      "sha256": "56ea06255b3dc08005f8c1d43f073dd013ba67243dd54f2158d7966f6b59387c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/verify-current-content.cjs",
+      "group": "tooling",
+      "status": "UNTRACKED",
+      "bytes": 8600,
+      "sha256": "4af3c8da881397f08dbc0d1b5565ebf7445c283d47623222354a2d89a4df8889",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/verify-current-docs.cjs",
+      "group": "tooling",
+      "status": "UNTRACKED",
+      "bytes": 1565,
+      "sha256": "7b14286338578a8c8dd50850fddfb1dcf9074df3e02422337b89b9a1c80d1c47",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/verify-knowledge-base.cjs",
+      "group": "tooling",
+      "status": "MODIFIED",
+      "bytes": 12495,
+      "sha256": "e903ba83bee9320512ae9942bcdfcce9be99993f2e3d60f716b0278e07fb9593",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/tools/write-mega-runtime-results.cjs",
+      "group": "tooling",
+      "status": "UNTRACKED",
+      "bytes": 12670,
+      "sha256": "f6fe4fe88d3f4ed0d68dc6b261af59786944e1cc8da76edd675d4951721e3269",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/게임기획서_v0.3.md",
+      "group": "documentation-evidence",
+      "status": "MODIFIED",
+      "bytes": 3342,
+      "sha256": "70fd649a696cca084bb8a399c5a651c0357eeafadf58a763cb4c23c990a5f2c7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/밸런스_확정수치.md",
+      "group": "documentation-evidence",
+      "status": "MODIFIED",
+      "bytes": 3401,
+      "sha256": "236d102e10563fada63e38d8cb09034e90475ec5378936ee7295dd0e403b9ef0",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/인수인계_현재상태.md",
+      "group": "documentation-evidence",
+      "status": "MODIFIED",
+      "bytes": 9332,
+      "sha256": "4e5e57e18d86627d84d7a150c8a618266c5c42ac02a1624ddb2ffeb90979649e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "docs/프로젝트_현황.md",
+      "group": "documentation-evidence",
+      "status": "MODIFIED",
+      "bytes": 4769,
+      "sha256": "3fd49bd5c52c7db1c7968e699ea1a51ea4a36af86e0470350f1381983b0cbca6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map001.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "008cfe86457a78bc8cff592355b29bd2c5f71c91e3ae50cbb576fb77ac3f12fe",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map002.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114532,
+      "sha256": "549e2c1c92d5d6fc37d65d3206f71a5474aa8a7413de83076b274524d5339b4f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map003.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117436,
+      "sha256": "2947722959b5f26a951b1ff1addfee10d7600a03b34c207f50994180dbd5788e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map003_p4b.map",
+      "group": "maps",
+      "status": "UNTRACKED",
+      "bytes": 78237,
+      "sha256": "1a63bcf45e7d77a7aca900c546beef2bb1a92658c6f5a7dea235aa99917dd506",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map003_p4c.map",
+      "group": "maps",
+      "status": "UNTRACKED",
+      "bytes": 96419,
+      "sha256": "03ce24c6b0e03968a593bebdd69d860bfbf38df043ce69a7241e86f0e13be79b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map004.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "3b4b2efb8d9bf195a277726273dfeca620dc2f069bb462f4eacb7a142f5da267",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map005.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111436,
+      "sha256": "c5c26ebc7bdc5490468e29b06212ab2e8aef3242b62c12e7b9c1d09f9e3997bb",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map006.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111334,
+      "sha256": "316a26d28b4fc8b679d089f6ef8c3f21092d865875c50d270ae04e5315b2b4f3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map007.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "beee7bd88dba999f94b325724b45935c5dfd6c58f3fc2a7fd7cc460a85ec5059",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map00a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108285,
+      "sha256": "ba029a91a20c916ac81f2ec166f4ddbf6aca85548af0c333012787e5e63bf54a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map01.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111399,
+      "sha256": "0a8fc24e7176c168efdc0a672808a9a28c03c5407aba7abde0f545d3b25bc363",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map02.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114367,
+      "sha256": "ba9aa44db3ebdaef5172b906f24cffdffb8038b479763e28ebdde24d96cc5490",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map03.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108271,
+      "sha256": "8a4b8fb4e436c683b0e787683595129e1f49c534886e82d8421d523987e62a61",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map04.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114407,
+      "sha256": "6d5672810d04cbd89ee1ed1735ae1be7cfc8c29d7a824cf5accc93c911fbf5c9",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map041.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "8ed189c2e9a66ff6a935d4257eaed47ed82623b6f62190e22a9a684010746488",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map042.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "bca71886bea88e53d117a903f6cb98c910db25806339f2c60bd45df0cc67feba",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map043.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117436,
+      "sha256": "f1914546f2d467e74787aba272e5b272e0a62c6af321a4174544a04562a8eb68",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map044.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114386,
+      "sha256": "2de515c68dbc1a58ebcf9b2660a43cefd252b7ca84c5f44995753d47d1b6f4cb",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map045.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111290,
+      "sha256": "2ecc03bd608b7bfbe63503c295356223fe48755d464abaac099efc683b3016fa",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map046.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111334,
+      "sha256": "cd2088b4be0b15fcd9e8e745ac4f015ff09e2bde0dcacb384a9b21b4dc9305fd",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map047.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "de4686667e419f3a3e914bedcf2a22d0900cfecb96a3af2ab5918e9c99545dc6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map04a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108285,
+      "sha256": "6797d7e42eb178efaa72e2e4fc890fe47ea74f92cb0eff94c81a44ba680db54c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map05.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111274,
+      "sha256": "7fe11a3be4d9b39a64582c9b8843a83b44c08eeb97c41c4fcd99c9021e97fda3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map051.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "ba72f71669d71cdbf2c26f88d2864b51970d5e6de4deae8b74cc5b59de56b4d5",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map052.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114532,
+      "sha256": "6de1202c938ee3ba813d6655cc745576dedf540aef032fb6ac71faf3ee07da53",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map053.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117582,
+      "sha256": "262004fdbec46fb4284ee826e9c1c807ad66622eda81e121d4ae92a9239e79ba",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map054.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "1a8be8b541acdd140bb17028626b181e06af0ade1d274f68dc68371d5955c918",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map055.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111436,
+      "sha256": "759317b603ca4d026201605bf6bfccbe21f384e78fc1dde52f743da76193ff90",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map056.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111480,
+      "sha256": "f42c83c285d872c122f696e36ba9d4ba297a6aac2bd0f3ad2e4160ce7f411bb9",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map057.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "e2123ec59d352a476c8e7a518f68ad6a6a6a50e6c72a8c73b78012c4ae5ea4b3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map05a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108431,
+      "sha256": "b8a6fdf6988ccd4b2b2eb6762076f511eed906965bd6f7bb98a64a6b991e2438",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map071.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "0fcf99d0fce3c0e0957f0827ad5e9abfff15380607dc5d3f4b797155825e0cef",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map072.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114532,
+      "sha256": "bc0272c1f3513ec9dda7086b4bc0b68d368d3c92b7eedcd5672500832a40e69b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map073.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117582,
+      "sha256": "29d3e776348d3afb5e72f4925058a7d566e159a65f0063133712e4a9534ceeaa",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map074.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "77a1d99dd99b439b3a8e699e7c48badeb997db06d5d2dea3fa9eacd16b942bc1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map075.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111436,
+      "sha256": "cf2acf8124ee3528baa28139078bb1dab32dee432437c71a912043513dddd139",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map076.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111480,
+      "sha256": "2e39d5a1fca9d3af7bde6ad0a25c0a4715cdddbd8c1539e721a1341232622cdc",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map077.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "01ee262a5b628aa92f4d2b20dc7f99b37dbaa51eccd2b5073819fe788cd0ffdd",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map077_p4c.map",
+      "group": "maps",
+      "status": "UNTRACKED",
+      "bytes": 86261,
+      "sha256": "2d9f40ae91c62e48b7df58b47b8e0c9b58061b2960d6a99c57446e2bb5f0985a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map07a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108285,
+      "sha256": "5832e59e3e3deb50e6ca19880ee31d7f8015702610246c0dc4211a2c3de399eb",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map081.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "66c5f18070d07daf9abeecc7a5c8d0edc7b299ea58417a9bb79fb27ff5f76e49",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map082.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114532,
+      "sha256": "0bfd4731bcf11008190ee4408ffe1ce24d10dc72615406207ebf19a34ddd66aa",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map083.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117582,
+      "sha256": "4e1badbf4f829ec2d367981bfda67bc17ff8ee15a8e6671e9971626402052296",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map084.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "bd1ceaf41669a592ba8321e2e626949a8608e11a05e26c6d6a87b7f0dbb50d98",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map085.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111436,
+      "sha256": "54c3fa229d90af4ef734bb67977d0c9943ae1507907f396148bf12dd4f64c1f2",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map086.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111480,
+      "sha256": "adf7afdd07dc7358f55a2e234120e85dd16d6b26f74ee5efaf335527aaa5d723",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map087.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "3edd5214a00e40bfbdce2ea8e5d13a784e4ada0acd44e00dddfd79343793cbe0",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map08a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108285,
+      "sha256": "9945ebc5172da564ae4fd02def06d03c6e587f531af0cbd5a2cb1997f8c7de27",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map091.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "a62792cf06711a94dcba9bae11b1d06b470a505689e676f5d715e415cdc4363d",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map092.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114532,
+      "sha256": "8feea31b477a8adf9af5e70cc861c17f4d455be49b43b2f27feaa9c80c6733a1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map093.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117582,
+      "sha256": "69de2812a346cfec3a64501a1b705cfab19afd068fb5fef5c7f7751628ce335b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map094.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "8ac3f844f22477c8480a870c145196285119e9f3e2e8e67815db3347e12df451",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map095.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111436,
+      "sha256": "05a7f8a6e79f483de5df0d8ac8bb7ec944e4baf340ed53bdb55adb75dad21081",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map096.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111480,
+      "sha256": "22cf1c445d99f62615ded7d743a7ceff9a14056cd4788afadec382f1d0a82d5b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map097.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "7de446a92425a2dad8874b7f8aa91745b2bc6037e3acc7dd9346907ee7a154b8",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map09a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108285,
+      "sha256": "4db32250d67f1d8f0e8d408619ffb9beda87b87971ff95d03830c2e484fd8891",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map101.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "2bb513305ec15a5065af4769cf2d029896701461899088bc851495714d600b6c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map102.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114532,
+      "sha256": "56a40fc666fcc67228e27c931f9fe95054b6980e61c90a2ffd72ae6bd3c546f2",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map103.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117582,
+      "sha256": "736ae77b2defb61426261221f464f4422668ba9c2c5da8f513af5a84de09281c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map104.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "fbfff87b2d8e06e744dbcdd2d7553c1fcb0140e201c0e996346b9bd735f48ee7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map105.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111436,
+      "sha256": "6b69d18db8b4cbc3e0ef10aa8824b158d8760363f591187ed13058da822a080d",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map106.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111480,
+      "sha256": "e7f6b0832d4ad35f262e4a83f42170063008669a9ab63fbf557d672f3ad72358",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map107.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111481,
+      "sha256": "ceca86a215e107b8f5fd067f1f909d57da1099cddff9874d5f28c5bdaf732886",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map10a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108285,
+      "sha256": "99e893f88250652f1f69cb794a0fe52303bcd0c145ceaa4231aa981ae784156b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map11.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111808,
+      "sha256": "479a8fc6a080ff5e16d1dab3f6eb70e14617732cdfdaef6a4b4392d5884e1c88",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map111.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "23285845d1794d0b5cce27f69f025f3538801ad27c7a5dd8dc525e1e9ed03663",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map112.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114386,
+      "sha256": "fc8eb3a1164611caa8d790ecd73aaa7cfa19f91deefd58b63cbe4f90301cd3fa",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map113.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117436,
+      "sha256": "6e523e3dc168e9b5abf061dd2fb3362535861abc3ac75ea39648a970aacf46ba",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map114.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "773dfbafd740856252c1d1732c7e6a4acf1cc580a2cc9fa4cf8594e8023fd027",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map115.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111290,
+      "sha256": "2be5199afab7ae229d00bb287db16f6713ff32d20dbf9825eb9ad06294e50fd1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map116.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111334,
+      "sha256": "d0bc7bef6b50dd47a9cfb6ab4890e1eeca69dc140c4dfa295f4cea32eb47c8b7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map117.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "74c1b543d06f8845d557372b8ffc2081ee0a9f1f6902df017f60f5b745a2d516",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map11a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108285,
+      "sha256": "cd5cf4b69560b18a67aa9526440aab3349a55f0de48f6c5d356b2eb38961e63b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map12.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111808,
+      "sha256": "50b79a78c74a377e724419fbfc0cf5292a0097d82d34106803748b784a8b70db",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map121.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "0fe2dda24268584a59bb689025bc48f6fb4177c2f7e743a819bddde952333ade",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map122.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114386,
+      "sha256": "32f8530743e06e4d912c25925b36c1424ef9a20a077f520c0e6601b61189b0b3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map123.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117436,
+      "sha256": "b285a2f6df8b404b44efa62a8bbd50812575c48ad01815174ea8933c56d3d2d3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map124.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "acde1e09288dbc4f367f61181647cc556bdb07db94ee4628f6135741b5660db3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map125.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111290,
+      "sha256": "05c044b94d068e17b483673ab7afaea8d3df428e5346540219d7b8af2453500e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map126.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111334,
+      "sha256": "9a5ebdcfa4b8e5125579d43522d4e50a8a0a544b6275d5180b823c9b9fda571c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map127.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "3a54af061c57a2a0da37f93c359a9feb71bb5ead000a898afaa4f53db4819072",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map12a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108285,
+      "sha256": "1fd984708b9e17f5f9d40f8f657902a8bea992b40b7b85edcff5d1283b31fb80",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map13.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117905,
+      "sha256": "e702ec80b5b27bc428668ffbc8d08a0fa044498001426a706518d7388f03efcb",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map131.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "3f8c1197501f308a2f61078c35fd24e54c2cad66715a590af07aa51400818dbd",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map132.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114386,
+      "sha256": "f0b910acbffdfee992de95143332749f8c102868dc874eb6b34617a301300952",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map133.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117436,
+      "sha256": "1e36691ed3a86b2ad9cbe6473ed47745cb58c0ab30dd863efaf17f3642bd23bc",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map134.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "11154d85450cb94ad4f395489ac0fc652b04fc04758896bb1040c3b443f72383",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map135.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111290,
+      "sha256": "0ff20f1679cd9a3eb1e02cb91b495daf2838ff25cadf1d7f3ea6196be45b5dd4",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map136.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111334,
+      "sha256": "d79bed8790bce3a61549245e570549656579a62f927b5947f24f91179b33e7df",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map137.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "44ffb5e6f895166e819ff7f56058fc93ae97bdac12c9d0d52b43774ee3267cf2",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map13a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108285,
+      "sha256": "445a8c2c7ce9a886879e721d72987db179cbbe9afee88344c1bd7cbf691d39e1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map14.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114816,
+      "sha256": "f98473e7312337d9d80d9894fe6be01723dd05fb92678dd63fca2ffa04e19e22",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map141.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "b68e28145f9cc2d9fe2dbaaf1a78267055a8fa0054aed8bf4b0f4c3ab09a6f23",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map142.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114386,
+      "sha256": "40b93029acfb29420fd3cc467b947845dc3dd1f91f48dd8f8449a7666ddff612",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map143.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117436,
+      "sha256": "66871e8cac33ec4bfef62503613462e70613f41795ab1b1276bfcdc282e28876",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map144.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "010b46e219f35a4fe4f8719c84f5c6a73b9f40cb6758fb36a292b159f75086e5",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map145.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111290,
+      "sha256": "81f23027db46542cfdf4dcdf6ebd19843c54e51de7a6648b55a4c90238e06351",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map146.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111334,
+      "sha256": "babbefd9ddfd2d1b5211640c3469a855ab3d709be95e511cb0130ffcd258e9f3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map147.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111335,
+      "sha256": "d06fc71625bbc78296105f85cf1a78627937ba6174990d8537aafab6814c8eab",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map14a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108285,
+      "sha256": "8a05ccaecfc7171869151f539a0a5fcf5b72530ea71bfc67d62c182f116c193c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map15.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111721,
+      "sha256": "466d15b7e6a853188cd262ccce26be13cb765c49512f4576b7dbe599a70260d3",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map151.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111535,
+      "sha256": "a25f295e19d6a2f9e6d1f50fa9874b8b79336ced17ad50cc3339dc8978849b8b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map152.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114658,
+      "sha256": "6162dd4b33502bd9f0f0d24b5a1bf5e3f0d24d8ee5017c8e7d972c6d80f0415c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map153.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117654,
+      "sha256": "de8043d1adbabbbd00f8d47fcce3bae36ade0f414f3087d2d52b84188051c4be",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map154.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111783,
+      "sha256": "815448387cb0eaa399b891c805c6d3279e71f622cc58105bcf94dce780ba8849",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map155.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111738,
+      "sha256": "1c7de2c13a03b8103ef7fc367cdaa209bbaa66c2125c526bfef5ab80b96a30e4",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map156.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111686,
+      "sha256": "b2be25737ff9bc35f8f64d95414cb9ff14b41eeeb766990551f2a2954d3b5ea6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map157.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111731,
+      "sha256": "b91c6d279e9f4a9db51213eb43a0cc828b23d41903d8e26b9d2e57eafb7be86a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map15a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108733,
+      "sha256": "2ce788d616fb1c2e3f7e42e248bf0b98f89202adf7787bbbc4f31b4b588836a6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map16.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111807,
+      "sha256": "b6a39b50198f3823e75c20db90054a9358ac990bb0a2206a9ac586e2980a3906",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map161.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111535,
+      "sha256": "4852a57551770e29b8349f97b21d33231c45ff4d50a84c70055a665184748144",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map162.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114658,
+      "sha256": "18ab03100f39351e16de66e50c97938ba85597638b89d8e12569086ac2ec415d",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map163.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117654,
+      "sha256": "54dafbeeaac81717758c436dec2132cb560d73915490ed2368a44e47b62e608f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map164.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111783,
+      "sha256": "91f90c963cead911cccaab395ec8c506cc0acb7bdcd1cda0bccf24c720485822",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map165.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111738,
+      "sha256": "e5d893a0a9f52cfaeaeaaaa3cf84d47b95c9e26e818e5305b07289c3dbb99678",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map166.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111686,
+      "sha256": "3a638cabdf593f7667daa146f737a631083eb0972c1baf4cf0716b1ee49a14c1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map167.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111731,
+      "sha256": "b55f90366eb0a7288bf1e962ba38b26ad0ab056df7a7fafdea319b52444f0521",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map16a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108733,
+      "sha256": "04cd0ddab352a5593d50aaf9f8f0c3c30ee411408191bce789749fb67bb3b10a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map17.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111808,
+      "sha256": "18aa4065e4c3b46b603c8419268e054b0bf5a070c74f72fa81c0fc9f595886e7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map171.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111535,
+      "sha256": "b729d4bfb9f5a3c92d439aa14d478c880e39f22bcc7693a259aa5835916a7aba",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map172.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114658,
+      "sha256": "17e5a47e533dea886457fff89ff2543ff6c625f31820a2056e48edc59e1e52c8",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map173.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117654,
+      "sha256": "136fc9a9325e8dac94c190570ba5a0d446f0e032008c233671945d3fed1ce4ad",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map174.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111783,
+      "sha256": "6ef501cc2e7351095e21b7c8b91d39d191c6febbce34d5dcc1bdf50efc2a60dc",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map175.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111738,
+      "sha256": "95cb45e69b002a310597e9deb5dba028528c372d854343f5a8faec1444ddbcb1",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map176.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111686,
+      "sha256": "613be2832f480a6f7d51401601de1573f01d5a436acae02a8cf436daeb816a81",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map177.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111731,
+      "sha256": "0f5b7b658bed4c7fecc40d53de57f51b599e8486acf8f64600eda7d2236afcb4",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map17a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108733,
+      "sha256": "b2d117db17adb115170da54179d6880734dbb1c7599e74ae6dbbc46bdfe1ed0a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map181.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111475,
+      "sha256": "86d9031c507d147a474634004dbfab11330808ba9014a3cdb24a549b4202add7",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map182.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114526,
+      "sha256": "4443dd810fe4a3030cc36897cb386922191ea704fd621ab4ecaa08ddff143b59",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map183.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117608,
+      "sha256": "2c34a1fe7a0ced5f28958fabb3abbb406934eb27e117dc8ccdb6432de647db52",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map184.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111783,
+      "sha256": "bbf04a577119f4b2ef8c78c5a515a189271b0f0c6187ba19f26308867b8ca663",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map185.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111738,
+      "sha256": "09b27d77b5ebaaaf49bfc0926f4eaa3ca90b30c9aa62223429ac7441509ec65f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map186.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111502,
+      "sha256": "2a514ba7a6d9df111ded3d014e37382f966532a203a190829faf14827f4042e9",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map187.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111643,
+      "sha256": "66d3ed78b86296aadff6f872ac20f01da661699f27cd3a2b8dada086b2092f55",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map18a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108733,
+      "sha256": "18c2c0f0dd4bcfeb249d83c98560523e538d8cc028bdbcf7b422bc6619e6efb6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map191.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111783,
+      "sha256": "5cff9aac2abe009544ee3be394b51521cc981e1fd6fe9f801194f458efcd997e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map192.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114834,
+      "sha256": "933b273686a98738e00ecac7a3c1dc7ac9ac0a616193726468effa2fd22f43d5",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map193.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117884,
+      "sha256": "3736f4b2a772e0a5872afed287d3dda9c4f8e3373b8697508be890c8a41f9af8",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map194.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111783,
+      "sha256": "dcef8d5e311c2f4b3d62978cdd0046b4b4c03196f77de98ff41db073c75181b6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map195.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111738,
+      "sha256": "e775fa86cdf6255c309379cc25d6e437ba870a8dc3d1b251a5819cbb5fdba215",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map196.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111782,
+      "sha256": "b5a3bf0ae66fe18c9f112a8eb7962c7c8978045302e2ea5f8cb1814c7f678083",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map197.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111783,
+      "sha256": "a49b4e12375705fea76dfd851569fea1944c8c55d9584a6dcf8e9b552fda3001",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map19a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108733,
+      "sha256": "64df02abf978b297be57c6218901b2654ab0da29585185c9647b48e505e7d521",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map1a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108719,
+      "sha256": "6532ee64c260a09737699ff4478c555af411465f47e5035ea8f02b4e18010586",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map201.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111783,
+      "sha256": "aab0cb84b3898ba4b56b5a4ae28f15ff1bfc9b6d601c93d8f6d64b019582d41f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map202.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114834,
+      "sha256": "3b6528cab2da55623540a434001d7f1bc70ae467a291effb2dd4deea516ab7fa",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map203.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117884,
+      "sha256": "77b67270713fefdb5080b3f9a441e1766420720e34f501d173a47c0b0c95050b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map204.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111783,
+      "sha256": "406b38655faa5d271a0ee2b5c35d611aa7f43c83fa7dd17f6a976036f8d2cd3b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map205.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111738,
+      "sha256": "d77f1721b1fe0668dc8d30018b1ca6e08c7b6a1f1d8a2f69020cf07ae341c420",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map206.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111782,
+      "sha256": "270ff38114c7da772de1911988c389ba16b57fb8b87fe8663ad0f4b339a1f432",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map207.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111783,
+      "sha256": "ae09d109608e37e4369df11b55eca0964c824c9ac47d219fd69c60824aaf0b1a",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map20a.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 108733,
+      "sha256": "64be93a3f4b202a3f1a2081459f943bedf01e8b12bcf645cccabe28edbc4d87e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map21.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111318,
+      "sha256": "f8b73c961b2d7485935ad5d66f34b408435045a8a57cdf1028c2e8daff77baa4",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map22.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 114368,
+      "sha256": "30fa66c34b519602b80afcde94a43ab4c6667d770bee8762330f34bd0039c97c",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map23.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 117416,
+      "sha256": "57a68c994c56883608732246b53739eca3107e2796b96e7651130bf917d878df",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map24.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111319,
+      "sha256": "eedc3bf7346f2e7a5d42124e448b8ebc1eeb191c6623dbc11cbbfed63c9a6e4b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map25.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111274,
+      "sha256": "55ba15876b7b4b25158bb6a7ae33a11ed4666e84310703fdc4d8556e4c92c0f5",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map26.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111318,
+      "sha256": "e0be546571ce22bb6c0489be6cdb8750f9ff3b68d1e4341532dc5a39521368b2",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map27.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111319,
+      "sha256": "1659bef805dd729a7cd4a9b97f575dab1d93c99b6b8c2f7840af7c9fae5697e6",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/map29.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 111456,
+      "sha256": "4d065c827bcb4742ae7f02d413e220d9f31fdb0ab925b4f2a5494ea49d301513",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/mapjob.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 42728,
+      "sha256": "e5927b8ce42719cd97ef1745a4d708af03041fe6277586584ce56887730df41f",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/mapjob02.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 42814,
+      "sha256": "9aa2079c53e1dc622e5c5ef9bebbbc13a3f93ea1b40688aec32ed0343cb58ccf",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "map/maptown.map",
+      "group": "maps",
+      "status": "MODIFIED",
+      "bytes": 113788,
+      "sha256": "831c38f78ea024ccf26c664eae0ddf2e9551020b0d8863d33138d40079dfa207",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "ui/AreaSelect.ui",
+      "group": "ui",
+      "status": "MODIFIED",
+      "bytes": 242023,
+      "sha256": "163f2560b2234024141fe0a99c578baecfaacdd344cf37da2f671bd6fb849710",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "ui/EquipWindow.ui",
+      "group": "ui",
+      "status": "MODIFIED",
+      "bytes": 1906861,
+      "sha256": "616c8cb21fb7c5a775096113206e3b4ed2d9abfc63d49c2872e8fe20efc2f578",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "ui/GoddessWindow.ui",
+      "group": "ui",
+      "status": "MODIFIED",
+      "bytes": 67974,
+      "sha256": "4fe0d61b373c15cd541dd1111805c52d28c68a0cefc772f10b4a9a056f143009",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "ui/Inventory.ui",
+      "group": "ui",
+      "status": "MODIFIED",
+      "bytes": 1014190,
+      "sha256": "ec2d57e74fe66ff9bd4e2546d4f3b1448b0ed1896c02b29b760e207d4b661e88",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "ui/ItemQuickSlot.ui",
+      "group": "ui",
+      "status": "MODIFIED",
+      "bytes": 50402,
+      "sha256": "a4feb3087d483ae864a2d2a6247553c145a960c40fd0baad18b8ce203650a5f9",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "ui/KeyConfig.ui",
+      "group": "ui",
+      "status": "MODIFIED",
+      "bytes": 76225,
+      "sha256": "137add30c4550b60a85ea0ef731f93cb474020276a420064da2a0dc35e4dca0b",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "ui/PlayerHud.ui",
+      "group": "ui",
+      "status": "MODIFIED",
+      "bytes": 317144,
+      "sha256": "50fe0aef6b134d85e3f59fd3c75bbf5a07653d1af30784183dc4eec9bbe40095",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "ui/RebirthConfirm.ui",
+      "group": "ui",
+      "status": "MODIFIED",
+      "bytes": 75820,
+      "sha256": "ed1867da031e9fbb335719a068f75983a2f3f003183876a277fc712ccd5b52d5",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "ui/RoomProgress.ui",
+      "group": "ui",
+      "status": "MODIFIED",
+      "bytes": 31167,
+      "sha256": "18a8b63acc43b5281f7bec3c093e0f406ce01df7e0f9d2e27fb2a90a75346f60",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "ui/SkillBar.ui",
+      "group": "ui",
+      "status": "MODIFIED",
+      "bytes": 235970,
+      "sha256": "26cf44052e2a06d194cd3b0e62c0556213343ca495061e6899e7dc9dbf073c6e",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "ui/TraitWindow.ui",
+      "group": "ui",
+      "status": "UNTRACKED",
+      "bytes": 80979,
+      "sha256": "4d308a7b6dd0885c2fc2a51922c95389cfb451acc387f4d68e892404bc3709f8",
+      "replacement": null,
+      "replacementExists": null
+    },
+    {
+      "path": "ui/WorldMap.ui",
+      "group": "ui",
+      "status": "MODIFIED",
+      "bytes": 616564,
+      "sha256": "7b42fa439a13f01701acd7e645bb860cde8ee8a5a758091de5433f5038880be9",
+      "replacement": null,
+      "replacementExists": null
+    }
+  ]
+}

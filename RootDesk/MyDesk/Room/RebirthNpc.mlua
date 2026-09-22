@@ -29,6 +29,12 @@ script RebirthNpc extends Component
     property any touchHandler = nil
 
     method void OnBeginPlay()
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            self.Entity:SetVisible(false)
+            self.Entity.Enable = false
+            log("[RebirthNpc] Mega Run — NPC 비표시/비활성")
+            return
+        end
         -- 터치는 클라에서만 받는다. 서버에는 입력이 오지 않는다.
         if self:IsClient() then
             self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.OnTouch)
@@ -50,6 +56,11 @@ script RebirthNpc extends Component
         -- 왕복하면 눌렀는데 한 박자 뒤에 답이 오는 느낌이 된다.
         local me = _UserService.LocalPlayer
         if me == nil then return end
+
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            log("[RebirthNpc] 로그라이트 모드 — 환생 상호작용 거부")
+            return
+        end
 
         local gate = _Rebirth:Evaluate(me)
         if gate.passed == false then

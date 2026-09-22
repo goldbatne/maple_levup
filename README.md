@@ -1,18 +1,18 @@
 # 메이플 레벨업
 
-MapleStory Worlds의 RectTile 기반 싱글 플레이 성장 RPG다. 몬스터를 처치해 스킬을 포획하고, 지역과 히든 전직 보스를 돌며 캐릭터를 성장시킨다.
+MapleStory Worlds의 RectTile 기반 실시간 Mega Area 로그라이트다. Run에서 능력 풀을 늘리고, 5초마다 공급되는 최대 5칸의 일회성 스킬을 소비하며 보스를 공략한다. 동일 스킬 중복 공급을 허용하고 Run 플레이어의 개별 쿨다운은 적용하지 않는다.
 
-현재 구현 범위는 메이플 아일랜드·리스항구부터 노틸러스까지 6개 지역이다. 기존 5개 지역은 런타임 검증을 마쳤고, 새 첫 지역 `area_00`은 파일·연결·타일 구조까지 작성됐지만 Maker Refresh와 SectorConfig 저장 검증이 남아 있다.
+기존 20개 지역(AREA 06 예약 결번)을 5개 Mega Area로 묶는다. 솔로 실행 증거와 파티 서버 구현은 있으나 실제 2~4클라이언트 협동 완료를 주장하지 않는다. [현재 구현 기준](docs/CURRENT_GAME_STATE.md)에 실행 구조와 검증 한계를 정리했다.
 
 ## 문서 읽기
 
 에이전트와 개발자는 먼저 [문서 인덱스](docs/README.md)를 읽는다. 거기서 작업에 필요한 정본만 골라 읽고, `docs/archive/`는 과거 판단의 이유가 필요할 때만 조회한다.
 
-- 현재 구현 사실: [프로젝트 현황](docs/프로젝트_현황.md)
-- 게임의 현행 의도: [게임 기획서](docs/게임기획서_v0.3.md)
-- 수치 정본: [밸런스 확정 수치](docs/밸런스_확정수치.md)
-- 다음 작업과 미검증 항목: [인수인계 현재 상태](docs/인수인계_현재상태.md)
-- 검증 방법: [검증 가이드](docs/검증가이드.md)
+- 현재 구현과 미검증 범위: [현재 구현 기준](docs/CURRENT_GAME_STATE.md)
+- 검증 기록의 적용 시점: [보고서 인덱스](docs/reports/README.md)
+- 현재 데이터 검사: `node docs/tools/verify-content-coverage.cjs`
+- 검사기 회귀 테스트: `node docs/tools/test-current-content.cjs`
+- 과거 RPG 기획·밸런스·인수인계: [문서 인덱스](docs/README.md)의 역사 자료
 
 ## 개발 원칙
 

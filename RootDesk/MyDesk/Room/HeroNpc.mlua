@@ -40,6 +40,12 @@ script HeroNpc extends Component
     @HideFromInspector property number promptedAt = 0
 
     method void OnBeginPlay()
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            self.Entity:SetVisible(false)
+            self.Entity.Enable = false
+            log("[HeroNpc] Mega Run — 시험 NPC 비표시/비활성")
+            return
+        end
         -- 터치는 클라에서만 받는다. 서버에는 입력이 오지 않는다.
         if self:IsClient() then
             self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.OnTouch)
@@ -64,6 +70,8 @@ script HeroNpc extends Component
 
     @ExecSpace("ClientOnly")
     method void OnTouch(TouchEvent event)
+        -- 시험/전직 이동은 신규 Run의 탐색 경로가 아니다.
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then return end
         local me = _UserService.LocalPlayer
         if me == nil then return end
 
@@ -101,6 +109,7 @@ script HeroNpc extends Component
     method void SendToTrial(Entity player)
         -- 방 표에서 목적지를 읽는다. 도착 좌표까지 표가 들고 있어야
         -- 맵을 바꿨을 때 좌표만 남아 엉뚱한 데로 떨어지는 일이 없다.
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then return end
         local room = _GameData:GetRoom(self.TargetRoomId)
         if room == nil then
             log_error("[HeroNpc] RoomTable에 없는 방: " .. tostring(self.TargetRoomId))
