@@ -138,7 +138,16 @@ script RoomMonster extends Component
         -- 플레이어 DEF 10 기준 피격 242 = 4대에 죽는 수치다(i-frame 1초라 약 4초).
         -- 세다고 느껴지면 boss_atk_multiplier부터 내린다 — HP·EXP는 그대로 두고.
         local isBoss = self:IsBossRoom()
-        if isBoss then
+        if _GameData.RogueRunActive then
+            -- Mega Area는 정렬 순서로 수치를 올리지 않는다. 모든 일반 조우가 공통
+            -- 기준선을 쓰고, 최종 보스만 HP 배율과 시작 인원 배율을 받는다.
+            self.MaxHp = _GameData:GetBalance("run_monster_hp_base")
+            self.Atk = _GameData:GetBalance("run_monster_attack_base")
+            self.Def = _GameData:GetBalance("run_monster_defense_base")
+            self.ExpReward = 0
+            if isBoss then self.MaxHp *= _GameData:GetBalance("run_boss_hp_multiplier") end
+            self.MaxHp *= _GameData:GetRunHpScale()
+        elseif isBoss then
             self.MaxHp = self.MaxHp * _GameData:GetBalance("boss_hp_multiplier")
             self.Def = self.Def * _GameData:GetBalance("boss_def_multiplier")
             self.Atk = self.Atk * _GameData:GetBalance("boss_atk_multiplier")
@@ -171,6 +180,10 @@ script RoomMonster extends Component
         -- 여기서 다시 계산하지 않는다 — 계산 지점이 둘이면 반드시 어긋난다.
         local originalHp = self.Hp
         self.Hp = self.Hp - event.TotalDamage
+        if _GameData.RogueRunActive and originalHp > 0 and isvalid(event.AttackerEntity) then
+            local effective = math.min(originalHp, math.max(0, event.TotalDamage))
+            _GameData:RecordRunDamage(event.AttackerEntity, effective)
+        end
 
         log("[RoomMonster] 피격 " .. self.DisplayName
             .. "  -" .. tostring(event.TotalDamage)
@@ -209,9 +222,15 @@ script RoomMonster extends Component
         local stateComp = self.Entity.StateComponent
         if isvalid(stateComp) then stateComp:ChangeState("DEAD") end
 
+        if _GameData.RogueRunActive then
+            local map = self.Entity.CurrentMap
+            if map ~= nil then
+                _GameData:GrantRunKillRewards(self.MonsterId, map.Name,
+                    self.Entity.TransformComponent.WorldPosition)
+            end
         -- EXP는 막타를 넣은 쪽에 준다. killer는 HitEvent.AttackerEntity라 nil일 수 있고
         -- (환경 피해 등) 이미 파괴된 엔티티일 수도 있어 isvalid로 먼저 거른다.
-        if isvalid(killer) then
+        elseif isvalid(killer) then
             ---@type PlayerStats
             local stats = killer:GetComponent("script.PlayerStats")
             if stats ~= nil then

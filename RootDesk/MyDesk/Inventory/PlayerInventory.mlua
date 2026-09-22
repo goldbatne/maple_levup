@@ -216,6 +216,8 @@ script PlayerInventory extends Component
     @ExecSpace("ServerOnly")
     method boolean UseItem(string itemId)
         -- 소비 아이템을 쓴다. 효과가 실제로 들어갔을 때만 개수를 줄인다.
+        -- Run은 RPG 인벤토리를 사용하지 않는다. 숨긴 UI 외 RPC 경로도 차단한다.
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then return false end
         --
         -- 순서가 중요하다: **효과 먼저, 소모 나중.** 먼저 줄이면 만피에서 마셨을 때
         -- 포션만 사라지고 아무 일도 안 일어난다 — 그게 제일 나쁜 결과다.
@@ -407,6 +409,8 @@ script PlayerInventory extends Component
     @ExecSpace("ServerOnly")
     method boolean SetEquipSlot(string slot, string itemId)
         -- 슬롯에 아이템을 끼우거나(itemId) 비운다(itemId == "").
+        -- 레거시 저장은 그대로 보존하고 신규 모드에서는 장착 변경을 받지 않는다.
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then return false end
         --
         -- 검증을 서버에 두는 이유: 클라가 슬롯 이름과 아이템을 마음대로 보내면
         -- 무기 칸에 포션을 끼워 스탯을 만들어낼 수 있다. 요청 창구(T13-4)는

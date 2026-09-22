@@ -16,6 +16,11 @@ script MonsterAttack extends AttackComponent
 	@MinValue(0)
 	property number DetectRange = 0
 
+	-- 실제 평타 공격 반경(월드 유닛). 0이면 플레이어 기본 공격 반경에
+	-- GameBalance.monster_attack_range_ratio를 곱한다. 인지 범위와 별도다.
+	@MinValue(0)
+	property number AttackRange = 0
+
 	method number ResolvedAttackInterval()
 		-- 종별 값이 있으면 그것, 없으면 CSV.
 		--
@@ -35,6 +40,16 @@ script MonsterAttack extends AttackComponent
 		local fromCsv = _GameData:GetBalance("monster_detect_range")
 		if fromCsv <= 0 then return 6.0 end
 		return fromCsv
+	end
+
+	method number ResolvedAttackRange()
+		-- 종별 오버라이드가 있으면 우선하고, 없으면 플레이어 평타의 비율로 계산한다.
+		if self.AttackRange > 0 then return self.AttackRange end
+		local playerRange = _GameData:GetBalance("player_attack_range")
+		if playerRange <= 0 then playerRange = 1.2 end
+		local ratio = _GameData:GetBalance("monster_attack_range_ratio")
+		if ratio <= 0 then ratio = 0.5 end
+		return playerRange * ratio
 	end
 
 	-- 공격 자세를 유지하는 시간(초). 이 시간이 지나면 IDLE로 돌려보내
@@ -138,6 +153,11 @@ script MonsterAttack extends AttackComponent
 		if isvalid(chase) then
 			chase.DetectionRange = self:ResolvedDetectRange()
 		end
+		if _GameData:GetBalance("phase1_random_combat_enabled") >= 0.5 then
+			log("[MonsterAttack] Phase1 범위  인지=" .. tostring(self:ResolvedDetectRange())
+				.. " / 공격=" .. tostring(self:ResolvedAttackRange())
+				.. "  (" .. tostring(self.Entity.Name) .. ")")
+		end
 
 		-- ATTACK 상태는 등록하지 않는다. 등록해서 ChangeState로 가는 길을 먼저 만들었는데
 		-- AIChase가 0.1초 만에 되돌려서 못 쓴다 (PlayAttackPose 주석 참고).
@@ -207,6 +227,8 @@ script MonsterAttack extends AttackComponent
 		local record = _GameData:GetMonster(self:MonsterIdOf())
 		if record == nil then return {} end
 		if record.drop_skill_id == "" then return {} end
+		local skill = _GameData:GetSkill(record.drop_skill_id)
+		if skill == nil or skill.skill_kind == "passive" then return {} end
 		return { record.drop_skill_id }
 	end
 
@@ -259,12 +281,14 @@ script MonsterAttack extends AttackComponent
 		-- 왜 종이 아니라 **방**으로 가르나: 스톤골렘처럼 한 종을 일반 사냥방에도 세울 수 있다.
 		-- 종에 플래그를 달면 그때 초반 방이 조용히 어려워진다. 보스 배율(T16-1)이
 		-- 방으로 갈리는 것과 같은 기준이다.
-		if monster:IsBossRoom() == false then return end
+		local monsterSkillMode = _GameData.RogueRunActive and _GameData.RogueMode == "MONSTER_SKILL"
+		if monster:IsBossRoom() == false and monsterSkillMode == false then return end
 
 		local skillIds = self:UsableSkillIds()
 		if #skillIds == 0 then return end
 
 		local interval = _GameData:GetBalance("boss_skill_interval")
+		if monsterSkillMode then interval = math.max(0.25, self:ResolvedAttackInterval()) end
 		if interval <= 0 then return end
 
 		-- ## 스킬은 별도 타이머가 아니라 **평타 타이머 위**에서 돈다
@@ -288,7 +312,7 @@ script MonsterAttack extends AttackComponent
 			local s = _GameData:GetSkill(skillIds[i])
 			names = names .. (i > 1 and " / " or "") .. (s ~= nil and s.name or skillIds[i])
 		end
-		log("[보스스킬] " .. monster.DisplayName .. " 준비 — " .. tostring(#skillIds)
+		log("[몬스터스킬] " .. monster.DisplayName .. " 준비 — " .. tostring(#skillIds)
 			.. "종 [" .. names .. "]  " .. string.format("%.1f", interval) .. "초마다 시도")
 	end
 
@@ -334,6 +358,10 @@ script MonsterAttack extends AttackComponent
 			return false
 		end
 
+		local holdSeconds = 0.6
+		if skill.projectile_ruid ~= "" then holdSeconds = _GameData:GetBalance("projectile_seconds") + 0.1 end
+		if skill.dash_distance > 0 then holdSeconds = _GameData:GetBalance("skill_dash_seconds") + 0.1 end
+		if _GameData:TryReserveMonsterSpecial(holdSeconds) == false then return false end
 		if self:CastSkill(monster, skill) == false then return false end
 
 		-- **뭔가 일어났을 때만** 대가를 치른다. 사거리 밖이면 쿨다운도 주기도 걸지 않고
@@ -400,6 +428,9 @@ script MonsterAttack extends AttackComponent
 		-- **판정 시점이 다르다** — 바위가 닿을 때 아프다.
 		if skill.projectile_ruid ~= "" then
 			return self:ThrowSkill(monster, skill, worldPosition, radius)
+		end
+		if skill.dash_distance > 0 then
+			return self:DashTowardTarget(monster, skill, worldPosition, radius)
 		end
 
 		local shape = CircleShape(Vector2(worldPosition.x, worldPosition.y + 0.5), radius)
@@ -676,6 +707,64 @@ script MonsterAttack extends AttackComponent
 		return true
 	end
 
+	@ExecSpace("ServerOnly")
+	method boolean DashTowardTarget(RoomMonster monster, table skill, Vector3 fromPos, number radius)
+		local map = self.Entity.CurrentMap
+		if map == nil then return false end
+		local users = _UserService:GetUsersByMapName(map.Name)
+		if users == nil then return false end
+		local target = nil
+		local best = radius
+		for i = 1, #users do
+			local user = users[i]
+			if isvalid(user) and not user.PlayerComponent:IsDead() then
+				local p = user.TransformComponent.WorldPosition
+				local dx = p.x - fromPos.x
+				local dy = p.y - fromPos.y
+				local distance = math.sqrt(dx * dx + dy * dy)
+				if distance > 0.01 and distance <= best then
+					best = distance
+					target = user
+				end
+			end
+		end
+		if target == nil then return false end
+
+		local targetPos = target.TransformComponent.WorldPosition
+		local dx = targetPos.x - fromPos.x
+		local dy = targetPos.y - fromPos.y
+		local length = math.sqrt(dx * dx + dy * dy)
+		if length <= 0.01 then return false end
+		local dir = Vector2(dx / length, dy / length)
+		local seconds = _GameData:GetBalance("skill_dash_seconds")
+		if seconds <= 0 then seconds = 0.2 end
+		local movement = self.Entity.MovementComponent
+		local chase = self.Entity.AIChaseComponent
+		if not isvalid(movement) then return false end
+		local originalSpeed = movement.InputSpeed
+		local originalChaseEnabled = isvalid(chase) and chase.Enable or false
+		if isvalid(chase) then chase.Enable = false end
+		movement.InputSpeed = skill.dash_distance / seconds * 1.2
+		movement:MoveToDirection(dir, seconds)
+		_SkillEffect:PlayCast(skill.id, self.Entity, dir.x < 0)
+		local maxTargets = skill.max_targets
+		local skillId = skill.id
+		_TimerService:SetTimerOnce(function()
+			if not isvalid(self.Entity) then return end
+			movement:Stop()
+			movement.InputSpeed = originalSpeed
+			if isvalid(chase) then chase.Enable = originalChaseEnabled end
+			local arrived = self.Entity.TransformComponent.WorldPosition
+			self.hitLimited = maxTargets > 0
+			self.hitBudget = math.floor(maxTargets)
+			self:Attack(CircleShape(Vector2(arrived.x, arrived.y + 0.5), radius),
+				skillId, CollisionGroups.Player)
+			self.hitLimited = false
+		end, seconds)
+		log("[몬스터스킬] " .. monster.DisplayName .. " [" .. skill.name .. "] 대상 방향 돌진")
+		return true
+	end
+
 	method string ClipForState(string stateName)
 		-- 상태 이름 → ActionSheet 키 → 클립 RUID. 자세를 푼 뒤 되돌릴 그림을 찾는다.
 		-- 매핑은 엔진의 StateStringToAnimationKey 기본값과 같다 (animation-state.md 6a).
@@ -850,8 +939,19 @@ script MonsterAttack extends AttackComponent
 			self.Shape.Size = Vector2(self.SpriteSize.x * math.abs(scaleX), self.SpriteSize.y * math.abs(scaleY))
 			self.Shape.Position = Vector2(worldPosition.x + offsetX, worldPosition.y + offsetY)
 			self.Shape.Angle = transformComponent.ZRotation
+
+			if _GameData:GetBalance("phase1_random_combat_enabled") >= 0.5 then
+				-- 신규 전투는 스프라이트 크기가 아니라 데이터 반경으로 실제 공격 거리를 정한다.
+				-- AIChase.DetectionRange는 위 OnBeginPlay에서 별도로 설정되어 추적 범위와 섞이지 않는다.
+				local attackShape = CircleShape(
+					Vector2(worldPosition.x, worldPosition.y + 0.5),
+					self:ResolvedAttackRange())
+				self:AttackFast(attackShape, nil, CollisionGroups.Player)
+				return
+			end
 		end
-		
+
+		-- 기능 플래그를 끄면 기존 스프라이트 접촉 상자를 그대로 사용한다.
 		self:AttackFast(self.Shape, nil, CollisionGroups.Player)
 	end
 
@@ -901,9 +1001,15 @@ script MonsterAttack extends AttackComponent
 		if mon ~= nil then atk = mon.Atk end
 
 		local def = 0
-		---@type PlayerStats
-		local stats = defender:GetComponent("script.PlayerStats")
-		if stats ~= nil then def = stats:GetTotalDef() end
+		if _GameData.RogueRunActive then
+			-- 신규 Run은 레거시 레벨/장비 방어력을 합산하지 않는다.
+			def = _GameData:GetBalance("run_player_base_defense")
+			if def < 0 then def = 0 end
+		else
+			---@type PlayerStats
+			local stats = defender:GetComponent("script.PlayerStats")
+			if stats ~= nil then def = stats:GetTotalDef() end
+		end
 
 		-- attackInfo에 스킬 id가 실려 오면 그 계수를, 평타(nil)면 기준 계수를 쓴다 (T19-1).
 		--

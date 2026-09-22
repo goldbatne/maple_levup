@@ -48,6 +48,20 @@ script ItemQuickSlotBar extends Logic
     method void OnBeginPlay()
         log("[퀵슬롯] OnBeginPlay")
 
+        -- 최종 로그라이트 모드에는 장비/소비 아이템 성장과 별도 자원 슬롯이 없다.
+        -- GameData 클라이언트 캐시 초기화 순서에 의존하면 첫 프레임에 레거시 슬롯이
+        -- 다시 나타나므로 UI Logic 자체에서 항상 숨긴다.
+        local localPlayer = _UserService.LocalPlayer
+        local runSlots = isvalid(localPlayer)
+            and localPlayer:GetComponent("script.PlayerSkillSlots") or nil
+        if runSlots ~= nil and runSlots:IsRogueliteRunMode() then
+            for i = 1, self.slotCount do
+                local slot = self:GetSlot(i)
+                if isvalid(slot) then slot.Entity.Enable = false end
+            end
+            return
+        end
+
         for i = 1, self.slotCount do
             local captured = i
             self:Bind(self:GetSlot(i), function() self:Use(captured) end)
@@ -131,7 +145,7 @@ script ItemQuickSlotBar extends Logic
     @ExecSpace("ClientOnly")
     method any GetInventory()
         local me = _UserService.LocalPlayer
-        if me == nil then return nil end
+        if me == nil or _EntityService:IsValid(me) == false then return nil end
         return me:GetComponent("script.PlayerInventory")
     end
 

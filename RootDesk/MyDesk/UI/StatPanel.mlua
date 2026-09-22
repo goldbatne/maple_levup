@@ -18,6 +18,7 @@ script StatPanel extends Logic
     property TextGUIRendererComponent levelValue = "1a693159-0075-40ec-b3e7-c826e5b70bce"
     property TextGUIRendererComponent expValue = "8e7e9ddd-4b9c-4f43-9e0e-e97be8eff308"
     property TextGUIRendererComponent pointsValue = "1207d1b0-3c67-4d43-83a1-7484603bae17"
+    property TextGUIRendererComponent pointsLabel = "b2fd2eeb-fc54-4174-9488-9726adcb13eb"
     property TextGUIRendererComponent strValue = "d89964d9-86bb-4b94-9429-afaa852ffcf3"
     property TextGUIRendererComponent intValue = "9a3ad85c-00d9-47aa-932c-4e241f240aa3"
     property TextGUIRendererComponent dexValue = "8fc70e58-9a62-4ba2-8530-81bb0749f3b3"
@@ -88,6 +89,16 @@ script StatPanel extends Logic
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         log("[StatPanel] OnBeginPlay")
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            -- 로그라이트 Run은 공통 기본 체급만 사용한다. 레벨/EXP/직접 스탯 투자
+            -- 창과 열기 버튼을 함께 꺼 입력 차단 엔티티가 남지 않게 한다.
+            self.isOpen = false
+            self.detailOpen = false
+            if isvalid(self.windowRoot) then self.windowRoot.Entity.Enable = false end
+            if isvalid(self.detailRoot) then self.detailRoot.Entity.Enable = false end
+            if isvalid(self.btnOpen) then self.btnOpen.Entity.Enable = false end
+            return
+        end
         -- 상세 UI 바인딩 하나가 깨져도 기본 창의 닫기/열기 기능은 먼저 살린다.
         self.handlerClose = self.btnClose.Entity:ConnectEvent(ButtonClickEvent, function()
             self:SetOpen(false)
@@ -103,18 +114,35 @@ script StatPanel extends Logic
             self.detailRoot.Entity:SetVisible(false)
         end
 
-        self.handlerStr = self.btnStr.Entity:ConnectEvent(ButtonClickEvent, function()
-            self:Allocate("STR")
-        end)
-        self.handlerInt = self.btnInt.Entity:ConnectEvent(ButtonClickEvent, function()
-            self:Allocate("INT")
-        end)
-        self.handlerDex = self.btnDex.Entity:ConnectEvent(ButtonClickEvent, function()
-            self:Allocate("DEX")
-        end)
-        self.handlerLuk = self.btnLuk.Entity:ConnectEvent(ButtonClickEvent, function()
-            self:Allocate("LUK")
-        end)
+        local simplified = _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5
+        if simplified then
+            self.btnStr.Entity:SetVisible(false)
+            self.btnInt.Entity:SetVisible(false)
+            self.btnDex.Entity:SetVisible(false)
+            self.btnLuk.Entity:SetVisible(false)
+            if isvalid(self.btnInspectStr) then self.btnInspectStr.Entity:SetVisible(false) end
+            if isvalid(self.btnInspectInt) then self.btnInspectInt.Entity:SetVisible(false) end
+            if isvalid(self.btnInspectDex) then self.btnInspectDex.Entity:SetVisible(false) end
+            if isvalid(self.btnInspectLuk) then self.btnInspectLuk.Entity:SetVisible(false) end
+            self.pointsLabel.Text = "성장 방식"
+            self.strLabel.Text = "공격력"
+            self.intLabel.Text = "마법 공격력"
+            self.dexLabel.Text = "방어력"
+            self.lukLabel.Text = "최대 HP"
+        else
+            self.handlerStr = self.btnStr.Entity:ConnectEvent(ButtonClickEvent, function()
+                self:Allocate("STR")
+            end)
+            self.handlerInt = self.btnInt.Entity:ConnectEvent(ButtonClickEvent, function()
+                self:Allocate("INT")
+            end)
+            self.handlerDex = self.btnDex.Entity:ConnectEvent(ButtonClickEvent, function()
+                self:Allocate("DEX")
+            end)
+            self.handlerLuk = self.btnLuk.Entity:ConnectEvent(ButtonClickEvent, function()
+                self:Allocate("LUK")
+            end)
+        end
         if isvalid(self.btnInspectStr) then
             self.handlerInspectStr = self.btnInspectStr.Entity:ConnectEvent(ButtonClickEvent, function()
                 self:SelectStat("STR")
@@ -291,7 +319,11 @@ script StatPanel extends Logic
 
         -- 캡에 닿으면 레벨 옆에 MAX를 붙이고, EXP 자리에 다음 행동을 알려준다.
         -- 숫자만 멈춰 있으면 "버그로 EXP가 안 오른다"로 읽힌다.
-        if stats.CanRebirth then
+        local simplified = _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5
+        if simplified and _LevelCurve:IsAtCap(stats.Level) then
+            self.levelValue.Text = tostring(stats.Level) .. "  MAX"
+            self.expValue.Text = "최대 레벨"
+        elseif stats.CanRebirth then
             self.levelValue.Text = tostring(stats.Level) .. "  MAX"
             self.expValue.Text = "환생 가능"
         else
@@ -302,13 +334,21 @@ script StatPanel extends Logic
                 .. " / " .. tostring(_LevelCurve:RequiredExp(stats.Level))
         end
 
-        self.pointsValue.Text = tostring(stats.UnspentPoints)
+        if simplified then
+            self.pointsValue.Text = "레벨 자동"
+            self.strValue.Text = self:FormatNumber(stats:GetTotalAtk())
+            self.intValue.Text = self:FormatNumber(stats:GetTotalInt())
+            self.dexValue.Text = self:FormatNumber(stats:GetTotalDef())
+            self.lukValue.Text = self:FormatNumber(stats:GetMaxHp())
+        else
+            self.pointsValue.Text = tostring(stats.UnspentPoints)
         -- 일반 창은 오직 최종 STR/DEX/INT/LUK만 보여 준다. 분배값·컬렉션·히든 보스
         -- %를 합친 값이며, ATK·DEF 같은 파생 수치는 왼쪽 상세 창으로 분리한다.
-        self.strValue.Text = self:FormatNumber(stats:GetFinalStatPoints("STR"))
-        self.intValue.Text = self:FormatNumber(stats:GetFinalStatPoints("INT"))
-        self.dexValue.Text = self:FormatNumber(stats:GetFinalStatPoints("DEX"))
-        self.lukValue.Text = self:FormatNumber(stats:GetFinalStatPoints("LUK"))
+            self.strValue.Text = self:FormatNumber(stats:GetFinalStatPoints("STR"))
+            self.intValue.Text = self:FormatNumber(stats:GetFinalStatPoints("INT"))
+            self.dexValue.Text = self:FormatNumber(stats:GetFinalStatPoints("DEX"))
+            self.lukValue.Text = self:FormatNumber(stats:GetFinalStatPoints("LUK"))
+        end
 
         if self.detailOpen then
             self.detailAtk.Text = self:FormatNumber(stats:GetTotalAtk())
@@ -317,11 +357,20 @@ script StatPanel extends Logic
             self.detailHp.Text = self:FormatNumber(stats:GetMaxHp())
             self.detailAttackSpeed.Text = string.format("%.2f초 / 회", stats:GetAttackInterval())
             self.detailMoveSpeed.Text = string.format("%.2f", stats:GetMoveSpeed())
-            self.detailCapture.Text = string.format("%.1f%%", stats:GetCaptureRate() * 100)
-            local dropBonus = stats:GetTotalLuk()
-                * _GameData:GetBalance("drop_luk_multiplier") * 100
-            self.detailDrop.Text = "+" .. string.format("%.1f%%", dropBonus)
-            self.detailPassive.Text = self:PassiveSummary(stats)
+            if simplified then
+                self.detailCapture.Text = "첫 "
+                    .. string.format("%.0f%%", _GameData:GetBalance("first_capture_rate") * 100)
+                    .. " · 중복 "
+                    .. string.format("%.0f%%", _GameData:GetBalance("duplicate_capture_rate") * 100)
+                self.detailDrop.Text = "x" .. string.format("%.2f", _GameData:GetBalance("drop_rate_global_multiplier"))
+                self.detailPassive.Text = "패시브 스탯 효과 비활성"
+            else
+                self.detailCapture.Text = string.format("%.1f%%", stats:GetCaptureRate() * 100)
+                local dropBonus = stats:GetTotalLuk()
+                    * _GameData:GetBalance("drop_luk_multiplier") * 100
+                self.detailDrop.Text = "+" .. string.format("%.1f%%", dropBonus)
+                self.detailPassive.Text = self:PassiveSummary(stats)
+            end
         end
     end
 

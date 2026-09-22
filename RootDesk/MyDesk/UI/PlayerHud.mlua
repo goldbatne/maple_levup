@@ -1,10 +1,9 @@
 -- @클라이언트 (표시 전용. 값은 전부 서버가 만든 것을 동기화로 읽기만 한다)
 --
--- 상시 표시 HUD — 레벨 / HP / EXP.
+-- 로그라이트 상시 HUD — 플레이어 이름 / HP.
 --
--- 왜 필요했나: HP는 어디에도 안 보였고(엔진 기본 1000을 깎고 있었는데 화면에 없었다),
--- 레벨·EXP는 버튼으로 여는 StatPanel 안에만 있었다. 맞고 있는지, 얼마나 남았는지를
--- 판마다 봐야 하는 정보라 상시로 뺀다.
+-- HP는 Run 생존 판단에 필요한 값이라 상시 표시한다. 레벨·EXP는 신규 로그라이트의
+-- 전투력과 진행에 사용하지 않으므로 공용 HUD에서 렌더링하지 않는다.
 --
 -- @Logic인 이유: UI 엔티티에 붙은 @Component는 Server 계열 메서드를 가질 수 없다.
 -- 이 프로젝트의 UI 컨트롤러는 전부 @Logic으로 통일돼 있다 (StatPanel/SkillBar/EquipPanel).
@@ -40,6 +39,7 @@ script PlayerHud extends Logic
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         self:ResolveBossHud()
+        self:ApplyRogueliteHudVisibility()
         -- 최대 폭을 처음 한 번만 저장해 둔다.
         if isvalid(self.hpFill) then self.hpFullWidth = self.hpFill.RectSize.x end
         if isvalid(self.expFill) then self.expFullWidth = self.expFill.RectSize.x end
@@ -97,24 +97,17 @@ script PlayerHud extends Logic
         local stats = player:GetComponent("script.PlayerStats")
         if stats == nil then return end
 
-        if isvalid(self.levelText) then
-            self.levelText.Text = "Lv " .. tostring(stats.Level)
-        end
+        -- 신규 로그라이트 HUD에서는 Level/EXP를 표시하지 않는다.
+        -- 레거시 저장과 기능 플래그용 데이터는 그대로 보존한다.
+    end
 
-        if isvalid(self.expFill) then
-            -- 캡에 닿으면 EXP가 더 쌓이지 않는다. 게이지를 가득 채우고 '캡'으로 표시한다.
-            if _LevelCurve:IsAtCap(stats.Level) then
-                self:SetFill(self.expFill, self.expFullWidth, 1.0)
-                if isvalid(self.expText) then self.expText.Text = "MAX" end
-            else
-                local need = _LevelCurve:RequiredExp(stats.Level)
-                if need <= 0 then need = 1 end
-                self:SetFill(self.expFill, self.expFullWidth, stats.Exp / need)
-                if isvalid(self.expText) then
-                    self.expText.Text = tostring(math.floor(stats.Exp)) .. " / " .. tostring(need)
-                end
-            end
-        end
+    @ExecSpace("ClientOnly")
+    method void ApplyRogueliteHudVisibility()
+        local levelEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/Info/info_top/text_level")
+        if isvalid(levelEntity) then levelEntity.Enable = false end
+        local expEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/Info/info_bottom/Exp")
+        if isvalid(expEntity) then expEntity.Enable = false end
+        log("[PlayerHud] 로그라이트 공용 HUD 적용 — 이름/HP만 표시")
     end
 
     @ExecSpace("ClientOnly")

@@ -20,6 +20,28 @@ script PlayerSkillSlots extends Component
     -- 몬스터 슬롯 장착 상태. slotIndex(1~) -> skillId. 빈 슬롯은 키가 없다.
     @TargetUserSync property SyncTable<integer, string> MonsterSlots
 
+    -- Mega Area Run의 일회성 스킬 재고. OwnedSkillPool에서 5초마다 복원 추출하며
+    -- 같은 SkillID가 여러 칸에 들어갈 수 있다. 성공 사용한 정확한 칸만 소비한다.
+    @TargetUserSync property SyncTable<integer, string> RandomSlots
+    @TargetUserSync property boolean RandomModeActive = false
+    @TargetUserSync property SyncTable<string, integer> OwnedSkillPool
+    @TargetUserSync property boolean RunFirstEligibleResolved = false
+    @TargetUserSync property number NextSupplyAt = 0
+
+    -- 현재 방에서 얻은 서로 다른 후보는 FIFO로 보존한다. 전환/Run 종료에 정리한다.
+    @TargetUserSync property string PendingAbilitySkillId = ""
+    @TargetUserSync property string PendingAbilityMonsterId = ""
+    @TargetUserSync property integer PendingAbilityRevision = 0
+    @TargetUserSync property integer PendingAbilityCount = 0
+    property table PendingAbilityQueue = {}
+    @TargetUserSync property boolean RogueliteRunActive = false
+
+    -- Phase 2 특성 레거시 값. Phase 3.5 신규 랜덤 전투에서는 읽되 추첨/효과에
+    -- 사용하지 않는다. 기능 플래그 OFF인 레거시 비교 모드만 기존 의미를 보존한다.
+    @TargetUserSync property string SelectedTrait = "balance"
+
+    @HideFromInspector property integer randomSupplyTimer = 0
+
     -- 슬롯 수(영구). 확장 2축의 계산 결과를 담는다.
     @TargetUserSync property integer MonsterSlotCount = 1
 
@@ -89,8 +111,609 @@ script PlayerSkillSlots extends Component
         -- 시작값으로 되돌려버린다 — 컴포넌트 OnBeginPlay 순서는 정해져 있지 않다.
         -- RecomputeSlotCount는 축에서 유도하므로 언제 돌든 결과가 같다.
         self:RecomputeSlotCount()
+        self:InitializeRuntimeSkills()
         log("[SkillSlots] 초기화  몬스터 슬롯 " .. tostring(self.MonsterSlotCount)
             .. "/" .. tostring(math.floor(_GameData:GetBalance("monster_slot_max"))))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnEndPlay()
+        -- 랜덤 공급 타이머가 맵 이동/스크립트 리로드 뒤에 남지 않게 정리한다.
+        self:StopRandomSkillSupply()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void StopRandomSkillSupply()
+        if self.randomSupplyTimer ~= 0 then
+            _TimerService:ClearTimer(self.randomSupplyTimer)
+            self.randomSupplyTimer = 0
+        end
+    end
+
+    method boolean IsPhase1CombatEnabled()
+        -- 오래된 호출부를 위한 별칭. 신규 작업본에서는 roguelite_run_mode_enabled가
+        -- 우선하며, 레거시 비교본에서만 예전 Phase 1 플래그를 읽는다.
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then return true end
+        return _GameData:GetBalance("phase1_random_combat_enabled") >= 0.5
+    end
+
+    method boolean IsRogueliteRunMode()
+        -- 원본 프로젝트가 최종 로그라이트 구조로 전환됐으므로 신규 전투가 기본값이다.
+        -- imported DataSet 로드 순서 때문에 첫 프레임에 0이 보이더라도 구형 5초 공급
+        -- 타이머를 시작하지 않는다.
+        return true
+    end
+
+    method integer GetSkillSlotMax()
+        -- 신규 Run 고정 슬롯 상한. UI가 5칸이므로 현재 구현 상한도 5다.
+        local n = math.floor(_GameData:GetBalance("run_skill_slot_max"))
+        if n < 1 then n = math.floor(_GameData:GetBalance("skill_slot_max")) end
+        if n < 1 then return 5 end
+        if n > 5 then return 5 end
+        return n
+    end
+
+    method table GetOwnedActiveSkillIds()
+        -- M2A: 동행 선택과 무관하게 테이밍한 모든 액티브 몬스터의 능력을 돌려준다.
+        -- ★ 개수는 후보를 복제하지 않으므로 랜덤 Weight에는 영향을 주지 않는다.
+        ---@type PlayerCollection
+        local collection = self.Entity:GetComponent("script.PlayerCollection")
+        if collection == nil then return {} end
+
+        local out = {}
+        for _, monsterId in ipairs(_GameData:GetTameableMonsterIds()) do
+            local monster = _GameData:GetMonster(monsterId)
+            local id = monster ~= nil and monster.drop_skill_id or ""
+            local skill = _GameData:GetSkill(id)
+            if skill ~= nil
+                and skill.source == "monster"
+                and skill.slot_type == "monster"
+                and skill.skill_kind ~= "passive"
+                and collection:GetTamedCount(monsterId) > 0 then
+                out[#out + 1] = id
+            end
+        end
+        return out
+    end
+
+    method table GetRunOwnedSkillIds()
+        local out = {}
+        for _, id in ipairs(_GameData:GetCapturableActiveSkillIds()) do
+            if self.OwnedSkillPool[id] ~= nil and self.OwnedSkillPool[id] > 0 then out[#out + 1] = id end
+        end
+        table.sort(out)
+        return out
+    end
+
+    method boolean HasRunOwnedSkill(string skillId)
+        return skillId ~= nil and skillId ~= ""
+            and self.OwnedSkillPool[skillId] ~= nil and self.OwnedSkillPool[skillId] > 0
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ClearRandomSlots()
+        -- SyncTable은 # 길이에 의존하지 않고 실제 슬롯 범위를 전부 비운다.
+        for i = 1, self:GetSkillSlotMax() do
+            self.RandomSlots[i] = nil
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method string PickRandomOwnedActive(table pool)
+        -- 복원 추출. 신규 랜덤 전투에서는 모든 보유 액티브 종이 정확히 Weight 1이다.
+        -- 보유 장수는 후보를 복제하지 않으며 슬롯 안 중복은 매 추첨의 독립 결과다.
+        if pool == nil or #pool <= 0 then return "" end
+        local total = 0
+        local scaled = {}
+        for i = 1, #pool do
+            local weight = self:GetSkillSupplyWeight(pool[i], self.SelectedTrait)
+            local units = math.max(1, math.floor(weight * 1000 + 0.5))
+            scaled[i] = units
+            total += units
+        end
+        local roll = _UtilLogic:RandomIntegerRange(1, total)
+        local cursor = 0
+        for i = 1, #pool do
+            cursor += scaled[i]
+            if roll <= cursor then return pool[i] end
+        end
+        return pool[#pool]
+    end
+
+    method string NormalizeTraitId(string traitId)
+        if traitId == nil or traitId == "" or _GameData:GetTrait(traitId) == nil then
+            return "balance"
+        end
+        return traitId
+    end
+
+    method boolean SkillMatchesTrait(string skillId, string traitId)
+        local trait = _GameData:GetTrait(self:NormalizeTraitId(traitId))
+        if trait == nil or trait.preferred_tags == nil or #trait.preferred_tags <= 0 then return false end
+        local tags = _GameData:GetSkillTags(skillId)
+        for i = 1, #tags do
+            for j = 1, #trait.preferred_tags do
+                if tags[i] == trait.preferred_tags[j] then return true end
+            end
+        end
+        return false
+    end
+
+    method number GetSkillSupplyWeight(string skillId, string traitId)
+        if self:IsPhase1CombatEnabled() then return 1 end
+        local trait = _GameData:GetTrait(self:NormalizeTraitId(traitId))
+        if trait == nil or self:SkillMatchesTrait(skillId, trait.id) == false then return 1 end
+        return math.max(0.01, trait.weight_multiplier)
+    end
+
+    method number GetTraitEffectMultiplierForSkill(string skillId)
+        -- Phase 3.5: 신규 전투에서 Trait는 완전 비활성이다. 기존 데이터와 호출부는
+        -- 세이브/레거시 호환을 위해 남기되 어떤 액티브에도 성능 배율을 주지 않는다.
+        if self:IsPhase1CombatEnabled() then return 1 end
+        if _GameData:IsCapturableMonsterSkill(skillId) == false then return 1 end
+        local trait = _GameData:GetTrait(self:NormalizeTraitId(self.SelectedTrait))
+        if trait == nil or self:SkillMatchesTrait(skillId, trait.id) == false then return 1 end
+        return math.max(1, trait.effect_multiplier)
+    end
+
+    method boolean CanChangeTrait()
+        -- 초기 구현의 안전 상태는 전투가 없는 시작 마을 하나로 명확히 한정한다.
+        local map = self.Entity.CurrentMap
+        local start = _GameData:GetStartRoom()
+        if map == nil or start == nil then return false end
+        return map.Name == start.map_name
+    end
+
+    @ExecSpace("Server")
+    method void RequestSetTrait(string traitId)
+        if senderUserId ~= self.Entity.PlayerComponent.UserId then return end
+        if self:IsPhase1CombatEnabled() then
+            log_warning("[Trait] 신규 랜덤 전투에서는 특성 선택을 사용하지 않는다")
+            return
+        end
+        self:SetTrait(traitId)
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean SetTrait(string traitId)
+        if self:IsPhase1CombatEnabled() then
+            log_warning("[Trait] 신규 랜덤 전투에서는 레거시 특성을 변경하지 않는다")
+            return false
+        end
+        local normalized = self:NormalizeTraitId(traitId)
+        if _GameData:GetTrait(traitId) == nil then
+            log_warning("[Trait] 존재하지 않는 특성: " .. tostring(traitId))
+            return false
+        end
+        if self:CanChangeTrait() == false then
+            log_warning("[Trait] 특성은 시작 마을에서만 바꿀 수 있다")
+            return false
+        end
+        if self.SelectedTrait == normalized then return true end
+        self.SelectedTrait = normalized
+        -- 현재 5칸은 그대로 둔다. 다음 5초 공급부터 새 가중치를 읽는다.
+        self:MarkSavePerm("특성 변경")
+        log("[Trait] 선택 " .. normalized .. " — 현재 손패 유지, 다음 공급부터 적용")
+        return true
+    end
+
+    method void DebugDescribeTraitWeights(string traitId)
+        -- Maker 콘솔에서 보유 풀의 태그·기본/최종 가중치·정규화 확률을 확인한다.
+        local pool = self:GetOwnedActiveSkillIds()
+        local total = 0
+        for i = 1, #pool do total += self:GetSkillSupplyWeight(pool[i], traitId) end
+        log("[TraitDebug] trait=" .. self:NormalizeTraitId(traitId)
+            .. " pool=" .. tostring(#pool) .. " totalWeight=" .. string.format("%.2f", total))
+        for i = 1, #pool do
+            local tags = _GameData:GetSkillTags(pool[i])
+            local weight = self:GetSkillSupplyWeight(pool[i], traitId)
+            local chance = total > 0 and weight / total * 100 or 0
+            log("[TraitDebug] " .. pool[i] .. " tags=" .. table.concat(tags, "|")
+                .. " base=1.00 final=" .. string.format("%.2f", weight)
+                .. " chance=" .. string.format("%.4f", chance) .. "%")
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method table DebugSampleTrait(string traitId, integer iterations)
+        -- 실제 포획 경로가 있는 66종 전체를 대상으로 서버 RNG를 표본 추출한다.
+        -- 10,000회 검증이 한 프레임에서 끝나도록 누적 가중치는 한 번만 만든다.
+        local pool = _GameData:GetCapturableActiveSkillIds()
+        local counts = {}
+        if iterations < 1 then iterations = 10000 end
+
+        local cumulative = {}
+        local total = 0
+        for i = 1, #pool do
+            local units = math.max(1, math.floor(self:GetSkillSupplyWeight(pool[i], traitId) * 1000 + 0.5))
+            total += units
+            cumulative[i] = total
+        end
+        for i = 1, iterations do
+            local roll = _UtilLogic:RandomIntegerRange(1, total)
+            local index = 1
+            while index < #pool and roll > cumulative[index] do index += 1 end
+            local id = pool[index]
+            counts[id] = (counts[id] or 0) + 1
+        end
+        log("[TraitSample] " .. self:NormalizeTraitId(traitId) .. " "
+            .. tostring(iterations) .. "회 / 후보 " .. tostring(#pool) .. "종")
+        return counts
+    end
+
+    @ExecSpace("ServerOnly")
+    method void DebugStartTraitSample(string traitId, integer iterations)
+        -- Maker 실행 스크립트의 한 프레임 예산을 넘지 않도록 500회씩 나눠 집계한다.
+        local normalized = self:NormalizeTraitId(traitId)
+        local pool = _GameData:GetCapturableActiveSkillIds()
+        if iterations < 1 then iterations = 10000 end
+
+        local tickets = {}
+        for i = 1, #pool do
+            local ticketCount = math.max(1, math.floor(self:GetSkillSupplyWeight(pool[i], normalized) * 10 + 0.5))
+            for k = 1, ticketCount do tickets[#tickets + 1] = pool[i] end
+        end
+
+        local counts = {}
+        local remaining = iterations
+        local timer = 0
+        timer = _TimerService:SetTimerRepeat(function()
+            local batch = math.min(500, remaining)
+            for i = 1, batch do
+                local index = _UtilLogic:RandomIntegerRange(1, #tickets)
+                local id = tickets[index]
+                counts[id] = (counts[id] or 0) + 1
+            end
+            remaining -= batch
+            if remaining <= 0 then
+                _TimerService:ClearTimer(timer)
+                local minCount = iterations + 1
+                local maxCount = 0
+                local zero = 0
+                local preferred = 0
+                for i = 1, #pool do
+                    local n = counts[pool[i]] or 0
+                    if n <= 0 then zero += 1 end
+                    if n < minCount then minCount = n end
+                    if n > maxCount then maxCount = n end
+                    if self:SkillMatchesTrait(pool[i], normalized) then preferred += n end
+                end
+                log("[TraitSampleDone] trait=" .. normalized
+                    .. " total=" .. tostring(iterations)
+                    .. " candidates=" .. tostring(#pool)
+                    .. " preferred=" .. tostring(preferred)
+                    .. " min=" .. tostring(minCount)
+                    .. " max=" .. tostring(maxCount)
+                    .. " zero=" .. tostring(zero))
+            end
+        end, 0.05)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void InitializeRuntimeSkills()
+        -- Roguelite 전투는 Run마다 빈 고정 슬롯으로 시작한다. 능력은 처치로만 들어오며
+        -- 타이머 공급은 생성하지 않는다. 레거시 MonsterSlots는 건드리지 않는다.
+        self:StopRandomSkillSupply()
+        self:ClearRandomSlots()
+        self.PendingAbilitySkillId = ""
+        self.PendingAbilityMonsterId = ""
+        self.RogueliteRunActive = false
+        if self:IsRogueliteRunMode() then
+            self.RandomModeActive = true
+            log("[SkillSlots] Roguelite 고정 5슬롯 준비 — Run 시작 대기")
+            return
+        end
+        if self:IsPhase1CombatEnabled() == false then
+            self.RandomModeActive = false
+            return
+        end
+
+        local pool = self:GetOwnedActiveSkillIds()
+        if #pool <= 0 then
+            self.RandomModeActive = false
+            log("[SkillSlots] 랜덤 전투 대기  보유 액티브 0종")
+            return
+        end
+
+        self.RandomModeActive = true
+        self:StartRandomSkillSupply()
+        log("[SkillSlots] 일회성 스킬 재고 시작  보유 액티브 " .. tostring(#pool)
+            .. "종 / 초기 재고 0개")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnOwnedSkillPoolChanged()
+        if self:IsRogueliteRunMode() then
+            -- 영구 컬렉션은 신규 Run의 시작 전투력을 만들지 않는다.
+            return
+        end
+        -- 포획은 추첨 풀만 넓힌다. 이미 생성된 재고는 다시 뽑거나 밀어내지 않는다.
+        -- 첫 액티브를 얻었을 때만 빈 재고의 첫 5초 타이머를 시작한다.
+        if self:IsPhase1CombatEnabled() == false then return end
+        local pool = self:GetOwnedActiveSkillIds()
+        if #pool <= 0 then
+            self.RandomModeActive = false
+            self:StopRandomSkillSupply()
+            self:ClearRandomSlots()
+            return
+        end
+
+        if self.RandomModeActive == false then
+            self.RandomModeActive = true
+            self:StartRandomSkillSupply()
+            log("[SkillSlots] 첫 액티브 획득 — 5초 공급 시작")
+        elseif self.randomSupplyTimer == 0 and self:HasEmptyRandomSlot() then
+            self:StartRandomSkillSupply()
+        end
+    end
+
+    method boolean HasEmptyRandomSlot()
+        for i = 1, self:GetSkillSlotMax() do
+            if self.RandomSlots[i] == nil or self.RandomSlots[i] == "" then return true end
+        end
+        return false
+    end
+
+    @ExecSpace("ServerOnly")
+    method void StartRandomSkillSupply()
+        -- 한 번짜리 서버 타이머다. 빈칸 하나를 채운 뒤에도 빈칸이 남으면 다음 5초를
+        -- 다시 예약한다. 가득 찬 동안에는 타이머 자체가 없고, 소비 순간부터 새로 센다.
+        self:StopRandomSkillSupply()
+        if self:IsPhase1CombatEnabled() == false then return end
+        if self.RandomModeActive == false then return end
+        if self:HasEmptyRandomSlot() == false then return end
+        local pool = self:IsRogueliteRunMode() and self:GetRunOwnedSkillIds() or self:GetOwnedActiveSkillIds()
+        if #pool <= 0 then return end
+
+        local interval = _GameData:GetBalance("run_skill_supply_interval")
+        if self:IsRogueliteRunMode() == false then interval = _GameData:GetBalance("random_skill_supply_interval") end
+        if interval <= 0 then interval = 5 end
+        self.NextSupplyAt = _UtilLogic.ElapsedSeconds + interval
+        self.randomSupplyTimer = _TimerService:SetTimerOnce(function()
+            self.randomSupplyTimer = 0
+            self.NextSupplyAt = 0
+            self:SupplyOneRandomSkill()
+            self:StartRandomSkillSupply()
+        end, interval)
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean SupplyOneRandomSkill()
+        -- 전체 OwnedSkills 액티브 풀에서 복원 추출해 앞쪽 빈칸 하나만 채운다.
+        if self:IsPhase1CombatEnabled() == false then return false end
+        if self.RandomModeActive == false then return false end
+
+        local pool = self:IsRogueliteRunMode() and self:GetRunOwnedSkillIds() or self:GetOwnedActiveSkillIds()
+        if #pool <= 0 then return false end
+
+        for i = 1, self:GetSkillSlotMax() do
+            if self.RandomSlots[i] == nil or self.RandomSlots[i] == "" then
+                local id = ""
+                if self:IsRogueliteRunMode() then
+                    id = pool[_GameData:RogueStreamNextInt("supply:" .. self.Entity.PlayerComponent.UserId, #pool)]
+                else
+                    id = self:PickRandomOwnedActive(pool)
+                end
+                if id ~= "" then
+                    self.RandomSlots[i] = id
+                    log("[SkillSlots] 랜덤 공급  " .. tostring(i) .. "번 ← " .. id)
+                    return true
+                end
+                return false
+            end
+        end
+        return false
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean ConsumeRandomSlot(integer slotIndex, string expectedSkillId)
+        -- 실행에 성공한 요청만 자신이 사용한 정확한 칸을 소비한다.
+        if self:IsPhase1CombatEnabled() == false or self.RandomModeActive == false then return false end
+        if slotIndex < 1 or slotIndex > self:GetSkillSlotMax() then return false end
+        if self.RandomSlots[slotIndex] ~= expectedSkillId then
+            log_warning("[SkillSlots] 소비 시 슬롯 내용이 달라졌다: " .. tostring(slotIndex)
+                .. " expected=" .. tostring(expectedSkillId)
+                .. " actual=" .. tostring(self.RandomSlots[slotIndex]))
+            return false
+        end
+        self.RandomSlots[slotIndex] = nil
+        -- 가득 찬 재고에는 타이머가 없다. 성공 소비 시점부터 정확히 5초를 다시 센다.
+        -- 이미 빈칸을 충전 중이면 기존 공급 시각을 보존한다.
+        if self.randomSupplyTimer == 0 then self:StartRandomSkillSupply() end
+        log("[SkillSlots] 랜덤 슬롯 소비  " .. tostring(slotIndex) .. "번 ["
+            .. tostring(expectedSkillId) .. "]")
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void BeginRogueliteRun()
+        -- 이전 판의 선택 요청을 무효화한다.
+        self:ClearPendingAbilities()
+        self:ResetRunTransientState()
+        self:StopRandomSkillSupply()
+        self:ClearRandomSlots()
+        self.PendingAbilitySkillId = ""
+        self.PendingAbilityMonsterId = ""
+        self.RandomModeActive = true
+        self.RogueliteRunActive = true
+        self.RunFirstEligibleResolved = false
+        self.NextSupplyAt = 0
+        for _, id in ipairs(_GameData:GetCapturableActiveSkillIds()) do self.OwnedSkillPool[id] = nil end
+        log("[SkillSlots] Mega Run 시작 — 빈 랜덤 재고 " .. tostring(self:GetSkillSlotMax()) .. "칸")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void EndRogueliteRun()
+        -- 종료 경로는 모두 이 메서드로 모아 후보와 타이머를 함께 정리한다.
+        -- 정상 CLEAR/FAILED는 GameData에서 먼저 정산한다. 그 외 종료는 임시
+        -- 발견만 폐기하며, 기존 영구 도감에는 손대지 않는다.
+        _GameData:DiscardRogueliteDiscoveries(self.Entity.PlayerComponent.UserId)
+        self:ClearPendingAbilities()
+        self:ResetRunTransientState()
+        self:StopRandomSkillSupply()
+        self:ClearRandomSlots()
+        self.PendingAbilitySkillId = ""
+        self.PendingAbilityMonsterId = ""
+        self.RogueliteRunActive = false
+        self.RandomModeActive = self:IsRogueliteRunMode()
+        self.RunFirstEligibleResolved = false
+        self.NextSupplyAt = 0
+        for _, id in ipairs(_GameData:GetCapturableActiveSkillIds()) do self.OwnedSkillPool[id] = nil end
+        log("[SkillSlots] Roguelite Run 전투 상태 정리")
+    end
+
+    method boolean HasRunSkill(string skillId)
+        if skillId == nil or skillId == "" then return false end
+        for i = 1, self:GetSkillSlotMax() do
+            if self.RandomSlots[i] == skillId then return true end
+        end
+        return false
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean OfferRunAbility(string monsterId, string skillId)
+        if self:IsRogueliteRunMode() == false or self.RogueliteRunActive == false then return false end
+        local skill = _GameData:GetSkill(skillId)
+        if skill == nil or skill.source ~= "monster" or skill.slot_type ~= "monster"
+            or skill.skill_kind == "passive" then return false end
+        -- Run-owned pool은 고유 SkillID 집합이다. 재획득은 장착·강화·즉시 공급을 하지 않는다.
+        if self:HasRunOwnedSkill(skillId) then return false end
+        self.OwnedSkillPool[skillId] = 1
+        if self.randomSupplyTimer == 0 and self:HasEmptyRandomSlot() then self:StartRandomSkillSupply() end
+        log("[SkillSlots] Run 능력 풀 추가 " .. skillId .. " (" .. tostring(monsterId) .. ")")
+        self:ShowRunAbilityToast(monsterId, skillId, self.Entity.PlayerComponent.UserId)
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean TryAcquireRunAbility(string monsterId, string skillId)
+        if self.RogueliteRunActive == false or self:HasRunOwnedSkill(skillId) then return false end
+        local guaranteed = self.RunFirstEligibleResolved == false
+        self.RunFirstEligibleResolved = true
+        local chance = guaranteed and 1 or _GameData:GetBalance("run_ability_acquire_rate")
+        if chance <= 0 then chance = 0.10 end
+        local roll = _GameData:RogueStreamNextDouble("acquisition:" .. self.Entity.PlayerComponent.UserId)
+        local acquired = guaranteed or roll < chance
+        log("[RunAcquire] monster=" .. monsterId .. " skill=" .. skillId
+            .. " first=" .. tostring(guaranteed) .. " roll=" .. string.format("%.5f", roll)
+            .. " chance=" .. string.format("%.2f", chance) .. " acquired=" .. tostring(acquired))
+        if acquired == false then return false end
+        return self:OfferRunAbility(monsterId, skillId)
+    end
+
+    @ExecSpace("Client")
+    method void ShowRunAbilityToast(string monsterId, string skillId)
+        _SkillBar:ShowRunAbilityToast(monsterId, skillId)
+    end
+
+    @ExecSpace("Client")
+    method void ShowRunAbilityOffer(string monsterId, string skillId)
+        local monster = _GameData:GetMonster(monsterId)
+        local skill = _GameData:GetSkill(skillId)
+        local monsterName = monster ~= nil and monster.name or monsterId
+        local skillName = skill ~= nil and skill.name or skillId
+        _GateNotice:ShowNotice(monsterName .. " 능력 발견", skillName .. " · 교체할 슬롯을 선택하거나 포기")
+    end
+
+    @ExecSpace("Server")
+    method void RequestReplacePendingAbility(integer slotIndex, integer expectedRevision)
+        if senderUserId ~= self.Entity.PlayerComponent.UserId then return end
+        if self:IsRogueliteRunMode() == false or self.RogueliteRunActive == false then return end
+        if expectedRevision ~= self.PendingAbilityRevision then return end
+        if slotIndex < 1 or slotIndex > self:GetSkillSlotMax() then return end
+        local skillId = self.PendingAbilitySkillId
+        if skillId == "" or self:HasRunSkill(skillId) then return end
+        local old = self.RandomSlots[slotIndex]
+        self.RandomSlots[slotIndex] = skillId
+        self.PendingAbilitySkillId = ""
+        self.PendingAbilityMonsterId = ""
+        log("[SkillSlots] 능력 교체 " .. tostring(slotIndex) .. "번 "
+            .. tostring(old) .. " → " .. skillId)
+        self:AdvancePendingAbility()
+    end
+
+    @ExecSpace("Server")
+    method void RequestDeclinePendingAbility(integer expectedRevision)
+        if senderUserId ~= self.Entity.PlayerComponent.UserId then return end
+        if self.RogueliteRunActive == false or expectedRevision ~= self.PendingAbilityRevision then return end
+        if self.PendingAbilitySkillId == "" then return end
+        log("[SkillSlots] 능력 포기 " .. self.PendingAbilitySkillId)
+        self.PendingAbilitySkillId = ""
+        self.PendingAbilityMonsterId = ""
+        self:AdvancePendingAbility()
+    end
+
+    @ExecSpace("ServerOnly")
+    method void AdvancePendingAbility()
+        -- 처리한 후보의 토큰은 재전송돼도 다음 후보에 적용되지 않는다.
+        self.PendingAbilityRevision += 1
+        self.PendingAbilitySkillId = ""
+        self.PendingAbilityMonsterId = ""
+        while #self.PendingAbilityQueue > 0 do
+            local candidate = table.remove(self.PendingAbilityQueue, 1)
+            if self:HasRunSkill(candidate.skillId) == false then
+                self.PendingAbilitySkillId = candidate.skillId
+                self.PendingAbilityMonsterId = candidate.monsterId
+                self:ShowRunAbilityOffer(candidate.monsterId, candidate.skillId, self.Entity.PlayerComponent.UserId)
+                break
+            end
+        end
+        self.PendingAbilityCount = #self.PendingAbilityQueue
+        if self.PendingAbilitySkillId ~= "" then self.PendingAbilityCount += 1 end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ClearPendingAbilities()
+        -- 후보는 보관함이 아니다. 방을 떠나면 미처리 획득 기회가 만료된다.
+        self.PendingAbilityQueue = {}
+        self.PendingAbilitySkillId = ""
+        self.PendingAbilityMonsterId = ""
+        self.PendingAbilityCount = 0
+        self.PendingAbilityRevision += 1
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ResetRunTransientState()
+        -- 판 경계에서만 쿨다운/일시 방어를 초기화한다. 슬롯 이동·맵 이동·부활은 호출하지 않는다.
+        ---@type PlayerAttack
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        if attack ~= nil then
+            for _, skillId in ipairs(_GameData:GetAllSkillIds()) do
+                attack.SkillReadyAt[skillId] = nil
+            end
+        end
+        ---@type PlayerHit
+        local hit = self.Entity:GetComponent("script.PlayerHit")
+        if hit ~= nil then
+            hit.ShieldRatio = 0
+            hit.ShieldUntil = 0
+        end
+        self:ResetRunCooldownDisplay(self.Entity.PlayerComponent.UserId)
+    end
+
+    @ExecSpace("Client")
+    method void ResetRunCooldownDisplay()
+        -- 서버의 판 경계 통지만 클라이언트 쿨다운 시계를 지운다.
+        ---@type PlayerAttack
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        if attack ~= nil then attack.clientReadyAt = {} end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnMapLeave(Entity leaveEntity)
+        -- 장착 스킬과 SkillID별 쿨다운은 유지하고 선택 후보만 만료한다.
+        if self:IsRogueliteRunMode() then self:ClearPendingAbilities() end
+    end
+
+    @ExecSpace("Server")
+    method void RequestSwapRunSlots(integer firstIndex, integer secondIndex)
+        if senderUserId ~= self.Entity.PlayerComponent.UserId then return end
+        if self:IsRogueliteRunMode() == false or self.RogueliteRunActive == false then return end
+        local maxSlot = self:GetSkillSlotMax()
+        if firstIndex < 1 or firstIndex > maxSlot or secondIndex < 1 or secondIndex > maxSlot then return end
+        local first = self.RandomSlots[firstIndex]
+        self.RandomSlots[firstIndex] = self.RandomSlots[secondIndex]
+        self.RandomSlots[secondIndex] = first
     end
 
     @ExecSpace("Server")
@@ -167,6 +790,12 @@ script PlayerSkillSlots extends Component
         -- 로드가 두 번 돌 때 슬롯이 계속 늘어난다.
         -- 슬롯을 세기 전에 전직 기록부터 올린다 (T23-7). 순서가 바뀌면 전직한 그 순간에는
         -- 아직 옛 차수로 칸을 세고, 다음 갱신 때에야 늘어난다.
+        if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then
+            local randomMax = math.floor(_GameData:GetBalance("skill_slot_max"))
+            if randomMax < 1 then randomMax = 5 end
+            self.MonsterSlotCount = randomMax
+            return
+        end
         self:RefreshBestTier()
 
         local maxSlot = math.floor(_GameData:GetBalance("monster_slot_max"))
@@ -261,6 +890,7 @@ script PlayerSkillSlots extends Component
         --
         -- 레벨 쪽을 여전히 보는 이유: 영구 기록이 비어 있는 기존 세이브와, 아직 저장이
         -- 한 번도 안 돌아간 첫 전직 순간을 같은 식으로 덮는다.
+        if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then return 0 end
         local byLevel = self:TierFromLevel()
         if self.BestTier > byLevel then return self.BestTier end
         return byLevel
@@ -271,6 +901,7 @@ script PlayerSkillSlots extends Component
         -- 이번 회차 레벨이 기록을 넘었으면 영구 기록을 올린다. 올랐으면 true.
         --
         -- **갱신형이라 내려가지 않는다** — BestRebirthLevel과 같은 규칙이다.
+        if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then return false end
         local byLevel = self:TierFromLevel()
         if byLevel <= self.BestTier then return false end
 
@@ -285,6 +916,7 @@ script PlayerSkillSlots extends Component
         -- 다음 전직에 필요한 레벨. 이미 최고 차수면 0 (더 오를 데가 없다).
         -- 잠긴 스킬에 "무엇이 부족한지"를 적을 때 쓴다.
         -- `next`는 Lua 전역 함수 이름이라 지역 변수로 가리지 않는다.
+        if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then return 0 end
         local nextTier = self:GetTier() + 1
         if nextTier > 5 then return 0 end
         local need = _GameData:GetBalance("tier_level_" .. tostring(nextTier))
@@ -301,6 +933,7 @@ script PlayerSkillSlots extends Component
         --   레벨업당 스탯 포인트 = 기본 5 + 이 값        (PlayerStats.GrantLevelPoints)
         --   방마다 몬스터 +N마리(상한 있음)               (RoomSpawner)
         -- 한 창구에서 유도해야 둘이 어긋나지 않는다.
+        if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then return 0 end
         local unit = _GameData:GetBalance("rebirth_bonus_level_unit")
         if unit <= 0 then return 0 end
         return math.floor(self.BestRebirthLevel / unit)
@@ -319,6 +952,7 @@ script PlayerSkillSlots extends Component
         -- 이 스킬을 지금 차수로 장착·사용할 수 있는가. 표에 없는 스킬은 false.
         local skill = _GameData:GetSkill(skillId)
         if skill == nil then return false end
+        if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then return true end
         return math.floor(skill.tier) <= self:GetTier()
     end
 
@@ -348,6 +982,9 @@ script PlayerSkillSlots extends Component
         -- 두 곳에서 각자 판정하면 한쪽만 고쳤을 때 조용히 뚫린다. 마을 게이트가
         -- 목록을 그릴 때도, 실제로 보낼 때도 이 함수를 부른다.
         if areaId == nil or areaId == "" then return false end
+        if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then
+            return _GameData:GetArea(areaId) ~= nil
+        end
 
         -- 시작 지역처럼 조건 없이 열려 있는 곳은 AreaTable이 그렇게 선언한다.
         local area = _GameData:GetArea(areaId)
@@ -452,6 +1089,13 @@ script PlayerSkillSlots extends Component
 
     @ExecSpace("ServerOnly")
     method boolean EquipMonsterSkill(integer slotIndex, string skillId)
+        -- 신규 전투에서는 MonsterSlots가 추첨 풀도 전투 재고도 아니다.
+        -- 저장 호환을 위해 값은 보존하되 장착 변경 요청은 받지 않는다.
+        if self:IsPhase1CombatEnabled() then
+            log_warning("[SkillSlots] 랜덤 전투에서는 스킬을 직접 장착할 수 없다")
+            return false
+        end
+
         -- 검증에 실패하면 아무것도 바꾸지 않고 false.
         if slotIndex < 1 or slotIndex > self.MonsterSlotCount then
             log_warning("[SkillSlots] 슬롯 범위 밖: " .. tostring(slotIndex)
@@ -522,6 +1166,10 @@ script PlayerSkillSlots extends Component
 
     @ExecSpace("ServerOnly")
     method void UnequipMonsterSkill(integer slotIndex)
+        if self:IsPhase1CombatEnabled() then
+            log_warning("[SkillSlots] 랜덤 전투에서는 레거시 장착 슬롯을 해제하지 않는다")
+            return
+        end
         if self.MonsterSlots[slotIndex] == nil then return end
         self.MonsterSlots[slotIndex] = nil
         log("[SkillSlots] 해제 " .. tostring(slotIndex) .. "번")
@@ -534,10 +1182,19 @@ script PlayerSkillSlots extends Component
 
     -- 실행공간을 열어둔다. 서버는 판정에, 클라는 HUD에 쓴다.
     method table GetActiveSkills()
-        -- 지금 쓸 수 있는 액티브 전부 = **장착한 슬롯의 내용물**.
+        -- Phase 1 플래그가 켜졌으면 보유 종수와 관계없이 일회성 전투 재고만 돌려준다.
         --
         -- 예전에는 직업 스킬을 앞에 붙였다. 직업이 폐기되면서(2026-08-16) 그 줄을 뺐다 —
         -- 안 빼 두는 바람에 환생 후 강타·돌진이 스킬 바에 그대로 떴다(대표 발견 2026-08-21).
+        if self:IsPhase1CombatEnabled() then
+            local randomOut = {}
+            for i = 1, self:GetSkillSlotMax() do
+                local id = self.RandomSlots[i]
+                if id ~= nil and id ~= "" then randomOut[i] = id end
+            end
+            return randomOut
+        end
+
         local out = {}
         for i = 1, self.MonsterSlotCount do
             local id = self.MonsterSlots[i]

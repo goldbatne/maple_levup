@@ -97,6 +97,18 @@ script WorldMapPanel extends Logic
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
         log("[WorldMap] OnBeginPlay")
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            -- Mega Run의 연결 그래프는 탐색 대상이며 HUD 디버그 지도가 아니다.
+            -- 패널과 팝업을 모두 끄고 입력 핸들러/갱신 타이머도 만들지 않는다.
+            self.cellRoomIds = {}
+            self.cellHandlers = {}
+            if isvalid(self.panel) then self.panel.Enable = false end
+            if isvalid(self.popup) then self.popup.Enable = false end
+            log("[WorldMap] Mega Run — 레거시 지역 지도 비활성")
+            return
+        end
+        -- Run 도중에도 서버가 보낸 그래프를 표시한다. 초기 Active 값으로
+        -- 구독 자체를 건너뛰면 인스턴스 입장 순서에 따라 지도 갱신이 멈춘다.
         self.cellRoomIds = {}
         self.cellHandlers = {}
         for i = 1, self.cellMax do
@@ -242,7 +254,7 @@ script WorldMapPanel extends Logic
             local id = queue[head]
             head = head + 1
             for i = 1, 4 do
-                local nextId = _GameData:GetRoomConnection(id, dirs[i])
+                local nextId = _GameData:GetRunRoomConnection(id, dirs[i])
                 if nextId ~= nil and nextId ~= "" and gx[nextId] == nil then
                     local nextRoom = _GameData:GetRoom(nextId)
                     -- 다른 지역·마을로는 뻗지 않는다.
@@ -513,6 +525,28 @@ script WorldMapPanel extends Logic
         if room.monster_id ~= nil and room.monster_id ~= "" then
             monster = _GameData:GetMonster(room.monster_id)
         end
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            if isvalid(self.popupRewardTitle) then self.popupRewardTitle.Text = "이번 Run의 능력 획득" end
+            if isvalid(self.popupMonster) then
+                self.popupMonster.Text = monster ~= nil and monster.name or "몬스터 없음"
+            end
+            local skill = monster ~= nil and _GameData:GetSkill(monster.drop_skill_id) or nil
+            local usable = skill ~= nil and skill.source == "monster" and skill.slot_type == "monster" and skill.skill_kind ~= "passive"
+            for i = 1, 4 do
+                local row, label, icon = self:PopupDropRow(i), self:PopupDropText(i), self:PopupDropIcon(i)
+                if isvalid(row) then row.Enable = i == 1 end
+                if isvalid(label) then
+                    label.Entity.Enable = i == 1
+                    if i == 1 then label.Text = usable and ("확정 획득 · " .. skill.name) or "사용 가능한 액티브 능력 없음" end
+                end
+                if isvalid(icon) then
+                    icon.Entity.Enable = i == 1 and usable
+                    if usable then icon.ImageRUID = DataRef(skill.icon_ruid) end
+                end
+            end
+            if isvalid(self.popup) then self.popup.Enable = true end
+            return
+        end
         if isvalid(self.popupMonster) then
             if monster == nil then
                 self.popupMonster.Text = "몬스터 없음"
@@ -529,13 +563,13 @@ script WorldMapPanel extends Logic
         end
 
         -- 이 목록은 드랍 테이블 전체가 아니라 플레이어가 이 방에서 노릴 **보상**이다.
-        -- 공통 물약은 사냥 편의 소비품이라 숨기고 포획 스킬을 첫 줄에 둔다.
+        -- 신규 모드의 수집 단위는 스킬이 아니라 몬스터이므로 테이밍 대상을 첫 줄에 둔다.
         local rewards = {}
         if monster ~= nil then
             if monster.drop_skill_id ~= nil and monster.drop_skill_id ~= "" then
                 local skill = _GameData:GetSkill(monster.drop_skill_id)
                 if skill ~= nil then
-                    table.insert(rewards, { kind = "skill", id = skill.id })
+                    table.insert(rewards, { kind = "monster", id = monster.id })
                 end
             end
             local itemDrops = _GameData:GetItemDropsOf(monster.id)
@@ -557,20 +591,34 @@ script WorldMapPanel extends Logic
                 if isvalid(icon) then icon.Entity.Enable = false end
             else
                 if isvalid(row) then row.Enable = true end
-                if reward.kind == "skill" then
-                    local skill = _GameData:GetSkill(reward.id)
-                    if skill == nil then
+                if reward.kind == "monster" then
+                    local targetMonster = _GameData:GetMonster(reward.id)
+                    if targetMonster == nil then
                         if isvalid(label) then label.Entity.Enable = false end
                         if isvalid(icon) then icon.Entity.Enable = false end
                     else
-                        local capture = string.format("%.0f%%", _GameData:GetBalance("capture_base_rate") * 100)
+                        local rate = _GameData:GetBalance("first_capture_rate")
+                        local localPlayer = _UserService.LocalPlayer
+                        if isvalid(localPlayer) then
+                            ---@type PlayerCollection
+                            local collection = localPlayer:GetComponent("script.PlayerCollection")
+                            if collection ~= nil and collection:GetTamedCount(targetMonster.id) > 0 then
+                                rate = _GameData:GetBalance("duplicate_capture_rate")
+                            end
+                        end
+                        rate *= _GameData:GetBalance("capture_rate_global_multiplier")
+                        rate *= _GameData:GetBalance("collection_capture_multiplier")
+                        rate *= targetMonster.capture_modifier
+                        local maxRate = _GameData:GetBalance("capture_rate_max")
+                        if maxRate > 0 and rate > maxRate then rate = maxRate end
+                        local capture = string.format("%.0f%%", rate * 100)
                         if isvalid(label) then
                             label.Entity.Enable = true
-                            label.Text = "스킬 · " .. skill.name .. "   포획 " .. capture
+                            label.Text = "테이밍 · " .. targetMonster.name .. "   " .. capture
                         end
                         if isvalid(icon) then
                             icon.Entity.Enable = true
-                            icon.ImageRUID = DataRef(skill.icon_ruid)
+                            icon.ImageRUID = DataRef("thumbnail://" .. targetMonster.collection_icon_ruid)
                             icon.Color = Color(1, 1, 1, 1)
                         end
                     end
@@ -616,8 +664,8 @@ script WorldMapPanel extends Logic
         for i = 1, #ids do
             local id = ids[i]
             local sides = {
-                { _GameData:GetRoomConnection(id, "east"), 1, 0 },
-                { _GameData:GetRoomConnection(id, "north"), 0, 1 },
+                { _GameData:GetRunRoomConnection(id, "east"), 1, 0 },
+                { _GameData:GetRunRoomConnection(id, "north"), 0, 1 },
             }
             for k = 1, 2 do
                 local other = sides[k][1]

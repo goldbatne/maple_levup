@@ -1,6 +1,7 @@
 -- @클라이언트 (UI는 클라 전용. 모든 메서드에 개별로 @ExecSpace를 붙인다)
 --
--- 몬스터 스킬 장착 화면. 컬렉션에서 골라 몬스터 슬롯에 끼운다.
+-- 스킬/컬렉션 공용 화면. 로그라이트 Run에서는 이번 Run에 획득한 고유 능력과
+-- 현재 일회성 전투 재고 5칸을 읽기 전용으로 보여 준다. 장착은 레거시 모드에서만 허용한다.
 --
 -- 조작:
 --   슬롯 5칸 중 하나를 눌러 대상 슬롯을 고르고, 아래 목록에서 스킬을 누르면 끼워진다.
@@ -60,8 +61,12 @@ script EquipPanel extends Logic
     -- 스킬 바에는 **이미 장착한 것만** 올라와서 거기서는 확인할 방법이 없다.
     property string selectedSkillId = ""
 
+    -- M2A 신규 모드에서 상세/동행 대상으로 고른 몬스터.
+    property string selectedMonsterId = ""
+
     -- 격자 칸 번호 -> skillId. Refresh가 매번 다시 만든다.
     property any rowSkillIds = nil
+    property any rowMonsterIds = nil
 
     -- 칸 클릭 핸들러. 칸 수만큼 있다.
     property any cellHandlers = nil
@@ -83,6 +88,7 @@ script EquipPanel extends Logic
         log("[EquipPanel] OnBeginPlay")
         self.handlers = {}
         self.rowSkillIds = {}
+        self.rowMonsterIds = {}
 
         self.handlers.open = self.btnOpen.Entity:ConnectEvent(ButtonClickEvent, function()
             self:SetOpen(true)
@@ -114,6 +120,7 @@ script EquipPanel extends Logic
         self:SetOpen(false)
 
         self.refreshTimer = _TimerService:SetTimerRepeat(function()
+            self:RefreshModeVisibility()
             if self.isOpen then self:Refresh() end
         end, self.refreshInterval)
     end
@@ -151,20 +158,40 @@ script EquipPanel extends Logic
         -- 창과 열기 버튼은 항상 반대 상태여야 한다. 둘 다 보이면 겹치고,
         -- 둘 다 숨으면 다시 열 방법이 없어진다 (StatPanel과 같은 규칙).
         self.isOpen = open
+        -- Visible만 끄면 투명 Mask/입력 차단이 남는다. 창의 전체 트리를 비활성화한다.
+        self.windowRoot.Enable = open
         self.windowRoot:SetVisible(open)
+        self.btnOpen.Entity.Enable = not open
         self.btnOpen.Entity:SetVisible(not open)
         if open then
             -- 지난번에 스크롤해 둔 위치가 남아 있으면 빈 아래쪽이 보인다 (ScrollToTop 주석).
             self:ScrollToTop()
             self:Refresh()
+            local slots = self:GetSlots()
+            local owned = slots ~= nil and #slots:GetRunOwnedSkillIds() or 0
+            log("[RunSkillWindow] open owned=" .. tostring(owned))
+        else
+            -- 닫힌 창의 선택 상태도 지운다. Window 전체를 Disable하므로 투명 입력 차단도 남지 않는다.
+            self.selectedSkillId = ""
+            self.selectedMonsterId = ""
+            log("[RunSkillWindow] close input released")
         end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshModeVisibility()
+        -- 로그라이트에서도 이번 Run 보유 능력을 확인할 수 있어야 한다. 창이 닫혀 있을 때만
+        -- 열기 버튼을 복구하며, 열린 창을 주기적으로 닫거나 전투 입력을 전역 차단하지 않는다.
+        if self.isOpen then return end
+        self.btnOpen.Entity.Enable = true
+        self.btnOpen.Entity:SetVisible(true)
     end
 
     @ExecSpace("ClientOnly")
     method any GetSlots()
         -- 내 플레이어의 슬롯 컴포넌트. 아직 없으면 nil.
         local me = _UserService.LocalPlayer
-        if me == nil then return nil end
+        if not isvalid(me) then return nil end
         return me:GetComponent("script.PlayerSkillSlots")
     end
 
@@ -172,7 +199,7 @@ script EquipPanel extends Logic
     method any GetCollection()
         -- 내 플레이어의 컬렉션 컴포넌트. 아직 없으면 nil.
         local me = _UserService.LocalPlayer
-        if me == nil then return nil end
+        if not isvalid(me) then return nil end
         return me:GetComponent("script.PlayerCollection")
     end
 
@@ -200,10 +227,30 @@ script EquipPanel extends Logic
 
     @ExecSpace("ClientOnly")
     method void SelectSlot(integer index)
+        local slots = self:GetSlots()
+        if slots ~= nil and slots:IsRogueliteRunMode() then
+            return
+        end
+        if slots ~= nil and slots:IsPhase1CombatEnabled() then
+            if index ~= 1 then return end
+            local collection = self:GetCollection()
+            if collection == nil or self.selectedMonsterId == "" then
+                _GateNotice:ShowNotice("동행 몬스터", "컬렉션에서 테이밍한 몬스터를 먼저 선택해 주세요.")
+                return
+            end
+            if collection:GetTamedCount(self.selectedMonsterId) <= 0 then
+                _GateNotice:ShowNotice("동행할 수 없음", "아직 테이밍하지 않은 몬스터입니다.")
+                return
+            end
+            if collection.SelectedCompanionMonsterId == self.selectedMonsterId then
+                collection:RequestSetCompanion("")
+            else
+                collection:RequestSetCompanion(self.selectedMonsterId)
+            end
+            return
+        end
         -- 잠긴 슬롯은 고를 수 없다. 서버도 같은 판정을 하지만
         -- 여기서 막아야 "눌렀는데 아무 일도 안 난다"가 되지 않는다.
-        ---@type PlayerSkillSlots
-        local slots = self:GetSlots()
         if slots == nil then return end
         if index > slots.MonsterSlotCount then
             log("[EquipPanel] " .. tostring(index) .. "번 슬롯은 아직 잠겨 있다")
@@ -262,12 +309,15 @@ script EquipPanel extends Logic
         ---@type PlayerCollection
         local collection = self:GetCollection()
         if collection == nil then return out end
+        local runtimeSlots = self:GetSlots()
+        local hideLegacyPassive = runtimeSlots ~= nil and runtimeSlots:IsPhase1CombatEnabled()
 
         local candidates = _GameData:GetMonsterSkillIds()
         for i = 1, #candidates do
             local id = candidates[i]
             local skill = _GameData:GetSkill(id)
-            if skill ~= nil and skill.source == source and collection:GetOwnedCount(id) > 0 then
+            if skill ~= nil and skill.source == source and collection:GetOwnedCount(id) > 0
+                and (hideLegacyPassive == false or skill.skill_kind ~= "passive") then
                 out[#out + 1] = id
             end
         end
@@ -276,7 +326,30 @@ script EquipPanel extends Logic
 
     @ExecSpace("ClientOnly")
     method void RenderTabs()
-        -- 플레이어가 보는 출처는 몬스터 하나뿐이라 분류 버튼 없이 제목에 개수만 적는다.
+        local slots = self:GetSlots()
+        local collection = self:GetCollection()
+        if slots ~= nil and slots:IsRogueliteRunMode() then
+            local owned = #slots:GetRunOwnedSkillIds()
+            if isvalid(self.lblOwned) then
+                self.lblOwned.Text = "이번 Run 보유 능력  " .. tostring(owned) .. "종"
+            end
+            return
+        end
+        if slots ~= nil and slots:IsPhase1CombatEnabled() then
+            local total = #_GameData:GetTameableMonsterIds()
+            local owned = 0
+            if collection ~= nil then
+                for _, monsterId in ipairs(_GameData:GetTameableMonsterIds()) do
+                    if collection:GetTamedCount(monsterId) > 0 then owned += 1 end
+                end
+            end
+            if isvalid(self.lblOwned) then
+                self.lblOwned.Text = "몬스터 컬렉션  " .. tostring(owned) .. "/" .. tostring(total)
+            end
+            return
+        end
+
+        -- 레거시 비교 모드의 스킬 컬렉션 표시.
         local monsterCount = #self:OwnedIdsOf("monster")
         self.currentSource = "monster"
         if isvalid(self.lblOwned) then
@@ -309,8 +382,26 @@ script EquipPanel extends Logic
 
     @ExecSpace("ClientOnly")
     method void ClickRow(integer index)
-        -- 두 단계다 (T17-4): 처음 누르면 설명만 뜨고, 같은 줄을 다시 누르면 장착된다.
-        -- 검증은 서버가 한다.
+        -- 신규 전투에서는 설명 선택만 한다. 레거시 모드에서만 두 번째 클릭이 장착 요청이다.
+        local runtimeSlots = self:GetSlots()
+        if runtimeSlots ~= nil and runtimeSlots:IsRogueliteRunMode() then
+            if self.rowSkillIds == nil then return end
+            local skillId = self.rowSkillIds[index]
+            if skillId == nil then return end
+            self.selectedSkillId = skillId
+            self.selectedMonsterId = ""
+            self:Refresh()
+            return
+        end
+        if runtimeSlots ~= nil and runtimeSlots:IsPhase1CombatEnabled() then
+            if self.rowMonsterIds == nil then return end
+            local monsterId = self.rowMonsterIds[index]
+            if monsterId == nil then return end
+            self.selectedMonsterId = monsterId
+            self:Refresh()
+            return
+        end
+
         if self.rowSkillIds == nil then return end
         local skillId = self.rowSkillIds[index]
         if skillId == nil then return end
@@ -322,6 +413,16 @@ script EquipPanel extends Logic
             log("[EquipPanel] 선택 " .. tostring(skillId)
                 .. (skill ~= nil and ("  \"" .. skill.description .. "\"") or ""))
             self:Refresh()
+            return
+        end
+
+        ---@type PlayerSkillSlots
+        runtimeSlots = self:GetSlots()
+        if runtimeSlots ~= nil and runtimeSlots:IsPhase1CombatEnabled() then
+            local picked = _GameData:GetSkill(skillId)
+            _GateNotice:ShowNotice("보유 스킬",
+                "[" .. (picked ~= nil and picked.name or skillId)
+                .. "]은(는) 보유 중이다. 전투 재고에는 5초마다 자동으로 추첨된다.")
             return
         end
 
@@ -417,9 +518,140 @@ script EquipPanel extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method void SetRunDetailIcons(table skill, table monster)
+        local skillIcon = self.windowRoot:GetChildByName("DetailSkillIcon", true)
+        local monsterIcon = self.windowRoot:GetChildByName("DetailMonsterIcon", true)
+        if isvalid(skillIcon) then
+            local visible = skill ~= nil and skill.icon_ruid ~= nil and skill.icon_ruid ~= ""
+            skillIcon.Enable = visible
+            skillIcon:SetVisible(visible)
+            if visible then
+                skillIcon.SpriteGUIRendererComponent.ImageRUID = skill.icon_ruid
+                self:FitIcon(skillIcon.UITransformComponent, skill.icon_ratio or 1)
+            end
+        end
+        if isvalid(monsterIcon) then
+            local visible = monster ~= nil and monster.collection_icon_ruid ~= nil
+                and monster.collection_icon_ruid ~= ""
+            monsterIcon.Enable = visible
+            monsterIcon:SetVisible(visible)
+            if visible then
+                monsterIcon.SpriteGUIRendererComponent.ImageRUID = DataRef(
+                    "thumbnail://" .. monster.collection_icon_ruid)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RenderRunSkillDesc()
+        if not isvalid(self.lblDesc) then return end
+        if self.selectedSkillId == "" then
+            self:SetRunDetailIcons(nil, nil)
+            if self.rowSkillIds ~= nil and #self.rowSkillIds <= 0 then
+                self.lblDesc.Text = "능력을 획득하면 상세 설명이 여기에 표시됩니다."
+            else
+                self.lblDesc.Text = "능력을 선택하면 실제 설명과 제공 몬스터를 확인할 수 있습니다."
+            end
+            return
+        end
+
+        local skill = _GameData:GetSkill(self.selectedSkillId)
+        if skill == nil then
+            self.selectedSkillId = ""
+            self:SetRunDetailIcons(nil, nil)
+            self.lblDesc.Text = "능력 정보를 불러오지 못했습니다."
+            return
+        end
+        local monsterId = _GameData:GetMonsterIdByDropSkillId(self.selectedSkillId)
+        local monster = monsterId ~= "" and _GameData:GetMonster(monsterId) or nil
+        self:SetRunDetailIcons(skill, monster)
+
+        local source = monster ~= nil and monster.name or "연결 몬스터 정보 없음"
+        local description = skill.description or ""
+        self.lblDesc.Text = skill.name
+            .. "   제공 몬스터: " .. source
+            .. "   유형: " .. self:KindLabel(skill)
+            .. "   " .. description
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RenderMonsterDesc()
+        if not isvalid(self.lblDesc) then return end
+        if self.selectedMonsterId == "" then
+            self.lblDesc.Text = "몬스터를 선택하면 발견 여부와 Run에서 얻을 수 있는 능력이 표시됩니다."
+            return
+        end
+
+        local monster = _GameData:GetMonster(self.selectedMonsterId)
+        local collection = self:GetCollection()
+        if monster == nil or collection == nil then
+            self.selectedMonsterId = ""
+            self.lblDesc.Text = "몬스터 정보를 불러오지 못했습니다."
+            return
+        end
+
+        local slots = self:GetSlots()
+        if slots ~= nil and slots:IsRogueliteRunMode() then
+            if collection.RogueDiscoveredMonsters[monster.id] == nil then
+                self.lblDesc.Text = "[미발견] " .. monster.name
+                    .. "   Run에서 만나 처치하면 발견 기록과 능력이 확인됩니다."
+                return
+            end
+            local runSkill = _GameData:GetSkill(monster.drop_skill_id)
+            if runSkill == nil or runSkill.skill_kind == "passive" then
+                self.lblDesc.Text = "[발견] " .. monster.name
+                    .. "   현재 Run에서 장착할 수 있는 액티브 능력 없음"
+                return
+            end
+            local cooldown = runSkill.cooldown
+            if cooldown <= 0 then cooldown = _GameData:GetBalance("run_skill_cooldown_fallback") end
+            self.lblDesc.Text = "[발견] " .. monster.name
+                .. "   획득 능력: " .. runSkill.name
+                .. "   " .. runSkill.description
+                .. "   재사용 " .. string.format("%.1f", cooldown) .. "초"
+            return
+        end
+
+        local count = collection:GetTamedCount(monster.id)
+        local kills = collection:GetTotalMonsterKills(monster.id)
+        if count <= 0 then
+            self.lblDesc.Text = "[미획득] " .. monster.name
+                .. "   누적 처치 " .. tostring(kills)
+                .. "   테이밍하면 컬렉션과 능력이 해금됩니다."
+            return
+        end
+
+        local skill = _GameData:GetSkill(monster.drop_skill_id)
+        local stars = "★" .. tostring(count)
+        if skill == nil or skill.skill_kind == "passive" then
+            self.lblDesc.Text = "[" .. stars .. "] " .. monster.name
+                .. "   사용 가능한 액티브 능력 없음"
+                .. "   누적 처치 " .. tostring(kills)
+            return
+        end
+
+        local multiplier = 1 + _GameData:GetBalance("skill_stack_bonus") * (count - 1)
+        self.lblDesc.Text = "[" .. stars .. "] " .. monster.name
+            .. "   고유 능력: " .. skill.name
+            .. "   " .. skill.description
+            .. "   강화 ×" .. string.format("%.1f", multiplier)
+            .. "   누적 처치 " .. tostring(kills)
+    end
+
+    @ExecSpace("ClientOnly")
     method void RenderDesc()
         -- 고른 스킬의 설명을 아래 줄에 그린다 (T17-4).
         if not isvalid(self.lblDesc) then return end
+
+        local runtimeSlots = self:GetSlots()
+        if runtimeSlots ~= nil and runtimeSlots:IsRogueliteRunMode() then
+            self:RenderRunSkillDesc()
+            return
+        end
+        if runtimeSlots ~= nil and runtimeSlots:IsPhase1CombatEnabled() then
+            self:RenderMonsterDesc()
+            return
+        end
 
         if self.selectedSkillId == "" then
             -- 빈 탭이면 줄이 하나도 안 보인다. 이유를 안 적으면 고장으로 읽힌다 (T20-2).
@@ -428,7 +660,12 @@ script EquipPanel extends Logic
                     .. " 스킬은 아직 하나도 없다. 다른 탭을 눌러 보라."
                 return
             end
-            self.lblDesc.Text = "스킬을 누르면 설명이 나온다. 한 번 더 누르면 장착된다."
+            local slots = self:GetSlots()
+            if slots ~= nil and slots:IsPhase1CombatEnabled() then
+                self.lblDesc.Text = "보유 스킬을 누르면 설명이 나온다. 액티브는 전투 재고에 자동 추첨된다."
+            else
+                self.lblDesc.Text = "스킬을 누르면 설명이 나온다. 한 번 더 누르면 장착된다."
+            end
             return
         end
 
@@ -436,7 +673,7 @@ script EquipPanel extends Logic
         if skill == nil then
             -- 표에서 사라진 스킬을 고른 상태로 남아 있을 수 있다 (몬스터 교체 등).
             self.selectedSkillId = ""
-            self.lblDesc.Text = "스킬을 누르면 설명이 나온다. 한 번 더 누르면 장착된다."
+            self.lblDesc.Text = "스킬을 누르면 설명이 나온다."
             return
         end
 
@@ -528,6 +765,62 @@ script EquipPanel extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method void RenderMonsterCell(integer index, PlayerCollection collection)
+        local cell = self:GetCell(index)
+        if cell == nil then return end
+        local monsterId = self.rowMonsterIds[index]
+        if monsterId == nil then
+            cell:SetVisible(false)
+            return
+        end
+        cell:SetVisible(true)
+
+        local monster = _GameData:GetMonster(monsterId)
+        if monster == nil then
+            cell:SetVisible(false)
+            return
+        end
+        local slots = self:GetSlots()
+        local rogueMode = slots ~= nil and slots:IsRogueliteRunMode()
+        local count = collection:GetTamedCount(monsterId)
+        local discovered = collection.RogueDiscoveredMonsters[monsterId] ~= nil
+        local available = rogueMode and discovered or count > 0
+
+        local iconEntity = cell:GetChildByName("Icon", false)
+        if iconEntity ~= nil then
+            local icon = iconEntity.SpriteGUIRendererComponent
+            if isvalid(icon) and monster.collection_icon_ruid ~= "" then
+                -- animationclip 자체를 재생하지 않고 정지 썸네일로 표시한다.
+                icon.ImageRUID = DataRef("thumbnail://" .. monster.collection_icon_ruid)
+                if available then icon.Color = Color(1, 1, 1, 1)
+                else icon.Color = Color(0.28, 0.28, 0.30, 0.72) end
+                self:FitIcon(iconEntity.UITransformComponent, 1)
+            end
+        end
+
+        local nameEntity = cell:GetChildByName("Name", false)
+        if nameEntity ~= nil and isvalid(nameEntity.TextGUIRendererComponent) then
+            if available then
+                nameEntity.TextGUIRendererComponent.Text = rogueMode and monster.name
+                    or (monster.name .. " ★" .. tostring(count))
+            else
+                nameEntity.TextGUIRendererComponent.Text = "잠김 · " .. monster.name
+            end
+        end
+
+        local sprite = cell.SpriteGUIRendererComponent
+        if isvalid(sprite) then
+            if monsterId == self.selectedMonsterId then
+                sprite.Color = Color(0.72, 0.83, 0.95, 1)
+            elseif available then
+                sprite.Color = Color(0.88, 0.94, 0.91, 1)
+            else
+                sprite.Color = Color(0.79, 0.79, 0.80, 1)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
     method void RenderCell(integer index, PlayerCollection collection, PlayerSkillSlots slots)
         -- 격자 한 칸을 그린다 (T20-3). 칸에는 **아이콘과 이름만** 둔다 —
         -- 개수·계수·쿨·잠김 사유는 눌렀을 때 아래 상세로 간다
@@ -602,6 +895,40 @@ script EquipPanel extends Logic
             end
         end
     end
+
+    @ExecSpace("ClientOnly")
+    method void RenderRunSkillCell(integer index)
+        local cell = self:GetCell(index)
+        if cell == nil then return end
+        local skillId = self.rowSkillIds[index]
+        if skillId == nil then
+            cell:SetVisible(false)
+            return
+        end
+        local skill = _GameData:GetSkill(skillId)
+        if skill == nil then
+            cell:SetVisible(false)
+            return
+        end
+        cell:SetVisible(true)
+
+        local iconEntity = cell:GetChildByName("Icon", false)
+        if isvalid(iconEntity) and isvalid(iconEntity.SpriteGUIRendererComponent) then
+            iconEntity.SpriteGUIRendererComponent.ImageRUID = skill.icon_ruid
+            iconEntity.SpriteGUIRendererComponent.Color = Color(1, 1, 1, 1)
+            self:FitIcon(iconEntity.UITransformComponent, skill.icon_ratio)
+        end
+        local nameEntity = cell:GetChildByName("Name", false)
+        if isvalid(nameEntity) and isvalid(nameEntity.TextGUIRendererComponent) then
+            nameEntity.TextGUIRendererComponent.Text = skill.name
+        end
+        local sprite = cell.SpriteGUIRendererComponent
+        if isvalid(sprite) then
+            sprite.Color = skillId == self.selectedSkillId
+                and Color(0.72, 0.83, 0.95, 1) or Color(0.88, 0.94, 0.91, 1)
+        end
+    end
+
     @ExecSpace("ClientOnly")
     method void Refresh()
         -- 슬롯 3칸과 보유 목록을 지금 상태로 다시 그린다.
@@ -613,6 +940,22 @@ script EquipPanel extends Logic
         if collection == nil then return end
 
         local count = slots.MonsterSlotCount
+        local randomMode = slots:IsPhase1CombatEnabled()
+        local rogueMode = slots:IsRogueliteRunMode()
+        local emptyState = self.windowRoot:GetChildByName("EmptyState", true)
+
+        -- 같은 .ui를 두 모드가 공유하므로 제목도 런타임 역할에 맞춰 바꾼다.
+        -- 신규 모드에서 "장착"이 남아 있으면 숨긴 슬롯이 고장처럼 보인다.
+        local title = self.windowRoot:GetChildByName("Title", true)
+        if title ~= nil and title.TextGUIRendererComponent ~= nil then
+            title.TextGUIRendererComponent.Text = rogueMode and "이번 Run 보유 능력"
+                or (randomMode and "몬스터 컬렉션" or "스킬 장착")
+        end
+        local slotLabel = self.windowRoot:GetChildByName("LblSlots", true)
+        if slotLabel ~= nil and slotLabel.TextGUIRendererComponent ~= nil then
+            slotLabel.TextGUIRendererComponent.Text = rogueMode and "현재 전투 SkillBar · 읽기 전용"
+                or (randomMode and "동행 몬스터" or "몬스터 슬롯")
+        end
 
         -- 슬롯이 줄어드는 경우(환생 등)에 선택이 범위 밖으로 남지 않게 되돌린다.
         if self.selectedSlot > count then self.selectedSlot = 1 end
@@ -620,6 +963,39 @@ script EquipPanel extends Logic
         for i = 1, 5 do
             local btn = self:GetSlotButton(i)
             if btn ~= nil then
+                if rogueMode then
+                    btn.Entity:SetVisible(true)
+                    btn.Enable = false
+                    local skillId = slots.RandomSlots[i]
+                    local skill = skillId ~= nil and skillId ~= "" and _GameData:GetSkill(skillId) or nil
+                    btn.Entity.TextGUIRendererComponent.Text = tostring(i) .. "번\n"
+                        .. (skill ~= nil and skill.name or "비어 있음")
+                    continue
+                elseif randomMode then
+                    btn.Enable = true
+                    btn.Entity:SetVisible(i == 1)
+                    if i == 1 then
+                        local companionId = collection.SelectedCompanionMonsterId
+                        local companion = _GameData:GetMonster(companionId)
+                        local currentName = companion ~= nil and companion.name or "없음"
+                        if self.selectedMonsterId ~= ""
+                            and collection:GetTamedCount(self.selectedMonsterId) > 0 then
+                            local picked = _GameData:GetMonster(self.selectedMonsterId)
+                            if companionId == self.selectedMonsterId then
+                                btn.Entity.TextGUIRendererComponent.Text = "동행 해제\n" .. currentName
+                            else
+                                btn.Entity.TextGUIRendererComponent.Text = "동행 선택\n"
+                                    .. (picked ~= nil and picked.name or self.selectedMonsterId)
+                            end
+                        else
+                            btn.Entity.TextGUIRendererComponent.Text = "현재 동행\n" .. currentName
+                        end
+                    end
+                    continue
+                end
+
+                btn.Enable = true
+                btn.Entity:SetVisible(true)
                 local label = ""
                 if i > count then
                     label = tostring(i) .. "번\n잠김"
@@ -639,6 +1015,40 @@ script EquipPanel extends Logic
                 btn.Entity.TextGUIRendererComponent.Text = label
             end
         end
+
+        if rogueMode then
+            self:RenderTabs()
+            self.rowMonsterIds = {}
+            self.rowSkillIds = slots:GetRunOwnedSkillIds()
+            if isvalid(emptyState) then
+                local empty = #self.rowSkillIds <= 0
+                emptyState.Enable = empty
+                emptyState:SetVisible(empty)
+            end
+            if #self.rowSkillIds > self.cellCount then
+                log_warning("[EquipPanel] 이번 Run 고유 능력이 " .. tostring(#self.rowSkillIds)
+                    .. "종인데 칸은 " .. tostring(self.cellCount) .. "개다")
+            end
+            if self.selectedSkillId ~= "" and slots.OwnedSkillPool[self.selectedSkillId] == nil then
+                self.selectedSkillId = ""
+            end
+            for i = 1, self.cellCount do self:RenderRunSkillCell(i) end
+            self:RenderDesc()
+            return
+        elseif randomMode then
+            if isvalid(emptyState) then emptyState.Enable = false end
+            self:RenderTabs()
+            self.rowMonsterIds = _GameData:GetTameableMonsterIds()
+            if #self.rowMonsterIds > self.cellCount then
+                log_warning("[EquipPanel] 테이밍 몬스터가 " .. tostring(#self.rowMonsterIds)
+                    .. "종인데 칸은 " .. tostring(self.cellCount) .. "개다")
+            end
+            for i = 1, self.cellCount do self:RenderMonsterCell(i, collection) end
+            self:RenderDesc()
+            return
+        end
+
+        if isvalid(emptyState) then emptyState.Enable = false end
 
         -- 지금 고른 탭의 스킬만 격자에 깐다 (T20-2 탭 + T20-3 격자).
         --

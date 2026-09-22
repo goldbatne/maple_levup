@@ -172,29 +172,40 @@ script PlayerHit extends HitComponent
 	end
 
 	@ExecSpace("ServerOnly")
-	method void HandleDeath()
+    method void HandleDeath()
 		-- 죽음의 대가 = **시작방으로 돌려보낸다** (T10-3 결정).
 		-- 잃는 것이 "탐험 진행"이라 방 단위 탐험 코어와 맞고, 레벨·스탯은 건드리지 않아
 		-- 환생의 비용 구조(기획서 4.5)와 충돌하지 않는다.
 		--
 		-- Respawn()이 HP를 채우고 ReviveEvent를 자동으로 띄운다. 그 뒤에 시작방으로 옮긴다 —
 		-- 순서를 바꾸면 죽은 상태로 이동해 조작이 막힌 채 서 있게 된다.
-		local pc = self.Entity.PlayerComponent
-		log("[PlayerHit] 사망 — 시작방으로 돌려보낸다")
+        local pc = self.Entity.PlayerComponent
+		if _GameData.RogueRunActive then
+			-- Run에서는 즉시 마을 부활하지 않는다. 서버 Run 상태가 관전/전원 실패를
+			-- 판정하고, 재합류는 다음 안전 전환 지점에서만 별도로 수행한다.
+			_GameData:OnRunPlayerDied(self.Entity)
+			self:OnDied(pc.UserId)
+			return
+		end
+        log("[PlayerHit] 사망 — 시작방으로 돌려보낸다")
 		pc:Respawn()
 		-- db를 함께 넘긴다. 안 넘기면 저장된 방이 그대로라 재접속했을 때
 		-- 죽은 그 깊은 방에서 다시 시작한다 (환생과 같은 이유).
 		---@type PlayerDBManager
 		local db = self.Entity:GetComponent("script.PlayerDBManager")
-		_Rebirth:ReturnToStart(self.Entity, db)
+        _PlayerTravel:ReturnToStart(self.Entity, db)
 		self:OnDied(pc.UserId)
 	end
 
 	@ExecSpace("Client")
-	method void OnDied()
+    method void OnDied()
 		-- 당사자에게만 알린다. 대상 userId는 선언부가 아니라 호출부 마지막 인자다
 		-- (첫 인자로 넘겼다가 [LEA-3032]로 실패한 적이 있다 — RoomPortal 주석 참고).
-		_GateNotice:ShowNotice("쓰러졌다", "시작방으로 돌아왔다")
+		if _GameData.RogueRunActive then
+			_GateNotice:ShowNotice("쓰러졌다", "생존 참가자를 관전한다")
+		else
+			_GateNotice:ShowNotice("쓰러졌다", "시작방으로 돌아왔다")
+		end
 	end
 
 	method boolean IsHitTarget(string attackInfo)

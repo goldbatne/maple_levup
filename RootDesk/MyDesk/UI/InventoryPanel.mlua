@@ -103,6 +103,14 @@ script InventoryPanel extends Logic
         self:Hide()
         log("[Inventory창] OnBeginPlay — 닫힌 채로 시작")
 
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            -- 장비 성장은 신규 Run 시작 능력치에 합산하지 않는다. 패널과 열기
+            -- 버튼을 Enable=false로 끄면 보이지 않는 입력 차단도 함께 사라진다.
+            if isvalid(self.panel) then self.panel.Enable = false end
+            if isvalid(self.openBtn) then self.openBtn.Entity.Enable = false end
+            return
+        end
+
         self:Bind(self.openBtn, function() self:Open() end)
         self:Bind(self.closeBtn, function() self:Hide() end)
         self:Bind(self.filterWeapon, function() self:SelectCategory("weapon") end)
@@ -221,6 +229,7 @@ script InventoryPanel extends Logic
 
     @ExecSpace("ClientOnly")
     method void Open()
+        if _GameData.RogueRunActive then return end
         if isvalid(self.panel) then self.panel.Enable = true end
         self:Refresh()
         log("[Inventory창] 열림")

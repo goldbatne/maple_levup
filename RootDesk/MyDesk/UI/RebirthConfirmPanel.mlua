@@ -84,6 +84,7 @@ script RebirthConfirmPanel extends Logic
 
     @ExecSpace("ClientOnly")
     method void Open()
+        if _GameData.RogueRunActive then return end
         -- NPC(RebirthNpc)가 조건을 통과한 뒤 부른다.
         local me = _UserService.LocalPlayer
         if me == nil then return end

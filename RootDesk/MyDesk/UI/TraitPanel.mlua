@@ -1,0 +1,129 @@
+-- @클라이언트
+-- Phase 2 특성 선택 창. Phase 3.5 신규 랜덤 전투에서는 레거시 UI 전체를 숨긴다.
+
+@Logic
+script TraitPanel extends Logic
+
+    property Entity windowRoot = "8208381e-cb11-4bd7-bab7-46e635aa6907"
+    property ButtonComponent btnOpen = "d990c4e4-7420-47eb-8180-4f23e671feee"
+    property ButtonComponent btnClose = "0a60f7f1-65ad-429f-bb7d-d7b549ba9c87"
+    property TextGUIRendererComponent lblCurrent = "15f86f83-edba-4a91-ab04-d3f177767f5d"
+    property TextGUIRendererComponent lblDescription = "57686fe7-e5f2-4369-8311-331554216b8f"
+    property TextGUIRendererComponent lblStatus = "e088c858-d585-4590-8ba0-90f233d730a7"
+    property ButtonComponent btnBalance = "bef11a71-d07b-4fcd-801f-b1039b1b2841"
+    property ButtonComponent btnArea = "071355e9-7f35-4867-b843-bed33758400b"
+    property ButtonComponent btnProjectile = "19dac4e1-c648-4263-9f20-6f551378faac"
+    property ButtonComponent btnFrontline = "ce176ce9-c426-4352-802e-8c9aaa0e1840"
+
+    property any handlers = nil
+    property integer refreshTimer = 0
+    property boolean isOpen = false
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        log("[TraitPanel] OnBeginPlay")
+        self.handlers = {}
+        if self:IsDisabledForNewCombat() then
+            self.windowRoot.Enable = false
+            self.btnOpen.Entity.Enable = false
+            self.windowRoot:SetVisible(false)
+            self.btnOpen.Entity:SetVisible(false)
+            log("[TraitPanel] Phase3.5 신규 전투 — 창·버튼 전체 비활성")
+            return
+        end
+        self.handlers.open = self.btnOpen.Entity:ConnectEvent(ButtonClickEvent, function() self:SetOpen(true) end)
+        self.handlers.close = self.btnClose.Entity:ConnectEvent(ButtonClickEvent, function() self:SetOpen(false) end)
+        self.handlers.balance = self.btnBalance.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectTrait("balance") end)
+        self.handlers.area = self.btnArea.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectTrait("area") end)
+        self.handlers.projectile = self.btnProjectile.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectTrait("projectile") end)
+        self.handlers.frontline = self.btnFrontline.Entity:ConnectEvent(ButtonClickEvent, function() self:SelectTrait("frontline") end)
+        self:SetOpen(false)
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean IsDisabledForNewCombat()
+        return _GameData:GetBalance("phase1_random_combat_enabled") >= 0.5
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        if self.handlers ~= nil then
+            if self.handlers.open ~= nil then self.btnOpen.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.open) end
+            if self.handlers.close ~= nil then self.btnClose.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.close) end
+            if self.handlers.balance ~= nil then self.btnBalance.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.balance) end
+            if self.handlers.area ~= nil then self.btnArea.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.area) end
+            if self.handlers.projectile ~= nil then self.btnProjectile.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.projectile) end
+            if self.handlers.frontline ~= nil then self.btnFrontline.Entity:DisconnectEvent(ButtonClickEvent, self.handlers.frontline) end
+        end
+        if self.refreshTimer ~= 0 then _TimerService:ClearTimer(self.refreshTimer) end
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetSlots()
+        local me = _UserService.LocalPlayer
+        if me == nil then return nil end
+        return me:GetComponent("script.PlayerSkillSlots")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetOpen(boolean open)
+        if self:IsDisabledForNewCombat() then
+            self.isOpen = false
+            self.windowRoot.Enable = false
+            self.btnOpen.Entity.Enable = false
+            self.windowRoot:SetVisible(false)
+            self.btnOpen.Entity:SetVisible(false)
+            return
+        end
+        self.isOpen = open
+        self.windowRoot:SetVisible(open)
+        self.btnOpen.Entity:SetVisible(not open)
+        log("[TraitPanel] SetOpen=" .. tostring(open))
+        if open then self:Refresh() end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SelectTrait(string traitId)
+        local slots = self:GetSlots()
+        if slots == nil then
+            self.lblStatus.Text = "플레이어 정보를 불러오는 중입니다."
+            return
+        end
+        local start = _GameData:GetStartRoom()
+        local me = _UserService.LocalPlayer
+        if start == nil or me == nil or me.CurrentMap == nil or me.CurrentMap.Name ~= start.map_name then
+            self.lblStatus.Text = "특성은 시작 마을에서만 변경할 수 있습니다."
+            return
+        end
+        slots:RequestSetTrait(traitId)
+        self.lblStatus.Text = "변경 요청 중… 현재 스킬 5칸은 유지됩니다."
+        if self.refreshTimer ~= 0 then _TimerService:ClearTimer(self.refreshTimer) end
+        self.refreshTimer = _TimerService:SetTimerOnce(function()
+            self.refreshTimer = 0
+            self:Refresh()
+        end, 0.3)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void Refresh()
+        local slots = self:GetSlots()
+        if slots == nil then return end
+        local traitId = slots:NormalizeTraitId(slots.SelectedTrait)
+        local trait = _GameData:GetTrait(traitId)
+        if trait == nil then return end
+
+        local tags = "모든 타입 동일"
+        if trait.preferred_tags ~= nil and #trait.preferred_tags > 0 then
+            tags = table.concat(trait.preferred_tags, " · ")
+        end
+        self.lblCurrent.Text = "현재 특성  " .. trait.name .. "\n선호 태그  " .. tags
+        self.lblDescription.Text = trait.description
+        self.lblStatus.Text = "마을에서 자유롭게 변경 · 다음 5초 공급부터 적용"
+
+        self.btnBalance.Entity.TextGUIRendererComponent.Text = (traitId == "balance" and "▶ " or "") .. "균형"
+        self.btnArea.Entity.TextGUIRendererComponent.Text = (traitId == "area" and "▶ " or "") .. "광역 특화"
+        self.btnProjectile.Entity.TextGUIRendererComponent.Text = (traitId == "projectile" and "▶ " or "") .. "투사체 특화"
+        self.btnFrontline.Entity.TextGUIRendererComponent.Text = (traitId == "frontline" and "▶ " or "") .. "전선 특화"
+    end
+
+end

@@ -65,6 +65,7 @@ script GoddessPanel extends Logic
 
     @ExecSpace("ClientOnly")
     method void Open()
+        if _GameData.RogueRunActive then return end
         -- 지금 값을 읽어 채우고 연다. 창이 떠 있는 동안 값이 변할 일은 없다
         -- (레벨업은 창을 닫고 사냥해야 일어난다) — 그래서 폴링하지 않는다.
         local me = _UserService.LocalPlayer

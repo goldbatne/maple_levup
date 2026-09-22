@@ -70,10 +70,60 @@ boss_time_limit_seconds,300,보스전 제한시간 5분. 입장으로 새 보스
 capture_base_rate,0.03,기본 포획 확률 3%
 capture_luk_bonus,0.001,LUK 1P당 포획 보정 +0.1%p
 capture_pity_kills,40,종별 포획 천장 - N마리 처치 시 확정
-skill_stack_max,5,같은 몬스터 스킬을 몇 장까지 겹쳐 쌓을 수 있는가 (T15-2). 만작이면 포획 판정 자체를 건너뛴다
-skill_stack_bonus,0.2,중복 1장당 계수 비례 증가분 - 계수 = 기본 x (1 + 이 값 x (보유수-1)). 5장 만작이면 x1.8. 정액으로 두면 계수 1.0인 스킬이 1.35인 스킬보다 비율로 더 올라 희귀도 서열이 뒤집힌다
+first_capture_rate,0.10,Phase 3.5 신규 모드 첫 획득 확률 10%. 보유 0장일 때만 사용한다
+first_capture_pity,20,레거시 보존값. 신규 랜덤 전투의 순수 확률 포획에서는 읽지 않는다
+duplicate_capture_rate,0.03,Phase 3.5 신규 모드 중복 획득 확률 3%. 보유 1~4장일 때 사용한다
+duplicate_capture_pity,40,레거시 보존값. 신규 랜덤 전투의 순수 확률 포획에서는 읽지 않는다
+phase3_simplified_growth_enabled,1,Phase 3 신규 영구 성장 모드. 1이면 전직·환생·직접 스탯 투자·지역 잠금을 신규 플레이에서 제외한다
+capture_rate_global_multiplier,1,LUK와 분리한 포획 확률 전역 배율. 최종 밸런스 확정 전이므로 기본 1 유지
+collection_capture_multiplier,1,향후 몬스터 컬렉션 성장용 테이밍 배율 Hook. 이번 단계에서는 항상 1이다
+capture_monster_modifier_default,1,몬스터별 capture_modifier가 없을 때 쓰는 포획 배율
+capture_rate_max,1,최종 포획 확률 상한. 현재 100%라 첫 10%·중복 3% 체감에는 영향을 주지 않는다
+drop_rate_global_multiplier,1,LUK와 분리한 아이템 드랍 확률 전역 배율. 경제 밸런스는 유지한다
+skill_stack_max,5,같은 몬스터를 테이밍해 올릴 수 있는 최대 별 단계. ★5이면 추가 테이밍 판정을 건너뛴다
+skill_stack_bonus,0.2,중복 테이밍 1회당 고유 액티브 계수 비례 증가분 - 계수 = 기본 x (1 + 이 값 x (별-1)). ★5이면 x1.8
 monster_slot_start,1,몬스터 스킬 슬롯 시작 개수 - 기획서 4.3
 monster_slot_max,5,스킬 슬롯 상한 - 현재 직업 차수에 따라 1~5칸을 사용한다 / 스킬 창은 몬스터 스킬만 다룬다
+phase1_random_combat_enabled,1,Phase 1 신규 전투 플래그. 1이면 단일 기본공격·분리된 몬스터 공격거리·보유 액티브 기반 일회성 스킬 재고를 사용하고 0이면 기존 전투로 돌아간다
+skill_slot_max,5,Phase 1 일회성 전투 스킬 재고 상한. 기존 monster_slot_max와 MonsterSlots는 레거시 장착 슬롯용으로 보존한다
+random_skill_supply_interval,5,보유 액티브가 있고 빈칸이 있으면 랜덤 스킬 하나를 공급하는 주기(초). 가득 차면 멈추고 성공 소비 시점부터 다시 센다
+roguelite_run_mode_enabled,1,독립 개편 작업본의 최종 Run 모드 플래그. 1이면 RPG 성장·확률 포획·랜덤 공급 대신 고정 5슬롯과 절차생성 Area를 사용한다
+run_skill_slot_max,5,Roguelite Run의 고정 장착 슬롯 수. 현재 UI 구현 상한도 5다
+run_skill_cooldown_fallback,4,SkillTable cooldown이 0 또는 누락된 스킬에만 적용하는 명시적 신규 모드 대체값(초)
+run_player_base_hp,1000,Roguelite Run 공통 플레이어 최대 HP 잠정값. 레벨·장비·수집 성장과 합산하지 않는다
+run_player_base_attack,35,Roguelite Run 공통 플레이어 공격력 잠정값. 스킬 고유 계수는 기존 SkillTable 값을 유지한다
+run_player_base_defense,10,Roguelite Run 공통 플레이어 방어력 잠정값
+run_party_max,4,Roguelite Run 최대 참가자 수
+run_hp_scale_per_extra_player,0.25,Run 시작 인원 1명 초과분당 몬스터 HP 증가량
+run_generator_version,3,Mega Area·독립 난수 스트림을 포함하는 Seed 재현 계약 생성기 버전
+run_generator_retry_max,8,절차생성 유효성 검사 실패 시 최대 재시도 횟수
+run_main_path_min,8,Mega Area 주 경로 최소 Room 수
+run_main_path_max,10,Mega Area 주 경로 최대 Room 수
+run_branch_min,2,Mega Area 선택 가지길 최소 수
+run_branch_budget,4,Mega Area 선택 가지길 최대 수
+run_encounter_count_min,6,일반 Room 혼합 조우 최소 개체 수
+run_encounter_count_max,10,일반 Room 혼합 조우 최대 개체 수
+run_encounter_species_min,2,일반 Room 혼합 조우 최소 몬스터 종 수
+run_encounter_species_max,4,일반 Room 혼합 조우 최대 몬스터 종 수
+run_monster_respawn_delay_min,6,일반 탐색 Room의 결원 보충 최소 지연 초
+run_monster_respawn_delay_max,10,일반 탐색 Room의 결원 보충 최대 지연 초
+run_monster_respawn_player_clearance,5,Run 리스폰 위치와 생존 플레이어 사이 최소 거리(월드 유닛)
+run_ability_acquire_rate,0.10,첫 적격 능력 보장 이후 플레이어별 적격 처치 능력 획득 확률
+run_skill_supply_interval,5,Run 보유 능력 풀에서 빈 전투 슬롯 하나를 채우는 서버 주기(초)
+run_potion_drop_rate,0.05,능력 획득과 독립된 빨간 포션 드랍 확률
+run_potion_heal_ratio,0.25,Run 빨간 포션 즉시 회복 비율(최대 HP 기준)
+run_monster_special_max_concurrent,2,MONSTER_SKILL 모드의 동시 적 특수 시전 상한
+run_reconnect_grace_seconds,90,협동 참가자의 재접속 유예 시간
+run_participation_radius,12,같은 방 처치 보상 참여자로 인정하는 거리(월드 유닛)
+run_transition_gather_radius,4,방 전환 전 생존 참가자 집결 반경(월드 유닛)
+run_monster_hp_base,240,Roguelite 일반 조우 몬스터 기본 HP 잠정값
+run_monster_hp_area_step,28,레거시 보존값. Mega Area Run 계산에는 사용하지 않음
+run_monster_attack_base,24,Roguelite 일반 조우 몬스터 기본 공격력 잠정값
+run_monster_attack_area_step,3,레거시 보존값. Mega Area Run 계산에는 사용하지 않음
+run_monster_defense_base,6,Roguelite 일반 조우 몬스터 기본 방어력 잠정값
+run_monster_defense_area_step,1,레거시 보존값. Mega Area Run 계산에는 사용하지 않음
+run_boss_hp_multiplier,4,Roguelite 목표/보스 조우 HP 배율 잠정값
+monster_attack_range_ratio,0.5,Phase 1 몬스터 기본 공격 반경 = player_attack_range x 이 비율. MonsterAttack.AttackRange가 0보다 크면 종별 값이 우선한다
 save_min_interval,10,저장 최소 간격(초) - 이벤트 저장 스로틀. 시트 외 구현 상수
 collection_passive_first,1,"""포획 패시브 - 그 스킬을 **처음 얻었을 때** 주는 분배 스탯 포인트 (설계 변경 2026-08-29). 환생하면 컬렉션만 남고 몸은 신규 계정과 정확히 같아진다 - 실측 물공 10 / 방어 10 / HP 1000이고 Lv1 달팽이를 108대에 잡는다. 환생 보상 둘이 다 Lv1에서 안 나온다 - 레벨업당 스탯은 레벨이 올라야 받고 사냥방 몬스터는 4에서 7마리뿐이다. 이 값이 그 구간을 메운다"""
 collection_passive_extra,0.25,"""포획 패시브 - **중복 1장마다** 더 주는 포인트. 대표 결정: 중복을 세면 '다음 지역에 대한 완화제'가 되어 막혔을 때 지금 지역을 갈아서 넘는 길이 열린다. ⚠ 장당 1P로 두면 85종 만작(425장)에서 +425P가 되어 Lv1인데 물공 1345 - Lv50 STR 몰빵(1295)과 같아진다(실측). 0.25면 만작 1종이 2P라 T15-2의 계수 강화 1.0에서 1.8과 **같은 모양**이 된다"""

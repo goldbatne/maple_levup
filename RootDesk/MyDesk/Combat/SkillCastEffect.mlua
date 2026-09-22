@@ -47,10 +47,13 @@ script SkillCastEffect extends Component
     @HideFromInspector property table FrameRUIDs = {}
     @HideFromInspector property number FrameSeconds = 0.1
     @HideFromInspector property integer CurrentFrame = 0
+    @HideFromInspector property boolean Playing = false
 
     @ExecSpace("ServerOnly")
     method void Play(string style, number seconds, Vector3 drift)
         -- 스폰한 쪽이 바로 부른다. 여기서부터 OnUpdate가 움직인다.
+        -- 초기화 중에는 OnUpdate가 수명을 소진하거나 엔티티를 파괴하지 않는다.
+        self.Playing = false
         if seconds <= 0 then seconds = 0.4 end
         self.Style = style
         self.LifeTotal = seconds
@@ -59,6 +62,7 @@ script SkillCastEffect extends Component
         -- 첫 프레임부터 제 크기로 보이게 미리 한 번 적용한다. 안 하면 스폰 프레임에
         -- 원본 크기(1.0)로 한 번 번쩍인다.
         self:Apply(0)
+        self.Playing = true
     end
 
     method void Apply(number t)
@@ -146,10 +150,11 @@ script SkillCastEffect extends Component
     @ExecSpace("ServerOnly")
     method void OnUpdate(number delta)
         -- 아직 Play를 안 받았으면 가만히 있는다 (스폰 프레임에 한 번 걸린다).
-        if self.LifeTotal <= 0 then return end
+        if self.Playing == false or self.LifeTotal <= 0 then return end
 
         self.Life = self.Life - delta
         if self.Life <= 0 then
+            self.Playing = false
             -- 남겨 두면 이펙트가 방에 쌓인다.
             log("[이펙트 종료] " .. (self.DebugName ~= "" and self.DebugName or self.Style))
             self.Entity:Destroy()

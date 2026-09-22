@@ -54,6 +54,14 @@ script RoomSpawner extends Component
     @HideFromInspector property table presentUserIds = {}
     -- 이 방이 스폰한 엔티티들. 파괴되면 isvalid가 false가 된다.
     @HideFromInspector property table spawned = {}
+    @HideFromInspector property boolean runEncounterSpawned = false
+    @HideFromInspector property integer runSpawnRandomState = 0
+    @HideFromInspector property table runSpawnPlan = {}
+    @HideFromInspector property integer runSpawnPlanIndex = 0
+    @HideFromInspector property integer runRespawnTimer = 0
+    @HideFromInspector property string runSpawnReason = "INITIAL"
+    property number RunSpawnClearance = 0.75
+    property number RunEntranceClearance = 2.5
 
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
@@ -68,6 +76,36 @@ script RoomSpawner extends Component
         self.monsterCount = math.floor(room.monster_count)
         self.roomId = room.id
         self.isBossRoom = (room.room_type == "boss")
+
+        local runEncounter = _GameData:GetRunEncounter(room.id)
+        if _GameData.RogueRunActive and runEncounter == nil then
+            -- 인스턴스에 로드됐더라도 생성 그래프가 채택하지 않은 템플릿은 조우가 아니다.
+            self.monsterCount = 0
+            return
+        end
+        if _GameData.RogueRunActive then
+            _GameData:RegisterRogueSpawner(self.Entity)
+        end
+        if runEncounter ~= nil then
+            self.monsterId = runEncounter.monster_id
+            self.monsterCount = math.floor(runEncounter.monster_count)
+            self.isBossRoom = (_GameData.RogueRoomRoles[room.id] == "final")
+            self.runSpawnPlan = {}
+            if runEncounter.members ~= nil then
+                for _, encounterMember in ipairs(runEncounter.members) do
+                    for i = 1, math.floor(encounterMember.count) do
+                        self.runSpawnPlan[#self.runSpawnPlan + 1] = encounterMember.monster_id
+                    end
+                end
+            end
+            -- 방별 spawn RNG로 계획 순서도 결정한다. 같은 Seed/방은 같은 종 순서다.
+            for i = #self.runSpawnPlan, 2, -1 do
+                local j = math.floor(self:NextRunSpawnRandom() * i) + 1
+                local tmp = self.runSpawnPlan[i]
+                self.runSpawnPlan[i] = self.runSpawnPlan[j]
+                self.runSpawnPlan[j] = tmp
+            end
+        end
 
         if self.monsterId == "" or self.monsterCount <= 0 then
             log("[RoomSpawner] " .. self.Entity.Name .. "(" .. room.name .. ") 몬스터 없음")
@@ -119,6 +157,7 @@ script RoomSpawner extends Component
 
     @ExecSpace("ServerOnly")
     method void OnEndPlay()
+        _GameData:UnregisterRogueSpawner(self.Entity)
         -- 맵이 내려갈 때 타이머를 놓으면 파괴된 엔티티를 계속 채우려 든다.
         if self.checkTimer ~= 0 then
             _TimerService:ClearTimer(self.checkTimer)
@@ -132,6 +171,46 @@ script RoomSpawner extends Component
             _TimerService:ClearTimer(self.bossEntryTimer)
             self.bossEntryTimer = 0
         end
+        if self.runRespawnTimer ~= 0 then
+            _TimerService:ClearTimer(self.runRespawnTimer)
+            self.runRespawnTimer = 0
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void StopRogueRunSchedulers()
+        -- 전원이 Run을 포기했을 때만 GameData가 호출한다. 일반적인 개인 이탈에서는
+        -- 남은 참가자의 Encounter를 보존해야 하므로 호출하지 않는다.
+        if self.checkTimer ~= 0 then
+            _TimerService:ClearTimer(self.checkTimer)
+            self.checkTimer = 0
+        end
+        if self.runRespawnTimer ~= 0 then
+            _TimerService:ClearTimer(self.runRespawnTimer)
+            self.runRespawnTimer = 0
+        end
+        if self.bossEntryTimer ~= 0 then
+            _TimerService:ClearTimer(self.bossEntryTimer)
+            self.bossEntryTimer = 0
+        end
+        if self.userEnterHandler ~= nil then
+            _UserService:DisconnectEvent(UserEnterEvent, self.userEnterHandler)
+            self.userEnterHandler = nil
+        end
+        for i = 1, #self.spawned do
+            local monster = self.spawned[i]
+            if isvalid(monster) then monster:Destroy() end
+        end
+        self.spawned = {}
+        self.runSpawnPlan = {}
+        self.runSpawnPlanIndex = 0
+        self.runEncounterSpawned = false
+        self.BossActive = false
+        self.BossHp = 0
+        self.BossMaxHp = 0
+        self.BossRemainingSeconds = 0
+        self.bossStartedAt = 0
+        log("[RunRespawn] ABANDONED — scheduler/monster/boss 정리 room=" .. self.roomId)
     end
 
     @ExecSpace("ServerOnly")
@@ -185,6 +264,8 @@ script RoomSpawner extends Component
 
     @ExecSpace("ServerOnly")
     method void SpawnBossOnEntry()
+        -- Run 조우는 한 번만 생성한다. 레거시 재입장 파밍은 신규 Run에서 금지한다.
+        if _GameData.RogueRunActive and self.runEncounterSpawned then return end
         -- 보스는 **방에 새로 들어올 때마다** 다시 선다 (T16-1, 대표 지시 2026-08-14).
         --
         -- 바뀐 것: 예전에는 회차당 한 번만 섰다(T9-1). 그래서 한 회차에 보스는
@@ -206,6 +287,7 @@ script RoomSpawner extends Component
             self:SpawnOne()
         end
         if self:CountAlive() > 0 then
+            if _GameData.RogueRunActive then self.runEncounterSpawned = true end
             self:StartBossEncounter()
         end
         log("[RoomSpawner] " .. self.Entity.Name .. " 보스 재등장 +" .. tostring(missing)
@@ -217,7 +299,8 @@ script RoomSpawner extends Component
         -- 살아 있는 보스에게 누가 추가 입장해도 제한시간을 다시 주지 않는다.
         -- 이 메서드는 실제로 새 보스를 스폰한 직후에만 호출된다.
         local limit = _GameData:GetBalance("boss_time_limit_seconds")
-        if limit <= 0 then
+        if _GameData.RogueRunActive then limit = 0 end
+        if limit <= 0 and _GameData.RogueRunActive == false then
             log_warning("[RoomSpawner] boss_time_limit_seconds가 0 이하 — 안전값 300초 사용")
             limit = 300
         end
@@ -268,6 +351,10 @@ script RoomSpawner extends Component
         self.BossHp = math.max(boss.Hp, 0)
         self.BossMaxHp = math.max(boss.MaxHp, 0)
 
+        -- 로그라이트 최종 목표는 제한시간 생존 미션이 아니다. 기존 보스 HUD/HP는
+        -- 재사용하되 레거시 시간초과 퇴장 규칙을 Run에 끌고 오지 않는다.
+        if _GameData.RogueRunActive then return end
+
         local remaining = self.BossTimeLimitSeconds
             - (_UtilLogic.ElapsedSeconds - self.bossStartedAt)
         if remaining <= 0 then
@@ -280,6 +367,8 @@ script RoomSpawner extends Component
 
     @ExecSpace("ServerOnly")
     method void ResetBossWhenRoomEmpty()
+        -- 탐색 중 나갔다 돌아와도 Run의 조우/HP를 보존한다.
+        if _GameData.RogueRunActive then return end
         if self.BossActive == false then return end
 
         local boss = self:FindLivingBoss()
@@ -352,7 +441,73 @@ script RoomSpawner extends Component
         -- 격파 기록(PlayerSkillSlots.BossRoomsCleared)은 더 이상 스폰 판정에 쓰지
         -- 않는다. 슬롯 중복 지급은 ClearBoss가 자체적으로 막고 있고(최초 1회만 지급),
         -- 환생 조건은 누적 BossesCleared를 보므로 둘 다 영향받지 않는다.
+        if _GameData.RogueRunActive then
+            return self.isBossRoom == false and self.runEncounterSpawned == false
+        end
         return self.isBossRoom == false
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ScheduleRunRespawn(integer missing)
+        if missing <= 0 or self.runRespawnTimer ~= 0 or self.isBossRoom then return end
+        if _GameData.RogueRunActive == false or _GameData.RogueRunComplete or _GameData.RogueRunFailed then return end
+        local delayMin = _GameData:GetBalance("run_monster_respawn_delay_min")
+        local delayMax = _GameData:GetBalance("run_monster_respawn_delay_max")
+        if delayMin <= 0 then delayMin = 6 end
+        if delayMax < delayMin then delayMax = delayMin end
+        local delay = delayMin + self:NextRunSpawnRandom() * (delayMax - delayMin)
+        log("[RunRespawn] SCHEDULE room=" .. self.roomId .. " missing=" .. tostring(missing)
+            .. " delay=" .. string.format("%.2f", delay))
+        self.runRespawnTimer = _TimerService:SetTimerOnce(function()
+            self.runRespawnTimer = 0
+            if _GameData.RogueRunActive == false or _GameData.RogueRunComplete or _GameData.RogueRunFailed then return end
+            local needed = self:EffectiveCount() - self:CountAlive()
+            if needed <= 0 then return end
+            self:BuildRunRespawnPlan(needed)
+            self.runSpawnReason = "RESPAWN"
+            for i = 1, needed do self:SpawnOne() end
+            self.runSpawnReason = "INITIAL"
+            log("[RunRespawn] COMPLETE room=" .. self.roomId .. " added=" .. tostring(needed)
+                .. " alive=" .. tostring(self:CountAlive()) .. "/" .. tostring(self:EffectiveCount()))
+        end, delay)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void BuildRunRespawnPlan(integer count)
+        self.runSpawnPlan = {}
+        self.runSpawnPlanIndex = 0
+        if count <= 0 then return end
+        local pool = _GameData:GetMegaMonsterPool(_GameData.RogueAreaId)
+        if #pool == 0 then return end
+
+        local allowed = {}
+        local seen = {}
+        for i = 1, #self.spawned do
+            local entity = self.spawned[i]
+            if isvalid(entity) then
+                local monster = entity:GetComponent("script.RoomMonster")
+                if monster ~= nil and monster.IsDead == false and monster.MonsterId ~= ""
+                    and seen[monster.MonsterId] == nil then
+                    seen[monster.MonsterId] = true
+                    allowed[#allowed + 1] = monster.MonsterId
+                end
+            end
+        end
+        local minSpecies = math.max(2, math.floor(_GameData:GetBalance("run_encounter_species_min")))
+        local maxSpecies = math.max(minSpecies, math.floor(_GameData:GetBalance("run_encounter_species_max")))
+        maxSpecies = math.min(maxSpecies, #pool, self:EffectiveCount())
+        local desired = math.min(maxSpecies, math.max(minSpecies, #allowed))
+        while #allowed < desired do
+            local candidate = pool[math.floor(self:NextRunSpawnRandom() * #pool) + 1]
+            if seen[candidate] == nil then
+                seen[candidate] = true
+                allowed[#allowed + 1] = candidate
+            end
+        end
+        if #allowed == 0 then allowed[1] = pool[1] end
+        for i = 1, count do
+            self.runSpawnPlan[i] = allowed[math.floor(self:NextRunSpawnRandom() * #allowed) + 1]
+        end
     end
 
     @ExecSpace("ServerOnly")
@@ -394,6 +549,7 @@ script RoomSpawner extends Component
         -- 읽는다 — 1인 플레이 전제이고, 여러 명이면 먼저 잡힌 사람 기준이 된다.
         -- 정원을 OnBeginPlay에 고정하지 않고 리필마다 다시 재는 이유이기도 하다:
         -- 환생하고 돌아오면 다음 리필부터 바로 반영된다.
+        if _GameData.RogueRunActive then return self.monsterCount end
         if self.isBossRoom then return self.monsterCount end
 
         local users = _UserService:GetUsersByMapName(self.Entity.Name)
@@ -416,11 +572,17 @@ script RoomSpawner extends Component
         local target = self:EffectiveCount()
         local missing = target - self:CountAlive()
         if missing <= 0 then return end
+        if _GameData.RogueRunActive and self.isBossRoom == false and self.runEncounterSpawned then
+            self:ScheduleRunRespawn(missing)
+            return
+        end
         if self:ShouldSpawn() == false then return end
 
+        self.runSpawnReason = "INITIAL"
         for i = 1, missing do
             self:SpawnOne()
         end
+        if _GameData.RogueRunActive then self.runEncounterSpawned = true end
         log("[RoomSpawner] " .. self.Entity.Name .. " 리필 +" .. tostring(missing)
             .. "  (현재 " .. tostring(#self.spawned) .. "/" .. tostring(target)
             .. (target > self.monsterCount
@@ -432,17 +594,105 @@ script RoomSpawner extends Component
     method void SpawnOne()
         -- parent는 nil이면 안 된다. 맵 엔티티 자신을 넘긴다.
         self.spawnIndex = self.spawnIndex + 1
-        local x = self.SpawnMinX + _UtilLogic:RandomDouble() * (self.SpawnMaxX - self.SpawnMinX)
-        local y = self.SpawnMinY + _UtilLogic:RandomDouble() * (self.SpawnMaxY - self.SpawnMinY)
+        local spawnMonsterId = self.monsterId
+        if _GameData.RogueRunActive and #self.runSpawnPlan > 0 then
+            self.runSpawnPlanIndex += 1
+            local index = ((self.runSpawnPlanIndex - 1) % #self.runSpawnPlan) + 1
+            spawnMonsterId = self.runSpawnPlan[index]
+        end
+        local spawnRecord = _GameData:GetMonster(spawnMonsterId)
+        if spawnRecord == nil or spawnRecord.model_id == "" then
+            log_error("[RogueSpawn] 모델 없는 몬스터 " .. tostring(spawnMonsterId))
+            return
+        end
+        local spawnModelId = spawnRecord.model_id
+        local x = 0
+        local y = 0
+        if _GameData.RogueRunActive then
+            local position = self:FindRunSpawnPosition()
+            if position == nil then
+                log_error("[RogueSpawn] 유효 위치 없음 room=" .. self.roomId .. " index=" .. tostring(self.spawnIndex))
+                return
+            end
+            x = position.x
+            y = position.y
+            log("[RogueSpawn] " .. self.runSpawnReason .. " room=" .. self.roomId
+                .. " seed=" .. tostring(_GameData.RogueSeed)
+                .. " index=" .. tostring(self.spawnIndex) .. " monster=" .. spawnMonsterId
+                .. " x=" .. string.format("%.6f", x) .. " y=" .. string.format("%.6f", y))
+        else
+            x = self.SpawnMinX + _UtilLogic:RandomDouble() * (self.SpawnMaxX - self.SpawnMinX)
+            y = self.SpawnMinY + _UtilLogic:RandomDouble() * (self.SpawnMaxY - self.SpawnMinY)
+        end
 
-        local name = self.monsterId .. "_" .. self.Entity.Name .. "_" .. tostring(self.spawnIndex)
-        local e = _SpawnService:SpawnByModelId(self.modelId, name, Vector3(x, y, 0), self.Entity)
+        local name = spawnMonsterId .. "_" .. self.Entity.Name .. "_" .. tostring(self.spawnIndex)
+        local e = _SpawnService:SpawnByModelId(spawnModelId, name, Vector3(x, y, 0), self.Entity)
         if e == nil then
-            log_error("[RoomSpawner] 스폰 실패 modelId=" .. self.modelId
+            log_error("[RoomSpawner] 스폰 실패 modelId=" .. spawnModelId
                 .. " — 같은 id의 .model이 등록돼 있는지 확인할 것")
             return
         end
+        local roomMonster = e:GetComponent("script.RoomMonster")
+        if roomMonster ~= nil then roomMonster.MonsterId = spawnMonsterId end
         table.insert(self.spawned, e)
+    end
+
+    @ExecSpace("ServerOnly")
+    method number NextRunSpawnRandom()
+        -- 방별 결정적 스트림: 방 진입 순서/전투 난수와 독립, 정수 정밀 범위 안의 Park-Miller.
+        if self.runSpawnRandomState == 0 then
+            local state = math.max(1, _GameData.RogueSeed % 2147483647)
+            for i = 1, #self.roomId do state = (state * 31 + string.byte(self.roomId, i)) % 2147483647 end
+            self.runSpawnRandomState = math.max(1, state)
+        end
+        self.runSpawnRandomState = (self.runSpawnRandomState * 48271) % 2147483647
+        return self.runSpawnRandomState / 2147483647
+    end
+
+    @ExecSpace("ServerOnly")
+    method any FindRunSpawnPosition()
+        -- 기존 스폰 영역 안에서 바닥/충돌과 입구 여유를 확인한다. 제한 횟수 후 실패를 기록한다.
+        local tileMap = self.Entity:GetFirstChildComponentByTypeName("RectTileMapComponent", true)
+        if tileMap == nil then return nil end
+        local boundary = self.Entity:GetComponent("script.NautilusWaterBoundary")
+        local anchors = {}
+        for _, child in ipairs(self.Entity.Children:ToTable()) do
+            if child:GetComponent("script.RoomPortal") ~= nil or child.SpawnLocationComponent ~= nil then
+                if child.TransformComponent ~= nil then anchors[#anchors + 1] = child.TransformComponent.WorldPosition end
+            end
+        end
+        local playerClearance = _GameData:GetBalance("run_monster_respawn_player_clearance")
+        if playerClearance <= 0 then playerClearance = 5 end
+        local users = _UserService:GetUsersByMapName(self.Entity.Name)
+        for attempt = 1, 128 do
+            local x = self.SpawnMinX + self:NextRunSpawnRandom() * (self.SpawnMaxX - self.SpawnMinX)
+            local y = self.SpawnMinY + self:NextRunSpawnRandom() * (self.SpawnMaxY - self.SpawnMinY)
+            local valid = true
+            for _, dx in ipairs({-self.RunSpawnClearance, 0, self.RunSpawnClearance}) do
+                for _, dy in ipairs({-self.RunSpawnClearance, 0, self.RunSpawnClearance}) do
+                    local tile = tileMap:GetTile(tileMap:ToCellPosition(Vector3(x + dx, y + dy, 0)))
+                    if tile == nil or tile.IsCollidable or (boundary ~= nil and tile.Name == boundary.waterTileName) then valid = false end
+                end
+            end
+            for _, anchor in ipairs(anchors) do
+                local dx = x - anchor.x
+                local dy = y - anchor.y
+                if dx * dx + dy * dy < self.RunEntranceClearance * self.RunEntranceClearance then valid = false end
+            end
+            if self.runSpawnReason == "RESPAWN" then
+                for i = 1, #users do
+                    local user = users[i]
+                    if isvalid(user) and user.TransformComponent ~= nil then
+                        local p = user.TransformComponent.WorldPosition
+                        local dx = x - p.x
+                        local dy = y - p.y
+                        if dx * dx + dy * dy < playerClearance * playerClearance then valid = false end
+                    end
+                end
+            end
+            if valid then return Vector2(x, y) end
+        end
+        return nil
     end
 
 end

@@ -27,14 +27,52 @@ script GameDataVerify extends Logic
 
         log("========== T0 데이터 검증 시작 ==========")
         self:VerifyBalance()
+        self:VerifyLevelGrowth()
         self:VerifySkills()
+        self:VerifyTraits()
         self:VerifyMonsters()
+        self:VerifyTamingCollection()
         self:VerifyRooms()
         self:VerifyLandmarks()
         self:VerifyAreas()
         self:VerifyItems()
         self:VerifySaveSchema()
         log("========== T0 데이터 검증 끝 ==========")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void VerifyTraits()
+        local activeIds = _GameData:GetCapturableActiveSkillIds()
+        local tagCounts = {}
+        local passiveCount = 0
+        for _, skillId in ipairs(_GameData:GetMonsterSkillIds()) do
+            local candidate = _GameData:GetSkill(skillId)
+            if candidate ~= nil and candidate.skill_kind == "passive" then passiveCount += 1 end
+        end
+        for i = 1, #activeIds do
+            local skill = _GameData:GetSkill(activeIds[i])
+            if skill ~= nil and skill.skill_kind ~= "passive" then
+                local tags = _GameData:GetSkillTags(activeIds[i])
+                if #tags <= 0 then log_error("[Phase2] 액티브 태그 없음: " .. activeIds[i]) end
+                for j = 1, #tags do tagCounts[tags[j]] = (tagCounts[tags[j]] or 0) + 1 end
+            end
+        end
+        local traits = _GameData:GetOrderedTraitIds()
+        log("[Phase3.5] 실제 포획 액티브=" .. tostring(#activeIds)
+            .. " / 테이밍 가능·랜덤 풀 제외 패시브=" .. tostring(passiveCount)
+            .. " / 레거시 특성 행=" .. tostring(#traits)
+            .. " / Single=" .. tostring(tagCounts["Single"] or 0)
+            .. " Area=" .. tostring(tagCounts["Area"] or 0)
+            .. " Projectile=" .. tostring(tagCounts["Projectile"] or 0)
+            .. " Rush=" .. tostring(tagCounts["Rush"] or 0)
+            .. " Defense=" .. tostring(tagCounts["Defense"] or 0))
+        for i = 1, #traits do
+            local trait = _GameData:GetTrait(traits[i])
+            if trait.weight_multiplier < 1 or trait.effect_multiplier < 1 then
+                log_error("[Phase2] 특성 배율은 비선호 스킬을 약화하면 안 된다: " .. trait.id)
+            end
+        end
+        log("[Phase3.5] 신규 랜덤 전투 Weight=1.0 / Trait 효과=1.0 고정; TraitTable은 레거시 보존")
     end
 
     @ExecSpace("ServerOnly")
@@ -49,6 +87,66 @@ script GameDataVerify extends Logic
             .. " / 천장=" .. tostring(_GameData:GetBalance("capture_pity_kills"))
             .. " / 슬롯 시작=" .. tostring(_GameData:GetBalance("monster_slot_start"))
             .. " / 슬롯 상한=" .. tostring(_GameData:GetBalance("monster_slot_max")))
+        local firstRate = _GameData:GetBalance("first_capture_rate")
+        local duplicateRate = _GameData:GetBalance("duplicate_capture_rate")
+        local collectionMultiplier = _GameData:GetBalance("collection_capture_multiplier")
+        local maxRate = _GameData:GetBalance("capture_rate_max")
+        if firstRate <= 0 or duplicateRate <= 0 or collectionMultiplier <= 0 or maxRate <= 0 then
+            log_error("[Phase3.6] 순수 확률 포획 데이터가 0 이하")
+        end
+        log("[Phase3.6 포획] 첫=" .. tostring(firstRate)
+            .. " / 중복=" .. tostring(duplicateRate)
+            .. " / 컬렉션배율=" .. tostring(collectionMultiplier)
+            .. " / 상한=" .. tostring(maxRate)
+            .. " / 신규모드 천장=미사용 / 만작=" .. tostring(_GameData:GetBalance("skill_stack_max")))
+        log("[Phase1 전투] 플래그=" .. tostring(_GameData:GetBalance("phase1_random_combat_enabled"))
+            .. " / 실시간 슬롯=" .. tostring(_GameData:GetBalance("skill_slot_max"))
+            .. " / 보유 1종부터 공급=" .. tostring(_GameData:GetBalance("random_skill_supply_interval"))
+            .. "초 / 몬스터 공격거리 비율=" .. tostring(_GameData:GetBalance("monster_attack_range_ratio")))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void VerifyLevelGrowth()
+        local milestones = { 1, 10, 30, 50, 100, 150, 200 }
+        local previousMaxHp = -1
+        local previousAttack = -1
+        local previousDefense = -1
+        local missing = 0
+        for level = 1, 200 do
+            local row = _GameData:GetLevelGrowth(level)
+            if row == nil then
+                missing += 1
+                log_error("[Phase3] LevelGrowthTable 누락 Lv" .. tostring(level))
+            else
+                local maxHp = _GameData:ToNumber(tostring(row["base_max_hp"]), 0)
+                local attack = _GameData:ToNumber(tostring(row["base_attack"]), 0)
+                local defense = _GameData:ToNumber(tostring(row["base_defense"]), 0)
+                if maxHp <= 0 or attack <= 0 or defense < 0 then
+                    log_error("[Phase3] 자동 성장값 오류 Lv" .. tostring(level))
+                end
+                if previousMaxHp >= 0 then
+                    if maxHp < previousMaxHp
+                        or attack < previousAttack
+                        or defense < previousDefense then
+                        log_error("[Phase3] 자동 성장표 역행 Lv" .. tostring(level))
+                    end
+                end
+                previousMaxHp = maxHp
+                previousAttack = attack
+                previousDefense = defense
+            end
+        end
+        for i = 1, #milestones do
+            local level = milestones[i]
+            local row = _GameData:GetLevelGrowth(level)
+            if row ~= nil then
+                log("[Phase3 성장] Lv" .. tostring(level)
+                    .. " HP=" .. tostring(row["base_max_hp"])
+                    .. " ATK/MATK=" .. tostring(row["base_attack"])
+                    .. " DEF=" .. tostring(row["base_defense"]))
+            end
+        end
+        log("[Phase3 성장] 200레벨 표 검증 / 누락 " .. tostring(missing))
     end
 
     @ExecSpace("ServerOnly")
@@ -280,6 +378,61 @@ script GameDataVerify extends Logic
                 end
             end
         end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void VerifyTamingCollection()
+        -- M2A의 컬렉션 원장은 MonsterTable의 명시적 monster_id ↔ drop_skill_id 관계다.
+        -- 이름 규칙이나 과거 스킬명으로 추론하지 않아야 구세이브의 s_mon_snail이
+        -- 현재 달팽이로 잘못 변환되지 않는다.
+        local ids = _GameData:GetTameableMonsterIds()
+        local activeCount = 0
+        local passiveCount = 0
+        local missingVisual = 0
+        local brokenReverse = 0
+
+        for i = 1, #ids do
+            local monsterId = ids[i]
+            local monster = _GameData:GetMonster(monsterId)
+            local skill = monster ~= nil and _GameData:GetSkill(monster.drop_skill_id) or nil
+            if monster == nil or skill == nil then
+                log_error("[M2A] 컬렉션 매핑 손상: " .. tostring(monsterId))
+            else
+                if _GameData:GetMonsterIdByDropSkillId(monster.drop_skill_id) ~= monsterId then
+                    brokenReverse += 1
+                    log_error("[M2A] drop_skill 역매핑 불일치: " .. monsterId
+                        .. " → " .. monster.drop_skill_id)
+                end
+                if monster.collection_icon_ruid == "" or monster.companion_visual_ruid == "" then
+                    missingVisual += 1
+                    log_error("[M2A] 컬렉션/동행 시각 리소스 누락: " .. monsterId)
+                end
+                if skill.skill_kind == "passive" then passiveCount += 1
+                else activeCount += 1 end
+            end
+        end
+
+        if #ids ~= 101 then
+            log_error("[M2A] 테이밍 대상은 101종이어야 한다. actual=" .. tostring(#ids))
+        end
+        if activeCount ~= 66 or passiveCount ~= 35 then
+            log_error("[M2A] 액티브/패시브 구성 불일치 active=" .. tostring(activeCount)
+                .. " passive=" .. tostring(passiveCount))
+        end
+        if _GameData:GetMonsterIdByDropSkillId("s_mon_snail") ~= "" then
+            log_error("[M2A] 레거시 s_mon_snail은 자동 마이그레이션 대상이면 안 된다")
+        end
+        if _GameData:IsTameableMonster("m_adv_hero")
+            or _GameData:IsTameableMonster("m_adv_bowmaster") then
+            log_error("[M2A] 히어로/보우마스터가 테이밍 대상으로 포함됐다")
+        end
+
+        log("[M2A 컬렉션] 총=" .. tostring(#ids)
+            .. " active=" .. tostring(activeCount)
+            .. " passive=" .. tostring(passiveCount)
+            .. " visual_missing=" .. tostring(missingVisual)
+            .. " reverse_broken=" .. tostring(brokenReverse)
+            .. " legacy_snail=excluded hero/bowmaster=excluded")
     end
 
     @ExecSpace("ServerOnly")
@@ -560,6 +713,8 @@ script GameDataVerify extends Logic
         log("[세이브] 영구: 슬롯=" .. tostring(perm.monster_slot_count)
             .. " 환생=" .. tostring(perm.rebirth_count)
             .. " 최고레벨=" .. tostring(perm.highest_level))
+        if run.schema_version ~= 2 then log_error("[Phase3] Run schema != 2") end
+        if perm.schema_version ~= 5 then log_error("[M2A] Perm schema != 5") end
     end
 
 end

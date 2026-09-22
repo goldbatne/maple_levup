@@ -8,3 +8,12 @@
 *.jpg   binary
 *.wav   binary
 *.mp3   binary
+
+# Maker writes map files as CRLF; existing committed maps use LF.
+# Normalize map blobs in Git while retaining Maker's CRLF working files.
+# Do not renormalize frozen audit baselines or the entire repository.
+map/*.map text eol=crlf
+
+# CRLF is a valid line ending, not trailing whitespace. Real trailing spaces
+# and tabs remain checked. This does not change file bytes.
+* whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
