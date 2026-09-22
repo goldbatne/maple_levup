@@ -151,12 +151,19 @@ script PlayerHud extends Logic
         end
 
         if isvalid(self.bossTimeText) then
-            local total = math.ceil(spawner.BossRemainingSeconds)
-            if total < 0 then total = 0 end
-            local minutes = math.floor(total / 60)
-            local seconds = total - minutes * 60
-            self.bossTimeText.Text = "남은 시간  "
-                .. string.format("%02d:%02d", minutes, seconds)
+            -- 제한시간이 없는 Run 보스전에 레거시 00:00을 표시하지 않는다.
+            local hasTimeLimit = spawner.BossTimeLimitSeconds > 0
+            self.bossTimeText.Enable = hasTimeLimit
+            if hasTimeLimit then
+                local total = math.ceil(spawner.BossRemainingSeconds)
+                if total < 0 then total = 0 end
+                local minutes = math.floor(total / 60)
+                local seconds = total - minutes * 60
+                self.bossTimeText.Text = "남은 시간  "
+                    .. string.format("%02d:%02d", minutes, seconds)
+            else
+                self.bossTimeText.Text = ""
+            end
         end
     end
 

@@ -1,0 +1,12 @@
+test_id,scope,participants,expected,actual,status,evidence
+P01,Runtime,1,"명시적 파티 생성 후 1/4 표시","파티 코드 157266, 리더 1명 표시",PASS_RUNTIME,"evidence/party_window.png"
+P02,Runtime,1,"파티 Run은 2인 미만 시작 불가","1인 상태 시작 거부",PASS_RUNTIME,"Area 선택 Party 상태"
+P03,ServerSim,2,"리더 전용 설정/전원 준비/참가자 2/HP x1.25","members=2;hpScale=1.25;leaderOnly=1;readyAll=1;snapshot=2",PASS_STATIC_SERVER_SIM,"[QA_PARTY_SIM_2P]"
+P04,ServerSim,3,"리더 전용 설정/전원 준비/참가자 3/HP x1.50","members=3;hpScale=1.5;leaderOnly=1;readyAll=1;snapshot=3",PASS_STATIC_SERVER_SIM,"[QA_PARTY_SIM_3P]"
+P05,ServerSim,4,"리더 전용 설정/전원 준비/참가자 4/HP x1.75","members=4;hpScale=1.75;leaderOnly=1;readyAll=1;snapshot=4",PASS_STATIC_SERVER_SIM,"[QA_PARTY_SIM_4P]"
+P06,ServerSim,2-4,"한 참가자 이탈 시 Run 유지; 마지막 참가자 이탈 시 정리","memberAbandon=1;lastCloses=1",PASS_STATIC_SERVER_SIM,"QA simulation logs"
+P07,Static,1-4,"던전 나가기와 파티 탈퇴 분리","ABANDON은 Run participant만 제거",PASS_STATIC,"GameData party/run state"
+P08,Runtime,2,"독립 클라이언트 동시 입장/동기화","독립 클라이언트 실행 수단 없음",BLOCKED_RUNTIME_MULTIPLAYER,"single client context"
+P09,Runtime,3,"독립 클라이언트 동시 입장/동기화","독립 클라이언트 실행 수단 없음",BLOCKED_RUNTIME_MULTIPLAYER,"single client context"
+P10,Runtime,4,"독립 클라이언트 동시 입장/동기화","독립 클라이언트 실행 수단 없음",BLOCKED_RUNTIME_MULTIPLAYER,"single client context"
+

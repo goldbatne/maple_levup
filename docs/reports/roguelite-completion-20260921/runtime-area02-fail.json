@@ -1,0 +1,5712 @@
+[
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:07:45",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[PlayerAttack] 자동 공격 주기 1.0초로 다시 걸었다  (LUK 0)",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.RestartAutoAttack",
+        "methodLineNum": 28,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      },
+      {
+        "methodName": "MakerScript",
+        "methodLineNum": 0,
+        "codeBlockFileId": null
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:07:50",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[AuditWalk] room=r_11 next=r_12 pos=(4.191, 0.200, 0.000) distance=8.8452006177175",
+    "stackTrace": [
+      {
+        "methodName": "MakerScript",
+        "methodLineNum": 21,
+        "codeBlockFileId": null
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:00",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[AuditWalk] room=r_11 next=r_12 pos=(10.015, 0.729, 0.000) distance=2.9974755469835",
+    "stackTrace": [
+      {
+        "methodName": "MakerScript",
+        "methodLineNum": 21,
+        "codeBlockFileId": null
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:03",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[RoomPortal] Run 그룹 전환 r_11 → r_12",
+    "stackTrace": [
+      {
+        "methodName": "RoomPortal.TryPass",
+        "methodLineNum": 72,
+        "codeBlockFileId": "7653195d-625e-4860-b9f8-0dcb17313660"
+      },
+      {
+        "methodName": "RoomPortal.OnTriggerEnter",
+        "methodLineNum": 5,
+        "codeBlockFileId": "7653195d-625e-4860-b9f8-0dcb17313660"
+      }
+    ]
+  },
+  {
+    "logType": "Warning",
+    "dateTime": "2026-09-21T09:08:03",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "969a643c-8665-4d88-bf6c-5ae55c29766c",
+    "message": "[RoomBounds] RectTileMapComponent를 찾지 못함: map12",
+    "stackTrace": [
+      {
+        "methodName": "RoomCamera.ComputeRoomRect",
+        "methodLineNum": 4,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.ApplyCameraToLocalPlayer",
+        "methodLineNum": 4,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.RequestCameraApply",
+        "methodLineNum": 15,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.OnMapEnter",
+        "methodLineNum": 3,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      }
+    ]
+  },
+  {
+    "logType": "Warning",
+    "dateTime": "2026-09-21T09:08:03",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": false,
+    "owner": "Portal_W",
+    "subOwner": "TriggerComponent",
+    "ownerId": null,
+    "message": "[LWA-3019] NotRecommendedValue : Legacy 기능은 더 이상 지원하지 않으므로 안정성이 보장되지 않습니다. IsLegacy 프로퍼티 false 설정을 권장합니다. (/maps/map12/Portal_W/TriggerComponent)",
+    "stackTrace": []
+  },
+  {
+    "logType": "Warning",
+    "dateTime": "2026-09-21T09:08:03",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": false,
+    "owner": "Portal_E",
+    "subOwner": "TriggerComponent",
+    "ownerId": null,
+    "message": "[LWA-3019] NotRecommendedValue : Legacy 기능은 더 이상 지원하지 않으므로 안정성이 보장되지 않습니다. IsLegacy 프로퍼티 false 설정을 권장합니다. (/maps/map12/Portal_E/TriggerComponent)",
+    "stackTrace": []
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:03",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "969a643c-8665-4d88-bf6c-5ae55c29766c",
+    "message": "[RoomBounds] map12 외곽=(-14.0,-7.0)~(14.0,9.0)  타일 448칸  서버=false",
+    "stackTrace": [
+      {
+        "methodName": "RoomCamera.ComputeRoomRect",
+        "methodLineNum": 38,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.OnBeginPlay",
+        "methodLineNum": 2,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:03",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "969a643c-8665-4d88-bf6c-5ae55c29766c",
+    "message": "[RoomBounds] map12 카메라 가시영역 한계=(-14.00,-7.00)~(14.00,9.00)  UseCustomBound=true  Confine=true",
+    "stackTrace": [
+      {
+        "methodName": "RoomCamera.ApplyCameraToLocalPlayer",
+        "methodLineNum": 50,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.RequestCameraApply",
+        "methodLineNum": 15,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.OnBeginPlay",
+        "methodLineNum": 9,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:04",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[WorldMap] 격자 4x2  배율 0.98  칸 97x54",
+    "stackTrace": [
+      {
+        "methodName": "WorldMapPanel.Draw",
+        "methodLineNum": 23,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      },
+      {
+        "methodName": "WorldMapPanel.Refresh",
+        "methodLineNum": 46,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      },
+      {
+        "methodName": "WorldMapPanel.OnBeginPlay",
+        "methodLineNum": 22,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:04",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[WorldMap] 갱신 — 페리온  방 6개  현재 r_12",
+    "stackTrace": [
+      {
+        "methodName": "WorldMapPanel.Refresh",
+        "methodLineNum": 48,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      },
+      {
+        "methodName": "WorldMapPanel.OnBeginPlay",
+        "methodLineNum": 22,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:05",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "798b7f9e-4fec-4e5d-9225-dec8d4a5b477",
+    "message": "[MonsterAttack] 다크 엑스텀프 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:05",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 790 → 760 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:05",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:05",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "798b7f9e-4fec-4e5d-9225-dec8d4a5b477",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 324.0 → 291.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:06",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:06",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "798b7f9e-4fec-4e5d-9225-dec8d4a5b477",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 291.0 → 258.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:07",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:07",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "798b7f9e-4fec-4e5d-9225-dec8d4a5b477",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 258.0 → 225.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:08",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[AuditWalk] room=r_12 next=r_17 pos=(-7.645, 1.000, 0.000) distance=20.644650936127",
+    "stackTrace": [
+      {
+        "methodName": "MakerScript",
+        "methodLineNum": 21,
+        "codeBlockFileId": null
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:08",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:08",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "798b7f9e-4fec-4e5d-9225-dec8d4a5b477",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 225.0 → 192.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:09",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:09",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "798b7f9e-4fec-4e5d-9225-dec8d4a5b477",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 192.0 → 159.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:10",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:10",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "798b7f9e-4fec-4e5d-9225-dec8d4a5b477",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 159.0 → 126.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:11",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:11",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "798b7f9e-4fec-4e5d-9225-dec8d4a5b477",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 126.0 → 93.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:12",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:12",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "798b7f9e-4fec-4e5d-9225-dec8d4a5b477",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 93.0 → 60.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:13",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:13",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "798b7f9e-4fec-4e5d-9225-dec8d4a5b477",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 60.0 → 27.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:14",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:14",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "798b7f9e-4fec-4e5d-9225-dec8d4a5b477",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 27.0 → 0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:14",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "798b7f9e-4fec-4e5d-9225-dec8d4a5b477",
+    "message": "[SkillSlots] 능력 장착 1번 ← s_mon_dark_axe_stump (m_dark_axe_stump)",
+    "stackTrace": [
+      {
+        "methodName": "PlayerSkillSlots.OfferRunAbility",
+        "methodLineNum": 15,
+        "codeBlockFileId": "09d5d046-5cab-4aba-bf6f-6bce2ccc3658"
+      },
+      {
+        "methodName": "PlayerCollection.GrantRogueliteAbility",
+        "methodLineNum": 20,
+        "codeBlockFileId": "7a7dceb0-a4b1-46b0-a4f7-96133703cddd"
+      },
+      {
+        "methodName": "GameData.GrantRunKillRewards",
+        "methodLineNum": 15,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      },
+      {
+        "methodName": "RoomMonster.Dead",
+        "methodLineNum": 10,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      },
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 12,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:14",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "798b7f9e-4fec-4e5d-9225-dec8d4a5b477",
+    "message": "[RogueliteReward] monster=m_dark_axe_stump skill=s_mon_dark_axe_stump offered=true",
+    "stackTrace": [
+      {
+        "methodName": "PlayerCollection.GrantRogueliteAbility",
+        "methodLineNum": 24,
+        "codeBlockFileId": "7a7dceb0-a4b1-46b0-a4f7-96133703cddd"
+      },
+      {
+        "methodName": "GameData.GrantRunKillRewards",
+        "methodLineNum": 15,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      },
+      {
+        "methodName": "RoomMonster.Dead",
+        "methodLineNum": 10,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      },
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 12,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:14",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[PlayerDB] 저장 완료 (Roguelite 능력 발견)  키=1개",
+    "stackTrace": [
+      {
+        "methodName": "PlayerDBManager.SaveToDB",
+        "methodLineNum": 53,
+        "codeBlockFileId": "69271eff-8404-4292-a1a5-5c3c05a49939"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:16",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[AuditWalk] room=r_12 next=r_17 pos=(-2.867, 1.000, 0.000) distance=15.867342710495",
+    "stackTrace": [
+      {
+        "methodName": "MakerScript",
+        "methodLineNum": 21,
+        "codeBlockFileId": null
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:19",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[AuditState] map=map12 hp=760 main=r_11>r_12>r_17>r_14>r_15",
+    "stackTrace": [
+      {
+        "methodName": "MakerScript",
+        "methodLineNum": 0,
+        "codeBlockFileId": null
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:21",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "08ee7ef2-a65d-4b52-bec4-bca1d49086a8",
+    "message": "[MonsterAttack] 다크 엑스텀프 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:21",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 760 → 730 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:21",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:21",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "08ee7ef2-a65d-4b52-bec4-bca1d49086a8",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 324.0 → 291.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:22",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:22",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "08ee7ef2-a65d-4b52-bec4-bca1d49086a8",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 291.0 → 258.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:23",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:23",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "08ee7ef2-a65d-4b52-bec4-bca1d49086a8",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 258.0 → 225.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:24",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:24",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "08ee7ef2-a65d-4b52-bec4-bca1d49086a8",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 225.0 → 192.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:25",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[AuditWalk] room=r_12 next=r_17 pos=(2.426, 1.000, 0.000) distance=10.574314832687",
+    "stackTrace": [
+      {
+        "methodName": "MakerScript",
+        "methodLineNum": 21,
+        "codeBlockFileId": null
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:25",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:25",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "08ee7ef2-a65d-4b52-bec4-bca1d49086a8",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 192.0 → 159.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:26",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:26",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "08ee7ef2-a65d-4b52-bec4-bca1d49086a8",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 159.0 → 126.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:27",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0c0f83e0-beeb-44b3-bc17-c0e28e4198be",
+    "message": "[MonsterAttack] 다크 엑스텀프 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:27",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 730 → 700 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:27",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:27",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "08ee7ef2-a65d-4b52-bec4-bca1d49086a8",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 126.0 → 93.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:29",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:29",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "08ee7ef2-a65d-4b52-bec4-bca1d49086a8",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 93.0 → 60.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:29",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0c0f83e0-beeb-44b3-bc17-c0e28e4198be",
+    "message": "[MonsterAttack] 다크 엑스텀프 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:29",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 700 → 670 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0c0f83e0-beeb-44b3-bc17-c0e28e4198be",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 324.0 → 291.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0c0f83e0-beeb-44b3-bc17-c0e28e4198be",
+    "message": "[MonsterAttack] 다크 엑스텀프 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 670 → 640 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:31",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:31",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "08ee7ef2-a65d-4b52-bec4-bca1d49086a8",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 60.0 → 27.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:31",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0c0f83e0-beeb-44b3-bc17-c0e28e4198be",
+    "message": "[MonsterAttack] 다크 엑스텀프 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:31",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 640 → 610 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:32",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:32",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "08ee7ef2-a65d-4b52-bec4-bca1d49086a8",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 27.0 → 0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:32",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "08ee7ef2-a65d-4b52-bec4-bca1d49086a8",
+    "message": "[RogueliteReward] monster=m_dark_axe_stump skill=s_mon_dark_axe_stump offered=false",
+    "stackTrace": [
+      {
+        "methodName": "PlayerCollection.GrantRogueliteAbility",
+        "methodLineNum": 24,
+        "codeBlockFileId": "7a7dceb0-a4b1-46b0-a4f7-96133703cddd"
+      },
+      {
+        "methodName": "GameData.GrantRunKillRewards",
+        "methodLineNum": 15,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      },
+      {
+        "methodName": "RoomMonster.Dead",
+        "methodLineNum": 10,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      },
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 12,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:32",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[PlayerDB] 저장 완료 (Roguelite 능력 발견)  키=1개",
+    "stackTrace": [
+      {
+        "methodName": "PlayerDBManager.SaveToDB",
+        "methodLineNum": 53,
+        "codeBlockFileId": "69271eff-8404-4292-a1a5-5c3c05a49939"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:32",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[AuditWalk] room=r_12 next=r_17 pos=(6.000, 1.000, 0.000) distance=6.9997086524963",
+    "stackTrace": [
+      {
+        "methodName": "MakerScript",
+        "methodLineNum": 21,
+        "codeBlockFileId": null
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:33",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:33",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "ea59e3c8-83f6-4f01-8ea8-e6cd3f649108",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 324.0 → 291.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:34",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:34",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0c0f83e0-beeb-44b3-bc17-c0e28e4198be",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 291.0 → 258.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:35",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:35",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "ea59e3c8-83f6-4f01-8ea8-e6cd3f649108",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 291.0 → 258.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:36",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:36",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0c0f83e0-beeb-44b3-bc17-c0e28e4198be",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 258.0 → 225.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:37",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:37",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "ea59e3c8-83f6-4f01-8ea8-e6cd3f649108",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 258.0 → 225.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:38",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:38",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0c0f83e0-beeb-44b3-bc17-c0e28e4198be",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 225.0 → 192.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:39",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:39",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0c0f83e0-beeb-44b3-bc17-c0e28e4198be",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 192.0 → 159.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:40",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:40",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0c0f83e0-beeb-44b3-bc17-c0e28e4198be",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 159.0 → 126.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:41",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:41",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0c0f83e0-beeb-44b3-bc17-c0e28e4198be",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 126.0 → 93.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:41",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[AuditWalk] room=r_12 next=r_17 pos=(11.108, 1.000, 0.000) distance=1.8919477462769",
+    "stackTrace": [
+      {
+        "methodName": "MakerScript",
+        "methodLineNum": 21,
+        "codeBlockFileId": null
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:42",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:42",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "ea59e3c8-83f6-4f01-8ea8-e6cd3f649108",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 225.0 → 192.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:43",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:43",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "ea59e3c8-83f6-4f01-8ea8-e6cd3f649108",
+    "message": "[RoomMonster] 피격 다크 엑스텀프  -33  HP 192.0 → 159.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:43",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[RoomPortal] Run 그룹 전환 r_12 → r_17",
+    "stackTrace": [
+      {
+        "methodName": "RoomPortal.TryPass",
+        "methodLineNum": 72,
+        "codeBlockFileId": "7653195d-625e-4860-b9f8-0dcb17313660"
+      },
+      {
+        "methodName": "RoomPortal.OnTriggerEnter",
+        "methodLineNum": 5,
+        "codeBlockFileId": "7653195d-625e-4860-b9f8-0dcb17313660"
+      }
+    ]
+  },
+  {
+    "logType": "Warning",
+    "dateTime": "2026-09-21T09:08:43",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5e0a7e50-0278-4461-97b2-801265498c0f",
+    "message": "[RoomBounds] RectTileMapComponent를 찾지 못함: map17",
+    "stackTrace": [
+      {
+        "methodName": "RoomCamera.ComputeRoomRect",
+        "methodLineNum": 4,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.ApplyCameraToLocalPlayer",
+        "methodLineNum": 4,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.RequestCameraApply",
+        "methodLineNum": 15,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.OnMapEnter",
+        "methodLineNum": 3,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      }
+    ]
+  },
+  {
+    "logType": "Warning",
+    "dateTime": "2026-09-21T09:08:43",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": false,
+    "owner": "Portal_W",
+    "subOwner": "TriggerComponent",
+    "ownerId": null,
+    "message": "[LWA-3019] NotRecommendedValue : Legacy 기능은 더 이상 지원하지 않으므로 안정성이 보장되지 않습니다. IsLegacy 프로퍼티 false 설정을 권장합니다. (/maps/map17/Portal_W/TriggerComponent)",
+    "stackTrace": []
+  },
+  {
+    "logType": "Warning",
+    "dateTime": "2026-09-21T09:08:43",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": false,
+    "owner": "Portal_N",
+    "subOwner": "TriggerComponent",
+    "ownerId": null,
+    "message": "[LWA-3019] NotRecommendedValue : Legacy 기능은 더 이상 지원하지 않으므로 안정성이 보장되지 않습니다. IsLegacy 프로퍼티 false 설정을 권장합니다. (/maps/map17/Portal_N/TriggerComponent)",
+    "stackTrace": []
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:43",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5e0a7e50-0278-4461-97b2-801265498c0f",
+    "message": "[RoomBounds] map17 외곽=(-14.0,-7.0)~(14.0,9.0)  타일 448칸  서버=false",
+    "stackTrace": [
+      {
+        "methodName": "RoomCamera.ComputeRoomRect",
+        "methodLineNum": 38,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.OnBeginPlay",
+        "methodLineNum": 2,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:43",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5e0a7e50-0278-4461-97b2-801265498c0f",
+    "message": "[RoomBounds] map17 카메라 가시영역 한계=(-14.00,-7.00)~(14.00,9.00)  UseCustomBound=true  Confine=true",
+    "stackTrace": [
+      {
+        "methodName": "RoomCamera.ApplyCameraToLocalPlayer",
+        "methodLineNum": 50,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.RequestCameraApply",
+        "methodLineNum": 15,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.OnBeginPlay",
+        "methodLineNum": 9,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:44",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[WorldMap] 격자 4x2  배율 0.98  칸 97x54",
+    "stackTrace": [
+      {
+        "methodName": "WorldMapPanel.Draw",
+        "methodLineNum": 23,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      },
+      {
+        "methodName": "WorldMapPanel.Refresh",
+        "methodLineNum": 46,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      },
+      {
+        "methodName": "WorldMapPanel.OnBeginPlay",
+        "methodLineNum": 22,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:44",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[WorldMap] 갱신 — 페리온  방 6개  현재 r_17",
+    "stackTrace": [
+      {
+        "methodName": "WorldMapPanel.Refresh",
+        "methodLineNum": 48,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      },
+      {
+        "methodName": "WorldMapPanel.OnBeginPlay",
+        "methodLineNum": 22,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:45",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:45",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 324.0 → 291.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:46",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:46",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 291.0 → 258.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:46",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[MonsterAttack] 파이어보어 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:46",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 610 → 580 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:47",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:47",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 258.0 → 225.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:48",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[MonsterAttack] 파이어보어 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:48",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 580 → 550 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:48",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:48",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 225.0 → 192.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:49",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:49",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 192.0 → 159.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:50",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:50",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 159.0 → 126.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:51",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[AuditWalk] room=r_17 next=r_14 pos=(-6.894, 3.404, 0.000) distance=8.2854536954689",
+    "stackTrace": [
+      {
+        "methodName": "MakerScript",
+        "methodLineNum": 21,
+        "codeBlockFileId": null
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:51",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:51",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 126.0 → 93.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:52",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:52",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 93.0 → 60.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:53",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:53",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 60.0 → 27.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:55",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:55",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 27.0 → 0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:55",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[SkillSlots] 능력 장착 2번 ← s_mon_fire_boar (m_fire_boar)",
+    "stackTrace": [
+      {
+        "methodName": "PlayerSkillSlots.OfferRunAbility",
+        "methodLineNum": 15,
+        "codeBlockFileId": "09d5d046-5cab-4aba-bf6f-6bce2ccc3658"
+      },
+      {
+        "methodName": "PlayerCollection.GrantRogueliteAbility",
+        "methodLineNum": 20,
+        "codeBlockFileId": "7a7dceb0-a4b1-46b0-a4f7-96133703cddd"
+      },
+      {
+        "methodName": "GameData.GrantRunKillRewards",
+        "methodLineNum": 15,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      },
+      {
+        "methodName": "RoomMonster.Dead",
+        "methodLineNum": 10,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      },
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 12,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:55",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8d9be3b2-cc04-41ca-9427-7cf3e76c71ca",
+    "message": "[RogueliteReward] monster=m_fire_boar skill=s_mon_fire_boar offered=true",
+    "stackTrace": [
+      {
+        "methodName": "PlayerCollection.GrantRogueliteAbility",
+        "methodLineNum": 24,
+        "codeBlockFileId": "7a7dceb0-a4b1-46b0-a4f7-96133703cddd"
+      },
+      {
+        "methodName": "GameData.GrantRunKillRewards",
+        "methodLineNum": 15,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      },
+      {
+        "methodName": "RoomMonster.Dead",
+        "methodLineNum": 10,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      },
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 12,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:08:56",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[PlayerDB] 저장 완료 (Roguelite 능력 발견)  키=1개",
+    "stackTrace": [
+      {
+        "methodName": "PlayerDBManager.SaveToDB",
+        "methodLineNum": 53,
+        "codeBlockFileId": "69271eff-8404-4292-a1a5-5c3c05a49939"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:00",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:00",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "f77786b1-d123-4dcd-800d-b18fd4dd28e7",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 324.0 → 291.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:00",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "f77786b1-d123-4dcd-800d-b18fd4dd28e7",
+    "message": "[MonsterAttack] 파이어보어 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:00",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 550 → 520 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:01",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:01",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "f77786b1-d123-4dcd-800d-b18fd4dd28e7",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 291.0 → 258.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:01",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[AuditWalk] room=r_17 next=r_14 pos=(-2.015, 6.657, 0.000) distance=2.4218215508094",
+    "stackTrace": [
+      {
+        "methodName": "MakerScript",
+        "methodLineNum": 21,
+        "codeBlockFileId": null
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:02",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "f77786b1-d123-4dcd-800d-b18fd4dd28e7",
+    "message": "[MonsterAttack] 파이어보어 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:02",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 520 → 490 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:02",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:02",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "f77786b1-d123-4dcd-800d-b18fd4dd28e7",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 258.0 → 225.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "f77786b1-d123-4dcd-800d-b18fd4dd28e7",
+    "message": "[MonsterAttack] 파이어보어 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 490 → 460 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "f77786b1-d123-4dcd-800d-b18fd4dd28e7",
+    "message": "[RoomMonster] 피격 파이어보어  -33  HP 225.0 → 192.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[PROGRESS] gate_pass | 2026-09-21T00:09:03Z | t=387.1 | user=[USER] | room=r_14 | gate=stat",
+    "stackTrace": [
+      {
+        "methodName": "ProgressLog.Emit",
+        "methodLineNum": 3,
+        "codeBlockFileId": "558c1896-7c76-4b14-b813-523bcae9419c"
+      },
+      {
+        "methodName": "ProgressLog.GatePass",
+        "methodLineNum": 4,
+        "codeBlockFileId": "558c1896-7c76-4b14-b813-523bcae9419c"
+      },
+      {
+        "methodName": "RoomPortal.TryPass",
+        "methodLineNum": 43,
+        "codeBlockFileId": "7653195d-625e-4860-b9f8-0dcb17313660"
+      },
+      {
+        "methodName": "RoomPortal.OnTriggerEnter",
+        "methodLineNum": 5,
+        "codeBlockFileId": "7653195d-625e-4860-b9f8-0dcb17313660"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[RoomPortal] Run 그룹 전환 r_17 → r_14",
+    "stackTrace": [
+      {
+        "methodName": "RoomPortal.TryPass",
+        "methodLineNum": 72,
+        "codeBlockFileId": "7653195d-625e-4860-b9f8-0dcb17313660"
+      },
+      {
+        "methodName": "RoomPortal.OnTriggerEnter",
+        "methodLineNum": 5,
+        "codeBlockFileId": "7653195d-625e-4860-b9f8-0dcb17313660"
+      }
+    ]
+  },
+  {
+    "logType": "Warning",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "ba518ab2-cc4a-44a6-9322-64ca6d808572",
+    "message": "[RoomBounds] RectTileMapComponent를 찾지 못함: map14",
+    "stackTrace": [
+      {
+        "methodName": "RoomCamera.ComputeRoomRect",
+        "methodLineNum": 4,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.ApplyCameraToLocalPlayer",
+        "methodLineNum": 4,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.RequestCameraApply",
+        "methodLineNum": 15,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.OnMapEnter",
+        "methodLineNum": 3,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      }
+    ]
+  },
+  {
+    "logType": "Warning",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": false,
+    "owner": "Portal_W",
+    "subOwner": "TriggerComponent",
+    "ownerId": null,
+    "message": "[LWA-3019] NotRecommendedValue : Legacy 기능은 더 이상 지원하지 않으므로 안정성이 보장되지 않습니다. IsLegacy 프로퍼티 false 설정을 권장합니다. (/maps/map14/Portal_W/TriggerComponent)",
+    "stackTrace": []
+  },
+  {
+    "logType": "Warning",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": false,
+    "owner": "Portal_S",
+    "subOwner": "TriggerComponent",
+    "ownerId": null,
+    "message": "[LWA-3019] NotRecommendedValue : Legacy 기능은 더 이상 지원하지 않으므로 안정성이 보장되지 않습니다. IsLegacy 프로퍼티 false 설정을 권장합니다. (/maps/map14/Portal_S/TriggerComponent)",
+    "stackTrace": []
+  },
+  {
+    "logType": "Warning",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": false,
+    "owner": "Portal_E",
+    "subOwner": "TriggerComponent",
+    "ownerId": null,
+    "message": "[LWA-3019] NotRecommendedValue : Legacy 기능은 더 이상 지원하지 않으므로 안정성이 보장되지 않습니다. IsLegacy 프로퍼티 false 설정을 권장합니다. (/maps/map14/Portal_E/TriggerComponent)",
+    "stackTrace": []
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "ba518ab2-cc4a-44a6-9322-64ca6d808572",
+    "message": "[RoomBounds] map14 외곽=(-14.0,-7.0)~(14.0,9.0)  타일 448칸  서버=false",
+    "stackTrace": [
+      {
+        "methodName": "RoomCamera.ComputeRoomRect",
+        "methodLineNum": 38,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.OnBeginPlay",
+        "methodLineNum": 2,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "ba518ab2-cc4a-44a6-9322-64ca6d808572",
+    "message": "[RoomBounds] map14 카메라 가시영역 한계=(-14.00,-7.00)~(14.00,9.00)  UseCustomBound=true  Confine=true",
+    "stackTrace": [
+      {
+        "methodName": "RoomCamera.ApplyCameraToLocalPlayer",
+        "methodLineNum": 50,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.RequestCameraApply",
+        "methodLineNum": 15,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.OnBeginPlay",
+        "methodLineNum": 9,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[WorldMap] 격자 4x2  배율 0.98  칸 97x54",
+    "stackTrace": [
+      {
+        "methodName": "WorldMapPanel.Draw",
+        "methodLineNum": 23,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      },
+      {
+        "methodName": "WorldMapPanel.Refresh",
+        "methodLineNum": 46,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      },
+      {
+        "methodName": "WorldMapPanel.OnBeginPlay",
+        "methodLineNum": 22,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:03",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[WorldMap] 갱신 — 페리온  방 6개  현재 r_14",
+    "stackTrace": [
+      {
+        "methodName": "WorldMapPanel.Refresh",
+        "methodLineNum": 48,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      },
+      {
+        "methodName": "WorldMapPanel.OnBeginPlay",
+        "methodLineNum": 22,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:06",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:06",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 324.0 → 291.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:07",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:07",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 291.0 → 258.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:08",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:08",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 258.0 → 225.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:08",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:08",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[MonsterAttack] 공격 모션 재생 (m_stone_golem_map14_1)  상태=MOVE",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.PlayAttackPose",
+        "methodLineNum": 32,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      },
+      {
+        "methodName": "MonsterAttack.OnAttack",
+        "methodLineNum": 9,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:08",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 460 → 430 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:09",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:09",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 225.0 → 192.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:10",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:10",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[MonsterAttack] 공격 모션 재생 (m_stone_golem_map14_2)  상태=MOVE",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.PlayAttackPose",
+        "methodLineNum": 32,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      },
+      {
+        "methodName": "MonsterAttack.OnAttack",
+        "methodLineNum": 9,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:10",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 430 → 400 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:10",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:10",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 192.0 → 159.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:11",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:11",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 324.0 → 291.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:11",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[AuditWalk] room=r_14 next=r_15 pos=(3.824, -2.005, 0.000) distance=9.6553411692627",
+    "stackTrace": [
+      {
+        "methodName": "MakerScript",
+        "methodLineNum": 21,
+        "codeBlockFileId": null
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:11",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:11",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[MonsterAttack] 공격 모션 재생 (m_stone_golem_map14_2)  상태=HIT",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.PlayAttackPose",
+        "methodLineNum": 32,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      },
+      {
+        "methodName": "MonsterAttack.OnAttack",
+        "methodLineNum": 9,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:11",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 400 → 370 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:12",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:12",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 291.0 → 258.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:12",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:12",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[MonsterAttack] 공격 모션 재생 (m_stone_golem_map14_2)  상태=HIT",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.PlayAttackPose",
+        "methodLineNum": 32,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      },
+      {
+        "methodName": "MonsterAttack.OnAttack",
+        "methodLineNum": 9,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:12",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 370 → 340 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:13",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:13",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 159.0 → 126.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:13",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:13",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[MonsterAttack] 공격 모션 재생 (m_stone_golem_map14_3)  상태=HIT",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.PlayAttackPose",
+        "methodLineNum": 32,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      },
+      {
+        "methodName": "MonsterAttack.OnAttack",
+        "methodLineNum": 9,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:13",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 340 → 310 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:14",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:14",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 126.0 → 93.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:14",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:14",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[MonsterAttack] 공격 모션 재생 (m_stone_golem_map14_3)  상태=HIT",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.PlayAttackPose",
+        "methodLineNum": 32,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      },
+      {
+        "methodName": "MonsterAttack.OnAttack",
+        "methodLineNum": 9,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:14",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 310 → 280 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:15",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:15",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 93.0 → 60.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:15",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:15",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[MonsterAttack] 공격 모션 재생 (m_stone_golem_map14_2)  상태=MOVE",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.PlayAttackPose",
+        "methodLineNum": 32,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      },
+      {
+        "methodName": "MonsterAttack.OnAttack",
+        "methodLineNum": 9,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:15",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 280 → 250 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:16",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:16",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 324.0 → 291.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:17",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:17",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 250 → 220 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:17",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:17",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 258.0 → 225.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:18",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:18",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[MonsterAttack] 공격 모션 재생 (m_stone_golem_map14_3)  상태=MOVE",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.PlayAttackPose",
+        "methodLineNum": 32,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      },
+      {
+        "methodName": "MonsterAttack.OnAttack",
+        "methodLineNum": 9,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:18",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 220 → 190 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:18",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:18",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 225.0 → 192.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:19",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:19",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[MonsterAttack] 공격 모션 재생 (m_stone_golem_map14_1)  상태=MOVE",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.PlayAttackPose",
+        "methodLineNum": 32,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      },
+      {
+        "methodName": "MonsterAttack.OnAttack",
+        "methodLineNum": 9,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:19",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 190 → 160 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:19",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:19",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 291.0 → 258.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:20",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:20",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[MonsterAttack] 공격 모션 재생 (m_stone_golem_map14_1)  상태=MOVE",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.PlayAttackPose",
+        "methodLineNum": 32,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      },
+      {
+        "methodName": "MonsterAttack.OnAttack",
+        "methodLineNum": 9,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:20",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 160 → 130 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:20",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:20",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 60.0 → 27.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:21",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[AuditWalk] room=r_14 next=r_15 pos=(7.722, -0.729, 0.000) distance=5.554121157677",
+    "stackTrace": [
+      {
+        "methodName": "MakerScript",
+        "methodLineNum": 21,
+        "codeBlockFileId": null
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:21",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:21",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[MonsterAttack] 공격 모션 재생 (m_stone_golem_map14_3)  상태=MOVE",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.PlayAttackPose",
+        "methodLineNum": 32,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      },
+      {
+        "methodName": "MonsterAttack.OnAttack",
+        "methodLineNum": 9,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:21",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 130 → 100 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:21",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:21",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 27.0 → 0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:21",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[SkillSlots] 능력 장착 3번 ← s_mon_stone (m_stone_golem)",
+    "stackTrace": [
+      {
+        "methodName": "PlayerSkillSlots.OfferRunAbility",
+        "methodLineNum": 15,
+        "codeBlockFileId": "09d5d046-5cab-4aba-bf6f-6bce2ccc3658"
+      },
+      {
+        "methodName": "PlayerCollection.GrantRogueliteAbility",
+        "methodLineNum": 20,
+        "codeBlockFileId": "7a7dceb0-a4b1-46b0-a4f7-96133703cddd"
+      },
+      {
+        "methodName": "GameData.GrantRunKillRewards",
+        "methodLineNum": 15,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      },
+      {
+        "methodName": "RoomMonster.Dead",
+        "methodLineNum": 10,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      },
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 12,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:21",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c332e708-e151-4fdd-b8e7-5a748ea772a1",
+    "message": "[RogueliteReward] monster=m_stone_golem skill=s_mon_stone offered=true",
+    "stackTrace": [
+      {
+        "methodName": "PlayerCollection.GrantRogueliteAbility",
+        "methodLineNum": 24,
+        "codeBlockFileId": "7a7dceb0-a4b1-46b0-a4f7-96133703cddd"
+      },
+      {
+        "methodName": "GameData.GrantRunKillRewards",
+        "methodLineNum": 15,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      },
+      {
+        "methodName": "RoomMonster.Dead",
+        "methodLineNum": 10,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      },
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 12,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:21",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[PlayerDB] 저장 완료 (Roguelite 능력 발견)  키=1개",
+    "stackTrace": [
+      {
+        "methodName": "PlayerDBManager.SaveToDB",
+        "methodLineNum": 53,
+        "codeBlockFileId": "69271eff-8404-4292-a1a5-5c3c05a49939"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:22",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:22",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 192.0 → 159.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:23",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:23",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 258.0 → 225.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:23",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:23",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 100 → 70 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:24",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:24",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 225.0 → 192.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:25",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:25",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 70 → 40 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:25",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:25",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 192.0 → 159.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:26",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:26",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[MonsterAttack] 공격 모션 재생 (m_stone_golem_map14_1)  상태=MOVE",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.PlayAttackPose",
+        "methodLineNum": 32,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      },
+      {
+        "methodName": "MonsterAttack.OnAttack",
+        "methodLineNum": 9,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:26",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 40 → 10 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:26",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:26",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 159.0 → 126.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:27",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:27",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 126.0 → 93.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:27",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:27",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP 10 → -20 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:27",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[RogueRun] FAILED — 전원 사망/이탈",
+    "stackTrace": [
+      {
+        "methodName": "GameData.CheckRogueliteRunFailure",
+        "methodLineNum": 7,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      },
+      {
+        "methodName": "GameData.OnRunPlayerDied",
+        "methodLineNum": 5,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      },
+      {
+        "methodName": "PlayerHit.HandleDeath",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      },
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 15,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:27",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[RogueView] 서버 그래프 수신 seed=2026",
+    "stackTrace": [
+      {
+        "methodName": "GameData.ApplyRogueliteView",
+        "methodLineNum": 16,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:28",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[WorldMap] 격자 4x2  배율 0.98  칸 97x54",
+    "stackTrace": [
+      {
+        "methodName": "WorldMapPanel.Draw",
+        "methodLineNum": 23,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      },
+      {
+        "methodName": "WorldMapPanel.Refresh",
+        "methodLineNum": 46,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      },
+      {
+        "methodName": "WorldMapPanel.OnBeginPlay",
+        "methodLineNum": 22,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:28",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[WorldMap] 갱신 — 페리온  방 6개  현재 r_14",
+    "stackTrace": [
+      {
+        "methodName": "WorldMapPanel.Refresh",
+        "methodLineNum": 48,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      },
+      {
+        "methodName": "WorldMapPanel.OnBeginPlay",
+        "methodLineNum": 22,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:28",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:28",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 93.0 → 60.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:28",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:28",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP -20 → -50 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:28",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[RogueRun] 참가자 사망/관전 [USER] — 생존 0",
+    "stackTrace": [
+      {
+        "methodName": "GameData.OnRunPlayerDied",
+        "methodLineNum": 10,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      },
+      {
+        "methodName": "PlayerHit.HandleDeath",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      },
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 15,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:29",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:29",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 60.0 → 27.0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "8c19b2cc-9b3a-4363-a2fb-68a7af768e72",
+    "message": "[MonsterAttack] 스톤골렘 평타 ATK=33.0 vs 플레이어 DEF=10 → 데미지 30",
+    "stackTrace": [
+      {
+        "methodName": "MonsterAttack.CalcDamage",
+        "methodLineNum": 84,
+        "codeBlockFileId": "ff8bc8db-b70b-4bfd-9aa1-be6c71203f9e"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerHit] 피격 -30  HP -50 → -80 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[RogueRun] 참가자 사망/관전 [USER] — 생존 0",
+    "stackTrace": [
+      {
+        "methodName": "GameData.OnRunPlayerDied",
+        "methodLineNum": 10,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      },
+      {
+        "methodName": "PlayerHit.HandleDeath",
+        "methodLineNum": 11,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      },
+      {
+        "methodName": "PlayerHit.OnHit",
+        "methodLineNum": 15,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[SkillSlots] Roguelite Run 전투 상태 정리",
+    "stackTrace": [
+      {
+        "methodName": "PlayerSkillSlots.EndRogueliteRun",
+        "methodLineNum": 10,
+        "codeBlockFileId": "09d5d046-5cab-4aba-bf6f-6bce2ccc3658"
+      },
+      {
+        "methodName": "GameData.CheckRogueliteRunFailure",
+        "methodLineNum": 17,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerAttack] ATK=35 vs DEF=9.0  스킬=기본공격  계수=1.200 → 데미지 33",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.CalcDamage",
+        "methodLineNum": 131,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[RoomMonster] 피격 스톤골렘  -33  HP 27.0 → 0",
+    "stackTrace": [
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 6,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "090de66e-b5c9-4d7d-afcd-afac82992ed3",
+    "message": "[RogueliteReward] monster=m_stone_golem skill=s_mon_stone offered=false",
+    "stackTrace": [
+      {
+        "methodName": "PlayerCollection.GrantRogueliteAbility",
+        "methodLineNum": 24,
+        "codeBlockFileId": "7a7dceb0-a4b1-46b0-a4f7-96133703cddd"
+      },
+      {
+        "methodName": "GameData.GrantRunKillRewards",
+        "methodLineNum": 15,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      },
+      {
+        "methodName": "RoomMonster.Dead",
+        "methodLineNum": 10,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      },
+      {
+        "methodName": "RoomMonster.HandleHitEvent",
+        "methodLineNum": 12,
+        "codeBlockFileId": "f3004724-226e-4373-92f5-7fb317ef29c0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PROGRESS] session_end | 2026-09-21T00:09:30Z | t=414.3 | user=[USER] | dur=413.6s | final_lv=1 | level_ups=0 | captures=0 | gate_passes=1 | rebirths=0",
+    "stackTrace": [
+      {
+        "methodName": "ProgressLog.Emit",
+        "methodLineNum": 3,
+        "codeBlockFileId": "558c1896-7c76-4b14-b813-523bcae9419c"
+      },
+      {
+        "methodName": "ProgressLog.SessionEnd",
+        "methodLineNum": 5,
+        "codeBlockFileId": "558c1896-7c76-4b14-b813-523bcae9419c"
+      },
+      {
+        "methodName": "PlayerDBManager.HandleUserLeaveEvent",
+        "methodLineNum": 17,
+        "codeBlockFileId": "69271eff-8404-4292-a1a5-5c3c05a49939"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerDB] 접속 종료 — 마지막 저장",
+    "stackTrace": [
+      {
+        "methodName": "PlayerDBManager.HandleUserLeaveEvent",
+        "methodLineNum": 19,
+        "codeBlockFileId": "69271eff-8404-4292-a1a5-5c3c05a49939"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "0a054751-1849-4582-bfbe-d804daf716ef",
+    "message": "[PlayerDB] 저장 완료 (접속 종료)  키=1개",
+    "stackTrace": [
+      {
+        "methodName": "PlayerDBManager.SaveToDB",
+        "methodLineNum": 44,
+        "codeBlockFileId": "69271eff-8404-4292-a1a5-5c3c05a49939"
+      },
+      {
+        "methodName": "PlayerDBManager.HandleUserLeaveEvent",
+        "methodLineNum": 20,
+        "codeBlockFileId": "69271eff-8404-4292-a1a5-5c3c05a49939"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[RogueRun] 로비 Room 전환 결과 moved=1 requested=1",
+    "stackTrace": [
+      {
+        "methodName": "GameData.ReturnRogueliteParticipantsToLobby",
+        "methodLineNum": 2,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      },
+      {
+        "methodName": "GameData.CheckRogueliteRunFailure",
+        "methodLineNum": 21,
+        "codeBlockFileId": "20fb72ee-51a3-4ef2-b494-378b46282854"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5a7b8e38-d2f0-428b-8c64-8e1290e5ce4f",
+    "message": "[PlayerHit] 마을 회복  HP 0 → 1000 / 1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHit.OnMapEnter",
+        "methodLineNum": 29,
+        "codeBlockFileId": "e7e4a2c6-bb63-431e-a521-336d3a614ba3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5a7b8e38-d2f0-428b-8c64-8e1290e5ce4f",
+    "message": "[PlayerAttack] 자동 공격 주기 1.0초로 다시 걸었다  (LUK 0)",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.RestartAutoAttack",
+        "methodLineNum": 28,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      },
+      {
+        "methodName": "PlayerAttack.OnBeginPlay",
+        "methodLineNum": 8,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5a7b8e38-d2f0-428b-8c64-8e1290e5ce4f",
+    "message": "[PlayerStats] 초기화  Lv=1  미분배P=0  ATK총합=35",
+    "stackTrace": [
+      {
+        "methodName": "PlayerStats.OnBeginPlay",
+        "methodLineNum": 8,
+        "codeBlockFileId": "77b508ef-fd2a-4815-bb51-7fad6d5f1045"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5a7b8e38-d2f0-428b-8c64-8e1290e5ce4f",
+    "message": "[PlayerAttack] 자동 공격 주기 1.0초로 다시 걸었다  (LUK 0)",
+    "stackTrace": [
+      {
+        "methodName": "PlayerAttack.RestartAutoAttack",
+        "methodLineNum": 28,
+        "codeBlockFileId": "21bdfdda-12f5-4a74-a1bb-fbf4d6e27993"
+      },
+      {
+        "methodName": "PlayerStats.ApplySpeeds",
+        "methodLineNum": 10,
+        "codeBlockFileId": "77b508ef-fd2a-4815-bb51-7fad6d5f1045"
+      },
+      {
+        "methodName": "PlayerStats.OnBeginPlay",
+        "methodLineNum": 15,
+        "codeBlockFileId": "77b508ef-fd2a-4815-bb51-7fad6d5f1045"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5a7b8e38-d2f0-428b-8c64-8e1290e5ce4f",
+    "message": "[PlayerCollection] 초기화  테이밍률=0.1000",
+    "stackTrace": [
+      {
+        "methodName": "PlayerCollection.OnBeginPlay",
+        "methodLineNum": 4,
+        "codeBlockFileId": "7a7dceb0-a4b1-46b0-a4f7-96133703cddd"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5a7b8e38-d2f0-428b-8c64-8e1290e5ce4f",
+    "message": "[SkillSlots] Roguelite 고정 5슬롯 준비 — Run 시작 대기",
+    "stackTrace": [
+      {
+        "methodName": "PlayerSkillSlots.InitializeRuntimeSkills",
+        "methodLineNum": 10,
+        "codeBlockFileId": "09d5d046-5cab-4aba-bf6f-6bce2ccc3658"
+      },
+      {
+        "methodName": "PlayerSkillSlots.OnBeginPlay",
+        "methodLineNum": 6,
+        "codeBlockFileId": "09d5d046-5cab-4aba-bf6f-6bce2ccc3658"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5a7b8e38-d2f0-428b-8c64-8e1290e5ce4f",
+    "message": "[SkillSlots] 초기화  몬스터 슬롯 5/5",
+    "stackTrace": [
+      {
+        "methodName": "PlayerSkillSlots.OnBeginPlay",
+        "methodLineNum": 7,
+        "codeBlockFileId": "09d5d046-5cab-4aba-bf6f-6bce2ccc3658"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5a7b8e38-d2f0-428b-8c64-8e1290e5ce4f",
+    "message": "[PlayerDB] 로드 시작",
+    "stackTrace": [
+      {
+        "methodName": "PlayerDBManager.OnBeginPlay",
+        "methodLineNum": 13,
+        "codeBlockFileId": "69271eff-8404-4292-a1a5-5c3c05a49939"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5a7b8e38-d2f0-428b-8c64-8e1290e5ce4f",
+    "message": "[Inventory] 초기화  장비 슬롯=weapon,armor,accessory",
+    "stackTrace": [
+      {
+        "methodName": "PlayerInventory.OnBeginPlay",
+        "methodLineNum": 3,
+        "codeBlockFileId": "104a8a02-07c4-4fff-bbed-5be986a46794"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[RoomBounds] maptown 유저 입장: [USER]",
+    "stackTrace": [
+      {
+        "methodName": "RoomCamera.OnUserEnter",
+        "methodLineNum": 2,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5a7b8e38-d2f0-428b-8c64-8e1290e5ce4f",
+    "message": "[PlayerDB] 로그라이트 전용 로드 완료 key=MakerTest_RoguelitePermanentV1 legacyWrites=false",
+    "stackTrace": [
+      {
+        "methodName": "PlayerDBManager.LoadRogueliteRecords",
+        "methodLineNum": 54,
+        "codeBlockFileId": "69271eff-8404-4292-a1a5-5c3c05a49939"
+      },
+      {
+        "methodName": "PlayerDBManager.LoadFromDB",
+        "methodLineNum": 4,
+        "codeBlockFileId": "69271eff-8404-4292-a1a5-5c3c05a49939"
+      },
+      {
+        "methodName": "PlayerDBManager.OnBeginPlay",
+        "methodLineNum": 14,
+        "codeBlockFileId": "69271eff-8404-4292-a1a5-5c3c05a49939"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:30",
+    "isGeneratedFromServer": true,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "5a7b8e38-d2f0-428b-8c64-8e1290e5ce4f",
+    "message": "[PlayerDB] Roguelite 모드 — 레거시 방 복원 생략",
+    "stackTrace": [
+      {
+        "methodName": "PlayerDBManager.OnBeginPlay",
+        "methodLineNum": 34,
+        "codeBlockFileId": "69271eff-8404-4292-a1a5-5c3c05a49939"
+      }
+    ]
+  },
+  {
+    "logType": "Warning",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "fba4f7aa-c389-4656-b751-178a8c31bb38",
+    "message": "[RoomBounds] RectTileMapComponent를 찾지 못함: maptown",
+    "stackTrace": [
+      {
+        "methodName": "RoomCamera.ComputeRoomRect",
+        "methodLineNum": 4,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.ApplyCameraToLocalPlayer",
+        "methodLineNum": 4,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.RequestCameraApply",
+        "methodLineNum": 15,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.OnMapEnter",
+        "methodLineNum": 3,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      }
+    ]
+  },
+  {
+    "logType": "Warning",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": false,
+    "owner": "Portal_E",
+    "subOwner": "TriggerComponent",
+    "ownerId": null,
+    "message": "[LWA-3019] NotRecommendedValue : Legacy 기능은 더 이상 지원하지 않으므로 안정성이 보장되지 않습니다. IsLegacy 프로퍼티 false 설정을 권장합니다. (/maps/maptown/Portal_E/TriggerComponent)",
+    "stackTrace": []
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[AreaSelect] OnBeginPlay — 닫힌 채로 시작, 칸 20개",
+    "stackTrace": [
+      {
+        "methodName": "AreaSelectPanel.OnBeginPlay",
+        "methodLineNum": 29,
+        "codeBlockFileId": "d4e08d16-1722-484c-b0e1-d90a645eafa0"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[EquipPanel] OnBeginPlay",
+    "stackTrace": [
+      {
+        "methodName": "EquipPanel.OnBeginPlay",
+        "methodLineNum": 2,
+        "codeBlockFileId": "3598353c-6a92-4942-a966-1c8b1f23ddb6"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[GateNotice] OnBeginPlay",
+    "stackTrace": [
+      {
+        "methodName": "GateNotice.OnBeginPlay",
+        "methodLineNum": 3,
+        "codeBlockFileId": "53160fd9-bae5-4906-9796-5205b37d8011"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[GoddessPanel] OnBeginPlay — 닫힌 채로 시작",
+    "stackTrace": [
+      {
+        "methodName": "GoddessPanel.OnBeginPlay",
+        "methodLineNum": 4,
+        "codeBlockFileId": "b0c4950c-027f-4f25-a390-94ad8317ceef"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[Inventory창] OnBeginPlay — 닫힌 채로 시작",
+    "stackTrace": [
+      {
+        "methodName": "InventoryPanel.OnBeginPlay",
+        "methodLineNum": 2,
+        "codeBlockFileId": "20acbffc-9887-45e5-84da-d35f3e479f68"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[퀵슬롯] OnBeginPlay",
+    "stackTrace": [
+      {
+        "methodName": "ItemQuickSlotBar.OnBeginPlay",
+        "methodLineNum": 1,
+        "codeBlockFileId": "a51b4424-614e-4007-b708-6fa98de9e36d"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[KeyConfig] OnBeginPlay — 닫힌 채로 시작",
+    "stackTrace": [
+      {
+        "methodName": "KeyConfigPanel.OnBeginPlay",
+        "methodLineNum": 2,
+        "codeBlockFileId": "a43f956a-7154-412c-9a37-7fcc6bb7b7d9"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[PlayerHud] OnBeginPlay  HP폭=330.0 EXP폭=330.0 보스폭=552.0",
+    "stackTrace": [
+      {
+        "methodName": "PlayerHud.OnBeginPlay",
+        "methodLineNum": 14,
+        "codeBlockFileId": "cd66a787-96bb-4b8f-9084-9abea139c7f6"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[RebirthConfirm] OnBeginPlay — 닫힌 채로 시작",
+    "stackTrace": [
+      {
+        "methodName": "RebirthConfirmPanel.OnBeginPlay",
+        "methodLineNum": 3,
+        "codeBlockFileId": "9915b67c-20a8-40df-ae57-a352942ae6c3"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[Run목표] HUD 활성",
+    "stackTrace": [
+      {
+        "methodName": "RoomProgressHud.OnBeginPlay",
+        "methodLineNum": 17,
+        "codeBlockFileId": "b414c314-5f30-4334-a518-8a4bef96a226"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[SkillBar] OnBeginPlay",
+    "stackTrace": [
+      {
+        "methodName": "SkillBar.OnBeginPlay",
+        "methodLineNum": 1,
+        "codeBlockFileId": "49aa569d-5bd9-4e2d-9b0e-e3a7545da354"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[SkillBar] 키 매핑 5/5칸 — Z,X,C,V,B,N,M",
+    "stackTrace": [
+      {
+        "methodName": "SkillBar.RebuildKeyMap",
+        "methodLineNum": 26,
+        "codeBlockFileId": "49aa569d-5bd9-4e2d-9b0e-e3a7545da354"
+      },
+      {
+        "methodName": "SkillBar.OnBeginPlay",
+        "methodLineNum": 34,
+        "codeBlockFileId": "49aa569d-5bd9-4e2d-9b0e-e3a7545da354"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[StatPanel] OnBeginPlay",
+    "stackTrace": [
+      {
+        "methodName": "StatPanel.OnBeginPlay",
+        "methodLineNum": 1,
+        "codeBlockFileId": "1870cc12-5d30-419f-9d0b-95b0184327bf"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[TraitPanel] OnBeginPlay",
+    "stackTrace": [
+      {
+        "methodName": "TraitPanel.OnBeginPlay",
+        "methodLineNum": 1,
+        "codeBlockFileId": "32c4dfaa-75ec-498d-b693-989ebe10697b"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[TraitPanel] Phase3.5 신규 전투 — 창·버튼 전체 비활성",
+    "stackTrace": [
+      {
+        "methodName": "TraitPanel.OnBeginPlay",
+        "methodLineNum": 6,
+        "codeBlockFileId": "32c4dfaa-75ec-498d-b693-989ebe10697b"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": null,
+    "message": "[WorldMap] OnBeginPlay",
+    "stackTrace": [
+      {
+        "methodName": "WorldMapPanel.OnBeginPlay",
+        "methodLineNum": 1,
+        "codeBlockFileId": "17e81f21-b72a-49bd-bcd5-204180b27fea"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "fba4f7aa-c389-4656-b751-178a8c31bb38",
+    "message": "[RoomBounds] maptown 외곽=(-14.0,-7.0)~(14.0,9.0)  타일 448칸  서버=false",
+    "stackTrace": [
+      {
+        "methodName": "RoomCamera.ComputeRoomRect",
+        "methodLineNum": 38,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.OnBeginPlay",
+        "methodLineNum": 2,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "fba4f7aa-c389-4656-b751-178a8c31bb38",
+    "message": "[RoomBounds] maptown 카메라 가시영역 한계=(-14.00,-7.00)~(14.00,9.00)  UseCustomBound=true  Confine=true",
+    "stackTrace": [
+      {
+        "methodName": "RoomCamera.ApplyCameraToLocalPlayer",
+        "methodLineNum": 50,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.RequestCameraApply",
+        "methodLineNum": 15,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      },
+      {
+        "methodName": "RoomCamera.OnBeginPlay",
+        "methodLineNum": 9,
+        "codeBlockFileId": "cb73e240-6585-4daa-9d58-53e12a06aab6"
+      }
+    ]
+  },
+  {
+    "logType": "Warning",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "1aa865ba-498f-4b5a-bf0b-4ddb594470cf",
+    "message": "[RoomPortal] 같은 엔티티에 TownGate가 있어 물러난다: Portal_E",
+    "stackTrace": [
+      {
+        "methodName": "RoomPortal.OnBeginPlay",
+        "methodLineNum": 10,
+        "codeBlockFileId": "7653195d-625e-4860-b9f8-0dcb17313660"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "e79e977e-747f-431d-a572-7c23a6dcfb06",
+    "message": "[RebirthNpc] 터치 대기",
+    "stackTrace": [
+      {
+        "methodName": "RebirthNpc.OnBeginPlay",
+        "methodLineNum": 4,
+        "codeBlockFileId": "d111b430-3f23-44db-9bc3-a1e9f9c08353"
+      }
+    ]
+  },
+  {
+    "logType": "Info",
+    "dateTime": "2026-09-21T09:09:39",
+    "isGeneratedFromServer": false,
+    "isLogByMaker": true,
+    "owner": null,
+    "subOwner": null,
+    "ownerId": "c58fbcc8-796b-45e7-b546-bdedfedff9f5",
+    "message": "[GoddessNpc] 터치 대기",
+    "stackTrace": [
+      {
+        "methodName": "GoddessNpc.OnBeginPlay",
+        "methodLineNum": 4,
+        "codeBlockFileId": "67fa3237-1021-4808-a47d-883f4fa8689b"
+      }
+    ]
+  }
+]

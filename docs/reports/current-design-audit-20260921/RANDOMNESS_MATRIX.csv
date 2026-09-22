@@ -1,0 +1,22 @@
+﻿Element,Classification,Random,SeedRelated,CurrentImplementation
+Map/Room Layout,RANDOM_PER_RUN,YES,YES,Seed가 기존 Room 템플릿의 연결 그래프·순서·주 경로를 결정
+Terrain/Tile Geometry,FIXED,NO,NO,각 .map 내부 타일·장식·충돌은 기존 템플릿 그대로
+Room Selection,RANDOM_PER_RUN,YES,YES,중간 Room을 Seed 기반 shuffle 후 경로/가지 후보로 선택
+Room Order,RANDOM_PER_RUN,YES,YES,연결 가능한 범위에서 주 경로 순서가 바뀜
+Branch,RANDOM_PER_RUN,YES,YES,0~run_branch_budget(2) 선택 위험 가지
+Corridor/Door Direction,CONDITIONAL,PARTIAL,YES,기존 Room 출입구 규격 중 연결 방향을 graph가 선택; 출입구 좌표 자체는 고정
+Internal Wall,FIXED,NO,NO,벽 위치를 생성하지 않음; 기존 맵 내부 collidable wall은 감사 당시 0
+Objective Type,FIXED,NO,NO,"Area 00/01 reach_exit, 나머지 defeat_final_guardian"
+Objective Room,CONDITIONAL,PARTIAL,YES,"Area 규칙으로 고정 후보를 선택; reach_exit는 비보스 단말, defeat는 boss Room"
+Monster Species,CONDITIONAL,PARTIAL,YES,Room 선택은 랜덤이나 각 Room의 species는 고정
+Monster Composition,FIXED,NO,NO,한 Room 한 species; 혼합 pack 생성 없음
+Monster Count,CONDITIONAL,PARTIAL,NO,"RoomTable 고정값, optional_risk는 +1, final은 1"
+Spawn Position,RANDOM_PER_SPAWN,YES,YES,Room 파생 RNG로 안전 후보 좌표를 개체마다 선택
+Spawn Timing,FIXED,NO,NO,Room 로드 또는 final entry 시 1회
+Respawn,NONE,NO,NO,Run one-shot encounter; 레거시 refill 경로는 Run에서 차단
+Rare/Strong Monster,FIXED,NO,NO,희귀 추첨 없음; optional/final Room 템플릿으로만 구분
+Skill Acquisition,FIXED,NO,NO,사용 가능한 monster skill은 처치 시 확정 제공; 확률 포획 미사용
+Skill Usage,FIXED,NO,NO,고정 5슬롯 직접 사용; 쿨다운만 적용
+Item Drop,NONE,NO,NO,Run death branch는 ItemDrop을 호출하지 않음
+Potion,NONE,NO,NO,Run에서 획득·사용 경로 모두 차단
+Boss,FIXED,NO,NO,defeat Area의 boss Room/monster는 데이터 고정; reach_exit는 보스 필수 아님

@@ -1,0 +1,2643 @@
+{
+  "project": "D:/maplestory_levup",
+  "sourceCommit": "883439b7107eca895ad0e9fcebefbf53d6026525",
+  "runtimeTool": "MSW Maker MCP",
+  "scope": "selected actual log observations; QA assistance and errors retained; not full multiplayer or visual certification",
+  "build": [
+    {
+      "timestamp": "2026-09-22T15:10:06",
+      "type": "Info",
+      "message": "<MODIssueFormat>LIA&Default&1115&0</MODIssueFormat><MODIssueArg>BeginRogueliteRun</MODIssueArg><MODIssueArg>Component</MODIssueArg>"
+    },
+    {
+      "timestamp": "2026-09-22T15:10:06",
+      "type": "Info",
+      "message": "<MODIssueFormat>LIA&Default&1115&0</MODIssueFormat><MODIssueArg>FinalizeRogueliteDiscoveries</MODIssueArg><MODIssueArg>Component</MODIssueArg>"
+    },
+    {
+      "timestamp": "2026-09-22T15:10:06",
+      "type": "Info",
+      "message": "<MODIssueFormat>LIA&Default&1115&0</MODIssueFormat><MODIssueArg>FinalizeRogueliteDiscoveries</MODIssueArg><MODIssueArg>Component</MODIssueArg>"
+    },
+    {
+      "timestamp": "2026-09-22T15:10:06",
+      "type": "Info",
+      "message": "<MODIssueFormat>LIA&Default&1115&0</MODIssueFormat><MODIssueArg>DiscardRogueliteDiscoveries</MODIssueArg><MODIssueArg>GameData</MODIssueArg>"
+    },
+    {
+      "timestamp": "2026-09-22T15:10:06",
+      "type": "Info",
+      "message": "<MODIssueFormat>LIA&Default&1114&0</MODIssueFormat><MODIssueArg>MonsterId</MODIssueArg><MODIssueArg>Component</MODIssueArg>"
+    },
+    {
+      "timestamp": "2026-09-22T15:10:06",
+      "type": "Info",
+      "message": "<MODIssueFormat>LIA&Default&1115&0</MODIssueFormat><MODIssueArg>GetTile</MODIssueArg><MODIssueArg>Component</MODIssueArg>"
+    },
+    {
+      "timestamp": "2026-09-22T15:10:06",
+      "type": "Info",
+      "message": "<MODIssueFormat>LIA&Default&1115&0</MODIssueFormat><MODIssueArg>ToCellPosition</MODIssueArg><MODIssueArg>Component</MODIssueArg>"
+    },
+    {
+      "timestamp": "2026-09-22T15:10:06",
+      "type": "Info",
+      "message": "<MODIssueFormat>LIA&Default&1114&0</MODIssueFormat><MODIssueArg>waterTileName</MODIssueArg><MODIssueArg>Component</MODIssueArg>"
+    },
+    {
+      "timestamp": "2026-09-22T12:07:15",
+      "type": "Warning",
+      "message": "<MODIssueFormat>LWA&Default&4012&0</MODIssueFormat><MODIssueArg>InputSpeed</MODIssueArg><MODIssueArg>MovementComponent</MODIssueArg>"
+    },
+    {
+      "timestamp": "2026-09-22T12:07:15",
+      "type": "Warning",
+      "message": "<MODIssueFormat>LWA&Default&4012&0</MODIssueFormat><MODIssueArg>AvatarAttackPlayRate</MODIssueArg><MODIssueArg>MonsterAttack</MODIssueArg>"
+    }
+  ],
+  "staticResults": [
+    {
+      "test": 0,
+      "exitCode": 0,
+      "output": "{\n  \"status\": \"PASS_STATIC\",\n  \"scope\": \"CSV identity/link/reference integrity and current configuration only\",\n  \"runtime\": \"NOT_RUN\",\n  \"counts\": {\n    \"monsterDefinitions\": 103,\n    \"skillDefinitions\": 112,\n    \"monsterSkillDefinitions\": 102,\n    \"linkedMonsterAbilities\": 101,\n    \"usableAbilities\": 66,\n    \"inactivePassiveAbilities\": 35,\n    \"legacyUnlinked\": [\n      \"s_mon_snail\"\n    ],\n    \"areas\": 20,\n    \"rooms\": 160\n  },\n  \"errors\": []\n}\n"
+    },
+    {
+      "test": 1,
+      "exitCode": 0,
+      "output": "PASS: current data + 104 negative in-memory mutations + optional blank/zero cooldown compatibility + CSV quoting/width checks. No game files written.\n"
+    },
+    {
+      "test": 2,
+      "exitCode": 0,
+      "output": "{\n  \"status\": \"PASS_STATIC\",\n  \"scope\": \"Current entry documents and data; historical reports are not current acceptance claims\",\n  \"documents\": 5,\n  \"links\": 11,\n  \"errors\": []\n}\n"
+    },
+    {
+      "test": 3,
+      "exitCode": 0,
+      "output": "{\n  \"status\": \"PASS_STATIC_AND_POLICY_MODEL\",\n  \"sourceNegativeTests\": 2,\n  \"policyModelTests\": [\n    \"autosave/settings-save/leave-save omit pending\",\n    \"abandon preserves all old/future IDs; late clear cannot add pending\",\n    \"CLEAR additive and idempotent\",\n    \"FAILED additive and idempotent\",\n    \"clear first cannot be overwritten by abandon\",\n    \"one participant abandonment leaves other pending intact\",\n    \"entity recreation retains pending only in live server Run\",\n    \"new Run resets transient pending; no old permanent deletion\"\n  ],\n  \"runtime\": \"NOT_RUN\",\n  \"storageWrites\": false\n}\n"
+    },
+    {
+      "test": 4,
+      "exitCode": 0,
+      "output": "{\n  \"status\": \"PASS_STATIC\",\n  \"scope\": \"actual source RPC ownership/routing, transition-guard structure\",\n  \"files\": [\n    \"RootDesk/MyDesk/Room/RoomPortal.mlua\",\n    \"RootDesk/MyDesk/UI/GateNotice.mlua\"\n  ],\n  \"negativeTests\": 4,\n  \"runtime\": \"NOT_RUN\",\n  \"writes\": false\n}\n"
+    },
+    {
+      "test": 5,
+      "exitCode": 0,
+      "output": "{\n  \"status\": \"PASS_STATIC\",\n  \"file\": \"RootDesk/MyDesk/GameData/GameData.mlua\",\n  \"scope\": \"generator/helper mutation fields have matching preflight snapshot and restore\",\n  \"fields\": [\n    \"RogueAreaId\",\n    \"RogueBossMonsterId\",\n    \"RogueEncounters\",\n    \"RogueFinalRoomId\",\n    \"RogueGenerationAttempt\",\n    \"RogueGraph\",\n    \"RogueLoadedSpawnerEntities\",\n    \"RogueMainPath\",\n    \"RogueObjectiveComplete\",\n    \"RogueObjectiveType\",\n    \"RogueParticipantResults\",\n    \"RoguePendingDiscoveries\",\n    \"RogueRngStates\",\n    \"RogueRoomRoles\",\n    \"RogueRunComplete\",\n    \"RogueRunFailed\",\n    \"RogueRunResult\",\n    \"RogueRunRevision\",\n    \"RogueSeed\",\n    \"RogueStartRoomId\",\n    \"RogueTransitionLocked\"\n  ],\n  \"helpers\": 18,\n  \"negativeTests\": 3,\n  \"runtime\": \"NOT_RUN\",\n  \"writes\": false\n}\n"
+    }
+  ],
+  "observations": [
+    {
+      "timestamp": "2026-09-22T14:23:58",
+      "type": "Info",
+      "message": "[PRQA] LOBBY map=maptown",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:25:55",
+      "type": "Info",
+      "message": "[PRQA] START map=map001 pool=0 active=true hp=nil key=MakerTest_RoguelitePermanentV1 path=r_001>r_002>r_004>r_02>r_04>r_24>r_27>r_13>r_005",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:26:24",
+      "type": "Error",
+      "message": "[LEA-2007] AttemptToIndex : 'h'을 인덱싱할 수 없습니다. 'h'은 nil입니다.",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:27:05",
+      "type": "Info",
+      "message": "[PRQA] PLAYER hp=1000 max=1000 map=map001 pos=(13.650, 3.981, 0.000)",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:27:05",
+      "type": "Info",
+      "message": "[PRQA] PORTAL dir=east pos=(13.000, 1.000, 0.000) target=r_002",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:27:05",
+      "type": "Info",
+      "message": "[PRQA] PORTAL dir=west pos=(-13.000, 1.000, 0.000) target=",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:27:40",
+      "type": "Info",
+      "message": "[PRQA] POS map002 (-10.500, -1.480, 0.000)",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:27:59",
+      "type": "Info",
+      "message": "[PRQA] SUPPLY t=158.47 map=map002 hp=660 pool=s_mon_blue_snail slots=s_mon_blue_snail,s_mon_blue_snail,nil,nil,nil",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:28:05",
+      "type": "Info",
+      "message": "[PRQA] SUPPLY t=163.76 map=map002 hp=660 pool=s_mon_blue_snail slots=s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail,nil,nil",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:28:10",
+      "type": "Info",
+      "message": "[PRQA] SUPPLY t=169.04 map=map002 hp=660 pool=s_mon_blue_snail slots=s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:28:16",
+      "type": "Info",
+      "message": "[PRQA] SUPPLY t=174.69 map=map002 hp=660 pool=s_mon_blue_snail slots=s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:28:21",
+      "type": "Info",
+      "message": "[PRQA] SUPPLY t=180.20 map=map002 hp=660 pool=s_mon_blue_snail slots=s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:28:27",
+      "type": "Info",
+      "message": "[PRQA] SUPPLY t=185.98 map=map002 hp=660 pool=s_mon_blue_snail slots=s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:28:32",
+      "type": "Info",
+      "message": "[PRQA] SUPPLY t=191.38 map=map002 hp=660 pool=s_mon_blue_snail slots=s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail,s_mon_blue_snail",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:30:01",
+      "type": "Info",
+      "message": "[PRQA] CANCEL active=true confirm=false open=false x=-10.5",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:30:01",
+      "type": "Info",
+      "message": "[PRQA] CANCEL_MOVE x=-9.[REDACTED_ACCOUNT_ID]",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:32:00",
+      "type": "Info",
+      "message": "[PRQA] ABANDON_LOBBY map=maptown active=false",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:32:17",
+      "type": "Info",
+      "message": "[PRQA] NEXT_RUN map=map041 hp=1000 pool=0",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:32:25",
+      "type": "Info",
+      "message": "[PRQA] QA_ASSISTED_PORTAL from=r_041 target=r_047",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:32:45",
+      "type": "Info",
+      "message": "[MegaAudit66] BEGIN count=66 mode=random_consumable saveWritesBlocked=true suppliedSlots=QA_ONLY",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 121
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:32:47",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_advanced_knight_b status=PASS_OBSERVED first=true secondImmediate=true interval=0.826 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=362.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:32:49",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_ancient_dark_golem status=PASS_OBSERVED first=true secondImmediate=true interval=0.[REDACTED_ACCOUNT_ID] firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=386.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:32:51",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_axe_stump status=PASS_OBSERVED first=true secondImmediate=true interval=0.784 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=78.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:32:52",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_blood_harp status=PASS_OBSERVED first=true secondImmediate=true interval=0.783 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=284.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:32:54",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_blue_snail status=PASS_OBSERVED first=true secondImmediate=true interval=0.829 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=shield_state damage=0.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:32:56",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_blue_wyvern status=PASS_OBSERVED first=true secondImmediate=true interval=0.948 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=292.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:32:57",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_chief_memory_guardian status=PASS_OBSERVED first=true secondImmediate=true interval=0.806 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=310.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:32:59",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_chimera status=PASS_OBSERVED first=true secondImmediate=true interval=0.872 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=272.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:01",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_chronos status=PASS_OBSERVED first=true secondImmediate=true interval=0.898 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=222.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:03",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_cygnus status=PASS_OBSERVED first=true secondImmediate=true interval=0.794 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=760.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:04",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_dark_axe_stump status=PASS_OBSERVED first=true secondImmediate=true interval=0.81 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=90.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:06",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_dark_stump status=PASS_OBSERVED first=true secondImmediate=true interval=0.[REDACTED_ACCOUNT_ID] firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=shield_state damage=0.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:08",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_deo status=PASS_OBSERVED first=true secondImmediate=true interval=0.893 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=254.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:10",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_dodo status=PASS_OBSERVED first=true secondImmediate=true interval=1.105 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=326.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:12",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_drake status=PASS_OBSERVED first=true secondImmediate=true interval=0.[REDACTED_ACCOUNT_ID] firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=146.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:13",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_drumming_bunny status=PASS_OBSERVED first=true secondImmediate=true interval=0.[REDACTED_ACCOUNT_ID] firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=200.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:16",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_eliza status=PASS_OBSERVED first=true secondImmediate=true interval=1.432 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=180.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:18",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_fairy status=PASS_OBSERVED first=true secondImmediate=true interval=0.776 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=84.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:19",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_faust status=PASS_OBSERVED first=true secondImmediate=true interval=0.883 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=92.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:21",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_fire_boar status=PASS_OBSERVED first=true secondImmediate=true interval=0.[REDACTED_ACCOUNT_ID] firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=102.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:23",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_hector status=PASS_OBSERVED first=true secondImmediate=true interval=0.[REDACTED_ACCOUNT_ID] firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=296.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:24",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_homun status=PASS_OBSERVED first=true secondImmediate=true interval=0.[REDACTED_ACCOUNT_ID] firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=246.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:26",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_jr_balrog status=PASS_OBSERVED first=true secondImmediate=true interval=0.819 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=140.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:28",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_jr_wraith status=PASS_OBSERVED first=true secondImmediate=true interval=0.819 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=108.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:29",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_king_bloctopus status=PASS_OBSERVED first=true secondImmediate=true interval=0.881 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=210.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:31",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_king_clang status=PASS_OBSERVED first=true secondImmediate=true interval=0.795 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=158.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:33",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_lunar_pixie status=PASS_OBSERVED first=true secondImmediate=true interval=0.857 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=156.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:35",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_mano status=PASS_OBSERVED first=true secondImmediate=true interval=1.096 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=86.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:37",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_manon status=PASS_OBSERVED first=true secondImmediate=true interval=0.801 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=308.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:38",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_mateon status=PASS_OBSERVED first=true secondImmediate=true interval=0.925 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=316.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:40",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_mecateon status=PASS_OBSERVED first=true secondImmediate=true interval=0.883 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=326.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:42",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_meercat status=PASS_OBSERVED first=true secondImmediate=true interval=0.[REDACTED_ACCOUNT_ID] firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=236.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:44",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_memory_monk_trainee status=PASS_OBSERVED first=true secondImmediate=true interval=0.831 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=302.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:45",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_mushmom status=PASS_OBSERVED first=true secondImmediate=true interval=0.807 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=80.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:47",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_mushroom status=PASS_OBSERVED first=true secondImmediate=true interval=0.[REDACTED_ACCOUNT_ID] firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=66.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:49",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_mutant_iron_hog status=PASS_OBSERVED first=true secondImmediate=true interval=0.848 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=662.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:51",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_mutant_stumpy status=PASS_OBSERVED first=true secondImmediate=true interval=1.242 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=800.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:53",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_octopus status=PASS_OBSERVED first=true secondImmediate=true interval=0.[REDACTED_ACCOUNT_ID] firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=98.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:54",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_official_knight_c status=PASS_OBSERVED first=true secondImmediate=true interval=0.[REDACTED_ACCOUNT_ID] firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=350.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:57",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_peach_monkey status=PASS_OBSERVED first=true secondImmediate=true interval=1.987 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=274.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:33:59",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_pianus status=PASS_OBSERVED first=true secondImmediate=true interval=1.099 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=206.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:02",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_red_snail status=PASS_OBSERVED first=true secondImmediate=true interval=1.385 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=124.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:04",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_ribbon_pig status=PASS_OBSERVED first=true secondImmediate=true interval=1.118 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=194.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:06",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_roid status=PASS_OBSERVED first=true secondImmediate=true interval=0.956 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=250.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:08",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_rombot status=PASS_OBSERVED first=true secondImmediate=true interval=0.985 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=228.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:10",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_shade status=PASS_OBSERVED first=true secondImmediate=true interval=1.599 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=126.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:13",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_shark status=PASS_OBSERVED first=true secondImmediate=true interval=1.267 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=188.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:15",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_skeleton_commander status=PASS_OBSERVED first=true secondImmediate=true interval=1.391 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=120.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:17",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_slime status=PASS_OBSERVED first=true secondImmediate=true interval=1.289 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=68.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:19",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_snail_dew_trail status=PASS_OBSERVED first=true secondImmediate=true interval=0.[REDACTED_ACCOUNT_ID] firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=54.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:21",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_snow_witch status=PASS_OBSERVED first=true secondImmediate=true interval=1.051 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=188.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:23",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_squid status=PASS_OBSERVED first=true secondImmediate=true interval=1.345 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=180.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:26",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_star_pixie status=PASS_OBSERVED first=true secondImmediate=true interval=1.276 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=146.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:28",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_starfish status=PASS_OBSERVED first=true secondImmediate=true interval=1.26 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=116.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:31",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_stone status=PASS_OBSERVED first=true secondImmediate=true interval=2.155 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=shield_state damage=0.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:34",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_stumpy status=PASS_OBSERVED first=true secondImmediate=true interval=1.562 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=114.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:36",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_tae_roon status=PASS_OBSERVED first=true secondImmediate=true interval=1.282 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=292.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:38",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_tauromacis status=PASS_OBSERVED first=true secondImmediate=true interval=1.054 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=168.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:40",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_timer status=PASS_OBSERVED first=true secondImmediate=true interval=1.237 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=240.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:42",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_toy_trojan status=PASS_OBSERVED first=true secondImmediate=true interval=1.126 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=382.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:44",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_white_fang status=PASS_OBSERVED first=true secondImmediate=true interval=0.899 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=174.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 165
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:47",
+      "type": "Info",
+      "message": "[MegaAudit66] CLEANUP transient HP/positions/slots/shield restored where valid; ABANDON_QA_RUN_REQUIRED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 106
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:47",
+      "type": "Info",
+      "message": "[MegaAudit66] DONE observed=61 pass=61 fail=0 notRun=5 interrupted=true harnessOk=true cleanupOk=true seconds=121.491 ABANDON_QA_RUN_REQUIRED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 179
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:34:50",
+      "type": "Info",
+      "message": "[PRQA] VIEW map=map047 active=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:35:20",
+      "type": "Info",
+      "message": "[MegaAudit66] BEGIN count=5 mode=random_consumable saveWritesBlocked=true suppliedSlots=QA_ONLY",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 125
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:35:22",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_white_sand_rabbit status=PASS_OBSERVED first=true secondImmediate=true interval=1.285 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=228.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 169
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:35:24",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_wild_boar status=PASS_OBSERVED first=true secondImmediate=true interval=1.137 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=162.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 169
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:35:26",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_wild_kargo status=PASS_OBSERVED first=true secondImmediate=true interval=1.299 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=274.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 169
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:35:29",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_wooden_dummy status=PASS_OBSERVED first=true secondImmediate=true interval=1.549 firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=266.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 169
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:35:30",
+      "type": "Info",
+      "message": "[MegaAudit66] ROW id=s_mon_zeno status=PASS_OBSERVED first=true secondImmediate=true interval=0.[REDACTED_ACCOUNT_ID] firstSlotOnly=true bothConsumed=true cooldownUnchanged=true effect=true effectKind=damage damage=340.0 vfx=REAL_CAST_PATH_NOT_VISUALLY_CERTIFIED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 169
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:35:31",
+      "type": "Info",
+      "message": "[MegaAudit66] CLEANUP transient HP/positions/slots/shield restored where valid; ABANDON_QA_RUN_REQUIRED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 110
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:35:31",
+      "type": "Info",
+      "message": "[MegaAudit66] DONE observed=5 pass=5 fail=0 notRun=0 interrupted=false harnessOk=true cleanupOk=true seconds=10.959 ABANDON_QA_RUN_REQUIRED",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:35:47",
+      "type": "Info",
+      "message": "[PRQA] TIMER_REGRESSION expectedDeadline=230.894 actualDeadline=232.231 unchanged=false",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:36:35",
+      "type": "Info",
+      "message": "[PRQA] ABANDON_SERVER_SIM case=last_alive_leaves expected=FAILED actual=ACTIVE pass=false",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 101
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:36:35",
+      "type": "Info",
+      "message": "[PRQA] ABANDON_SERVER_SIM case=survivor_remains expected=ACTIVE actual=ACTIVE pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 101
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:36:35",
+      "type": "Info",
+      "message": "[PRQA] ABANDON_SERVER_SIM case=solo_leaves expected=ABANDONED actual=ABANDONED pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 101
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:39:36",
+      "type": "Info",
+      "message": "[PRQA] ABANDON_SERVER_SIM case=last_alive_leaves expected=FAILED actual=FAILED pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 101
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:39:36",
+      "type": "Info",
+      "message": "[PRQA] ABANDON_SERVER_SIM case=survivor_remains expected=ACTIVE actual=ACTIVE pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 101
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:39:36",
+      "type": "Info",
+      "message": "[PRQA] ABANDON_SERVER_SIM case=solo_leaves expected=ABANDONED actual=ABANDONED pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 101
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:40:56",
+      "type": "Info",
+      "message": "[PRQA] RESET hp=1000 pool=0 slots=nil objective=false",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:40:57",
+      "type": "Info",
+      "message": "[PRQA] TIMER_FIXED expectedDeadline=85.188 actualDeadline=85.188 unchanged=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:41:14",
+      "type": "Info",
+      "message": "[PRQA] TRAVERSE_BEGIN area=mega_03 seed=92203 nodes=9",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 10
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:41:16",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_03 from=r_091 to=r_096",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:41:18",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_03 from=r_096 to=r_093",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:41:20",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_03 from=r_093 to=r_102",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:41:22",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_03 from=r_102 to=r_103",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:41:24",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_03 from=r_103 to=r_117",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:41:26",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_03 from=r_117 to=r_113",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:41:28",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_03 from=r_113 to=r_123",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:41:31",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_03 from=r_123 to=r_105",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:41:32",
+      "type": "Info",
+      "message": "[PRQA] BOSS_BEGIN area=mega_03 id=m_pianus hp=960.0",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 48
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:41:59",
+      "type": "Info",
+      "message": "[PRQA] BOSS_END area=mega_03 result=CLEAR objective=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 55
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:42:35",
+      "type": "Info",
+      "message": "[PRQA] AFTER_CLEAR map=maptown",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:43:23",
+      "type": "Info",
+      "message": "[PRQA] TRAVERSE_BEGIN area=mega_04 seed=92204 nodes=8",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 10
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:43:23",
+      "type": "Error",
+      "message": "[LEA-3032] FailedSendToClient : TargetUserId '[REDACTED_ACCOUNT_ID]'은 유효하지 않습니다.",
+      "stack": [
+        {
+          "method": "RoomPortal.TryPass",
+          "line": 54
+        },
+        {
+          "method": "MakerScript",
+          "line": 24
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:43:25",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_04 from=r_131 to=r_132",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:43:27",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_04 from=r_132 to=r_137",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:43:29",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_04 from=r_137 to=r_143",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:43:31",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_04 from=r_143 to=r_151",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:43:31",
+      "type": "Error",
+      "message": "[LEA-3032] FailedSendToClient : TargetUserId '[REDACTED_ACCOUNT_ID]'은 유효하지 않습니다.",
+      "stack": [
+        {
+          "method": "RoomPortal.TryPass",
+          "line": 54
+        },
+        {
+          "method": "MakerScript",
+          "line": 24
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:43:33",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_04 from=r_151 to=r_154",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:43:33",
+      "type": "Error",
+      "message": "[LEA-3032] FailedSendToClient : TargetUserId '[REDACTED_ACCOUNT_ID]'은 유효하지 않습니다.",
+      "stack": [
+        {
+          "method": "RoomPortal.TryPass",
+          "line": 54
+        },
+        {
+          "method": "MakerScript",
+          "line": 24
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:43:36",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_04 from=r_154 to=r_164",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:43:36",
+      "type": "Error",
+      "message": "[LEA-3032] FailedSendToClient : TargetUserId '[REDACTED_ACCOUNT_ID]'은 유효하지 않습니다.",
+      "stack": [
+        {
+          "method": "RoomPortal.TryPass",
+          "line": 54
+        },
+        {
+          "method": "MakerScript",
+          "line": 24
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:43:38",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_04 from=r_164 to=r_155",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:43:39",
+      "type": "Info",
+      "message": "[PRQA] BOSS_BEGIN area=mega_04 id=m_tae_roon hp=960.0",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 48
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:44:07",
+      "type": "Info",
+      "message": "[PRQA] BOSS_END area=mega_04 result=CLEAR objective=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 55
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:46:36",
+      "type": "Info",
+      "message": "[PRQA] TRAVERSE_BEGIN area=mega_05 seed=92205 nodes=8",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 10
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:46:37",
+      "type": "Error",
+      "message": "[LEA-3032] FailedSendToClient : TargetUserId '[REDACTED_ACCOUNT_ID]'은 유효하지 않습니다.",
+      "stack": [
+        {
+          "method": "RoomPortal.TryPass",
+          "line": 54
+        },
+        {
+          "method": "MakerScript",
+          "line": 24
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:46:39",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_171 to=r_172",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:46:41",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_172 to=r_177",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:46:43",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_177 to=r_183",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:46:46",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_183 to=r_191",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:46:46",
+      "type": "Error",
+      "message": "[LEA-3032] FailedSendToClient : TargetUserId '[REDACTED_ACCOUNT_ID]'은 유효하지 않습니다.",
+      "stack": [
+        {
+          "method": "RoomPortal.TryPass",
+          "line": 54
+        },
+        {
+          "method": "MakerScript",
+          "line": 24
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:46:48",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_191 to=r_194",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:46:48",
+      "type": "Error",
+      "message": "[LEA-3032] FailedSendToClient : TargetUserId '[REDACTED_ACCOUNT_ID]'은 유효하지 않습니다.",
+      "stack": [
+        {
+          "method": "RoomPortal.TryPass",
+          "line": 54
+        },
+        {
+          "method": "MakerScript",
+          "line": 24
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:46:50",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_194 to=r_204",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:46:50",
+      "type": "Error",
+      "message": "[LEA-3032] FailedSendToClient : TargetUserId '[REDACTED_ACCOUNT_ID]'은 유효하지 않습니다.",
+      "stack": [
+        {
+          "method": "RoomPortal.TryPass",
+          "line": 54
+        },
+        {
+          "method": "MakerScript",
+          "line": 24
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:46:52",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_204 to=r_175",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:46:53",
+      "type": "Info",
+      "message": "[PRQA] BOSS_BEGIN area=mega_05 id=m_dodo hp=960.0",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 48
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:47:49",
+      "type": "Info",
+      "message": "[PRQA] BOSS_END area=mega_05 result=ACTIVE objective=false",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 55
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:47:54",
+      "type": "Info",
+      "message": "[PRQA] CLIENT_OBSERVATION map=map204 hp=596 result=ACTIVE",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:48:09",
+      "type": "Info",
+      "message": "[PRQA] ABANDON_SERVER_SIM case=last_alive_leaves expected=FAILED actual=FAILED pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 105
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:48:09",
+      "type": "Info",
+      "message": "[PRQA] ABANDON_SERVER_SIM case=survivor_remains expected=ACTIVE actual=ACTIVE pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 105
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:48:09",
+      "type": "Info",
+      "message": "[PRQA] ABANDON_SERVER_SIM case=solo_leaves expected=ABANDONED actual=ABANDONED pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 105
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:48:36",
+      "type": "Info",
+      "message": "[PRQA] AREA5_DIAG map=map204",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:48:37",
+      "type": "Info",
+      "message": "[PRQA] AREA5_BOSS map=map175 hp=168.0 dead=false pos=-10.[REDACTED_ACCOUNT_ID],-0.[REDACTED_ACCOUNT_ID]",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:50:28",
+      "type": "Info",
+      "message": "[PRQA] TRAVERSE_BEGIN area=mega_05 seed=92205 nodes=8",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 13
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:50:30",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_171 to=r_172",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:50:32",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_172 to=r_177",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:50:35",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_177 to=r_183",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:50:37",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_183 to=r_191",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:50:39",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_191 to=r_194",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:50:41",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_194 to=r_204",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:50:43",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_05 from=r_204 to=r_175",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:50:44",
+      "type": "Info",
+      "message": "[PRQA] BOSS_BEGIN area=mega_05 id=m_dodo hp=960.0",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 51
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:51:40",
+      "type": "Info",
+      "message": "[PRQA] BOSS_END area=mega_05 result=ACTIVE objective=false",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 62
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:52:19",
+      "type": "Info",
+      "message": "[PRQA] AREA5_RETURN map=maptown",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:52:46",
+      "type": "Info",
+      "message": "[PRQA] TRAVERSE_BEGIN area=mega_01 seed=92201 nodes=9",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 13
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:52:48",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_001 to=r_006",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:52:50",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_006 to=r_003",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:52:52",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_003 to=r_04",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:52:54",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_04 to=r_01",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:52:56",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_01 to=r_22",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:52:58",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_22 to=r_26",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:53:00",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_26 to=r_12",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:53:02",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_12 to=r_25",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:53:03",
+      "type": "Info",
+      "message": "[PRQA] BOSS_BEGIN area=mega_01 id=m_faust hp=960.0",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 51
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:53:18",
+      "type": "Info",
+      "message": "[PRQA] PARTY_MODEL_SIM PASS:members=2;hpScale=1.25;leader=SIM_1;leaderOnly=1;readyAll=1;area=mega_03;mode=MONSTER_SKILL;snapshot=2;isolated=1;memberAbandon=1;lastCloses=1",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:53:18",
+      "type": "Info",
+      "message": "[PRQA] PARTY_MODEL_SIM PASS:members=3;hpScale=1.5;leader=SIM_1;leaderOnly=1;readyAll=1;area=mega_03;mode=MONSTER_SKILL;snapshot=3;isolated=1;memberAbandon=1;lastCloses=1",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:53:18",
+      "type": "Info",
+      "message": "[PRQA] PARTY_MODEL_SIM PASS:members=4;hpScale=1.75;leader=SIM_1;leaderOnly=1;readyAll=1;area=mega_03;mode=MONSTER_SKILL;snapshot=4;isolated=1;memberAbandon=1;lastCloses=1",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:53:46",
+      "type": "Info",
+      "message": "[PRQA] BOSS_END area=mega_01 result=CLEAR objective=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 60
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:54:50",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_PREFLIGHT area=mega_01 seed=922101 valid=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:54:58",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_PREFLIGHT area=mega_01 seed=922102 valid=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:55:00",
+      "type": "Info",
+      "message": "[PRQA] TRAVERSE_BEGIN area=mega_02 seed=92202 nodes=9",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 13
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:55:02",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_02 from=r_041 to=r_047",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:55:04",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_02 from=r_047 to=r_044",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:55:07",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_02 from=r_044 to=r_052",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:55:09",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_02 from=r_052 to=r_053",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:55:11",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_02 from=r_053 to=r_074",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:55:13",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_02 from=r_074 to=r_077",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:55:15",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_02 from=r_077 to=r_082",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:55:17",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_02 from=r_082 to=r_085",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 37
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:55:18",
+      "type": "Info",
+      "message": "[PRQA] BOSS_BEGIN area=mega_02 id=m_eliza hp=960.0",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 51
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:55:22",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_PREFLIGHT area=mega_01 seed=922103 valid=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:55:24",
+      "type": "Info",
+      "message": "[PRQA] PREFLIGHT_CONTEXT active=false result=ACTIVE",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:55:56",
+      "type": "Info",
+      "message": "[PRQA] BOSS_END area=mega_02 result=CLEAR objective=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 60
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:58:43",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_ROW area=mega_01 seed=922101 valid=true preflightRestored=true reproducible=true pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 49
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T14:59:22",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_ROW area=mega_01 seed=922102 valid=true preflightRestored=true reproducible=true pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 49
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:00:06",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_ROW area=mega_02 seed=922201 valid=true preflightRestored=true reproducible=true pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 49
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:00:48",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_ROW area=mega_02 seed=922202 valid=true preflightRestored=true reproducible=true pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 49
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:01:07",
+      "type": "Info",
+      "message": "[PRQA] PARTY_WINDOW_CLOSED map=maptown",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:01:52",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_ROW area=mega_03 seed=922301 valid=true preflightRestored=true reproducible=true pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 49
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:02:48",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_ROW area=mega_03 seed=922302 valid=true preflightRestored=true reproducible=true pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 49
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:04:08",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_ROW area=mega_04 seed=922401 valid=true preflightRestored=true reproducible=true pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 49
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:05:18",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_ROW area=mega_04 seed=922402 valid=true preflightRestored=true reproducible=true pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 49
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:06:02",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_ROW area=mega_05 seed=922501 valid=true preflightRestored=true reproducible=true pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 49
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:06:43",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_ROW area=mega_05 seed=922502 valid=true preflightRestored=true reproducible=true pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 49
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:06:43",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_INVALID rejected=true restored=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 57
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:06:43",
+      "type": "Info",
+      "message": "[PRQA] GENERATOR_DONE pass=10 fail=0 harnessOk=true error=nil",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 60
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:11:44",
+      "type": "Info",
+      "message": "[PRQA] DISCOVERY_SAVED kind=ABANDON monster=m_ancient_dark_golem skill=s_mon_ancient_dark_golem pending=true excluded=true readbackExcluded=true oldPreserved=true qaKey=MakerTest_PRQA_Discovery_20260922_ABANDON_28864",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 52
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:11:44",
+      "type": "Info",
+      "message": "[PRQA] DISCOVERY_HARNESS ok=true error=nil",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 58
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:12:21",
+      "type": "Info",
+      "message": "[PRQA] DISCOVERY_CANCEL_HANDLER_COMPLETE",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:12:50",
+      "type": "Info",
+      "message": "[PRQA] CANCEL_AFTER_MOVE pos=1.[REDACTED_ACCOUNT_ID],0.[REDACTED_ACCOUNT_ID]",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:13:40",
+      "type": "Error",
+      "message": "[LEA-2011] AttemptToCall : 'GetRunOwnedSkillCount'을 호출할 수 없습니다. 'GetRunOwnedSkillCount'은 nil입니다.",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:15:25",
+      "type": "Info",
+      "message": "[PRQA] AFTER_ABANDON_NEW_RUN pool=0 slot1=nil hp=1000 pendingEmpty=true newDiscoveryAbsent=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:15:30",
+      "type": "Info",
+      "message": "[PRQA] DISCOVERY_SAVED kind=FAILED monster=m_ancient_dark_golem skill=s_mon_ancient_dark_golem pending=true excluded=true readbackExcluded=true oldPreserved=true qaKey=MakerTest_PRQA_Discovery_20260922_FAILED_68397",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 53
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:15:30",
+      "type": "Info",
+      "message": "[PRQA] DISCOVERY_HARNESS ok=true error=nil",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 59
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:15:31",
+      "type": "Info",
+      "message": "[PRQA] FAIL_SETTLEMENT result=FAILED permanentMonster=true permanentAbility=true pendingCleared=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 63
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:16:46",
+      "type": "Info",
+      "message": "[PRQA] TERMINAL_STORAGE_READBACK key=MakerTest_RoguelitePermanentV1 readable=true hasNew=false expected=false pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:16:47",
+      "type": "Info",
+      "message": "[PRQA] TERMINAL_STORAGE_READBACK key=MakerTest_PRQA_Discovery_20260922_ABANDON_28864 readable=true hasNew=false expected=false pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:16:47",
+      "type": "Info",
+      "message": "[PRQA] TERMINAL_STORAGE_READBACK key=MakerTest_PRQA_Discovery_20260922_FAILED_68397 readable=true hasNew=true expected=true pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:16:48",
+      "type": "Info",
+      "message": "[PRQA] FAIL_LOBBY_RESET map=maptown pool=0 timer=0 hp=1000",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:18:34",
+      "type": "Info",
+      "message": "[PRQA] AFTER_FAIL_NEW_RUN pool=0 slot1=nil hp=1000 pendingEmpty=true objective=false",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:18:41",
+      "type": "Info",
+      "message": "[PRQA] DISCOVERY_SAVED kind=CLEAR monster=m_ancient_dark_golem skill=s_mon_ancient_dark_golem pending=true excluded=true readbackExcluded=true oldPreserved=true qaKey=MakerTest_PRQA_Discovery_20260922_CLEAR_62685",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 53
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:18:41",
+      "type": "Info",
+      "message": "[PRQA] DISCOVERY_HARNESS ok=true error=nil",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 59
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:21:17",
+      "type": "Info",
+      "message": "[PRQA] TRAVERSE_BEGIN area=mega_01 seed=92303 nodes=8",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:21:19",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_001 to=r_002",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 39
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:21:22",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_002 to=r_004",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 39
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:21:24",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_004 to=r_04",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 39
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:21:26",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_04 to=r_27",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 39
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:21:28",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_27 to=r_22",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 39
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:21:30",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_22 to=r_12",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 39
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:21:33",
+      "type": "Info",
+      "message": "[PRQA] PORTAL_VERIFIED area=mega_01 from=r_12 to=r_005",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 39
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:21:34",
+      "type": "Info",
+      "message": "[PRQA] BOSS_BEGIN area=mega_01 id=m_mano hp=960.0",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 53
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:22:04",
+      "type": "Info",
+      "message": "[PRQA] BOSS_END area=mega_01 result=CLEAR objective=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 62
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:23:25",
+      "type": "Info",
+      "message": "[PRQA] CLEAR_STORAGE_READBACK isolated=true readable=true hasNew=true pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:23:25",
+      "type": "Info",
+      "message": "[PRQA] CLEAR_STORAGE_READBACK isolated=false readable=true hasNew=false pass=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-09-22T15:23:37",
+      "type": "Info",
+      "message": "[PRQA] FINAL_PREFLIGHT_PENDING valid=true restored=true",
+      "stack": [
+        {
+          "method": "MakerScript",
+          "line": 0
+        }
+      ]
+    }
+  ]
+}

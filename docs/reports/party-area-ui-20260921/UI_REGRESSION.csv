@@ -1,0 +1,12 @@
+test_id,screen,state,expected,status,evidence
+U01,AreaSelect,Solo,"MEGA 1~5와 Solo 옵션 표시",PASS_RUNTIME,"evidence/area_select_solo.png"
+U02,AreaSelect,Normal,"일반 모드 선택 표시",PASS_RUNTIME,"evidence/area_select_normal.png"
+U03,AreaSelect,MonsterSkill,"몬스터 스킬 모드 선택 표시",PASS_RUNTIME,"evidence/area_select_monster_skill.png"
+U04,AreaSelect,Party,"Party 1/4 및 준비 대기 표시",PASS_RUNTIME,"evidence/area_select_party.png"
+U05,PartyWindow,Open,"파티 코드/리더/인원/준비 UI 표시",PASS_RUNTIME,"evidence/party_window.png"
+U06,RunMenu,Open,"우측 상단 RUN 메뉴와 던전 나가기 표시",PASS_RUNTIME,"evidence/dungeon_run_menu.png"
+U07,AbandonConfirm,Open,"1회 확인창과 나가기/취소 표시",PASS_RUNTIME,"evidence/dungeon_leave_confirm.png"
+U08,AbandonConfirm,Cancel,"마스크/입력 차단 제거 후 전투 복귀",PASS_RUNTIME,"evidence/dungeon_leave_cancelled.png"
+U09,AbandonConfirm,Confirm,"Run UI 닫힘 및 로비 복귀",PASS_RUNTIME,"runtime logs"
+U10,PartyRunHud,Solo,"Solo에서는 파티 HUD 숨김",PASS_RUNTIME,"solo run capture/log"
+U11,PartyRunHud,Multiplayer,"실제 파티원 상태 동기 표시",BLOCKED_RUNTIME_MULTIPLAYER,"independent clients unavailable"

@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+// Keep historical RPG document checks available without treating their old
+// growth/stack/region claims as the current Mega Area contract.
+if (!process.argv.includes('--legacy-rpg')) {
+  require('./verify-current-docs.cjs').main();
+} else {
+console.error('HISTORICAL_RPG_DOCUMENT_CHECK: not current Mega Area acceptance');
 const fs = require('fs');
 const path = require('path');
 
@@ -303,3 +309,4 @@ if (failures.length > 0) {
 
 console.log('KNOWLEDGE BASE VERIFY: PASS');
 console.log(JSON.stringify(summary, null, 2));
+}
