@@ -152,10 +152,20 @@ script PlayerHit extends HitComponent
 	-- 실행공간을 비워둔다. 서버는 데미지 감쇄에, 클라는 표시에 쓴다.
 	-- 읽는 값이 @TargetUserSync라 주인 클라에도 같은 값이 있다.
 	method number GetDamageReduction()
-		-- 지금 받는 피해를 얼마나 깎는가. 실드가 없거나 만료면 0.
-		if self.ShieldRatio <= 0 then return 0 end
-		if _UtilLogic.ElapsedSeconds >= self.ShieldUntil then return 0 end
-		return self.ShieldRatio
+		-- Skill 실드와 Run 영구(판 한정) 피해 감소를 한 곳에서 합친다.
+		-- 각 효과는 원래 값을 유지하고 합계만 90% 상한을 둬 무적화를 막는다.
+		local reduction = 0
+		if self.ShieldRatio > 0 and _UtilLogic.ElapsedSeconds < self.ShieldUntil then
+			reduction = self.ShieldRatio
+		end
+		if _GameData.RogueRunActive and isvalid(self.Entity.PlayerComponent) then
+			local stack = _GameData:GetRunUpgradeStack(self.Entity.PlayerComponent.UserId, "damage_reduction")
+			local ratio = _GameData:GetBalance("run_upgrade_damage_reduction_ratio")
+			if ratio <= 0 then ratio = 0.10 end
+			reduction = reduction + stack * ratio
+		end
+		if reduction > 0.9 then reduction = 0.9 end
+		return reduction
 	end
 
 	@ExecSpace("Client")

@@ -1,0 +1,162 @@
+-- @서버 권한 + @클라이언트 표시
+-- Run 몬스터가 남기는 공유 능력 드롭. 접촉 자동 획득이 아니라 InteractionComponent의
+-- E/모바일 상호작용으로만 SkillDropManager에 획득을 요청한다.
+
+@Component
+script SkillDrop extends Component
+
+    @Sync
+    property string MonsterId = ""
+
+    @Sync
+    property string SkillId = ""
+
+    @Sync
+    property string ClaimState = "AVAILABLE"
+
+    @Sync
+    property integer RemainingSeconds = 60
+
+    property integer RecordSerial = 0
+    property number ExpireAt = 0
+    property integer lifetimeTimer = 0
+    property string lastFrameStyle = ""
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self:RefreshVisual()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSyncProperty(string name, any value)
+        if name == "MonsterId" or name == "SkillId" or name == "ClaimState"
+            or name == "RemainingSeconds" then
+            self:RefreshVisual()
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ActivateServer(number lifetime)
+        if lifetime <= 0 then lifetime = 60 end
+        self.ClaimState = "AVAILABLE"
+        self.RemainingSeconds = math.ceil(lifetime)
+        self.ExpireAt = _UtilLogic.ServerElapsedSeconds + lifetime
+
+        local interaction = self.Entity.InteractionComponent
+        if isvalid(interaction) then
+            local range = _GameData:GetBalance("skill_drop_interact_range")
+            if range <= 0 then range = 1.25 end
+            interaction.ColliderType = ColliderType.Circle
+            interaction.CircleRadius = range
+            interaction.ShowActionInfo = true
+        end
+        self:RefreshInteractionLabelServer(self.RemainingSeconds)
+
+        if self.lifetimeTimer ~= 0 then _TimerService:ClearTimer(self.lifetimeTimer) end
+        self.lifetimeTimer = _TimerService:SetTimerRepeat(function()
+            if isvalid(self.Entity) == false or self.ClaimState ~= "AVAILABLE" then return end
+            local remain = math.max(0, math.ceil(self.ExpireAt - _UtilLogic.ServerElapsedSeconds))
+            if remain ~= self.RemainingSeconds then
+                self.RemainingSeconds = remain
+                self:RefreshInteractionLabelServer(remain)
+            end
+            if remain <= 0 then _SkillDropManager:ExpireDrop(self) end
+        end, 0.25)
+        log("[SkillDrop] AVAILABLE monster=" .. self.MonsterId .. " skill=" .. self.SkillId
+            .. " lifetime=" .. tostring(lifetime))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RefreshInteractionLabelServer(integer remain)
+        local interaction = self.Entity.InteractionComponent
+        if isvalid(interaction) == false then return end
+        local skill = self.SkillId ~= "" and _GameData:GetSkill(self.SkillId) or nil
+        local skillName = skill ~= nil and skill.name or "능력"
+        local startAt = math.floor(_GameData:GetBalance("skill_drop_countdown_start"))
+        local warningAt = math.floor(_GameData:GetBalance("skill_drop_warning_seconds"))
+        if startAt <= 0 then startAt = 30 end
+        if warningAt <= 0 then warningAt = 10 end
+        local label = skillName .. " · 획득"
+        if remain <= startAt then
+            label = label .. " · " .. tostring(math.max(0, remain)) .. "초"
+            if remain <= warningAt then label = "! " .. label end
+        end
+        interaction.ActionName = label
+    end
+
+    @ExecSpace("ServerOnly")
+    method void PrepareSuspend(string reason)
+        if self.lifetimeTimer ~= 0 then
+            _TimerService:ClearTimer(self.lifetimeTimer)
+            self.lifetimeTimer = 0
+        end
+        self.ClaimState = "SUSPENDED"
+        log("[SkillDrop] SUSPEND serial=" .. tostring(self.RecordSerial)
+            .. " skill=" .. self.SkillId .. " reason=" .. reason)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void PrepareRemove(string reason)
+        if self.lifetimeTimer ~= 0 then
+            _TimerService:ClearTimer(self.lifetimeTimer)
+            self.lifetimeTimer = 0
+        end
+        if self.ClaimState == "AVAILABLE" then self.ClaimState = "REMOVED" end
+        log("[SkillDrop] REMOVE skill=" .. self.SkillId .. " reason=" .. reason)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshVisual()
+        if isvalid(self.Entity) == false then return end
+        local skill = self.SkillId ~= "" and _GameData:GetSkill(self.SkillId) or nil
+
+        local icon = self.Entity:GetChildByName("Icon", false)
+        if isvalid(icon) and isvalid(icon.SpriteRendererComponent) and skill ~= nil
+            and skill.icon_ruid ~= nil and skill.icon_ruid ~= "" then
+            icon.SpriteRendererComponent.SpriteRUID = skill.icon_ruid
+        end
+
+        local warningAt = math.floor(_GameData:GetBalance("skill_drop_warning_seconds"))
+        if warningAt <= 0 then warningAt = 10 end
+        self:ApplySkillFrame(self.RemainingSeconds <= warningAt)
+
+        self.Entity:SetVisible(self.ClaimState == "AVAILABLE")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ApplySkillFrame(boolean urgent)
+        local style = urgent and "URGENT" or "NORMAL"
+        if self.lastFrameStyle == style then return end
+        local frame = self.Entity:GetChildByName("SkillFrame", false)
+        if isvalid(frame) == false or isvalid(frame.PixelRendererComponent) == false then return end
+
+        -- UI 전용 RUID를 World SpriteRenderer에 넣지 않는다. PixelRenderer로 기존
+        -- SkillBar의 어두운 슬롯/금색 테두리 인상을 작게 재현한다.
+        local pixels = {}
+        local outer = urgent and Color(0.72, 0.13, 0.10, 1) or Color(0.12, 0.10, 0.08, 1)
+        local accent = urgent and Color(1.00, 0.48, 0.16, 1) or Color(0.86, 0.67, 0.28, 1)
+        -- Frame가 renderer 순서 차이로 Icon 위에 놓여도 중앙을 가리지 않도록
+        -- 내부는 투명하게 둔다. 외곽/금색 bevel만 Skill 버튼으로 읽힌다.
+        local inner = Color(0.09, 0.11, 0.14, 0)
+        for y = 1, 32 do
+            for x = 1, 32 do
+                local edge = math.min(x - 1, y - 1, 32 - x, 32 - y)
+                if edge < 1 then pixels[#pixels + 1] = outer
+                elseif edge < 3 then pixels[#pixels + 1] = accent
+                else pixels[#pixels + 1] = inner end
+            end
+        end
+        frame.PixelRendererComponent:ResetWithColors(32, 32, pixels)
+        self.lastFrameStyle = style
+    end
+
+    @ExecSpace("ServerOnly")
+    @EventSender("Self", "InteractionComponent")
+    handler HandleInteraction(InteractionEvent event)
+        if self.ClaimState ~= "AVAILABLE" then return end
+        local player = event.InteractionEntity
+        if isvalid(player) == false or isvalid(player.PlayerComponent) == false then return end
+        _SkillDropManager:TryClaim(self, player)
+    end
+
+end

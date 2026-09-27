@@ -1,0 +1,19 @@
+TestID,Category,Scenario,Expected,Observed,Status,Evidence
+UI-01,UI,60초 Drop 표시,Skill Frame/Icon/이름/E 상호작용 표시,금색/암색 프레임과 Icon 및 E 상호작용 표시 확인,PASS_RUNTIME,evidence/skill_drop_final_60s.png
+UI-02,UI,30초 이하 카운트다운,남은 초 표시,카운트다운 표시 확인,PASS_RUNTIME,evidence/skill_drop_final_30s.png
+UI-03,UI,10초 이하 경고,! 및 경고색 프레임,! 표기와 적색/주황 프레임 확인,PASS_RUNTIME,evidence/skill_drop_final_10s.png
+UI-04,UI,다중 Drop,화면을 가리지 않고 개별 구분,4개 프레임 동시 표시 확인,PASS_RUNTIME,evidence/skill_drop_final_multiple.png
+LIFE-01,Lifetime,방 이동 후 복원,원래 expire_time 기준 남은 시간으로 복원,serial=8 remain=47.55로 복원,PASS_RUNTIME,evidence/skill_drop_final_backtracking.png
+LIFE-02,Lifetime,다른 방에서 만료,복귀 시 재생성 없음,serial=9 EXPIRED 후 복귀 화면에 없음,PASS_RUNTIME,evidence/skill_drop_final_expired_backtracking.png
+ROLL-01,Guarantee,모두 보유 Kill,Drop 없음/첫 보장 미소비,SKIP_ALL_OWNED first_resolved=false,PASS_RUNTIME,Maker normal log 13:10:10
+ROLL-02,Guarantee,최초 유효 Kill,공유 Drop 정확히 1개/첫 보장 소비,repeatedEligible=3 delta=1 chance=1.00,PASS_SERVER_SIM,Maker normal log 13:10:10
+ROLL-03,Guarantee,첫 보장 이후 Kill,10% Roll,first=false chance=0.10 확인,PASS_SERVER_SIM,Maker normal log 13:10:10
+CLAIM-01,Claim,동일 Drop 동시 Claim,첫 요청만 성공,first=true second=false remainingRecord=false,PASS_RUNTIME,Maker normal log 13:10:10
+CLAIM-02,Claim,이미 보유한 플레이어 Claim,거부되고 Drop 유지,rejected=true remains=true,PASS_RUNTIME,Maker normal log 13:10:10
+POOL-01,Integration,Claim 후 OwnedSkillPool,SkillID 1회 추가,Run 능력 풀 추가 s_mon_red_snail,PASS_RUNTIME,Maker normal log 13:10:10
+SUPPLY-01,Integration,OwnedSkillPool 후 공급,5초마다 한 칸 공급,13:10:15/20/25/30/35 공급,PASS_RUNTIME,Maker normal log
+CLEAN-01,Cleanup,Drop 존재 상태 Run 포기,레코드/엔티티/보장/타이머 정리,RUN_ABANDONED count=1 후 INSTANCE_END count=0,PASS_RUNTIME,Maker normal log 13:12:41
+CLEAN-02,Cleanup,로비 복귀 후 timer,Drop/Supply 추가 실행 없음,7초 관찰 중 관련 로그 없음,PASS_RUNTIME,Maker normal log 13:12:41+
+BUILD-01,Build,최종 Build,Error 0,Info 25 Warning 2 Error 0,PASS,Maker build log
+RUNTIME-01,Runtime,최종 Play,Error/Fatal 0,3048 logs 중 Error/Fatal 0,PASS,Maker normal log
+MULTI-01,Multiplayer,독립 2~4인 Claim/공유 보장,실제 멀티클라이언트 검증,단일 클라이언트 환경으로 미실행,BLOCKED_RUNTIME_MULTIPLAYER,Server code + simulation only

@@ -273,6 +273,8 @@ script RoomPortal extends Component
             -- 사망자는 집결 조건에서 제외한다. 전환 확정 뒤 목적지에서 재합류시킨다.
             _GameData:ReviveRunSpectatorsAtTransition(targetRoomId, arrive)
             _GameData:SetRunSubzone(targetRoomId)
+            -- Skill Drop은 단순 Room 이동으로 삭제하지 않는다. 맵이 unload되면
+            -- SkillDropManager가 논리 Record와 원래 expireAt을 보존하고 재입장 시 복원한다.
             local runUsers = _UserService:GetUsersByMapName(currentMap.Name)
             for i = 1, #runUsers do
                 local runPlayer = runUsers[i]

@@ -323,11 +323,18 @@ script PlayerCollection extends Component
 
     @ExecSpace("ServerOnly")
     method boolean GrantRogueliteAbility(string monsterId, table record)
-        -- 처치/능력 발견은 Run 종료 전에는 임시 원장에만 남긴다. TotalMonsterKills의
-        -- 기존 정책은 유지하며, 도감은 CLEAR/FAILED에서만 영구 반영한다.
+        -- 레거시 호출 호환용. 신규 Run은 처치 시 자동 능력 획득을 하지 않는다.
+        return self:RecordRogueliteKill(monsterId)
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean RecordRogueliteKill(string monsterId)
+        local record = _GameData:GetMonster(monsterId)
+        if record == nil then return false end
+        -- 처치/몬스터 발견은 Run 종료 전 임시 원장에 남긴다. 능력 발견은 실제
+        -- Skill Drop 상호작용 성공 시 SkillDropManager가 별도로 기록한다.
         self.TotalMonsterKills[monsterId] = self:GetTotalMonsterKills(monsterId) + 1
         _GameData:StageRogueliteDiscovery(self.Entity.PlayerComponent.UserId, monsterId, "")
-
         local skillId = record.drop_skill_id
         local skill = skillId ~= "" and _GameData:GetSkill(skillId) or nil
         if skill == nil or skill.source ~= "monster" or skill.slot_type ~= "monster"
@@ -337,20 +344,10 @@ script PlayerCollection extends Component
                 self.Entity.PlayerComponent.UserId)
             return true
         end
-
-        ---@type PlayerSkillSlots
-        local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
-        local acquired = false
-        if slots ~= nil then acquired = slots:TryAcquireRunAbility(monsterId, skillId) end
-        if acquired then _GameData:StageRogueliteDiscovery(self.Entity.PlayerComponent.UserId, monsterId, skillId) end
-        self:MarkSave(acquired and "Roguelite 능력 발견" or "Roguelite 몬스터 발견")
-        if acquired then
-            self:OnRogueliteDiscovery(record.name, skill.name, true,
-                self.Entity.PlayerComponent.UserId)
-        end
+        self:MarkSave("Roguelite 몬스터 발견")
         log("[RogueliteReward] monster=" .. monsterId .. " skill=" .. skillId
-            .. " acquired=" .. tostring(acquired))
-        return acquired
+            .. " auto_acquired=false")
+        return true
     end
 
     @ExecSpace("ServerOnly")
