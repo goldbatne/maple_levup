@@ -371,7 +371,7 @@ script GameData extends Logic
                     -- 무엇을 하는 스킬인지를 데이터가 들고 있어야 설명도 띄우고
                     -- 판정도 갈라 쓸 수 있다.
                     --
-                    -- skill_kind   attack / defense — 방어도 **같은 슬롯**을 먹는다
+                    -- skill_kind   attack / defense / buff — 모두 같은 슬롯을 먹는다
                     --              (대표: "스킬이잖아?"). 분류는 표시와 판정 분기용이다.
                     -- target_mode  single / area / self
                     -- max_targets  multi·area에서 최대 몇을 때리나. 0 = 제한 없음
@@ -495,6 +495,18 @@ script GameData extends Logic
                     -- 비어 있으면 시전자 자리에서 즉시 판정한다.
                     -- 갈리는 곳은 MonsterAttack.CastSkill / PlayerAttack.UseSkill 한 줄씩이다.
                     projectile_ruid = self:ToText(row:GetItem("projectile_ruid")),
+                    -- 랜덤 사용권 한 칸이 만드는 실제 공간 행동. 이름·VFX만 다른 원형
+                    -- 공격으로 되돌아가지 않도록 Player/Monster adapter가 함께 읽는다.
+                    behavior = self:ToText(row:GetItem("behavior")),
+                    behavior_width = self:ToNumber(row:GetItem("behavior_width"), 0),
+                    behavior_delay = self:ToNumber(row:GetItem("behavior_delay"), 0),
+                    behavior_ticks = self:ToNumber(row:GetItem("behavior_ticks"), 1),
+                    behavior_interval = self:ToNumber(row:GetItem("behavior_interval"), 0),
+                    secondary_effect = self:ToText(row:GetItem("secondary_effect")),
+                    secondary_value = self:ToNumber(row:GetItem("secondary_value"), 0),
+                    secondary_duration = self:ToNumber(row:GetItem("secondary_duration"), 0),
+                    enemy_control_scale = self:ToNumber(row:GetItem("enemy_control_scale"), 0.6),
+                    boss_control_scale = self:ToNumber(row:GetItem("boss_control_scale"), 0.35),
                     description = self:ToText(row:GetItem("description")),
                 }
             end
@@ -862,9 +874,19 @@ script GameData extends Logic
             if skill.effect_type == "heal" then out[#out + 1] = "Heal" end
             return out
         end
+        if skill.skill_kind == "buff" then
+            out[#out + 1] = "AttackBuff"
+            return out
+        end
 
         if skill.dash_distance > 0 then out[#out + 1] = "Rush" end
         if skill.projectile_ruid ~= "" then out[#out + 1] = "Projectile" end
+        if skill.secondary_effect == "WEAKEN" then
+            out[#out + 1] = "Debuff"
+        elseif skill.secondary_effect == "SLOW" or skill.secondary_effect == "STUN"
+            or skill.secondary_effect == "PULL" or skill.secondary_effect == "KNOCKBACK" then
+            out[#out + 1] = "Control"
+        end
         if skill.target_mode == "area" then
             out[#out + 1] = "Area"
         else
@@ -1128,6 +1150,51 @@ script GameData extends Logic
         local roomId = self.roomsByMap[mapName]
         if roomId == nil then return nil end
         return self.rooms[roomId]
+    end
+
+    @ExecSpace("ServerOnly")
+    method Vector3 TraceSkillEndpoint(Entity map, Vector3 fromPos, Vector3 toPos)
+        -- 투사체와 돌진의 그림/도착 판정이 같은 지형 끝점을 사용한다.
+        -- 실제 RectTile 충돌만 막고 일반 바닥·장식은 통과시킨다.
+        if map == nil then return toPos end
+        local tileMap = map:GetFirstChildComponentByTypeName("RectTileMapComponent", true)
+        if tileMap == nil then return toPos end
+        local dx, dy = toPos.x - fromPos.x, toPos.y - fromPos.y
+        local length = math.sqrt(dx * dx + dy * dy)
+        if length <= 0.01 then return toPos end
+        local steps = math.max(1, math.ceil(length / 0.2))
+        local safe = fromPos
+        for i = 1, steps do
+            local ratio = i / steps
+            local pos = Vector3(fromPos.x + dx * ratio, fromPos.y + dy * ratio, fromPos.z)
+            local tile = tileMap:GetTile(tileMap:ToCellPosition(pos))
+            if tile == nil or tile.IsCollidable then return safe end
+            safe = pos
+        end
+        return toPos
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean IsSkillLineUnblocked(Entity map, Vector3 fromPos, Vector3 toPos)
+        -- 투사체의 착탄/관통 판정은 벽 앞에서 끝난 VFX를 넘어 벽 뒤 대상까지
+        -- 광역 반경만으로 맞히면 안 된다. 실제 충돌 타일을 사용하는 기존 추적을 재사용한다.
+        local reached = self:TraceSkillEndpoint(map, fromPos, toPos)
+        local dx, dy = reached.x - toPos.x, reached.y - toPos.y
+        return dx * dx + dy * dy <= 0.05 * 0.05
+    end
+
+    @ExecSpace("ServerOnly")
+    method Vector3 ClampDashTravel(Entity map, Vector3 fromPos, Vector3 toPos)
+        -- 플레이어 몸체는 점이 아니므로 벽에 닿는 투사체보다 조금 먼저 멈춘다.
+        local safe = self:TraceSkillEndpoint(map, fromPos, toPos)
+        local blocked = math.abs(safe.x - toPos.x) + math.abs(safe.y - toPos.y) > 0.01
+        if not blocked then return toPos end
+        local dx, dy = safe.x - fromPos.x, safe.y - fromPos.y
+        local length = math.sqrt(dx * dx + dy * dy)
+        if length <= 0.01 then return fromPos end
+        local allowed = math.max(0, length - 0.35)
+        return Vector3(fromPos.x + dx / length * allowed,
+            fromPos.y + dy / length * allowed, fromPos.z)
     end
 
     method string GetRoomConnection(string roomId, string direction)
@@ -3013,7 +3080,8 @@ script GameData extends Logic
         if monsterId ~= "" and self:GetMonster(monsterId) ~= nil then pending.monsters[monsterId] = 1 end
         local skill = skillId ~= "" and self:GetSkill(skillId) or nil
         if skill ~= nil and skill.source == "monster" and skill.slot_type == "monster"
-            and (skill.skill_kind == "attack" or skill.skill_kind == "defense") then
+            and (skill.skill_kind == "attack" or skill.skill_kind == "defense"
+                or skill.skill_kind == "buff") then
             pending.abilities[skillId] = 1
         end
     end

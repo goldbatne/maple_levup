@@ -283,10 +283,12 @@ script GameDataVerify extends Logic
         -- 스킬 메타 (T17-2). 분류가 비어 있으면 스킬 바·설명 UI가 조용히 잘못 그린다.
         local attackCount = 0
         local defenseCount = 0
+        local buffCount = 0
         local passiveCount = 0
         for id, skill in pairs(_GameData.skills) do
             if skill.skill_kind == "attack" then attackCount += 1
             elseif skill.skill_kind == "defense" then defenseCount += 1
+            elseif skill.skill_kind == "buff" then buffCount += 1
             elseif skill.skill_kind == "passive" then
                 -- 포획 패시브 (설계 변경 2026-08-29). **슬롯을 안 먹고 보유만 해도 켜진다.**
                 passiveCount += 1
@@ -325,8 +327,8 @@ script GameDataVerify extends Logic
         end
         log("[스킬차수] " .. tierText .. " (시작 0차 / 전직 " .. ladder .. ")")
         log("[스킬메타] 공격 " .. tostring(attackCount) .. " / 방어 " .. tostring(defenseCount)
-            .. " / 패시브 " .. tostring(passiveCount)
-            .. "  (공격·방어는 **같은 슬롯**을 먹고 — 2026-08-16 — 패시브는 **안 먹는다** — 2026-08-29)")
+            .. " / 강화 " .. tostring(buffCount) .. " / 패시브 " .. tostring(passiveCount)
+            .. "  (액티브는 같은 슬롯을 쓰고 패시브는 슬롯을 쓰지 않는다)")
         for id, skill in pairs(_GameData.skills) do
             log("  [스킬메타] " .. skill.name .. " [" .. skill.skill_kind .. "/" .. skill.effect_type
                 .. "] 대상=" .. skill.target_mode

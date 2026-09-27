@@ -509,8 +509,16 @@ script EquipPanel extends Logic
     @ExecSpace("ClientOnly")
     method string KindLabel(table skill)
         -- 화면에 보일 분류. 모르는 값은 그대로 — 데이터가 늘어나도 깨지지 않는다.
-        if skill.skill_kind == "attack" then return "공격" end
+        if skill.skill_kind == "attack" then
+            if skill.secondary_effect == "WEAKEN" then return "공격·약화" end
+            if skill.secondary_effect == "SLOW" or skill.secondary_effect == "STUN"
+                or skill.secondary_effect == "PULL" or skill.secondary_effect == "KNOCKBACK" then
+                return "공격·제어"
+            end
+            return "공격"
+        end
         if skill.skill_kind == "defense" then return "방어" end
+        if skill.skill_kind == "buff" then return "강화" end
         -- 패시브는 **끼우는 것이 아니라 가지고 있으면 켜지는 것**이다 (2026-08-29).
         -- 그 사실이 태그에 드러나야 "왜 안 끼워지지"가 안 생긴다.
         if skill.skill_kind == "passive" then return "패시브" end
@@ -687,7 +695,7 @@ script EquipPanel extends Logic
             statText = "   " .. skill.passive_stat .. " +"
                 .. string.format("%.2f", self:PassiveAmount(self.selectedSkillId))
                 .. "  (" .. tostring(self:OwnedCountOf(self.selectedSkillId)) .. "장 · 항상 켜짐)"
-        elseif skill.skill_kind ~= "defense" then
+        elseif skill.skill_kind ~= "defense" and skill.skill_kind ~= "buff" then
             local mine = self:GetMyStat(skill.scaling_stat)
             statText = "   " .. skill.scaling_stat .. " " .. tostring(math.floor(mine))
             if mine <= 0 then statText = statText .. " → 피해 없음" end
@@ -711,7 +719,8 @@ script EquipPanel extends Logic
             if skill.range > 0 then
                 extra = extra .. "   범위 " .. string.format("%.1f", skill.range)
             end
-        elseif skill.skill_kind == "defense" and skill.effect_value > 0 then
+        elseif (skill.skill_kind == "defense" or skill.skill_kind == "buff")
+            and skill.effect_value > 0 then
             extra = "   효과 " .. tostring(math.floor(skill.effect_value * 100 + 0.5)) .. "%"
                 .. "   지속 " .. string.format("%.0f", skill.duration) .. "초"
         end

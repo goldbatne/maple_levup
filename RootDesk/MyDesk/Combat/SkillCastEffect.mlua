@@ -35,6 +35,9 @@ script SkillCastEffect extends Component
     -- 같은 그림도 전조/본체/충격파마다 시작 크기를 다르게 쓸 수 있게 한다.
     @HideFromInspector property number BaseScale = 1
 
+    -- Large persistent zones may obscure actors; visual opacity never changes hit logic.
+    @HideFromInspector property number BaseAlpha = 1
+
     -- 짧은 연출은 스크린샷보다 빨리 사라지므로 생성/종료 로그를 짝지어 남긴다.
     @HideFromInspector property string DebugName = ""
 
@@ -137,6 +140,7 @@ script SkillCastEffect extends Component
         scale = scale * self.BaseScale
 
         if t > fadeFrom then alpha = 1.0 - (t - fadeFrom) / (1.0 - fadeFrom) end
+        alpha = alpha * self.BaseAlpha
 
         transform.Scale = Vector3(scale, scale, 1)
         if spin ~= 0 then transform.ZRotation = spin end

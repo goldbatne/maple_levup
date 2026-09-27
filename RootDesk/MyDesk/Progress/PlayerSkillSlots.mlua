@@ -528,6 +528,8 @@ script PlayerSkillSlots extends Component
     @ExecSpace("ServerOnly")
     method void BeginRogueliteRun()
         -- 이전 판의 선택 요청을 무효화한다.
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        if attack ~= nil then attack:ResetRunSkillEffects() end
         self:ClearPendingAbilities()
         self:ResetRunTransientState()
         self:StopRandomSkillSupply()
@@ -548,6 +550,8 @@ script PlayerSkillSlots extends Component
         -- 정상 CLEAR/FAILED는 GameData에서 먼저 정산한다. 그 외 종료는 임시
         -- 발견만 폐기하며, 기존 영구 도감에는 손대지 않는다.
         _GameData:DiscardRogueliteDiscoveries(self.Entity.PlayerComponent.UserId)
+        local attack = self.Entity:GetComponent("script.PlayerAttack")
+        if attack ~= nil then attack:ResetRunSkillEffects() end
         self:ClearPendingAbilities()
         self:ResetRunTransientState()
         self:StopRandomSkillSupply()

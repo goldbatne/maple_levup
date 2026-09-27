@@ -45,6 +45,24 @@ script RoomMonster extends Component
     @Sync @HideFromInspector property number ShieldRatio = 0
     @Sync @HideFromInspector property number ShieldUntil = 0
 
+    -- 스킬 다양성 개편의 공통 제어 상태. 개별 SkillID 분기 대신 SkillTable의
+    -- secondary_effect를 이 네 API로 모은다. 죽음/리스폰 때 모두 초기화된다.
+    @Sync @HideFromInspector property number SlowRatio = 0
+    @Sync @HideFromInspector property number SlowUntil = 0
+    @Sync @HideFromInspector property number StunUntil = 0
+    @Sync @HideFromInspector property number WeakenRatio = 0
+    @Sync @HideFromInspector property number WeakenUntil = 0
+    @Sync @HideFromInspector property number AttackBoostRatio = 0
+    @Sync @HideFromInspector property number AttackBoostUntil = 0
+    @Sync @HideFromInspector property number NextAttackBoostRatio = 0
+    @Sync @HideFromInspector property number NextAttackBoostUntil = 0
+    @HideFromInspector property number BaseMoveSpeed = 0
+    @HideFromInspector property integer SlowSerial = 0
+    @HideFromInspector property integer StunSerial = 0
+    @HideFromInspector property integer ImpulseSerial = 0
+    @HideFromInspector property number ImpulseUntil = 0
+    @HideFromInspector property string LastControlEffect = ""
+
     @ExecSpace("ServerOnly")
     method string MapName()
         -- 이 몬스터가 서 있는 맵 이름. 방 레코드를 역인덱스할 때 쓴다
@@ -95,6 +113,163 @@ script RoomMonster extends Component
         if self.ShieldRatio <= 0 then return 0 end
         if _UtilLogic.ElapsedSeconds >= self.ShieldUntil then return 0 end
         return self.ShieldRatio
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ResetSkillControls()
+        self.SlowSerial = self.SlowSerial + 1
+        self.StunSerial = self.StunSerial + 1
+        self.ImpulseSerial = self.ImpulseSerial + 1
+        self.SlowRatio = 0
+        self.SlowUntil = 0
+        self.StunUntil = 0
+        self.ImpulseUntil = 0
+        self.WeakenRatio = 0
+        self.WeakenUntil = 0
+        self.AttackBoostRatio = 0
+        self.AttackBoostUntil = 0
+        self.NextAttackBoostRatio = 0
+        self.NextAttackBoostUntil = 0
+        self.LastControlEffect = ""
+        local movement = self.Entity.MovementComponent
+        if isvalid(movement) and self.BaseMoveSpeed > 0 then movement.InputSpeed = self.BaseMoveSpeed end
+        local chase = self.Entity.AIChaseComponent
+        if isvalid(chase) and self.IsDead == false then chase.Enable = true end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplySlow(number ratio, number seconds)
+        if self.IsDead or ratio <= 0 or seconds <= 0 then return end
+        if ratio > 0.75 then ratio = 0.75 end
+        local movement = self.Entity.MovementComponent
+        if not isvalid(movement) then return end
+        if self.BaseMoveSpeed <= 0 then self.BaseMoveSpeed = movement.InputSpeed end
+        if _UtilLogic.ElapsedSeconds >= self.SlowUntil then self.SlowRatio = 0 end
+        self.SlowSerial = self.SlowSerial + 1
+        local serial = self.SlowSerial
+        self.SlowRatio = math.max(self.SlowRatio, ratio)
+        self.SlowUntil = math.max(self.SlowUntil, _UtilLogic.ElapsedSeconds + seconds)
+        local remaining = self.SlowUntil - _UtilLogic.ElapsedSeconds
+        self.LastControlEffect = "SLOW"
+        log("[SkillControl] " .. self.DisplayName .. " SLOW ratio=" .. tostring(ratio)
+            .. " seconds=" .. tostring(remaining))
+        if _UtilLogic.ElapsedSeconds >= self.ImpulseUntil then
+            movement.InputSpeed = self.BaseMoveSpeed * (1 - self.SlowRatio)
+        end
+        _TimerService:SetTimerOnce(function()
+            if not isvalid(self.Entity) or self.SlowSerial ~= serial then return end
+            self.SlowRatio = 0
+            self.SlowUntil = 0
+            if isvalid(movement) and _UtilLogic.ElapsedSeconds >= self.ImpulseUntil then
+                movement.InputSpeed = self.BaseMoveSpeed
+            end
+        end, remaining)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyStun(number seconds)
+        if self.IsDead or seconds <= 0 then return end
+        local movement = self.Entity.MovementComponent
+        local chase = self.Entity.AIChaseComponent
+        self.StunSerial = self.StunSerial + 1
+        local serial = self.StunSerial
+        self.StunUntil = math.max(self.StunUntil, _UtilLogic.ElapsedSeconds + seconds)
+        local remaining = self.StunUntil - _UtilLogic.ElapsedSeconds
+        self.LastControlEffect = "STUN"
+        log("[SkillControl] " .. self.DisplayName .. " STUN seconds=" .. tostring(remaining))
+        if isvalid(chase) then chase.Enable = false end
+        if isvalid(movement) then movement:Stop() end
+        _TimerService:SetTimerOnce(function()
+            if not isvalid(self.Entity) or self.StunSerial ~= serial then return end
+            self.StunUntil = 0
+            if isvalid(chase) and self.IsDead == false
+                and _UtilLogic.ElapsedSeconds >= self.ImpulseUntil then chase.Enable = true end
+        end, remaining)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyWeaken(number ratio, number seconds)
+        if self.IsDead or ratio <= 0 or seconds <= 0 then return end
+        if ratio > 0.75 then ratio = 0.75 end
+        if _UtilLogic.ElapsedSeconds >= self.WeakenUntil then self.WeakenRatio = 0 end
+        self.WeakenRatio = math.max(self.WeakenRatio, ratio)
+        self.WeakenUntil = math.max(self.WeakenUntil, _UtilLogic.ElapsedSeconds + seconds)
+        self.LastControlEffect = "WEAKEN"
+        log("[SkillControl] " .. self.DisplayName .. " WEAKEN ratio=" .. tostring(ratio)
+            .. " seconds=" .. tostring(seconds))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyAttackBoost(number ratio, number seconds)
+        -- 지속 고무는 강한 값 하나만 적용한다.
+        if self.IsDead or ratio <= 0 or seconds <= 0 then return end
+        if _UtilLogic.ElapsedSeconds >= self.AttackBoostUntil then self.AttackBoostRatio = 0 end
+        self.AttackBoostRatio = math.max(self.AttackBoostRatio, math.min(0.75, ratio))
+        self.AttackBoostUntil = math.max(self.AttackBoostUntil,
+            _UtilLogic.ElapsedSeconds + seconds)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyNextAttackBoost(number ratio, number seconds)
+        -- 다음 유효 타격 한 번에만 기도 강화를 적용한다.
+        if self.IsDead or ratio <= 0 or seconds <= 0 then return end
+        self.NextAttackBoostRatio = math.max(self.NextAttackBoostRatio,
+            math.min(0.75, ratio))
+        self.NextAttackBoostUntil = math.max(self.NextAttackBoostUntil,
+            _UtilLogic.ElapsedSeconds + seconds)
+    end
+
+    method number GetOutgoingDamageMultiplier()
+        -- 피해 산출은 서버 공격 판정에서 호출된다. 빗나간 시전은 이 값을 소비하지 않는다.
+        local multiplier = 1
+        if self.WeakenRatio > 0 and _UtilLogic.ElapsedSeconds < self.WeakenUntil then
+            multiplier = multiplier * math.max(0.25, 1 - self.WeakenRatio)
+        end
+        if self.AttackBoostRatio > 0 and _UtilLogic.ElapsedSeconds < self.AttackBoostUntil then
+            multiplier = multiplier * (1 + self.AttackBoostRatio)
+        end
+        if self.NextAttackBoostRatio > 0 then
+            if _UtilLogic.ElapsedSeconds < self.NextAttackBoostUntil then
+                multiplier = multiplier * (1 + self.NextAttackBoostRatio)
+                log("[SkillBuff] Monster next_hit_consumed ratio="
+                    .. tostring(self.NextAttackBoostRatio))
+            end
+            self.NextAttackBoostRatio = 0
+            self.NextAttackBoostUntil = 0
+        end
+        return multiplier
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplyImpulse(Vector3 effectCenter, number distance, boolean pull)
+        if self.IsDead or distance <= 0 or self:IsBossRoom() then return end
+        local movement = self.Entity.MovementComponent
+        if not isvalid(movement) then return end
+        local p = self.Entity.TransformComponent.WorldPosition
+        local dx, dy = p.x - effectCenter.x, p.y - effectCenter.y
+        if pull then dx, dy = -dx, -dy end
+        local length = math.sqrt(dx * dx + dy * dy)
+        if length <= 0.01 then return end
+        local seconds = 0.14
+        self.LastControlEffect = pull and "PULL" or "KNOCKBACK"
+        log("[SkillControl] " .. self.DisplayName .. " " .. self.LastControlEffect
+            .. " distance=" .. tostring(distance))
+        if self.BaseMoveSpeed <= 0 then self.BaseMoveSpeed = movement.InputSpeed end
+        local chase = self.Entity.AIChaseComponent
+        self.ImpulseSerial = self.ImpulseSerial + 1
+        local serial = self.ImpulseSerial
+        self.ImpulseUntil = _UtilLogic.ElapsedSeconds + seconds
+        if isvalid(chase) then chase.Enable = false end
+        movement.InputSpeed = distance / seconds * 1.2
+        movement:MoveToDirection(Vector2(dx / length, dy / length), seconds)
+        _TimerService:SetTimerOnce(function()
+            if not isvalid(self.Entity) or self.ImpulseSerial ~= serial then return end
+            self.ImpulseUntil = 0
+            movement:Stop()
+            movement.InputSpeed = self.BaseMoveSpeed * (1 - self.SlowRatio)
+            if isvalid(chase) and self.IsDead == false
+                and _UtilLogic.ElapsedSeconds >= self.StunUntil then chase.Enable = true end
+        end, seconds)
     end
 
     @ExecSpace("ServerOnly")
@@ -158,6 +333,9 @@ script RoomMonster extends Component
         self.IsDead = false
         self.ShieldRatio = 0
         self.ShieldUntil = 0
+        local movement = self.Entity.MovementComponent
+        if isvalid(movement) then self.BaseMoveSpeed = movement.InputSpeed end
+        self:ResetSkillControls()
 
         log("[RoomMonster] 스폰 " .. record.name .. "(" .. self.MonsterId .. ")"
             .. " Lv" .. tostring(level)
@@ -218,6 +396,7 @@ script RoomMonster extends Component
     method void Dead(Entity killer)
         self.IsDead = true
         self.Hp = 0
+        self:ResetSkillControls()
 
         local stateComp = self.Entity.StateComponent
         if isvalid(stateComp) then stateComp:ChangeState("DEAD") end
@@ -294,6 +473,7 @@ script RoomMonster extends Component
         -- 리스폰 직후 한동안 안 아픈 몬스터가 된다.
         self.ShieldRatio = 0
         self.ShieldUntil = 0
+        self:ResetSkillControls()
 
         local stateComp = self.Entity.StateComponent
         -- DEAD에서는 IDLE로만 나올 수 있다 (DEAD 락 — animation-state.md §4.5).
