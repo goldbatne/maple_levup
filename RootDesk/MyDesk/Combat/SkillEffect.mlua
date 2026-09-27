@@ -126,6 +126,86 @@ script SkillEffect extends Logic
     end
 
     @ExecSpace("ServerOnly")
+    method void PlayAreaAt(string skillId, Entity caster, Vector3 targetPos,
+        boolean flipX, number activeSeconds)
+        -- A zone has one location. Do not draw a second false zone at the caster
+        -- or stack a full-size animation on each damage tick.
+        if skillId == "" or not isvalid(caster) or caster.CurrentMap == nil then return end
+        local skill = _GameData:GetSkill(skillId)
+        if skill == nil then return end
+        local layers = skill.effect_layers or {}
+        if #layers == 0 then self:PlayAttackAt(skillId, caster, targetPos, flipX) return end
+        local map = caster.CurrentMap
+        local h = _GameData:GetBalance("skill_effect_height")
+        local anchor = Vector3(targetPos.x, targetPos.y + h, targetPos.z)
+        for i = 1, #layers do
+            local source = layers[i]
+            if source.ruid ~= "" then
+                local layer = {
+                    ruid = source.ruid, frame_ruids = source.frame_ruids,
+                    resource_type = source.resource_type, style = source.style,
+                    delay = source.delay, duration = math.max(source.duration, activeSeconds),
+                    scale = source.scale, offset_x = source.offset_x,
+                    offset_y = source.offset_y, drift_x = source.drift_x,
+                    drift_y = source.drift_y,
+                }
+                if layer.delay > 0 then
+                    local scheduledLayer = layer
+                    local scheduledOrder = i
+                    _TimerService:SetTimerOnce(function()
+                        if isvalid(caster) and caster.CurrentMap == map then
+                            self:SpawnLayerAt(skill, scheduledLayer, caster, flipX, map,
+                                scheduledOrder, anchor, false, "지속 영역")
+                        end
+                    end, layer.delay)
+                else
+                    self:SpawnLayerAt(skill, layer, caster, flipX, map,
+                        i, anchor, false, "지속 영역")
+                end
+            end
+        end
+        local users = _UserService:GetUsersByMapName(map.Name)
+        if users == nil then return end
+        for i = 1, #users do
+            local pc = users[i].PlayerComponent
+            if isvalid(pc) then self:ShowCast(skillId, caster, flipX, pc.UserId) end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void PlayWeakenStatus(string skillId, Entity target, number seconds)
+        -- The cast splash alone can resemble an attack or self-buff. Reuse one approved
+        -- frame as a small, purple-tinted mark on the *affected* actor for the debuff.
+        if skillId ~= "s_mon_fairy" and skillId ~= "s_mon_octopus" then return end
+        if not isvalid(target) or target.CurrentMap == nil or seconds <= 0 then return end
+        local skill = _GameData:GetSkill(skillId)
+        local source = skill ~= nil and skill.effect_layers[1] or nil
+        if source == nil or source.ruid == "" then return end
+        local frames = source.frame_ruids or {}
+        local ruid = (#frames >= 4) and frames[4] or source.ruid
+        local p = target.TransformComponent.WorldPosition
+        local at = Vector3(p.x, p.y + 1.15, p.z)
+        local entity = _SpawnService:SpawnByModelId("skillcasteffect", "WeakenStatus", at, target.CurrentMap)
+        if not isvalid(entity) then return end
+        local sprite = entity.SpriteRendererComponent
+        if isvalid(sprite) then
+            sprite.SpriteRUID = ruid
+            sprite.SortingLayer = "MapLayer0"
+            sprite.OrderInLayer = 920
+            sprite.Color = Color(0.73, 0.55, 0.95, 1)
+        end
+        ---@type SkillCastEffect
+        local fx = entity:GetComponent("script.SkillCastEffect")
+        if fx == nil then entity:Destroy() return end
+        fx.BaseScale = 0.32
+        fx.BaseAlpha = 0.75
+        fx.FollowTarget = target
+        fx.FollowOffset = Vector3(0, 1.15, 0)
+        fx.DebugName = skill.name .. " 약화 표식"
+        fx:Play("guard", seconds, Vector3(0, 0, 0))
+    end
+
+    @ExecSpace("ServerOnly")
     method void SpawnLayer(table skill, table layer, Entity caster, boolean flipX, Entity map, integer order)
         if layer == nil or layer.ruid == "" then return end
         if not isvalid(caster) or not isvalid(map) then return end
@@ -133,9 +213,10 @@ script SkillEffect extends Logic
         local pos = caster.TransformComponent.WorldPosition
         local h = _GameData:GetBalance("skill_effect_height")
         local anchor = Vector3(pos.x, pos.y + h, pos.z)
-        local overlay = skill.skill_kind == "defense" or skill.dash_distance > 0
+        local overlay = skill.skill_kind == "defense" or skill.skill_kind == "buff"
+            or skill.dash_distance > 0
         local placement = "시전자"
-        if skill.skill_kind == "defense" then
+        if skill.skill_kind == "defense" or skill.skill_kind == "buff" then
             placement = "몸 오버레이"
         elseif skill.dash_distance > 0 then
             placement = "이동 동기화"
@@ -151,9 +232,30 @@ script SkillEffect extends Logic
         if not isvalid(caster) or not isvalid(map) then return end
 
         local dir = flipX and -1 or 1
+        local visualX = layer.offset_x
+        local visualY = layer.offset_y
+        local visualScale = layer.scale
+        local visualAlpha = 1
+        -- Meaning-only placement: keep the approved frames and every gameplay field intact.
+        if skill.id == "s_mon_fairy" or skill.id == "s_mon_octopus" then
+            -- The weakened victim is in front, not the caster's own buff position.
+            visualX = visualX + 0.8
+            visualScale = visualScale * 0.72
+        elseif skill.id == "s_mon_king_clang" then
+            -- Put the claws on the forward knockback cone, not around the caster as a shell.
+            visualX = visualX + 1.25
+            visualScale = visualScale * 0.82
+        elseif skill.id == "s_mon_drumming_bunny" then
+            -- A compact body-level pulse reads as self-strengthening, not a ground blast.
+            visualY = visualY + 0.45
+            visualScale = visualScale * 0.62
+        elseif skill.id == "s_mon_cygnus" or skill.id == "s_mon_mutant_stumpy" then
+            -- Preserve the zone silhouette while keeping players and monsters visible.
+            visualAlpha = 0.72
+        end
         local at = Vector3(
-            anchor.x + layer.offset_x * dir,
-            anchor.y + layer.offset_y,
+            anchor.x + visualX * dir,
+            anchor.y + visualY,
             anchor.z)
         local drift = Vector3(layer.drift_x * dir, layer.drift_y, 0)
 
@@ -178,7 +280,8 @@ script SkillEffect extends Logic
             entity:Destroy()
             return
         end
-        fx.BaseScale = layer.scale
+        fx.BaseScale = visualScale
+        fx.BaseAlpha = visualAlpha
         fx.FrameRUIDs = layer.frame_ruids or {}
         if followCaster then
             local casterPos = caster.TransformComponent.WorldPosition
@@ -194,6 +297,55 @@ script SkillEffect extends Logic
         log("[다층 이펙트] " .. skill.name .. " #" .. tostring(order)
             .. " " .. layer.style .. " delay=" .. string.format("%.2f", layer.delay)
             .. "  " .. placement .. " " .. string.format("%.1f,%.1f", at.x, at.y))
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean PlayDashTravelIfNeeded(string skillId, Entity caster, Vector3 fromPos,
+        Vector3 toPos, number seconds, boolean flipX)
+        -- 정식기사 C의 기존 8장을 앞 4장(이동)과 뒤 4장(도착)으로 나눠 쓴다.
+        -- Player 이동은 클라이언트 권한이어서 서버 시전자 좌표를 따라가면
+        -- 연출이 뒤처진다. 이미 충돌 경계로 제한한 판정 경로를 시각적으로 따른다.
+        if skillId ~= "s_mon_official_knight_c" then return false end
+        if not isvalid(caster) or caster.CurrentMap == nil then return false end
+        local skill = _GameData:GetSkill(skillId)
+        local source = skill ~= nil and skill.effect_layers[1] or nil
+        if source == nil or #source.frame_ruids < 8 then return false end
+        local span = math.max(seconds, 0.05)
+        local frames = {}
+        for i = 1, 4 do frames[i] = source.frame_ruids[i] end
+        local dir = flipX and -1 or 1
+        local layer = {
+            ruid = frames[1], frame_ruids = frames, resource_type = "sprite_sequence",
+            style = "sequence", delay = 0, duration = span, scale = source.scale,
+            offset_x = source.offset_x, offset_y = source.offset_y,
+            drift_x = (toPos.x - fromPos.x) / span * dir,
+            drift_y = (toPos.y - fromPos.y) / span,
+        }
+        local h = _GameData:GetBalance("skill_effect_height")
+        self:SpawnLayerAt(skill, layer, caster, flipX, caster.CurrentMap, 1,
+            Vector3(fromPos.x, fromPos.y + h, fromPos.z), false, "돌진 경로")
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void PlayDashImpactIfNeeded(string skillId, Entity caster, Vector3 targetPos,
+        boolean flipX)
+        if skillId ~= "s_mon_official_knight_c" then return end
+        if not isvalid(caster) or caster.CurrentMap == nil then return end
+        local skill = _GameData:GetSkill(skillId)
+        local source = skill ~= nil and skill.effect_layers[1] or nil
+        if source == nil or #source.frame_ruids < 8 then return end
+        local frames = {}
+        for i = 5, 8 do frames[#frames + 1] = source.frame_ruids[i] end
+        local layer = {
+            ruid = frames[1], frame_ruids = frames, resource_type = "sprite_sequence",
+            style = "sequence", delay = 0, duration = 0.2, scale = source.scale,
+            offset_x = source.offset_x, offset_y = source.offset_y,
+            drift_x = 0, drift_y = 0,
+        }
+        local h = _GameData:GetBalance("skill_effect_height")
+        self:SpawnLayerAt(skill, layer, caster, flipX, caster.CurrentMap, 2,
+            Vector3(targetPos.x, targetPos.y + h, targetPos.z), false, "도착 타격")
     end
 
     @ExecSpace("ServerOnly")

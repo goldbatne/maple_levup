@@ -118,6 +118,12 @@ script MonsterAttack extends AttackComponent
 	-- 엔진에 "최대 타격 수"가 없어 IsAttackTarget 훅에서 예산을 깎는 수밖에 없다.
 	@HideFromInspector property boolean hitLimited = false
 	@HideFromInspector property integer hitBudget = 0
+	@HideFromInspector property string behaviorContext = ""
+	@HideFromInspector property Vector3 behaviorOrigin = Vector3(0, 0, 0)
+	@HideFromInspector property Vector2 behaviorDirection = Vector2(1, 0)
+	@HideFromInspector property number behaviorConeDegrees = 0
+	@HideFromInspector property boolean projectileTerrainCheck = false
+	@HideFromInspector property Vector3 projectileTerrainOrigin = Vector3(0, 0, 0)
 
 	@ExecSpace("ServerOnly")
 	method void OnBeginPlay()
@@ -361,6 +367,12 @@ script MonsterAttack extends AttackComponent
 		local holdSeconds = 0.6
 		if skill.projectile_ruid ~= "" then holdSeconds = _GameData:GetBalance("projectile_seconds") + 0.1 end
 		if skill.dash_distance > 0 then holdSeconds = _GameData:GetBalance("skill_dash_seconds") + 0.1 end
+		if skill.behavior == "DELAYED_BLAST" or skill.behavior == "DAMAGE_ZONE" then
+			local lastHitAt = math.max(0, skill.behavior_delay)
+				+ (math.max(1, math.floor(skill.behavior_ticks)) - 1)
+				* math.max(0.05, skill.behavior_interval)
+			holdSeconds = math.max(holdSeconds, lastHitAt + 0.1)
+		end
 		if _GameData:TryReserveMonsterSpecial(holdSeconds) == false then return false end
 		if self:CastSkill(monster, skill) == false then return false end
 
@@ -403,6 +415,19 @@ script MonsterAttack extends AttackComponent
 				.. tostring(skill.duration) .. "초")
 			return true
 		end
+		if skill.skill_kind == "buff" then
+			if (skill.effect_type ~= "attack_boost" and skill.effect_type ~= "next_attack_boost")
+				or skill.effect_value <= 0
+				or skill.duration <= 0 then return false end
+			if skill.effect_type == "next_attack_boost" then
+				monster:ApplyNextAttackBoost(skill.effect_value, skill.duration)
+			else
+				monster:ApplyAttackBoost(skill.effect_value, skill.duration)
+			end
+			_SkillEffect:PlayCast(skill.id, self.Entity, false)
+			log("[SkillBuff] Monster " .. monster.MonsterId .. " " .. skill.id)
+			return true
+		end
 
 		local transform = self.Entity.TransformComponent
 		if not isvalid(transform) then return false end
@@ -433,48 +458,109 @@ script MonsterAttack extends AttackComponent
 			return self:DashTowardTarget(monster, skill, worldPosition, radius)
 		end
 
-		local shape = CircleShape(Vector2(worldPosition.x, worldPosition.y + 0.5), radius)
+		return self:UseSpatialMonsterSkill(monster, skill, worldPosition, radius)
+	end
 
-		self.hitLimited = (skill.max_targets > 0)
-		self.hitBudget = math.floor(skill.max_targets)
-
-		-- ⚠ 평타는 AttackFast인데 여기만 Attack이다. **맞았는지 알아야 하기 때문**이다 —
-		--   AttackFast는 판정 테이블을 만들지 않아 void를 돌려준다(성능용). 스킬은
-		--   빗나갔을 때 쿨다운을 안 걸어야 하므로 맞은 대상 목록이 필요하다.
-		--   보스는 방에 하나뿐이라 테이블을 만드는 비용은 문제가 되지 않는다.
-		local hits = self:Attack(shape, skill.id, CollisionGroups.Player)
-
-		-- 다음 평타가 예산에 걸리지 않게 바로 푼다. Attack은 동기적으로 후보를
-		-- 다 훑고 돌아오므로 여기서 풀어도 이번 판정에는 영향이 없다.
-		self.hitLimited = false
-
-		if hits == nil or #hits == 0 then
-			-- 사거리 밖이거나 플레이어가 무적 구간(i-frame)이다. 나간 것으로 치지 않는다.
-			-- **이펙트도 안 띄운다** — 안 맞은 스킬이 화면에는 터지면 무적 구간이
-			-- 버그처럼 읽힌다.
-			return false
+	@ExecSpace("ServerOnly")
+	method boolean UseSpatialMonsterSkill(RoomMonster monster, table skill,
+		Vector3 fromPos, number radius)
+		local target = self:FindBowTarget(fromPos, radius)
+		if target == nil then return false end
+		local targetPos = target.TransformComponent.WorldPosition
+		local dx, dy = targetPos.x - fromPos.x, targetPos.y - fromPos.y
+		local length = math.sqrt(dx * dx + dy * dy)
+		if length <= 0.01 then return false end
+		local dir = Vector2(dx / length, dy / length)
+		local behavior = skill.behavior
+		if behavior == "" then behavior = "CENTER_BURST" end
+		if behavior == "DELAYED_BLAST" or behavior == "DAMAGE_ZONE" then
+			local delay = math.max(0, skill.behavior_delay)
+			local ticks = math.max(1, math.floor(skill.behavior_ticks))
+			local interval = math.max(0.05, skill.behavior_interval)
+			_SkillEffect:PlayAreaAt(skill.id, self.Entity, targetPos, dir.x < 0,
+				delay + (ticks - 1) * interval + 0.2)
+			for i = 1, ticks do
+				_TimerService:SetTimerOnce(function()
+					self:ResolveMonsterSpatialHit(skill.id, behavior, fromPos, targetPos, dir)
+				end, delay + (i - 1) * interval)
+			end
+			return true
 		end
+		return self:ResolveMonsterSpatialHit(skill.id, behavior, fromPos, targetPos, dir)
+	end
 
-		-- 원작 이펙트·소리 (T19-2). 맞은 게 확인된 뒤에만 띄운다.
-		-- 방향은 **맞은 대상 쪽**으로 잡는다. 몬스터가 지금 어디를 보고 있는지는
-		-- 아바타냐 스프라이트냐에 따라 읽는 곳이 달라지는데(아바타는 Scale.x를 안 뒤집는다),
-		-- 맞은 대상의 좌표는 어느 쪽이든 같은 방법으로 안다.
-		local flip = false
-		local firstHit = hits[1]
-		if isvalid(firstHit) and isvalid(firstHit.Entity) then
-			local targetPos = firstHit.Entity.TransformComponent.WorldPosition
-			flip = (targetPos.x < worldPosition.x)
-			_SkillEffect:PlayAttackAt(skill.id, self.Entity, targetPos, flip)
+	@ExecSpace("ServerOnly")
+	method boolean ResolveMonsterSpatialHit(string skillId, string behavior,
+		Vector3 origin, Vector3 point, Vector2 dir)
+		if not isvalid(self.Entity) then return false end
+		local skill = _GameData:GetSkill(skillId)
+		if skill == nil then return false end
+		local radius = skill.range * _GameData:GetBalance("boss_skill_range_multiplier")
+		if radius <= 0 then radius = _GameData:GetBalance("player_attack_range") end
+		local shape = nil
+		if behavior == "LINE_STRIKE" then
+			local width = math.max(0.6, skill.behavior_width)
+			local center = Vector2(origin.x + dir.x * radius * 0.5, origin.y + dir.y * radius * 0.5 + 0.5)
+			shape = BoxShape(center, Vector2(radius, width), math.deg(math.atan(dir.y, dir.x)))
+		elseif behavior == "DELAYED_BLAST" or behavior == "DAMAGE_ZONE" then
+			shape = CircleShape(Vector2(point.x, point.y + 0.5), math.max(0.8, skill.behavior_width))
 		else
-			_SkillEffect:PlayAttackAt(skill.id, self.Entity, worldPosition, flip)
+			shape = CircleShape(Vector2(origin.x, origin.y + 0.5), radius)
 		end
-
-		log("[보스스킬] " .. monster.DisplayName .. " [" .. skill.name
-			.. "] 계수=" .. tostring(skill.coefficient)
-			.. " 반경=" .. string.format("%.2f", radius)
-			.. " 대상=" .. (skill.max_targets > 0 and ("최대 " .. tostring(math.floor(skill.max_targets))) or "제한 없음")
-			.. " → " .. tostring(#hits) .. "명 명중")
+		self.behaviorContext = behavior
+		self.behaviorOrigin = origin
+		self.behaviorDirection = dir
+		self.behaviorConeDegrees = math.max(30, skill.behavior_width)
+		self.hitLimited = skill.max_targets > 0
+		self.hitBudget = math.floor(skill.max_targets)
+		local hits = self:Attack(shape, skillId, CollisionGroups.Player)
+		self.hitLimited = false
+		self.behaviorContext = ""
+		self:ApplyPlayerSecondaryEffects(skill, hits, point)
+		if hits == nil or #hits == 0 then return false end
+		if behavior ~= "DAMAGE_ZONE" and behavior ~= "DELAYED_BLAST" then
+			_SkillEffect:PlayAttackAt(skillId, self.Entity, point, dir.x < 0)
+		end
+		log("[MonsterSkillBehavior] " .. skillId .. " behavior=" .. behavior
+			.. " hits=" .. tostring(#hits))
 		return true
+	end
+
+	@ExecSpace("ServerOnly")
+	method void ApplyPlayerSecondaryEffects(table skill, table hits, Vector3 effectCenter)
+		if hits == nil or skill.secondary_effect == "" then return end
+		local value = skill.secondary_value * skill.enemy_control_scale
+		local seconds = skill.secondary_duration * skill.enemy_control_scale
+		for i = 1, #hits do
+			local hit = hits[i]
+			if isvalid(hit) and isvalid(hit.Entity) and isvalid(hit.Entity.PlayerComponent) then
+				local userId = hit.Entity.PlayerComponent.UserId
+				if skill.secondary_effect == "WEAKEN" then
+					---@type PlayerAttack
+					local attack = hit.Entity:GetComponent("script.PlayerAttack")
+					if attack ~= nil then
+						attack:ApplyOutgoingWeaken(value, seconds)
+						_SkillEffect:PlayWeakenStatus(skill.id, hit.Entity, seconds)
+					end
+				elseif skill.secondary_effect == "SLOW" or skill.secondary_effect == "STUN" then
+					if skill.secondary_effect == "STUN" then
+						---@type PlayerAttack
+						local attack = hit.Entity:GetComponent("script.PlayerAttack")
+						if attack ~= nil then attack:ApplyEnemyStun(seconds) end
+					end
+					_PlayerDash:ApplyEnemyControl(skill.secondary_effect, value, seconds, 0, 0, userId)
+				elseif skill.secondary_effect == "KNOCKBACK" or skill.secondary_effect == "PULL" then
+					local p = hit.Entity.TransformComponent.WorldPosition
+					local dx, dy = p.x - effectCenter.x, p.y - effectCenter.y
+					if skill.secondary_effect == "PULL" then dx, dy = -dx, -dy end
+					local length = math.sqrt(dx * dx + dy * dy)
+					if length > 0.01 then
+						_PlayerDash:ApplyEnemyControl(skill.secondary_effect, value, 0.14,
+							dx / length, dy / length, userId)
+					end
+				end
+			end
+		end
 	end
 
 	---------------------------------------------------------------
@@ -519,17 +605,46 @@ script MonsterAttack extends AttackComponent
 		if target == nil then return false end
 
 		local toPos = target.TransformComponent.WorldPosition
-		local usesNewVfx = _SkillEffect:PlayProjectile(skill.id, self.Entity, toPos)
-		if usesNewVfx == false then
-			_SkillEffect:PlayCast(skill.id, self.Entity, toPos.x < fromPos.x)
+		local behavior = skill.behavior
+		if behavior == "" then behavior = "PROJECTILE" end
+		local targets = {toPos}
+		if behavior == "SPREAD_PROJECTILE" then
+			local dx, dy = toPos.x - fromPos.x, toPos.y - fromPos.y
+			local length = math.sqrt(dx * dx + dy * dy)
+			if length > 0.01 then
+				dx, dy = dx / length, dy / length
+				local side = radius * math.tan(math.rad(math.max(6, skill.behavior_width)))
+				local px, py = -dy, dx
+				targets = {
+					Vector3(toPos.x - px * side, toPos.y - py * side, toPos.z),
+					toPos,
+					Vector3(toPos.x + px * side, toPos.y + py * side, toPos.z)
+				}
+			end
 		end
+		for i = 1, #targets do
+			targets[i] = _GameData:TraceSkillEndpoint(map, fromPos, targets[i])
+		end
+		toPos = targets[math.ceil(#targets * 0.5)]
+		local anyNewVfx = false
+		for i = 1, #targets do
+			if _SkillEffect:PlayProjectile(skill.id, self.Entity, targets[i]) then anyNewVfx = true end
+		end
+		if anyNewVfx == false then _SkillEffect:PlayCast(skill.id, self.Entity, toPos.x < fromPos.x) end
 
 		-- 바위와 **같은 시간**을 쓴다. 두 값이 갈라지면 숫자와 그림이 어긋난다.
 		local flight = _GameData:GetBalance("projectile_seconds")
 		local skillId = skill.id
 		local maxTargets = skill.max_targets
+		local hitRadius = _GameData:GetBalance("projectile_hit_radius")
+		if behavior == "PROJECTILE_BLAST" then hitRadius = math.max(hitRadius, skill.behavior_width) end
 		_TimerService:SetTimerOnce(function()
-			self:ResolveThrowHit(skillId, toPos, maxTargets)
+			if behavior == "PIERCING_PROJECTILE" then
+				self:ResolveMonsterProjectileLine(skillId, fromPos, toPos, maxTargets,
+					math.max(0.6, skill.behavior_width))
+			else
+				for i = 1, #targets do self:ResolveThrowHit(skillId, targets[i], maxTargets, hitRadius) end
+			end
 		end, flight)
 
 		log("[보스스킬] " .. monster.DisplayName .. " [" .. skill.name
@@ -539,7 +654,7 @@ script MonsterAttack extends AttackComponent
 	end
 
 	@ExecSpace("ServerOnly")
-	method void ResolveThrowHit(string skillId, Vector3 pos, number maxTargets)
+	method void ResolveThrowHit(string skillId, Vector3 pos, number maxTargets, number hitRadius)
 		-- 바위가 떨어지는 순간의 판정. 던진 자리가 아니라 **떨어진 자리**를 본다.
 		--
 		-- 날아가는 동안 몬스터가 죽거나 방이 내려갔을 수 있다. 그래도 바위는
@@ -552,10 +667,14 @@ script MonsterAttack extends AttackComponent
 		self.hitLimited = (maxTargets > 0)
 		self.hitBudget = math.floor(maxTargets)
 
-		local r = _GameData:GetBalance("projectile_hit_radius")
+		local r = hitRadius
+		if r <= 0 then r = _GameData:GetBalance("projectile_hit_radius") end
+		self.projectileTerrainOrigin = pos
+		self.projectileTerrainCheck = true
 		local hits = self:Attack(
 			CircleShape(Vector2(pos.x, pos.y + 0.5), r), skillId, CollisionGroups.Player)
 
+		self.projectileTerrainCheck = false
 		self.hitLimited = false
 
 		local n = 0
@@ -625,6 +744,7 @@ script MonsterAttack extends AttackComponent
 			CircleShape(Vector2(pos.x, pos.y + 0.5), hitRadius),
 			skillId, CollisionGroups.Player)
 		self.hitLimited = false
+		self:ApplyPlayerSecondaryEffects(skill, hits, pos)
 
 		local n = 0
 		if hits ~= nil then n = #hits end
@@ -632,6 +752,28 @@ script MonsterAttack extends AttackComponent
 			.. string.format("%.1f,%.1f", pos.x, pos.y)
 			.. "  반경 " .. string.format("%.2f", hitRadius)
 			.. " → " .. tostring(n) .. "명" .. (n == 0 and "  (회피)" or ""))
+	end
+
+	@ExecSpace("ServerOnly")
+	method void ResolveMonsterProjectileLine(string skillId, Vector3 fromPos,
+		Vector3 toPos, integer maxTargets, number width)
+		if not isvalid(self.Entity) then return end
+		local skill = _GameData:GetSkill(skillId)
+		if skill == nil then return end
+		local dx, dy = toPos.x - fromPos.x, toPos.y - fromPos.y
+		local length = math.sqrt(dx * dx + dy * dy)
+		if length <= 0.01 then return end
+		self.hitLimited = maxTargets > 0
+		self.hitBudget = math.floor(maxTargets)
+		self.projectileTerrainOrigin = fromPos
+		self.projectileTerrainCheck = true
+		local hits = self:Attack(BoxShape(
+			Vector2((fromPos.x + toPos.x) * 0.5, (fromPos.y + toPos.y) * 0.5 + 0.5),
+			Vector2(length, width), math.deg(math.atan(dy, dx))), skillId, CollisionGroups.Player)
+		self.projectileTerrainCheck = false
+		self.hitLimited = false
+		self:ApplyPlayerSecondaryEffects(skill, hits, toPos)
+		log("[몬스터 관통] " .. skill.name .. " 명중=" .. tostring(hits ~= nil and #hits or 0))
 	end
 
 	@ExecSpace("ServerOnly")
@@ -714,7 +856,9 @@ script MonsterAttack extends AttackComponent
 		local users = _UserService:GetUsersByMapName(map.Name)
 		if users == nil then return false end
 		local target = nil
-		local best = radius
+		-- 돌진은 도착점 피해 판정보다 먼 거리에서 시작할 수 있다.
+		-- 근접 피해 반경만 탐색에 쓰면 먼 적을 추적하지 못한다.
+		local best = math.max(radius, skill.dash_distance)
 		for i = 1, #users do
 			local user = users[i]
 			if isvalid(user) and not user.PlayerComponent:IsDead() then
@@ -744,24 +888,37 @@ script MonsterAttack extends AttackComponent
 		local originalSpeed = movement.InputSpeed
 		local originalChaseEnabled = isvalid(chase) and chase.Enable or false
 		if isvalid(chase) then chase.Enable = false end
-		movement.InputSpeed = skill.dash_distance / seconds * 1.2
+		-- 목표를 지나쳐 최대 거리까지 달리면 도착점 공격이 빗나간다.
+		-- 목표 앞에 작은 여백을 남기되, authored dash_distance를 상한으로 유지한다.
+		local stopGap = math.min(0.35, radius * 0.5)
+		local travel = math.min(skill.dash_distance, math.max(0.1, length - stopGap))
+		movement.InputSpeed = travel / seconds * 1.2
 		movement:MoveToDirection(dir, seconds)
-		_SkillEffect:PlayCast(skill.id, self.Entity, dir.x < 0)
+		local visualEnd = Vector3(fromPos.x + dir.x * travel,
+			fromPos.y + dir.y * travel, fromPos.z)
+		if _SkillEffect:PlayDashTravelIfNeeded(skill.id, self.Entity, fromPos,
+			visualEnd, seconds, dir.x < 0) == false then
+			_SkillEffect:PlayCast(skill.id, self.Entity, dir.x < 0)
+		end
 		local maxTargets = skill.max_targets
 		local skillId = skill.id
 		_TimerService:SetTimerOnce(function()
 			if not isvalid(self.Entity) then return end
 			movement:Stop()
 			movement.InputSpeed = originalSpeed
-			if isvalid(chase) then chase.Enable = originalChaseEnabled end
+			if isvalid(chase) and not monster.IsDead then chase.Enable = originalChaseEnabled end
+			if monster.IsDead then return end
 			local arrived = self.Entity.TransformComponent.WorldPosition
 			self.hitLimited = maxTargets > 0
 			self.hitBudget = math.floor(maxTargets)
 			self:Attack(CircleShape(Vector2(arrived.x, arrived.y + 0.5), radius),
 				skillId, CollisionGroups.Player)
 			self.hitLimited = false
+			_SkillEffect:PlayDashImpactIfNeeded(skillId, self.Entity, arrived, dir.x < 0)
 		end, seconds)
-		log("[몬스터스킬] " .. monster.DisplayName .. " [" .. skill.name .. "] 대상 방향 돌진")
+		log("[몬스터스킬] " .. monster.DisplayName .. " [" .. skill.name .. "] 대상 방향 돌진"
+			.. " targetDistance=" .. string.format("%.2f", length)
+			.. " travel=" .. string.format("%.2f", travel))
 		return true
 	end
 
@@ -922,6 +1079,10 @@ script MonsterAttack extends AttackComponent
 	end
 
 	method void AttackNear()
+		-- 기절은 추격뿐 아니라 평타/특수 스킬 시도도 짧게 막는다.
+		-- AIChase만 끄면 제자리에서 계속 때려 Tooltip의 '행동 제한'이 거짓이 된다.
+		local monster = self.Entity:GetComponent("script.RoomMonster")
+		if monster ~= nil and _UtilLogic.ElapsedSeconds < monster.StunUntil then return end
 		-- 보스는 이번 틱을 스킬로 바꿔 쓸 수 있다 (T19-1). 스킬이 나갔으면 평타는 쉰다 —
 		-- 한 틱에 두 방이 나가면 스킬이 자기 평타의 i-frame에 씹힌다 (StartBossSkills 주석).
 		if self:TryUseSkill() then return end
@@ -1018,6 +1179,7 @@ script MonsterAttack extends AttackComponent
 		--   않지만, INT/LUK 계수 스킬을 보스에게 주면 조용히 ATK로 계산된다.
 		--   그때는 몬스터에도 계수 스탯을 만들어야 한다 — CSV만 고치면 안 된다.
 		local damage = _CombatFormula:CalcSkillDamage(atk, def, attackInfo)
+		if mon ~= nil then damage = math.max(1, math.floor(damage * mon:GetOutgoingDamageMultiplier() + 0.5)) end
 
 		-- 스킬로 때린 것이면 보스 배율을 깎는다. **지금 값은 1이라 안 깎는다** (T29).
 		--
@@ -1085,6 +1247,20 @@ script MonsterAttack extends AttackComponent
 		end
 
 		if __base:IsAttackTarget(defender, attackInfo) == false then return false end
+		if self.projectileTerrainCheck then
+			local targetPos = defender.TransformComponent.WorldPosition
+			if _GameData:IsSkillLineUnblocked(self.Entity.CurrentMap,
+				self.projectileTerrainOrigin, targetPos) == false then return false end
+		end
+		if self.behaviorContext == "FRONT_CONE" then
+			local p = defender.TransformComponent.WorldPosition
+			local dx, dy = p.x - self.behaviorOrigin.x, p.y - self.behaviorOrigin.y
+			local length = math.sqrt(dx * dx + dy * dy)
+			if length > 0.01 then
+				local dot = dx / length * self.behaviorDirection.x + dy / length * self.behaviorDirection.y
+				if dot < math.cos(math.rad(self.behaviorConeDegrees * 0.5)) then return false end
+			end
+		end
 
 		-- 대상 수 제한 (T19-1). 평타는 hitLimited=false라 그대로 통과한다.
 		if self.hitLimited == false then return true end

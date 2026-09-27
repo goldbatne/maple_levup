@@ -34,6 +34,17 @@ script PlayerDash extends Logic
     -- ⚠ 안 되돌리면 **그 회차 내내 빠르게 걷는다.** 눈에 잘 안 띄는 고장이라
     --   OnEndPlay에서도 한 번 더 되돌린다.
     property number savedSpeed = 0
+    property boolean savedControllerEnabled = true
+
+    -- Monster Skill Mode에서만 쓰는 짧은 제어 상태. 서버가 승인한 몬스터 스킬이
+    -- 대상 플레이어 클라이언트에만 보내며, 일반 피격은 이 경로를 타지 않는다.
+    property boolean controlled = false
+    property string controlKind = ""
+    property number controlLeft = 0
+    property Vector2 controlDir = Vector2(0, 0)
+    property number controlSpeed = 0
+    property number controlSavedSpeed = 0
+    property boolean controlSavedControllerEnabled = true
 
     @ExecSpace("Client")
     method void Begin(number dirX, number dirY, number seconds, number speed)
@@ -44,18 +55,77 @@ script PlayerDash extends Logic
         if player == nil then return end
         local movement = player.MovementComponent
         if not isvalid(movement) then return end
+        local controller = player.PlayerControllerComponent
+        if self.controlled then self:FinishControl() end
 
         -- 이미 돌진 중이면 속도를 겹쳐 저장하지 않는다. 겹치면 원래 속도를 잃는다.
-        if not self.dashing then self.savedSpeed = movement.InputSpeed end
+        if not self.dashing then
+            self.savedSpeed = movement.InputSpeed
+            if isvalid(controller) then self.savedControllerEnabled = controller.Enable end
+        end
 
         self.dashDir = Vector2(dirX, dirY)
         self.dashLeft = seconds
         self.dashing = true
         movement.InputSpeed = speed
+        -- Logic의 OnUpdate는 PlayerController보다 먼저 실행된다. 컨트롤러를 잠시
+        -- 중지하지 않으면 같은 프레임의 일반 입력이 돌진 속도를 0으로 덮어쓴다.
+        if isvalid(controller) then controller.Enable = false end
+        log("[PlayerDash] begin dir=" .. tostring(dirX) .. "," .. tostring(dirY)
+            .. " seconds=" .. tostring(seconds) .. " speed=" .. tostring(speed))
+    end
+
+    @ExecSpace("Client")
+    method void ApplyEnemyControl(string kind, number value, number seconds,
+        number dirX, number dirY)
+        if seconds <= 0 then return end
+        local player = _UserService.LocalPlayer
+        if player == nil then return end
+        local movement = player.MovementComponent
+        if not isvalid(movement) then return end
+        if self.dashing then self:Finish() end
+        local controller = player.PlayerControllerComponent
+        if not self.controlled then
+            self.controlSavedSpeed = movement.InputSpeed
+            if isvalid(controller) then self.controlSavedControllerEnabled = controller.Enable end
+        end
+        self.controlled = true
+        self.controlKind = kind
+        self.controlLeft = seconds
+        self.controlDir = Vector2(dirX, dirY)
+        self.controlSpeed = value
+        log("[PlayerControl] " .. kind .. " value=" .. tostring(value)
+            .. " seconds=" .. tostring(seconds))
+        if kind == "SLOW" then
+            local ratio = math.min(0.75, math.max(0, value))
+            movement.InputSpeed = self.controlSavedSpeed * (1 - ratio)
+            if isvalid(controller) then controller.Enable = self.controlSavedControllerEnabled end
+        elseif kind == "STUN" then
+            if isvalid(controller) then controller.Enable = false end
+            movement:Stop()
+        else
+            if isvalid(controller) then controller.Enable = false end
+            movement.InputSpeed = math.max(self.controlSavedSpeed, value / seconds * 1.2)
+        end
     end
 
     @ExecSpace("ClientOnly")
     method void OnUpdate(number delta)
+		if self.controlled then
+			self.controlLeft = self.controlLeft - delta
+			if self.controlLeft <= 0 then
+				self:FinishControl()
+			elseif self.controlKind == "STUN" then
+				local player = _UserService.LocalPlayer
+				if player ~= nil and isvalid(player.MovementComponent) then player.MovementComponent:Stop() end
+			elseif self.controlKind == "KNOCKBACK" or self.controlKind == "PULL" then
+				local player = _UserService.LocalPlayer
+				if player ~= nil and isvalid(player.MovementComponent) then
+					player.MovementComponent:MoveToDirection(self.controlDir, delta)
+				end
+			end
+			return
+		end
         if not self.dashing then return end
 
         self.dashLeft = self.dashLeft - delta
@@ -70,7 +140,25 @@ script PlayerDash extends Logic
         if not isvalid(movement) then self:Finish() return end
 
         -- 매 프레임 다시 밀어야 한다. 한 번만 부르면 다음 프레임에 입력이 덮어쓴다.
-        movement:MoveToDirection(self.dashDir, 0)
+        movement:MoveToDirection(self.dashDir, delta)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void FinishControl()
+        self.controlled = false
+        self.controlLeft = 0
+        self.controlKind = ""
+        local player = _UserService.LocalPlayer
+        if player == nil then return end
+        local movement = player.MovementComponent
+        if not isvalid(movement) then return end
+        ---@type PlayerStats
+        local stats = player:GetComponent("script.PlayerStats")
+        if stats ~= nil then movement.InputSpeed = stats:GetMoveSpeed()
+        elseif self.controlSavedSpeed > 0 then movement.InputSpeed = self.controlSavedSpeed end
+        local controller = player.PlayerControllerComponent
+        if isvalid(controller) then controller.Enable = self.controlSavedControllerEnabled end
+        movement:Stop()
     end
 
     @ExecSpace("ClientOnly")
@@ -95,13 +183,17 @@ script PlayerDash extends Logic
         elseif self.savedSpeed > 0 then
             movement.InputSpeed = self.savedSpeed
         end
+        local controller = player.PlayerControllerComponent
+        if isvalid(controller) then controller.Enable = self.savedControllerEnabled end
         movement:Stop()
+        log("[PlayerDash] finish controller=" .. tostring(self.savedControllerEnabled))
     end
 
     @ExecSpace("ClientOnly")
     method void OnEndPlay()
         -- 돌진 중에 세션이 끝나도 속도는 되돌려 둔다.
         if self.dashing then self:Finish() end
+        if self.controlled then self:FinishControl() end
     end
 
 end
