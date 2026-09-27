@@ -1,0 +1,72 @@
+-- @서버 권한 + @클라이언트 표시
+-- Seed로 배치되는 Run 전용 탐험 상자. 위치/종류는 공유하지만 열림과 보상은
+-- GameData의 사용자별 원장이 판정한다. 이 컴포넌트는 상호작용과 시각 표현만 맡는다.
+
+@Component
+script RunChest extends Component
+
+    @Sync property integer ChestSerial = 0
+    @Sync property string ChestType = "UPGRADE"
+    @Sync property string ChestState = "AVAILABLE"
+
+    @ExecSpace("ClientOnly")
+    method void OnBeginPlay()
+        self:RefreshVisual()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnSyncProperty(string name, any value)
+        if name == "ChestType" or name == "ChestState" then self:RefreshVisual() end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ActivateServer()
+        self.ChestState = "AVAILABLE"
+        local interaction = self.Entity.InteractionComponent
+        if isvalid(interaction) then
+            local range = _GameData:GetBalance("run_chest_interact_range")
+            if range <= 0 then range = 1.35 end
+            interaction.ColliderType = ColliderType.Circle
+            interaction.CircleRadius = range
+            interaction.ShowActionInfo = true
+            if self.ChestType == "HEAL" then
+                interaction.ActionName = "회복 상자 열기"
+            else
+                interaction.ActionName = "강화 상자 열기"
+            end
+        end
+        log("[RunChest] AVAILABLE serial=" .. tostring(self.ChestSerial)
+            .. " type=" .. self.ChestType .. " map=" .. tostring(self.Entity.CurrentMap.Name))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void PrepareRemove(string reason)
+        if self.ChestState == "AVAILABLE" then self.ChestState = "OPENED" end
+        log("[RunChest] REMOVE serial=" .. tostring(self.ChestSerial) .. " reason=" .. reason)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshVisual()
+        if isvalid(self.Entity) == false then return end
+        local visual = self.Entity:GetChildByName("Visual", false)
+        if isvalid(visual) and isvalid(visual.SpriteRendererComponent) then
+            -- 같은 공식 보물상자 자산을 재사용하되 회복=초록, 강화=금색으로 즉시 구분한다.
+            if self.ChestType == "HEAL" then
+                visual.SpriteRendererComponent.Color = Color(0.48, 1.00, 0.60, 1)
+            else
+                visual.SpriteRendererComponent.Color = Color(1.00, 0.82, 0.32, 1)
+            end
+        end
+        self.Entity:SetVisible(self.ChestState == "AVAILABLE")
+    end
+
+    @ExecSpace("ServerOnly")
+    @EventSender("Self", "InteractionComponent")
+    handler HandleInteraction(InteractionEvent event)
+        if self.ChestState ~= "AVAILABLE" then return end
+        local player = event.InteractionEntity
+        if isvalid(player) == false or isvalid(player.PlayerComponent) == false then return end
+        _GameData:TryOpenRunChest(self.ChestSerial, player)
+    end
+
+end

@@ -591,23 +591,38 @@ script PlayerSkillSlots extends Component
 
     @ExecSpace("ServerOnly")
     method boolean TryAcquireRunAbility(string monsterId, string skillId)
+        -- 레거시 호출 호환: 이제 이 함수는 실제 획득이 아니라 Drop 생성 기회만 판정한다.
+        return self:ResolveRunSkillDropRoll(monsterId, skillId)
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean ResolveRunSkillDropRoll(string monsterId, string skillId)
+        -- 레거시 호환 진입점. 신규 World Drop의 최초 보장은 플레이어별 상태가 아니라
+        -- SkillDropManager.firstSkillDropResolved 한 곳에서만 소비한다.
         if self.RogueliteRunActive == false or self:HasRunOwnedSkill(skillId) then return false end
-        local guaranteed = self.RunFirstEligibleResolved == false
-        self.RunFirstEligibleResolved = true
-        local chance = guaranteed and 1 or _GameData:GetBalance("run_ability_acquire_rate")
+        local chance = _GameData:GetBalance("run_ability_acquire_rate")
         if chance <= 0 then chance = 0.10 end
-        local roll = _GameData:RogueStreamNextDouble("acquisition:" .. self.Entity.PlayerComponent.UserId)
-        local acquired = guaranteed or roll < chance
-        log("[RunAcquire] monster=" .. monsterId .. " skill=" .. skillId
-            .. " first=" .. tostring(guaranteed) .. " roll=" .. string.format("%.5f", roll)
-            .. " chance=" .. string.format("%.2f", chance) .. " acquired=" .. tostring(acquired))
-        if acquired == false then return false end
+        local roll = _GameData:RogueStreamNextDouble("acquisition:legacy")
+        local dropped = roll < chance
+        log("[SkillDropRollLegacy] monster=" .. monsterId .. " skill=" .. skillId
+            .. " first=false roll=" .. string.format("%.5f", roll)
+            .. " chance=" .. string.format("%.2f", chance) .. " dropped=" .. tostring(dropped))
+        return dropped
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean ClaimRunSkillDrop(string monsterId, string skillId)
         return self:OfferRunAbility(monsterId, skillId)
     end
 
     @ExecSpace("Client")
     method void ShowRunAbilityToast(string monsterId, string skillId)
         _SkillBar:ShowRunAbilityToast(monsterId, skillId)
+    end
+
+    @ExecSpace("Client")
+    method void ShowSkillDropClaimRejected(string message)
+        _GateNotice:ShowNotice("능력 획득", message)
     end
 
     @ExecSpace("Client")

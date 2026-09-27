@@ -13,6 +13,8 @@ script PlayerAttack extends AttackComponent
 	property any Shape = nil
 	@HideFromInspector
 	property integer autoAttackTimer = 0
+	@HideFromInspector property number autoAttackInterval = 1
+	@HideFromInspector property number nextAutoAttackAt = 0
 
 	-- 이번 한 방이 때릴 수 있는 대상 수 (T17-3).
 	-- 엔진에 "최대 타격 수"가 없어서(msw-combat-system 1-2: "not native. Manage in script")
@@ -23,6 +25,7 @@ script PlayerAttack extends AttackComponent
 	@HideFromInspector property integer hitBudget = 0
 	-- Phase 1 기본 공격의 이번 한 대상. AttackComponent가 후보를 훑을 때 이 엔티티만 통과시킨다.
 	@HideFromInspector property any basicTarget = nil
+	@HideFromInspector property table basicTargets = {}
 
 	-- 이번 한 방에 얹을 돌진 보너스 (T21-2). 0이면 없다.
 	-- hitLimited/hitBudget과 같은 방식 — 한 방 앞에서 걸고 바로 지운다.
@@ -70,11 +73,11 @@ script PlayerAttack extends AttackComponent
 
 	@ExecSpace("ServerOnly")
 	method void RestartAutoAttack()
-		-- 자동 공격 타이머를 지금 주기로 다시 건다 (T27-3).
+		-- 공격 가능 시각과 대상 탐색 주기를 분리한다.
 		--
-		-- ⚠ **주기를 바꾸려면 반드시 다시 걸어야 한다.** `SetTimerRepeat`은 걸 때의
-		--   주기를 그대로 들고 있어서, `GetAttackInterval()`이 달라져도 옛 타이머는
-		--   옛 주기로 계속 돈다 — 에러 없이 "LUK을 찍었는데 공속이 그대로"가 된다.
+		-- 예전에는 공격 주기 자체로만 타이머를 돌려, 공격 가능한 몬스터가 없는 틱을
+		-- 한 번 놓치면 새 대상이 들어와도 주기 전체를 다시 기다렸다. 0.1초 대상 탐색은
+		-- 준비된 공격을 빠르게 재개하지만 실제 공격 간격은 nextAutoAttackAt이 지킨다.
 		--
 		-- 부르는 곳은 `PlayerStats.ApplySpeeds` 하나다. 여기서 스탯을 읽어 오는 것이
 		-- 아니라 저쪽이 밀어 주는 꼴이라, 최대 HP와 같은 자리에서 같이 갱신된다.
@@ -91,13 +94,24 @@ script PlayerAttack extends AttackComponent
 		-- 이미 걸지만, 스탯이 없어 기본값으로 떨어진 경로도 막아 둔다.
 		if interval < 0.05 then interval = 0.05 end
 
+		self.autoAttackInterval = interval
+		self.nextAutoAttackAt = 0
+		local scanInterval = _GameData:GetBalance("player_attack_target_scan_interval")
+		if scanInterval < 0.05 then scanInterval = 0.05 end
+		if scanInterval > interval then scanInterval = interval end
+
 		self.autoAttackTimer = _TimerService:SetTimerRepeat(function()
-			self:AttackNormal()
-		end, interval)
+			local now = _UtilLogic.ElapsedSeconds
+			if now + 0.0001 < self.nextAutoAttackAt then return end
+			if self:AttackNormal() then
+				self.nextAutoAttackAt = now + self.autoAttackInterval
+			end
+		end, scanInterval)
 
 		-- 값만 보면 타이머가 실제로 다시 걸렸는지 알 수 없다 (컴포넌트 조회가 nil이어도
 		-- 에러 없이 옛 주기로 계속 돈다). 다시 건 자리를 남긴다.
-		log("[PlayerAttack] 자동 공격 주기 " .. tostring(interval) .. "초로 다시 걸었다"
+		log("[PlayerAttack] 자동 공격 주기 " .. tostring(interval)
+			.. "초 / 대상 탐색 " .. tostring(scanInterval) .. "초로 다시 걸었다"
 			.. "  (LUK " .. tostring(stats ~= nil and stats:GetTotalLuk() or 0) .. ")")
 	end
 
@@ -111,11 +125,11 @@ script PlayerAttack extends AttackComponent
 	end
 
 	@ExecSpace("ServerOnly")
-	method void AttackNormal()
-		if self:CanActInCurrentRun() == false then return end
+	method boolean AttackNormal()
+		if self:CanActInCurrentRun() == false then return false end
 		-- 기능 플래그가 켜진 Phase 1에서는 범위 안 가장 가까운 살아 있는 한 마리만 친다.
 		local transform = self.Entity.TransformComponent
-		if not isvalid(transform) then return end
+		if not isvalid(transform) then return false end
 
 		local worldPosition = transform.WorldPosition
 		-- 발밑이 원점이라 반 칸 올려야 몸통 높이에서 판정된다.
@@ -124,17 +138,32 @@ script PlayerAttack extends AttackComponent
 		if _GameData:GetBalance("phase1_random_combat_enabled") >= 0.5 then
 			local radius = _GameData:GetBalance("player_attack_range")
 			if radius <= 0 then radius = 1.2 end
-			self.basicTarget = self:PickNearestBasicTarget(worldPosition, radius)
-			if self.basicTarget == nil then return end
+			local pc = self.Entity.PlayerComponent
+			if _GameData.RogueRunActive and isvalid(pc) then
+				local rangeStack = _GameData:GetRunUpgradeStack(pc.UserId, "attack_range")
+				local rangeRatio = _GameData:GetBalance("run_upgrade_attack_range_ratio")
+				if rangeRatio <= 0 then rangeRatio = 0.15 end
+				radius = radius * (1 + rangeStack * rangeRatio)
+			end
+			self.basicTargets = self:BuildBasicAttackTargets(worldPosition, radius)
+			self.basicTarget = self.basicTargets[1]
+			if self.basicTarget == nil then return false end
+			local shapeRadius = radius
+			if isvalid(pc) and _GameData:GetRunUpgradeStack(pc.UserId, "pierce") > 0 then
+				shapeRadius = radius * 1.75
+			end
+			self.Shape = CircleShape(Vector2(worldPosition.x, worldPosition.y + 0.5), shapeRadius)
 			self.hitLimited = false
 			self:AttackFast(self.Shape, nil, CollisionGroups.Monster)
 			self.basicTarget = nil
-			return
+			self.basicTargets = {}
+			return true
 		end
 
 		-- 플래그를 끄면 기존의 범위 내 전체 타격을 그대로 사용한다.
 		self.hitLimited = false
 		self:AttackFast(self.Shape, nil, CollisionGroups.Monster)
+		return true
 	end
 
 	@ExecSpace("ServerOnly")
@@ -186,6 +215,83 @@ script PlayerAttack extends AttackComponent
 			end
 		end
 		return best
+	end
+
+	@ExecSpace("ServerOnly")
+	method table BuildBasicAttackTargets(Vector3 fromPos, number radius)
+		local primary = self:PickNearestBasicTarget(fromPos, radius)
+		if primary == nil then return {} end
+		local result = {primary}
+		local used = {[tostring(primary.Name)] = true}
+		local pc = self.Entity.PlayerComponent
+		if _GameData.RogueRunActive == false or not isvalid(pc) then return result end
+
+		local map = self.Entity.CurrentMap
+		local spawner = map ~= nil and map:GetComponent("script.RoomSpawner") or nil
+		if spawner == nil then return result end
+		local candidates = {}
+		for i = 1, #spawner.spawned do
+			local e = spawner.spawned[i]
+			if isvalid(e) and used[tostring(e.Name)] ~= true then
+				local mon = e:GetComponent("script.RoomMonster")
+				if mon ~= nil and mon.IsDead == false then
+					local p = e.TransformComponent.WorldPosition
+					local dx, dy = p.x - fromPos.x, p.y - fromPos.y
+					candidates[#candidates + 1] = {entity = e, distSq = dx * dx + dy * dy,
+						dx = dx, dy = dy, name = tostring(e.Name)}
+				end
+			end
+		end
+		table.sort(candidates, function(a, b)
+			if math.abs(a.distSq - b.distSq) <= 0.0001 then return a.name < b.name end
+			return a.distSq < b.distSq
+		end)
+
+		-- 추가 대상은 플레이어 주변의 다른 근접 적을 때린다.
+		local extra = _GameData:GetRunUpgradeStack(pc.UserId, "extra_target")
+		for i = 1, #candidates do
+			if extra <= 0 then break end
+			local candidate = candidates[i]
+			if candidate.distSq <= radius * radius and used[candidate.name] ~= true then
+				result[#result + 1] = candidate.entity
+				used[candidate.name] = true
+				extra -= 1
+			end
+		end
+
+		-- 관통은 주 대상 뒤 직선 회랑에 있는 적만 추가한다. 주변 추가 타격과 다른
+		-- 포지셔닝을 요구하며, 화면 전체 범위 공격으로 번지지 않는다.
+		local pierce = _GameData:GetRunUpgradeStack(pc.UserId, "pierce")
+		if pierce > 0 then
+			local pp = primary.TransformComponent.WorldPosition
+			local dirX, dirY = pp.x - fromPos.x, pp.y - fromPos.y
+			local primaryDistance = math.sqrt(dirX * dirX + dirY * dirY)
+			if primaryDistance > 0.01 then
+				dirX, dirY = dirX / primaryDistance, dirY / primaryDistance
+				local line = {}
+				for i = 1, #candidates do
+					local candidate = candidates[i]
+					if used[candidate.name] ~= true then
+						local forward = candidate.dx * dirX + candidate.dy * dirY
+						local side = math.abs(candidate.dx * dirY - candidate.dy * dirX)
+						if forward > primaryDistance + 0.05 and forward <= radius * 1.75
+							and side <= 0.55 then
+							line[#line + 1] = {entity = candidate.entity, forward = forward,
+								name = candidate.name}
+						end
+					end
+				end
+				table.sort(line, function(a, b)
+					if math.abs(a.forward - b.forward) <= 0.0001 then return a.name < b.name end
+					return a.forward < b.forward
+				end)
+				for i = 1, math.min(pierce, #line) do result[#result + 1] = line[i].entity end
+			end
+		end
+		log("[RunBasicUpgrade] targets=" .. tostring(#result)
+			.. " extra=" .. tostring(_GameData:GetRunUpgradeStack(pc.UserId, "extra_target"))
+			.. " pierce=" .. tostring(_GameData:GetRunUpgradeStack(pc.UserId, "pierce")))
+		return result
 	end
 
 	@ExecSpace("ServerOnly")
@@ -287,7 +393,12 @@ script PlayerAttack extends AttackComponent
 		-- 왜 이 훅에서 세는가: 엔진에 최대 타격 수가 없다. 판정 후보를 하나씩 물어보는
 		-- 곳이 여기뿐이라, 예산을 깎아 가며 false를 돌려주는 것이 유일한 방법이다.
 		if __base:IsAttackTarget(defender, attackInfo) == false then return false end
-		if self.basicTarget ~= nil then return defender == self.basicTarget end
+		if self.basicTarget ~= nil then
+			for i = 1, #self.basicTargets do
+				if defender == self.basicTargets[i] then return true end
+			end
+			return false
+		end
 		if self.projectileTerrainCheck then
 			local targetPos = defender.TransformComponent.WorldPosition
 			if _GameData:IsSkillLineUnblocked(self.Entity.CurrentMap,
@@ -978,6 +1089,13 @@ script PlayerAttack extends AttackComponent
 		-- 중복 자체가 생기지 않는다 (설계 이력 2026-08-20). 안 가르면 NPC 스킬이
 		-- 보유수 0으로 읽혀 계수가 깎인다.
 		local coefficient = _CombatFormula:GetSkillCoefficient(attackInfo)
+		if _GameData.RogueRunActive and (attackInfo == nil or attackInfo == "") then
+			local pc = attacker.PlayerComponent
+			local stack = isvalid(pc) and _GameData:GetRunUpgradeStack(pc.UserId, "attack_damage") or 0
+			local ratio = _GameData:GetBalance("run_upgrade_attack_damage_ratio")
+			if ratio <= 0 then ratio = 0.15 end
+			coefficient = coefficient * (1 + stack * ratio)
+		end
 		local stack = 1
 		local rogueliteMode = _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5
 		if rogueliteMode == false and attackInfo ~= nil and attackInfo ~= "" then

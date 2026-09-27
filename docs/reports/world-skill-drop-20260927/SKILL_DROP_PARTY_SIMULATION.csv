@@ -1,0 +1,9 @@
+Case,ActiveParticipants,MissingParticipants,FirstResolvedBefore,Chance,RepeatedEligibleInput,DropDelta,FirstResolvedAfter,Expected,Result,ValidationLevel
+ALL_OWNED,3,0,false,0.00,3,0,false,미생성 및 첫 보장 미소비,PASS,Maker server simulation
+FIRST_SHARED_ELIGIBLE,3,3,false,1.00,3,1,true,Run 전체에 공유 Drop 정확히 1개 생성,PASS,Maker server simulation
+AFTER_FIRST,3,3,true,0.10,3,0,true,Kill당 공유 Roll 1회 및 10% 적용,PASS,Maker server simulation
+CLAIM_RACE,2,2,true,N/A,2,0,true,동일 serial은 한 명만 Claim 성공,PASS,Maker runtime atomic test
+OWNER_REJECT,2,1,true,N/A,1,0,true,이미 보유한 참가자는 거부되고 Drop 유지,PASS,Maker runtime
+REAL_2P,2,N/A,N/A,N/A,N/A,N/A,N/A,독립 클라이언트 동시 접속 검증,BLOCKED_RUNTIME_MULTIPLAYER,Not run
+REAL_3P,3,N/A,N/A,N/A,N/A,N/A,N/A,독립 클라이언트 동시 접속 검증,BLOCKED_RUNTIME_MULTIPLAYER,Not run
+REAL_4P,4,N/A,N/A,N/A,N/A,N/A,N/A,독립 클라이언트 동시 접속 검증,BLOCKED_RUNTIME_MULTIPLAYER,Not run

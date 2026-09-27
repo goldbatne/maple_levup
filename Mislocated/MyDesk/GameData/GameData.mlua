@@ -1,0 +1,3936 @@
+-- @서버 + @클라이언트 (양쪽에서 각자 캐시)
+--
+-- 정적 게임 데이터의 유일한 창구. 다른 스크립트는 _DataService를 직접 부르지 말고
+-- 반드시 _GameData를 경유한다. 저장 방식(UserDataSet)을 바꿔도 이 파일만 고치면 된다.
+--
+-- 읽기 전용 조회만 제공한다. 데미지 계산/스탯 분배/포획 판정 등 모든 판정은
+-- 이 데이터를 읽어가는 서버 스크립트 쪽 책임이다 (기획서 개발 규칙 2).
+
+@Logic
+script GameData extends Logic
+
+    property boolean IsLoaded = false
+
+    -- 캐시. CSV의 string 셀을 로드 시 1회만 변환해 담아둔다.
+    property table balance = {}     -- key(string)   -> number
+    property table levelGrowth = {} -- level(number) -> 자동 기본 전투력 (Phase 3)
+    property table traits = {}      -- id(string)    -> 특성 레코드 (Phase 2)
+    property table traitOrder = {}  -- sort_order로 정렬된 특성 id 배열
+    property table skills = {}      -- id(string)    -> 스킬 레코드
+    property table monsters = {}    -- id(string)    -> 몬스터 레코드
+    property table monsterOrder = {} -- MonsterTable 행 순서. 컬렉션 101칸의 안정된 표시 순서
+    property table monsterIdByDropSkillId = {} -- drop skill id -> monster id 역인덱스 (M2A)
+    property table capturableSkillIds = {} -- MonsterTable.drop_skill_id에 실제 경로가 있는 스킬
+    property table rooms = {}       -- id(string)    -> 방 레코드
+    property table landmarks = {}   -- level(number) -> 보상 레코드 배열
+    property table roomsByMap = {}  -- mapName(string) -> roomId(string) 역인덱스
+    property string startRoomId = ""  -- is_start가 켜진 방. 환생 복귀 지점 (T7)
+    property table areas = {}       -- id(string)    -> 지역 레코드 (T12)
+    property table areaOrder = {}   -- sort_order로 정렬된 지역 id 배열
+    property table items = {}       -- id(string)    -> 아이템 레코드 (T13-2)
+    property table itemsByDropper = {}  -- monsterId(string) -> 아이템 id 배열
+    -- drop_from이 `*`인 아이템. 종을 안 가리고 어느 몬스터에서나 나온다 (T23-5).
+    property table itemsForAllDroppers = {}
+
+    -- Roguelite Run 서버 상태. 인스턴스 룸마다 Logic 인스턴스가 따로 생기므로
+    -- 같은 Run 참가자만 이 상태를 공유한다. 영구 저장 대상이 아니다.
+    property boolean RogueRunActive = false
+    property string RogueAreaId = ""
+    property integer RogueSeed = 0
+    property integer RogueRandomState = 1
+    -- 최신 Mega Area Run은 목적별 난수를 분리한다. 전투 중 추첨 횟수가 늘어나도
+    -- 같은 Seed의 방 구조/보스가 달라지지 않게 stream 이름별 상태를 보관한다.
+    property table RogueRngStates = {}
+    property string RogueMode = "NORMAL"
+    property string RogueCurrentSubzone = ""
+    property string RogueBossMonsterId = ""
+    property integer RogueGeneratorVersion = 2
+    property integer RogueGenerationAttempt = 0
+    property integer RogueStartParticipantCount = 1
+    property table RogueParticipantIds = {}
+    property table RogueAliveParticipants = {}
+    property table RogueDisconnectedAt = {}
+    -- static room에서만 쓰는 협동 준비 표. 영구 저장하지 않으며 Run 시작 시 소모한다.
+    property table RogueReadyAreaByUser = {}
+    property table RogueReadyModeByUser = {}
+    property table RogueStartingUsers = {}
+    -- 로비 파티 원장. 같은 장소의 사람을 자동 합류시키지 않고, 명시적으로 생성/참가한
+    -- 파티만 같은 Run으로 묶는다. 서버 메모리 상태이며 Run 종료 뒤에도 로비 세션 동안 유지한다.
+    property table RoguePartiesById = {}
+    property table RoguePartyByUserId = {}
+    property integer RoguePartySerial = 1000
+    -- 아래 View 값은 서버가 각 클라이언트에 보낸 읽기 전용 사본이다.
+    property string RoguePartyViewId = ""
+    property string RoguePartyViewCode = ""
+    property string RoguePartyViewLeaderId = ""
+    property string RoguePartyViewAreaId = "mega_01"
+    property string RoguePartyViewMode = "NORMAL"
+    property string RoguePartyViewMembers = ""
+    property integer RoguePartyViewCount = 0
+    -- Run HUD용 참가자 스냅샷. `userId~nickname~alive|...` 형식이며 슬롯/파티 원장과 분리한다.
+    property string RogueParticipantSummary = ""
+    @HideFromInspector property table RogueUiHandlerEntities = {}
+    @HideFromInspector property table RogueUiHandlerIds = {}
+    @HideFromInspector property boolean RogueRunMenuOpen = false
+    @HideFromInspector property boolean RogueAbandonConfirmOpen = false
+    @HideFromInspector property boolean RoguePartyWindowOpen = false
+    @HideFromInspector property integer RogueUiRefreshTimer = 0
+    property table RogueGraph = {}
+    property table RogueRoomRoles = {}
+    property table RogueEncounters = {}
+    property table RogueDamageLedger = {}
+    property string RogueDamageSummary = ""
+    property integer RogueActiveMonsterSpecialCasts = 0
+    property table RogueMainPath = {}
+    property string RogueStartRoomId = ""
+    property string RogueFinalRoomId = ""
+    property string RogueObjectiveType = "defeat_final_guardian"
+    property boolean RogueObjectiveComplete = false
+    property boolean RogueRunComplete = false
+    property boolean RogueRunFailed = false
+    property string RogueRunResult = "IDLE"
+    property table RogueParticipantResults = {}
+    -- 이번 Run 발견은 서버 메모리에만 보관한다. CLEAR/FAILED에만 영구 도감에
+    -- 합치며 ABANDONED는 버린다. 플레이어 엔티티 재생성에도 같은 Run 원장을 유지한다.
+    property table RoguePendingDiscoveries = {}
+
+    -- 탐험 상자/Run 강화는 영구 저장과 분리된 인스턴스 서버 상태다.
+    -- 상자 위치·종류는 Run Seed 정본을 공유하고, 열림/보상은 사용자별로 기록한다.
+    property table RogueChestRecords = {}
+    property table RogueChestGeneratedMaps = {}
+    property table RogueChestOpenedByUser = {}
+    property table RogueRunUpgradesByUser = {}
+    property integer RogueChestSerial = 0
+    property string RogueUpgradeSummary = ""
+    @HideFromInspector property boolean RogueUpgradeWindowOpen = false
+    -- 실제로 로드된 Run 맵의 스포너만 보관한다. Graph의 map path를 조회하면
+    -- Maker가 미로드 맵을 깨울 수 있으므로 종료 시 Graph를 순회하지 않는다.
+    @HideFromInspector property table RogueLoadedSpawnerEntities = {}
+    property boolean RogueTransitionLocked = false
+    -- 승인된 두 목표를 설정으로 분리. 나머지 Area는 기존 지정 강적 목표를 보존.
+    property string RogueReachExitAreas = ""
+    property integer RogueContentRevision = 3
+    property integer RogueRunRevision = 0
+
+    method void OnBeginPlay()
+        -- 월드 세션 시작 시 데이터셋을 한 번만 읽어 캐시한다.
+        self:LoadAll()
+        self:InitializeRogueliteInstance()
+        _TimerService:SetTimerOnce(function()
+            if isvalid(_UserService.LocalPlayer) then self:InitializeRogueUiClient() end
+        end, 0.5)
+    end
+
+    method void OnEndPlay()
+        if self.RogueUiRefreshTimer ~= 0 then
+            _TimerService:ClearTimer(self.RogueUiRefreshTimer)
+            self.RogueUiRefreshTimer = 0
+        end
+        self:UnbindRogueUiClient()
+    end
+
+    ---------------------------------------------------------------
+    -- 변환 헬퍼 : CSV 셀은 전부 string이고 빈 칸은 "" 또는 nil로 온다
+    ---------------------------------------------------------------
+
+    method number ToNumber(string raw, number fallback)
+        -- 숫자 변환. 빈 칸이거나 변환 실패면 fallback.
+        if raw == nil or raw == "" then return fallback end
+        local parsed = tonumber(raw)
+        if parsed == nil then return fallback end
+        return parsed
+    end
+
+    method boolean ToBoolean(string raw)
+        -- "true"만 참으로 본다. 빈 칸은 거짓.
+        return raw == "true"
+    end
+
+    method string ToText(string raw)
+        -- 빈 칸이 nil로 오든 ""로 오든 ""로 통일한다.
+        if raw == nil then return "" end
+        return raw
+    end
+
+    method table SplitIds(string raw)
+        -- "a|b|c" 파이프 구분 문자열을 배열로 나눈다 (CSV가 중첩을 못 담기 때문).
+        local out = {}
+        if raw == nil or raw == "" then return out end
+        for token in string.gmatch(raw, "([^|]+)") do
+            table.insert(out, token)
+        end
+        return out
+    end
+
+    method table SplitFrameIds(string raw)
+        -- 한 레이어 안의 프레임 RUID 목록을 쉼표 기준으로 나눈다.
+        local out = {}
+        if raw == nil or raw == "" then return out end
+        for token in string.gmatch(raw, "([^,]+)") do
+            table.insert(out, token)
+        end
+        return out
+    end
+
+    method table BuildEffectLayers(any row)
+        -- 첫 지역부터 도입한 다층 스킬 연출. 각 컬럼은 같은 순서의 파이프 목록이다.
+        -- RUID 개수만큼만 레이어를 만들고 나머지 값은 안전한 기본값으로 채운다.
+        -- 기존 effect_ruid/effect_style은 이후 지역을 순차 이관하는 동안 그대로 쓴다.
+        local ruids = self:SplitIds(self:ToText(row:GetItem("layer_ruids")))
+        local types = self:SplitIds(self:ToText(row:GetItem("layer_types")))
+        local styles = self:SplitIds(self:ToText(row:GetItem("layer_styles")))
+        local delays = self:SplitIds(self:ToText(row:GetItem("layer_delays")))
+        local durations = self:SplitIds(self:ToText(row:GetItem("layer_durations")))
+        local scales = self:SplitIds(self:ToText(row:GetItem("layer_scales")))
+        local offsetsX = self:SplitIds(self:ToText(row:GetItem("layer_offsets_x")))
+        local offsetsY = self:SplitIds(self:ToText(row:GetItem("layer_offsets_y")))
+        local driftsX = self:SplitIds(self:ToText(row:GetItem("layer_drifts_x")))
+        local driftsY = self:SplitIds(self:ToText(row:GetItem("layer_drifts_y")))
+
+        local out = {}
+        for i = 1, #ruids do
+            local resourceType = types[i] or "sprite"
+            local frameRuids = {}
+            local firstRuid = ruids[i]
+            if resourceType == "sprite_sequence" then
+                frameRuids = self:SplitFrameIds(ruids[i])
+                if #frameRuids > 0 then firstRuid = frameRuids[1] end
+            end
+            out[#out + 1] = {
+                ruid = firstRuid,
+                frame_ruids = frameRuids,
+                resource_type = resourceType,
+                style = styles[i] or "burst",
+                delay = self:ToNumber(delays[i], 0),
+                duration = self:ToNumber(durations[i], 0.4),
+                scale = self:ToNumber(scales[i], 1),
+                offset_x = self:ToNumber(offsetsX[i], 0),
+                offset_y = self:ToNumber(offsetsY[i], 0),
+                drift_x = self:ToNumber(driftsX[i], 0),
+                drift_y = self:ToNumber(driftsY[i], 0),
+            }
+        end
+        return out
+    end
+
+    method any GetDataSet(string setName)
+        -- 데이터셋을 이름으로 가져온다. 없으면 에러 로그 후 nil.
+        -- 반환 타입이 any인 이유: UserDataSet은 메서드 시그니처에 쓸 수 없다 (LSP 확인).
+        local dataSet = _DataService:GetTable(setName)
+        if dataSet == nil then
+            log_error("[GameData] 데이터셋을 찾을 수 없음: " .. setName)
+        end
+        return dataSet
+    end
+
+    ---------------------------------------------------------------
+    -- 로더
+    ---------------------------------------------------------------
+
+    method void LoadAll()
+        -- 데이터셋을 캐시한다. 하나가 없어도 나머지는 계속 로드한다.
+        self:LoadBalance()
+        self:LoadLevelGrowth()
+        self:LoadTraits()
+        self:LoadSkills()
+        self:LoadMonsters()
+        self:LoadRooms()
+        self:LoadLandmarks()
+        self:LoadAreas()
+        self:LoadItems()
+        self.IsLoaded = true
+    end
+
+    method void LoadTraits()
+        -- Phase 2 특성의 확률/효과 보정은 코드 상수가 아니라 이 표에서 조절한다.
+        local dataSet = self:GetDataSet("TraitTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        local sortable = {}
+        for i = 1, #rows do
+            local row = rows[i]
+            local id = self:ToText(row:GetItem("id"))
+            if id ~= "" then
+                self.traits[id] = {
+                    id = id,
+                    name = self:ToText(row:GetItem("name")),
+                    preferred_tags = self:SplitIds(self:ToText(row:GetItem("preferred_tags"))),
+                    weight_multiplier = self:ToNumber(row:GetItem("weight_multiplier"), 1),
+                    effect_multiplier = self:ToNumber(row:GetItem("effect_multiplier"), 1),
+                    description = self:ToText(row:GetItem("description")),
+                    sort_order = self:ToNumber(row:GetItem("sort_order"), i),
+                }
+                sortable[#sortable + 1] = { id = id, order = self.traits[id].sort_order }
+            end
+        end
+        table.sort(sortable, function(a, b)
+            if a.order == b.order then return a.id < b.id end
+            return a.order < b.order
+        end)
+        for i = 1, #sortable do self.traitOrder[i] = sortable[i].id end
+    end
+
+    method void LoadBalance()
+        -- key/value 2컬럼을 key -> number 맵으로.
+        local dataSet = self:GetDataSet("GameBalance")
+        if dataSet ~= nil then
+            local rows = dataSet:GetAllRow()
+            for i = 1, #rows do
+                local key = self:ToText(rows[i]:GetItem("key"))
+                if key ~= "" then
+                    self.balance[key] = self:ToNumber(rows[i]:GetItem("value"), 0)
+                end
+            end
+        end
+
+        -- Maker가 갱신된 CSV 대신 이전 imported copy를 들고 있는 경우에도
+        -- 최종 로그라이트 모드가 구형 랜덤 공급 모드로 되돌아가지 않게 한다.
+        -- 정상 경로의 GameBalance.csv가 정본이며, 아래 값은 해당 행이 누락됐을 때만
+        -- 적용되는 동일 값의 안전 fallback이다.
+        local rogueliteDefaults = {
+            roguelite_run_mode_enabled = 1,
+            run_skill_slot_max = 5,
+            run_skill_cooldown_fallback = 4,
+            run_player_base_hp = 1000,
+            run_player_base_attack = 35,
+            run_player_base_defense = 10,
+            run_party_max = 4,
+            run_hp_scale_per_extra_player = 0.25,
+            run_generator_version = 3,
+            run_generator_retry_max = 8,
+            run_main_path_min = 8,
+            run_main_path_max = 10,
+            run_branch_min = 2,
+            run_branch_budget = 4,
+            run_encounter_count_min = 6,
+            run_encounter_count_max = 10,
+            run_encounter_species_min = 2,
+            run_encounter_species_max = 4,
+            run_monster_respawn_delay_min = 6,
+            run_monster_respawn_delay_max = 10,
+            run_monster_respawn_player_clearance = 5,
+            run_ability_acquire_rate = 0.10,
+            skill_drop_interact_range = 1.25,
+            skill_drop_lifetime = 60,
+            skill_drop_countdown_start = 30,
+            skill_drop_warning_seconds = 10,
+            skill_drop_max_per_map = 8,
+            run_skill_supply_interval = 5,
+            run_potion_drop_rate = 0.05,
+            run_potion_heal_ratio = 0.25,
+            min_player_attack_interval = 0.30,
+            run_chest_interact_range = 1.35,
+            run_chest_combat_chance = 0.35,
+            run_chest_optional_chance = 0.70,
+            run_chest_heal_weight = 0.35,
+            run_chest_entrance_clearance = 3.0,
+            heal_chest_ratio = 0.30,
+            run_upgrade_stack_cap = 3,
+            run_upgrade_extra_target_cap = 2,
+            run_upgrade_pierce_cap = 2,
+            run_upgrade_attack_speed_ratio = 0.15,
+            run_upgrade_attack_damage_ratio = 0.15,
+            run_upgrade_attack_range_ratio = 0.15,
+            run_upgrade_move_speed_ratio = 0.10,
+            run_upgrade_max_hp_ratio = 0.15,
+            run_upgrade_damage_reduction_ratio = 0.10,
+            run_monster_special_max_concurrent = 2,
+            run_reconnect_grace_seconds = 90,
+            run_participation_radius = 12,
+            run_transition_gather_radius = 4,
+            run_monster_hp_base = 240,
+            run_monster_attack_base = 24,
+            run_monster_defense_base = 6,
+            run_boss_hp_multiplier = 4,
+        }
+        local fallbackCount = 0
+        for key, value in pairs(rogueliteDefaults) do
+            if self.balance[key] == nil then
+                self.balance[key] = value
+                fallbackCount += 1
+            end
+        end
+        if fallbackCount > 0 then
+            log_warning("[GameData] GameBalance imported copy에 Run 설정 "
+                .. tostring(fallbackCount) .. "개가 없어 CSV 동값 fallback을 적용했다")
+        end
+    end
+
+    method void LoadLevelGrowth()
+        -- Phase 3의 영구 레벨 성장표. 코드에 곡선을 박지 않고 Lv1~200을 행으로 관리한다.
+        local dataSet = self:GetDataSet("LevelGrowthTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local level = math.floor(self:ToNumber(row:GetItem("Level"), 0))
+            if level > 0 then
+                self.levelGrowth[level] = {
+                    level = level,
+                    base_max_hp = self:ToNumber(row:GetItem("BaseMaxHP"), 0),
+                    base_attack = self:ToNumber(row:GetItem("BaseAttack"), 0),
+                    base_defense = self:ToNumber(row:GetItem("BaseDefense"), 0),
+                }
+            end
+        end
+    end
+
+    method void LoadSkills()
+        -- 몬스터/NPC 스킬 공통 테이블 (source로 구분).
+        local dataSet = self:GetDataSet("SkillTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local id = self:ToText(row:GetItem("id"))
+            if id ~= "" then
+                self.skills[id] = {
+                    id = id,
+                    name = self:ToText(row:GetItem("name")),
+                    source = self:ToText(row:GetItem("source")),
+                    scaling_stat = self:ToText(row:GetItem("scaling_stat")),
+                    coefficient = self:ToNumber(row:GetItem("coefficient"), 0),
+                    slot_type = self:ToText(row:GetItem("slot_type")),
+                    effect_type = self:ToText(row:GetItem("effect_type")),
+                    is_key_skill = self:ToBoolean(row:GetItem("is_key_skill")),
+                    -- 재사용 대기시간(초). 밸런스시트에 없는 값이라 계수에 비례해
+                    -- 시작값을 정했다(계수 x 4 반올림, 3~5초). CSV에서 바로 조정 가능.
+                    cooldown = self:ToNumber(row:GetItem("cooldown"), 0),
+
+                    -- ── 스킬 메타 (T17-2, 대표 지시 2026-08-16) ──
+                    -- 지금까지 스킬은 "계수가 다른 단일 타격" 하나뿐이었다.
+                    -- 무엇을 하는 스킬인지를 데이터가 들고 있어야 설명도 띄우고
+                    -- 판정도 갈라 쓸 수 있다.
+                    --
+                    -- skill_kind   attack / defense / buff — 모두 같은 슬롯을 먹는다
+                    --              (대표: "스킬이잖아?"). 분류는 표시와 판정 분기용이다.
+                    -- target_mode  single / area / self
+                    -- max_targets  multi·area에서 최대 몇을 때리나. 0 = 제한 없음
+                    -- effect_value 실드 감쇄율(0.4 = 40%) · 회복량 등 효과의 크기
+                    -- duration     효과 지속 시간(초). 즉발이면 0
+                    -- description  스킬을 눌렀을 때 보여 줄 한 줄
+                    skill_kind = self:ToText(row:GetItem("skill_kind")),
+                    target_mode = self:ToText(row:GetItem("target_mode")),
+                    max_targets = self:ToNumber(row:GetItem("max_targets"), 0),
+                    effect_value = self:ToNumber(row:GetItem("effect_value"), 0),
+                    duration = self:ToNumber(row:GetItem("duration"), 0),
+                    -- 판정 반경(월드 유닛). 0이면 기본 근접 반경(player_attack_range)을 쓴다.
+                    -- 0을 "반경 없음"이 아니라 "기본값"으로 읽는 이유: 대부분의 스킬이
+                    -- 기본 반경이라, 매번 1.0을 적어 넣으면 나중에 기본값을 바꿀 때
+                    -- CSV를 전부 고쳐야 한다.
+                    range = self:ToNumber(row:GetItem("range"), 0),
+
+                    -- ── 스킬 차수 (T16-4a, 설계 변경 2026-08-16) ──
+                    -- **보유는 아무 때나 가능하지만, 내 차수가 이 값 이상이어야 장착·사용한다.**
+                    -- 차수 = 환생 횟수 + 1 (1회차 = 1차). PlayerSkillSlots.GetTier가 유일한 창구다.
+                    --
+                    -- 왜 필요한가: 모험가 NPC가 직업군 스킬을 **한꺼번에** 준다(T16-3).
+                    -- 잠금이 없으면 1회차 플레이어가 상위 차수 스킬을 그대로 끼워
+                    -- 몬스터 계단도 보스 배율도 무의미해진다.
+                    --
+                    -- ⚠ **시작이 0차다** (대표 지시 2026-08-21). 전직은 Lv20/30/60/100/200에서
+                    -- 1~5차로 오른다. 몬스터 스킬을 0차로 두지 않으면 Lv20 전에는 쓸 수 있는
+                    -- 스킬이 하나도 없어 초반이 통째로 자동 공격만 남는다.
+                    --
+                    -- 기본값 0인 이유: 새 줄에서 tier를 빠뜨렸을 때 **잠기는 쪽이 아니라
+                    -- 열리는 쪽**으로 틀리는 편이 안전하다 — 잠기면 "왜 안 끼워지지"가 되고
+                    -- 원인이 화면에 안 남는다.
+                    tier = self:ToNumber(row:GetItem("tier"), 0),
+
+                    -- ── 포획 패시브 (설계 변경 2026-08-29, 대표 지시) ──
+                    -- `skill_kind == "passive"`면 **슬롯을 안 먹고 보유만 해도 항상 켜진다.**
+                    -- 지역당 5종 중 2종이 패시브고 나머지 3종은 액티브다 (대표: "버프,
+                    -- 액티브가 존재해야 하니까") — 전부 패시브면 "무엇을 끼울지가 곧 빌드"라는
+                    -- 핵심 설계가 얇아진다.
+                    --
+                    -- ⚠⚠ **주는 스탯을 `scaling_stat`에 넣으면 안 된다.** 그 칸은 **파생 수치**
+                    -- 이름(ATK=물리 공격력 / INT=마법 공격력 / LUK)을 쓰는데, 패시브가 주는 것은
+                    -- **분배 스탯**(STR/DEX/INT/LUK)이다. 이름 체계가 둘이라는 함정
+                    -- (설계 변경 2026-08-27)에 정확히 걸리므로 칸을 따로 뒀다.
+                    --
+                    -- passive_value가 비면 `collection_passive_first`를 쓴다 — 대부분 기본값이라
+                    -- 매번 적어 넣으면 나중에 기본을 바꿀 때 CSV를 전부 고쳐야 한다 (range와 같은 판단).
+                    passive_stat = self:ToText(row:GetItem("passive_stat")),
+                    passive_value = self:ToNumber(row:GetItem("passive_value"), 0),
+
+                    -- 원작 스킬 아이콘 RUID (T16-3a). 대표 지시: "UUID와 효과도 원작과 같아야 해".
+                    -- 값은 `msw-search`의 **스킬 리소스 팩**에서 얻는다 — 팩 id가 원작 스킬 id
+                    -- 그대로여서(예: 슬래시 블러스트 = skill/100.img/skill/1001005) 눈대중이 아니라
+                    -- id로 맞출 수 있다. 팩 안의 `icon` 요소가 이 값이다.
+                    --
+                    -- 몬스터 스킬은 원작 대응이 없어 **원작 스킬 아이콘을 쓰지 않는다** —
+                    -- **그 스킬이 실제로 쓰는 부위**를 입는다 (T20-5, 대표 지시 2026-08-23):
+                    -- 몸통 박치기=달팽이의 껍질 / 푸른 껍질=파란 달팽이의 껍질 /
+                    -- 포자 살포=버섯의 포자 / 뿔 들이받기=뿔 / 바위 던지기=날아가는 그 바위.
+                    -- 처음에는 그 종의 몬스터 카드를 입혔는데(T20-4), 넷이 전부 같은 빨간 액자라
+                    -- 아이콘 크기로 줄이면 구분이 안 됐다. 부위는 모양도 색도 전부 다르다.
+                    icon_ruid = self:ToText(row:GetItem("icon_ruid")),
+
+                    -- 아이콘 그림의 가로/세로 비 (T20-4). 장착 창이 칸에 채워 넣을 때 쓴다.
+                    --   껍질 28x28 = 1.0 / 포자 32x28 = 1.14 / 뿔 28x24 = 1.17 /
+                    --   바위 44x52 = 0.85 / 원작 스킬 아이콘 32x32 = 1.0
+                    --
+                    -- 왜 데이터인가: 런타임에 `SetNativeSize()`로 재면 **다음 프레임에야** 값이
+                    -- 들어오고, 자원이 아직 안 올라온 첫 회에는 엉뚱한 크기(실측 18x18)를 문다.
+                    -- 그걸 캐시하면 그 뒤로 계속 찌그러진 채 그려진다 (T20-4에서 겪었다).
+                    --
+                    -- ⚠ **아이콘을 바꾸면 이 값도 같이 바꿔야 한다.** 빠뜨리면 그림이 늘어난다 —
+                    -- `GameDataVerify`가 아이콘은 있는데 비율이 없는 줄을 잡아 준다.
+                    -- 기본값 1.0인 이유: 빠뜨렸을 때 정사각으로 그려지는 편이 0(안 그려짐)보다 낫다.
+                    icon_ratio = self:ToNumber(row:GetItem("icon_ratio"), 1.0),
+
+                    -- 돌진 거리(월드 유닛). 0이면 제자리에서 때린다 (T21-2).
+                    -- 0보다 크면 **가고 있는 쪽으로 돌진하고 도착한 자리에서** 판정한다.
+                    -- 던지는 스킬(`projectile_ruid`)과 같은 꼴 — 연출이 끝나는 자리가 판정 자리다.
+                    dash_distance = self:ToNumber(row:GetItem("dash_distance"), 0),
+
+                    -- 이펙트를 어떻게 움직일지 (T21-1). 비어 있으면 `effect_ruid`가
+                    -- **원작 애니메이션 클립**이고 `_EffectService`가 그대로 재생한다.
+                    -- 채워져 있으면 `effect_ruid`는 **우리가 그린 스프라이트 한 장**이고
+                    -- `SkillCastEffect`가 커지고·옅어지고·흐르게 만든다.
+                    --   burst  부딪히는 충격 (확 커졌다 사라진다)
+                    --   ring   감싸는 방어막 (천천히 커지며 옅어진다)
+                    --   cloud  퍼지는 구름 (부풀어 오래 남는다)
+                    --   pierce 꿰뚫는 획 (앞으로 나가며 늘어난다)
+                    --
+                    -- 왜 컬럼을 나눴나: 한 칸에 섞으면 "이 RUID가 클립인지 그림인지"를
+                    -- 런타임에 알 방법이 없다. 클립 자리에 그림을 넣으면 **에러 없이 안 뜬다**.
+                    effect_style = self:ToText(row:GetItem("effect_style")),
+
+                    -- ── 원작 이펙트·사운드 (T19-2, 대표 지시 2026-08-23) ──
+                    -- 아이콘과 **같은 팩**에서 꺼낸다. 팩 하나가 icon / effect / hit /
+                    -- _audio/Use / _audio/Hit를 다 들고 있어서, 아이콘 RUID로
+                    -- `findPacksContaining`을 돌리면 그 스킬의 원본 팩이 바로 나온다.
+                    -- 눈대중으로 고르지 않아도 되고, 아이콘과 이펙트가 서로 다른 스킬에서
+                    -- 온 채로 섞일 일이 없다.
+                    --
+                    -- ⚠ CLAUDE.md에 한동안 "스킬 팩 내용은 아이콘뿐"이라고 적혀 있었는데
+                    --   **틀렸다.** 아이콘만 있는 팩(아이언 바디 같은 버프)을 보고 일반화한
+                    --   것이다. 대부분의 공격 스킬 팩에는 effect와 오디오가 들어 있다.
+                    --
+                    -- effect_ruid  시전자에게 붙여 재생하는 애니메이션클립. 비어 있으면 안 띄운다.
+                    -- sfx_ruid     시전 소리. 비어 있으면 안 울린다.
+                    effect_ruid = self:ToText(row:GetItem("effect_ruid")),
+                    sfx_ruid = self:ToText(row:GetItem("sfx_ruid")),
+
+                    -- 다층 연출 레시피. 비어 있으면 위의 단일 effect_ruid 경로로
+                    -- 물러나므로 아직 이관하지 않은 지역의 스킬은 동작이 바뀌지 않는다.
+                    effect_layers = self:BuildEffectLayers(row),
+
+                    -- 날아가는 투사체의 그림 (T19-3, 대표 지시 2026-08-23).
+                    -- 비어 있으면 안 날린다 — 대부분의 스킬은 시전자 자리에서 터지는
+                    -- 이펙트로 충분하고, "던진다"가 그림에 있어야 하는 스킬만 채운다.
+                    --
+                    -- ⚠ **이 값이 비어 있는지가 판정 방식을 가른다** (T19-4).
+                    -- 채워져 있으면 던지는 스킬이 되어 **바위가 닿는 순간** 아프고,
+                    -- 비어 있으면 시전자 자리에서 즉시 판정한다.
+                    -- 갈리는 곳은 MonsterAttack.CastSkill / PlayerAttack.UseSkill 한 줄씩이다.
+                    projectile_ruid = self:ToText(row:GetItem("projectile_ruid")),
+                    -- 랜덤 사용권 한 칸이 만드는 실제 공간 행동. 이름·VFX만 다른 원형
+                    -- 공격으로 되돌아가지 않도록 Player/Monster adapter가 함께 읽는다.
+                    behavior = self:ToText(row:GetItem("behavior")),
+                    behavior_width = self:ToNumber(row:GetItem("behavior_width"), 0),
+                    behavior_delay = self:ToNumber(row:GetItem("behavior_delay"), 0),
+                    behavior_ticks = self:ToNumber(row:GetItem("behavior_ticks"), 1),
+                    behavior_interval = self:ToNumber(row:GetItem("behavior_interval"), 0),
+                    secondary_effect = self:ToText(row:GetItem("secondary_effect")),
+                    secondary_value = self:ToNumber(row:GetItem("secondary_value"), 0),
+                    secondary_duration = self:ToNumber(row:GetItem("secondary_duration"), 0),
+                    enemy_control_scale = self:ToNumber(row:GetItem("enemy_control_scale"), 0.6),
+                    boss_control_scale = self:ToNumber(row:GetItem("boss_control_scale"), 0.35),
+                    description = self:ToText(row:GetItem("description")),
+                }
+            end
+        end
+    end
+
+    method void LoadMonsters()
+        -- 몬스터 레코드. hp/def/exp는 밸런스시트 공식으로 산출된 확정값이다.
+        local dataSet = self:GetDataSet("MonsterTable")
+        if dataSet == nil then return end
+        -- Maker refresh나 개발용 재로드가 같은 Logic 인스턴스에서 다시 호출돼도
+        -- 컬렉션 순서와 역인덱스가 중복되지 않게 원장을 먼저 새로 만든다.
+        self.monsters = {}
+        self.monsterOrder = {}
+        self.monsterIdByDropSkillId = {}
+        self.capturableSkillIds = {}
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local id = self:ToText(row:GetItem("id"))
+            if id ~= "" then
+                self.monsters[id] = {
+                    id = id,
+                    name = self:ToText(row:GetItem("name")),
+                    level = self:ToNumber(row:GetItem("level"), 1),
+                    hp = self:ToNumber(row:GetItem("hp"), 0),
+                    def = self:ToNumber(row:GetItem("def"), 0),
+                    exp = self:ToNumber(row:GetItem("exp"), 0),
+                    -- 몬스터별 배율 컬럼은 아직 확정되지 않았다. 현 Phase에서는 전역 기본값만
+                    -- 사용해 LUK 의존성을 먼저 분리하고, 개별 밸런스는 후속 승인 뒤 확장한다.
+                    capture_modifier = self:GetBalance("capture_monster_modifier_default"),
+                    drop_skill_id = self:ToText(row:GetItem("drop_skill_id")),
+                    -- 스폰에 쓸 .model의 id. 데이터 id(m_slime)와 모델 id(slime)를
+                    -- 이름 규칙으로 엮지 않고 여기서 명시한다.
+                    -- 아직 모델을 안 만든 몬스터는 비어 있고, 스포너가 건너뛴다.
+                    model_id = self:ToText(row:GetItem("model_id")),
+
+                    -- M2A 몬스터 컬렉션/동행 표현. 두 값 모두 기존 몬스터 모델의
+                    -- ActionSheet에서 기계적으로 추출한 실제 animationclip RUID다.
+                    -- collection_icon_ruid는 UI에서 thumbnail:// 정지 그림으로,
+                    -- companion_visual_ruid는 월드 SpriteRenderer에서 애니메이션으로 쓴다.
+                    collection_icon_ruid = self:ToText(row:GetItem("collection_icon_ruid")),
+                    companion_visual_ruid = self:ToText(row:GetItem("companion_visual_ruid")),
+
+                    -- 보스가 전투 중 사용할 전용 스킬 목록 (T56).
+                    -- `drop_skill_id`는 플레이어가 포획해 얻는 스킬이고,
+                    -- `combat_skill_ids`는 적만 쓰는 패턴이다. 히어로처럼 직업 캐릭터의
+                    -- 기술을 플레이어 보상과 엮지 않기 위해 물리적으로 분리한다.
+                    combat_skill_ids = self:SplitIds(self:ToText(row:GetItem("combat_skill_ids"))),
+                }
+                self.monsterOrder[#self.monsterOrder + 1] = id
+                local dropSkillId = self.monsters[id].drop_skill_id
+                if dropSkillId ~= "" then
+                    self.capturableSkillIds[dropSkillId] = true
+                    self.monsterIdByDropSkillId[dropSkillId] = id
+                end
+            end
+        end
+    end
+
+    method void LoadRooms()
+        -- conn_* 4컬럼을 connections 테이블로 접고, 게이트 조건을 묶는다.
+        local dataSet = self:GetDataSet("RoomTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local id = self:ToText(row:GetItem("id"))
+            if id ~= "" then
+                self.rooms[id] = {
+                    id = id,
+                    name = self:ToText(row:GetItem("name")),
+                    room_type = self:ToText(row:GetItem("room_type")),
+                    connections = {
+                        north = self:ToText(row:GetItem("conn_north")),
+                        south = self:ToText(row:GetItem("conn_south")),
+                        east = self:ToText(row:GetItem("conn_east")),
+                        west = self:ToText(row:GetItem("conn_west")),
+                    },
+                    gate_type = self:ToText(row:GetItem("gate_type")),
+                    gate_key = self:ToText(row:GetItem("gate_key")),
+                    gate_value = self:ToNumber(row:GetItem("gate_value"), 0),
+                    map_name = self:ToText(row:GetItem("map_name")),
+                    -- 방에 어떤 몬스터가 몇 마리 사는지. 방 진입 시 스포너가 읽는다.
+                    -- 몬스터가 없는 방은 monster_id를 비워두면 된다.
+                    monster_id = self:ToText(row:GetItem("monster_id")),
+                    monster_count = self:ToNumber(row:GetItem("monster_count"), 0),
+                    -- 그 방에서 몬스터를 몇 레벨로 세울지 (T10-2 방별 계단).
+                    -- 0이면 덮어쓰지 않고 MonsterTable의 기본 레벨을 쓴다.
+                    -- 같은 종을 방마다 다른 레벨로 세우려면 이게 필요하다 —
+                    -- 슬라임이 r_01에서 Lv1, r_02에서 Lv3인 식.
+                    monster_level = self:ToNumber(row:GetItem("monster_level"), 0),
+                    -- 시작방 표시. 환생하면 여기로 돌아온다 (기획서 4.5).
+                    -- room_type을 "start"로 쓰지 않는 이유: 시작방도 사냥방일 수 있어
+                    -- "어떤 방인가"와 "시작점인가"는 다른 축이다.
+                    is_start = self:ToBoolean(row:GetItem("is_start")),
+                    -- 이 방이 속한 지역 (T12-1). 마을처럼 어느 지역에도 안 속하는
+                    -- 허브는 비워 둔다 — 마을은 지역 이동의 출발점이지 목적지가 아니다.
+                    area_id = self:ToText(row:GetItem("area_id")),
+                    -- 이 방 포탈의 x·y 절대값 (T13-1c). 다른 방에서 **이 방으로** 들어올 때
+                    -- 도착 지점을 여기서 계산한다.
+                    --
+                    -- 왜 데이터로 옮겼는가: RoomPortal이 portalX=13을 상수로 갖고 있어
+                    -- 모든 맵이 28칸 폭이라고 가정했다. 마을(maptown)은 14칸 폭이라
+                    -- r_01에서 서쪽으로 들어오면 x=+10.5, 즉 **타일 밖**에 떨어졌다.
+                    -- 0이면 RoomPortal의 기본값을 쓴다 (기존 맵 5개는 비워 두면 그대로).
+                    portal_x = self:ToNumber(row:GetItem("portal_x"), 0),
+                    portal_y = self:ToNumber(row:GetItem("portal_y"), 0),
+                }
+                -- 맵 이름 → 방 역인덱스. 플레이어가 어느 맵에 있는지로 방을 찾을 때 쓴다.
+                local mapName = self:ToText(row:GetItem("map_name"))
+                if mapName ~= "" then
+                    self.roomsByMap[mapName] = id
+                end
+
+                if self.rooms[id].is_start then
+                    -- 시작방이 둘이면 어느 쪽으로 환생 복귀할지 정해지지 않는다.
+                    -- 조용히 덮어쓰면 CSV 순서에 따라 결과가 바뀌므로 경고하고 첫 번째를 지킨다.
+                    if self.startRoomId ~= "" then
+                        log_warning("[GameData] 시작방이 둘 이상이다: " .. self.startRoomId
+                            .. " 를 유지하고 " .. id .. " 는 무시한다")
+                    else
+                        self.startRoomId = id
+                    end
+                end
+            end
+        end
+    end
+
+    method void LoadAreas()
+        -- 지역 테이블 (T12). 마을 게이트가 "어디로 갈 수 있나"를 여기서 읽는다.
+        --
+        -- 방(RoomTable)과 따로 두는 이유: 지역은 방의 묶음이라 이름·진입점·순서가
+        -- 방 단위 속성이 아니다. RoomTable에 area_name 컬럼을 넣으면 같은 이름이
+        -- 방 개수만큼 중복되고, 한 곳만 고치면 조용히 어긋난다.
+        local dataSet = self:GetDataSet("AreaTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local id = self:ToText(row:GetItem("id"))
+            if id ~= "" then
+                self.areas[id] = {
+                    id = id,
+                    name = self:ToText(row:GetItem("name")),
+                    -- 그 지역에 들어갈 때 도착하는 방. 마을 게이트의 목적지다.
+                    -- 아직 방을 안 만든 지역은 비어 있을 수 있다 — 그 경우 게이트가
+                    -- 목록에서 건너뛴다 (조용히 빈 곳으로 보내는 것보다 낫다).
+                    entry_room_id = self:ToText(row:GetItem("entry_room_id")),
+                    -- 조건 없이 처음부터 열려 있는 지역. 시작 지역이 여기 해당한다.
+                    -- 나머지는 랜드마크 area 보상으로 UnlockedAreas에 쌓인다.
+                    default_unlocked = self:ToBoolean(row:GetItem("default_unlocked")),
+                    sort_order = self:ToNumber(row:GetItem("sort_order"), 0),
+                    min_level = 0,
+                    max_level = 0,
+                    monster_names = {},
+                }
+                -- 기존 Room/MonsterTable에서 권장 범위와 주요 몬스터를 자동 유도한다.
+                -- 입장 제한이 아니라 정보 표시용이며, 데이터가 비면 0/빈 목록으로 남긴다.
+                local seenMonsters = {}
+                for _, room in pairs(self.rooms) do
+                    if room.area_id == id and room.monster_id ~= "" then
+                        local monster = self.monsters[room.monster_id]
+                        local level = room.monster_level
+                        if level <= 0 and monster ~= nil then level = monster.level end
+                        if level > 0 then
+                            if self.areas[id].min_level <= 0 or level < self.areas[id].min_level then
+                                self.areas[id].min_level = level
+                            end
+                            if level > self.areas[id].max_level then self.areas[id].max_level = level end
+                        end
+                        if monster ~= nil and seenMonsters[monster.id] == nil then
+                            seenMonsters[monster.id] = true
+                            table.insert(self.areas[id].monster_names, monster.name)
+                        end
+                    end
+                end
+                -- pairs 순서는 보장되지 않으므로 지역 선택 UI의 주요 몬스터 표기도
+                -- 매 실행마다 흔들리지 않게 이름순으로 고정한다.
+                table.sort(self.areas[id].monster_names)
+                -- sort_order 오름차순으로 꽂아 넣는다. 마을 게이트 목록이 CSV 행
+                -- 순서에 휘둘리지 않게 하려는 것.
+                --
+                -- table.sort에 비교 함수를 넘기지 않는 이유: 이 워크스페이스의 다른
+                -- 코드는 전부 인자 없는 table.sort(ids) 형태만 쓴다. 비교 함수를
+                -- 넘겼더니 GameData Logic 자체가 등록되지 않아(_GameData가 nil)
+                -- 게임 전체가 멈췄다. 지역 수는 한 자릿수라 삽입 정렬로 충분하다.
+                local pos = #self.areaOrder + 1
+                for k = 1, #self.areaOrder do
+                    if self.areas[id].sort_order < self.areas[self.areaOrder[k]].sort_order then
+                        pos = k
+                        break
+                    end
+                end
+                table.insert(self.areaOrder, pos, id)
+            end
+        end
+    end
+
+    method void LoadItems()
+        -- 아이템 테이블 (T13-2). 장비와 소비를 한 테이블에 담고 item_type으로 갈린다.
+        --
+        -- 왜 한 테이블인가: 인벤토리는 둘을 같은 칸에 담고, 드랍도 같은 경로로 나온다.
+        -- 테이블을 쪼개면 "이 id가 어느 표에 있는가"를 부르는 쪽마다 따져야 한다.
+        --
+        -- 스탯 컬럼이 5개인 이유: 특정 스탯 4종(atk/int/def/luk) + 올스탯(stat_all).
+        -- 올스탯을 stat_atk~stat_luk에 5씩 적어 표현하지 않는 이유는, 올스탯 장비를
+        -- **최종 목표로 따로 보여줘야** 하기 때문이다 (대표 지시). 컬럼이 따로 있으면
+        -- UI가 "올스탯 +3"으로 한 줄에 쓸 수 있고, 밸런스도 한 값만 만지면 된다.
+        local dataSet = self:GetDataSet("ItemTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local id = self:ToText(row:GetItem("id"))
+            if id ~= "" then
+                self.items[id] = {
+                    id = id,
+                    name = self:ToText(row:GetItem("name")),
+                    -- "equip"(장착) / "consume"(소비). 몬스터 전용 보상은 전부 장비다.
+                    item_type = self:ToText(row:GetItem("item_type")),
+                    -- 장비가 들어가는 자리: weapon / armor / accessory. 소비는 빈 칸.
+                    slot = self:ToText(row:GetItem("slot")),
+                    stat_atk = self:ToNumber(row:GetItem("stat_atk"), 0),
+                    stat_int = self:ToNumber(row:GetItem("stat_int"), 0),
+                    stat_def = self:ToNumber(row:GetItem("stat_def"), 0),
+                    stat_luk = self:ToNumber(row:GetItem("stat_luk"), 0),
+                    -- 4스탯에 동시에 얹히는 값. 장비 스탯은 **게이트 계산에 넣지 않는다**
+                    -- (수치 게이트는 분배한 포인트만 본다 — T13-1b).
+                    stat_all = self:ToNumber(row:GetItem("stat_all"), 0),
+                    -- 소비 아이템의 HP 회복량(정액).
+                    heal_hp = self:ToNumber(row:GetItem("heal_hp"), 0),
+                    -- 한 칸에 몇 개까지 겹치는가. 장비는 강화 중첩 때문에 5, 소비는 99다.
+                    stack_max = self:ToNumber(row:GetItem("stack_max"), 1),
+                    -- 이 아이템을 떨어뜨리는 몬스터와 확률.
+                    --
+                    -- 세 가지 꼴을 받는다 (T23-5, 대표 지시 "몬스터들이 다 포션을 드랍"):
+                    --   `m_snail`              한 마리
+                    --   `m_snail|m_mushroom`   여러 마리 (combat_skill_ids와 같은 파이프 구분)
+                    --   `*`                    **모든 몬스터**
+                    -- `*`를 둔 이유: 몬스터를 나열하면 새 몬스터를 추가할 때마다 이 줄을
+                    -- 고쳐야 하고, 안 고치면 그 몬스터만 조용히 포션을 안 떨군다.
+                    drop_from = self:ToText(row:GetItem("drop_from")),
+                    drop_rate = self:ToNumber(row:GetItem("drop_rate"), 0),
+                    icon_ruid = self:ToText(row:GetItem("icon_ruid")),
+                    -- 인벤토리 아이콘의 thumbnail:// 뒤 원본 RUID를 실제 아바타에 입힐 때
+                    -- 사용할 MSW 공식 분류. 논리 슬롯(weapon/armor/accessory)과 외형 슬롯은
+                    -- 서로 다르므로 데이터에서 명시한다.
+                    avatar_category = self:ToText(row:GetItem("avatar_category")),
+                    -- 인벤토리에 가지고 있기만 해도 적용되는 패시브 아이템 (T56).
+                    -- passive_value는 보유 1개당 더하는 주스탯 정액값이다 (T57-2).
+                    passive_stat = self:ToText(row:GetItem("passive_stat")),
+                    passive_value = self:ToNumber(row:GetItem("passive_value"), 0),
+                }
+
+                -- 몬스터 → 떨어뜨리는 아이템 역인덱스. 드랍 판정(T13-6)이 처치 시점에
+                -- "이 몬스터가 뭘 떨구나"를 물어볼 곳이다.
+                local dropper = self.items[id].drop_from
+                if dropper == "*" then
+                    -- 종을 안 가리는 드랍. 역인덱스에 넣지 않고 따로 모은다 —
+                    -- 넣으려면 몬스터 전부를 알아야 하는데, 아이템이 몬스터보다
+                    -- 먼저 로드될 수도 있어 순서에 기대면 조용히 비게 된다.
+                    table.insert(self.itemsForAllDroppers, id)
+                elseif dropper ~= "" then
+                    for one in string.gmatch(dropper, "([^|]+)") do
+                        if self.itemsByDropper[one] == nil then
+                            self.itemsByDropper[one] = {}
+                        end
+                        table.insert(self.itemsByDropper[one], id)
+                    end
+                end
+            end
+        end
+    end
+
+
+    method void LoadLandmarks()
+        -- 같은 레벨에 여러 행이 올 수 있다 (슬라이스 Lv30은 3축 동시 지급).
+        local dataSet = self:GetDataSet("LandmarkTable")
+        if dataSet == nil then return end
+        local rows = dataSet:GetAllRow()
+        for i = 1, #rows do
+            local row = rows[i]
+            local level = self:ToNumber(row:GetItem("level"), 0)
+            if level > 0 then
+                if self.landmarks[level] == nil then
+                    self.landmarks[level] = {}
+                end
+                table.insert(self.landmarks[level], {
+                    level = level,
+                    reward_type = self:ToText(row:GetItem("reward_type")),
+                    reward_value = self:ToText(row:GetItem("reward_value")),
+                })
+            end
+        end
+    end
+
+    ---------------------------------------------------------------
+    -- 조회 API : 다른 스크립트는 여기만 쓴다
+    ---------------------------------------------------------------
+
+    method number GetBalance(string key)
+        -- 밸런스 상수 조회. 키가 없으면 0 + 경고 — 조용히 넘어가면 하드코딩과 같아진다.
+        local value = self.balance[key]
+        if value == nil then
+            log_warning("[GameData] 밸런스 키 없음: " .. key)
+            return 0
+        end
+        return value
+    end
+
+    method table GetLevelGrowth(integer level)
+        -- 캡 밖 값은 가장 가까운 유효 레벨로 고정한다. 세이브 이상치가 계산을 깨지 않게 한다.
+        local capped = math.floor(level)
+        if capped < 1 then capped = 1 end
+        local maxLevel = math.floor(self:GetBalance("initial_level_cap"))
+        if maxLevel < 1 then maxLevel = 200 end
+        if capped > maxLevel then capped = maxLevel end
+        return self.levelGrowth[capped]
+    end
+
+    method string GetAreaDisplayName(string id)
+        local area = self.areas[id]
+        if area == nil then return id end
+        local suffix = ""
+        if area.min_level > 0 then
+            suffix = "  권장 Lv" .. tostring(math.floor(area.min_level))
+            if area.max_level > area.min_level then
+                suffix = suffix .. "~" .. tostring(math.floor(area.max_level))
+            end
+        end
+        if #area.monster_names > 0 then
+            local names = ""
+            local limit = #area.monster_names
+            if limit > 3 then limit = 3 end
+            for i = 1, limit do
+                if i > 1 then names = names .. ", " end
+                names = names .. area.monster_names[i]
+            end
+            suffix = suffix .. "  · " .. names
+        end
+        return area.name .. suffix
+    end
+
+    method table GetSkill(string id)
+        -- 스킬 레코드. 없으면 nil.
+        return self.skills[id]
+    end
+
+    method table GetSkillEffectLayers(string id)
+        local skill = self.skills[id]
+        if skill == nil or skill.effect_layers == nil then return {} end
+        return skill.effect_layers
+    end
+
+    method table GetSkillTags(string id)
+        -- Phase 2 태그는 기존 확정 필드에서 유도한다. 스킬 id별 분기나 중복 원장을 두지 않는다.
+        -- 이 규칙으로 현재 실제 포획 액티브 66종은 Single/Area/Projectile/Rush/Defense로 분류된다.
+        local skill = self.skills[id]
+        local out = {}
+        if skill == nil or skill.skill_kind == "passive" then return out end
+
+        if skill.skill_kind == "defense" then
+            out[#out + 1] = "Defense"
+            if skill.effect_type == "heal" then out[#out + 1] = "Heal" end
+            return out
+        end
+        if skill.skill_kind == "buff" then
+            out[#out + 1] = "AttackBuff"
+            return out
+        end
+
+        if skill.dash_distance > 0 then out[#out + 1] = "Rush" end
+        if skill.projectile_ruid ~= "" then out[#out + 1] = "Projectile" end
+        if skill.secondary_effect == "WEAKEN" then
+            out[#out + 1] = "Debuff"
+        elseif skill.secondary_effect == "SLOW" or skill.secondary_effect == "STUN"
+            or skill.secondary_effect == "PULL" or skill.secondary_effect == "KNOCKBACK" then
+            out[#out + 1] = "Control"
+        end
+        if skill.target_mode == "area" then
+            out[#out + 1] = "Area"
+        else
+            out[#out + 1] = "Single"
+        end
+        return out
+    end
+
+    method boolean HasSkillTag(string id, string wanted)
+        local tags = self:GetSkillTags(id)
+        for i = 1, #tags do
+            if tags[i] == wanted then return true end
+        end
+        return false
+    end
+
+    method boolean IsCapturableMonsterSkill(string id)
+        return self.capturableSkillIds[id] == true
+    end
+
+    method table GetCapturableMonsterSkillIds()
+        local ids = {}
+        for id, _ in pairs(self.capturableSkillIds) do ids[#ids + 1] = id end
+        table.sort(ids)
+        return ids
+    end
+
+    method table GetCapturableActiveSkillIds()
+        local ids = {}
+        for id, _ in pairs(self.capturableSkillIds) do
+            local skill = self.skills[id]
+            if skill ~= nil and skill.source == "monster" and skill.slot_type == "monster"
+                and skill.skill_kind ~= "passive" then
+                ids[#ids + 1] = id
+            end
+        end
+        table.sort(ids)
+        return ids
+    end
+
+    method string GetMonsterIdByDropSkillId(string skillId)
+        -- M2A 저장 마이그레이션과 능력 강화 조회의 단일 역인덱스.
+        -- 현 MonsterTable의 101종은 일대일이며, 레거시 s_mon_snail은 여기에 없다.
+        local id = self.monsterIdByDropSkillId[skillId]
+        if id == nil then return "" end
+        return id
+    end
+
+    method boolean IsTameableMonster(string monsterId)
+        local monster = self.monsters[monsterId]
+        if monster == nil or monster.drop_skill_id == "" then return false end
+        return self.skills[monster.drop_skill_id] ~= nil
+    end
+
+    method table GetTameableMonsterIds()
+        -- MonsterTable의 행 순서를 유지한다. 히어로/보우마스터처럼 drop_skill_id가
+        -- 없는 전투 자산은 자동 제외되어 현재 컬렉션 UI의 101칸과 정확히 맞는다.
+        local ids = {}
+        for i = 1, #self.monsterOrder do
+            local id = self.monsterOrder[i]
+            if self:IsTameableMonster(id) then ids[#ids + 1] = id end
+        end
+        return ids
+    end
+
+    method table GetTrait(string id)
+        return self.traits[id]
+    end
+
+    method table GetOrderedTraitIds()
+        local out = {}
+        for i = 1, #self.traitOrder do out[i] = self.traitOrder[i] end
+        return out
+    end
+
+    method table GetMonsterSkillIds()
+        -- 몬스터 슬롯에 끼울 수 있는 스킬 id 목록. 장착 UI가 후보를 훑을 때 쓴다.
+        --
+        -- id로 정렬하는 이유: pairs 순회는 순서를 보장하지 않아, 정렬하지 않으면
+        -- 목록을 새로고침할 때마다 줄 순서가 뒤바뀌어 누르려던 항목이 움직인다.
+        local ids = {}
+        for id, skill in pairs(self.skills) do
+            if skill.slot_type == "monster" then
+                ids[#ids + 1] = id
+            end
+        end
+        table.sort(ids)
+        return ids
+    end
+
+    method table GetMonster(string id)
+        -- 몬스터 레코드. 없으면 nil.
+        return self.monsters[id]
+    end
+
+    method table GetCombatSkillIds(string monsterId)
+        -- 이 적이 전투 중 사용할 전용 스킬 목록. 플레이어 보상과 무관하다 (T56).
+        local record = self.monsters[monsterId]
+        if record == nil then return {} end
+        return record.combat_skill_ids
+    end
+
+    method table GetRoom(string id)
+        -- 방 레코드. 없으면 nil.
+        return self.rooms[id]
+    end
+
+
+    method table GetArea(string id)
+        -- 지역 레코드. 없으면 nil.
+        return self.areas[id]
+    end
+
+    method table GetOrderedAreaIds()
+        -- AreaTable의 지역 id를 sort_order 순서로. 마을 게이트가 목록을 그릴 때 쓴다.
+        --
+        -- ⚠ 아래쪽의 GetAllAreaIds와 헷갈리지 말 것. 그쪽은 T7 저장 시스템이
+        --   rebirth 게이트와 랜드마크 보상에서 구역 키를 **긁어모으는** 함수고,
+        --   이건 AreaTable이라는 정식 출처를 **순서대로 읽는** 함수다.
+        --   처음에 같은 이름으로 만들었다가 멤버 중복으로 GameData Logic 자체가
+        --   등록되지 않아(_GameData가 nil) 게임 전체가 멈췄다.
+        --
+        -- 사본을 준다 — 호출부가 정렬 결과를 흐트러뜨리면 다음 호출이 달라진다.
+        local out = {}
+        for i = 1, #self.areaOrder do
+            table.insert(out, self.areaOrder[i])
+        end
+        return out
+    end
+
+    method table GetItem(string id)
+        -- 아이템 레코드. 없으면 nil.
+        return self.items[id]
+    end
+
+    method table GetItemDropsOf(string monsterId)
+        -- 그 몬스터가 떨어뜨릴 수 있는 아이템 id 목록. 없으면 빈 배열.
+        --
+        -- 사본을 준다 — 호출부가 흐트러뜨리면 다음 처치의 드랍 판정이 달라진다.
+        local out = {}
+        -- 종을 안 가리는 드랍(`drop_from=*`)을 먼저 얹는다 (T23-5).
+        for i = 1, #self.itemsForAllDroppers do
+            table.insert(out, self.itemsForAllDroppers[i])
+        end
+        local list = self.itemsByDropper[monsterId]
+        if list == nil then return out end
+        for i = 1, #list do
+            table.insert(out, list[i])
+        end
+        return out
+    end
+
+    method number GetStatPointValue(string stat)
+        -- 스탯 포인트 1개가 그 **수치**에 얹는 값. `PlayerStats.GetStatWithoutEquip`이
+        -- 쓰는 것과 **같은 계수**를 읽는다 (T30).
+        --
+        -- 여기가 창구인 이유: 장비 수치와 분배 포인트가 서로 다른 계수를 들고 있으면
+        -- `str_atk_per_point`를 조정할 때마다 장비가 조용히 어긋난다. 계수를 한 번만
+        -- 적어 두면 밸런스를 만질 때 장비가 저절로 따라온다.
+        --
+        -- LUK만 1인 이유: `GetTotalLuk`은 전투 수치가 아니라 **분배한 포인트 수**다
+        -- (포획률·드랍률이 포인트를 묻는다 — T27-2). 그래서 포인트가 곧 값이다.
+        if stat == "ATK" then return self:GetBalance("str_atk_per_point") end
+        if stat == "INT" then return self:GetBalance("int_matk_per_point") end
+        if stat == "DEF" then return self:GetBalance("dex_def_per_point") end
+        if stat == "LUK" then return 1 end
+        return 1
+    end
+
+    method number GetItemStatBonus(string id, string stat)
+        -- 아이템 하나가 특정 수치에 얹는 **값**. 올스탯은 4수치 전부에 더해진다.
+        -- stat은 "ATK"(물리 공격력)/"INT"(마법 공격력)/"DEF"(방어력)/"LUK"(포인트).
+        --
+        -- 여기서 합치는 이유: 부르는 쪽마다 "stat_all도 더해야 한다"를 기억해야 하면
+        -- 언젠가 한 곳이 빠뜨린다. 올스탯이 조용히 안 먹는 버그는 찾기 어렵다.
+        --
+        -- ## ItemTable의 다섯 스탯 컬럼은 **스탯 포인트 상당**이다 (T30, 2026-08-27)
+        --
+        -- 예전에는 수치를 그대로 적었다. T27이 스탯마다 다른 계수를 주면서
+        -- **같은 +5가 아이템마다 다른 값**이 됐다 — 무쇠 검 +5는 STR 1P(계수 5)어치인데
+        -- 행운의 목걸이 +5는 LUK 5P(계수 1)어치라 **목걸이가 갑옷의 10배**였다.
+        -- 그래서 표에는 포인트를 적고 값은 여기서 만든다. 아이템끼리 세기가 비교된다.
+        local item = self.items[id]
+        if item == nil then return 0 end
+        local points = 0
+        if stat == "ATK" then points = item.stat_atk end
+        if stat == "INT" then points = item.stat_int end
+        if stat == "DEF" then points = item.stat_def end
+        if stat == "LUK" then points = item.stat_luk end
+        if self:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then
+            -- 신규 성장에서는 장비가 STR/DEX/INT/LUK를 우회해 최종 전투 수치에 직접 더해진다.
+            -- 기존 표는 '스탯 포인트 상당'으로 작성됐으므로 ATK/INT/DEF 환산 계수는
+            -- 그대로 써서 장비의 실전 보너스가 갑자기 작아지지 않게 한다. 다만 제거된
+            -- LUK는 포획·드랍·속도·공격력으로 우회시키지 않고 0으로 둔다. LUK 전용
+            -- 장비의 새 직접 효과는 기획 승인 뒤 ItemTable에서 별도로 정한다.
+            if stat == "LUK" then return 0 end
+            return (points + item.stat_all) * self:GetStatPointValue(stat)
+        end
+        return (points + item.stat_all) * self:GetStatPointValue(stat)
+    end
+
+    method integer GetItemStackCap(string id)
+        -- 이 아이템을 몇 개까지 쌓을 수 있는가 (ItemTable.stack_max).
+        --
+        -- 없는 아이템에 1을 돌려주는 이유: 0을 주면 부르는 쪽이 "하나도 못 가진다"로
+        -- 읽어서, 데이터에 없는 아이템이 획득 자체가 막히는 것처럼 보인다.
+        -- 없는 아이템은 GetItem에서 이미 걸러지므로 여기서는 안전한 값만 준다.
+        local item = self.items[id]
+        if item == nil then return 1 end
+        local cap = math.floor(item.stack_max)
+        if cap < 1 then return 1 end
+        return cap
+    end
+
+    method number GetItemStackedStatBonus(string id, string stat, integer count)
+        -- 보유 개수만큼 합산한 스탯 보너스 (T15-1).
+        --
+        -- 중복 획득은 **개당 수치를 그대로 더한다** — +5 장비를 3개 가지면 +15다
+        -- (대표 지시 2026-08-13). 스킬 중복은 규칙이 다르다(계수에 비례 20%씩) —
+        -- 섞지 말 것. 장비만 배수인 이유는 스탯이 정수 5라서 비례 20%를 적용하면
+        -- 5 → 6 → 7이 되어 체감이 없기 때문이다.
+        --
+        -- 상한을 여기서 한 번 더 자르는 이유: AddItem이 이미 stack_max에서 막지만,
+        -- 상한을 나중에 낮추면 옛 세이브에 초과분이 남는다. 그때 조용히 초과
+        -- 보너스가 나가면 "왜 스탯이 더 높지"의 원인을 찾을 곳이 없다.
+        if count <= 0 then return 0 end
+        local cap = self:GetItemStackCap(id)
+        if count > cap then count = cap end
+        return self:GetItemStatBonus(id, stat) * count
+    end
+
+    method table GetLandmarkLevels()
+        -- 랜드마크가 걸린 레벨 목록을 **오름차순으로** 돌려준다.
+        -- `Rebirth.GrantLandmarksUpTo`가 "지금 레벨 이하 전부"를 훑을 때 쓴다 —
+        -- 낮은 레벨부터 줘야 해금 알림이 순서대로 뜬다.
+        local out = {}
+        for level, _ in pairs(self.landmarks) do
+            table.insert(out, level)
+        end
+        table.sort(out)
+        return out
+    end
+
+    method table GetLandmarksAtLevel(number level)
+        -- 해당 도달 레벨의 보상 목록. 없으면 빈 배열.
+        local list = self.landmarks[level]
+        if list == nil then return {} end
+        return list
+    end
+
+    method table GetStartRoom()
+        -- 시작방 레코드. 환생 복귀와 마을 귀환이 여기를 쓴다 (기획서 4.5).
+        -- 없으면 nil — 부르는 쪽이 판단하게 둔다. 여기서 아무 방이나 고르면
+        -- 데이터가 빠진 걸 아무도 모른 채 엉뚱한 방으로 보내게 된다.
+        if self.startRoomId == "" then return nil end
+        return self.rooms[self.startRoomId]
+    end
+
+    method table GetRoomByMapName(string mapName)
+        -- 맵 이름으로 방 레코드를 찾는다. 플레이어가 어느 맵에 있는지로 방 정보를 얻을 때 쓴다.
+        local roomId = self.roomsByMap[mapName]
+        if roomId == nil then return nil end
+        return self.rooms[roomId]
+    end
+
+    @ExecSpace("ServerOnly")
+    method Vector3 TraceSkillEndpoint(Entity map, Vector3 fromPos, Vector3 toPos)
+        -- 투사체와 돌진의 그림/도착 판정이 같은 지형 끝점을 사용한다.
+        -- 실제 RectTile 충돌만 막고 일반 바닥·장식은 통과시킨다.
+        if map == nil then return toPos end
+        local tileMap = map:GetFirstChildComponentByTypeName("RectTileMapComponent", true)
+        if tileMap == nil then return toPos end
+        local dx, dy = toPos.x - fromPos.x, toPos.y - fromPos.y
+        local length = math.sqrt(dx * dx + dy * dy)
+        if length <= 0.01 then return toPos end
+        local steps = math.max(1, math.ceil(length / 0.2))
+        local safe = fromPos
+        for i = 1, steps do
+            local ratio = i / steps
+            local pos = Vector3(fromPos.x + dx * ratio, fromPos.y + dy * ratio, fromPos.z)
+            local tile = tileMap:GetTile(tileMap:ToCellPosition(pos))
+            if tile == nil or tile.IsCollidable then return safe end
+            safe = pos
+        end
+        return toPos
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean IsSkillLineUnblocked(Entity map, Vector3 fromPos, Vector3 toPos)
+        -- 투사체의 착탄/관통 판정은 벽 앞에서 끝난 VFX를 넘어 벽 뒤 대상까지
+        -- 광역 반경만으로 맞히면 안 된다. 실제 충돌 타일을 사용하는 기존 추적을 재사용한다.
+        local reached = self:TraceSkillEndpoint(map, fromPos, toPos)
+        local dx, dy = reached.x - toPos.x, reached.y - toPos.y
+        return dx * dx + dy * dy <= 0.05 * 0.05
+    end
+
+    @ExecSpace("ServerOnly")
+    method Vector3 ClampDashTravel(Entity map, Vector3 fromPos, Vector3 toPos)
+        -- 플레이어 몸체는 점이 아니므로 벽에 닿는 투사체보다 조금 먼저 멈춘다.
+        local safe = self:TraceSkillEndpoint(map, fromPos, toPos)
+        local blocked = math.abs(safe.x - toPos.x) + math.abs(safe.y - toPos.y) > 0.01
+        if not blocked then return toPos end
+        local dx, dy = safe.x - fromPos.x, safe.y - fromPos.y
+        local length = math.sqrt(dx * dx + dy * dy)
+        if length <= 0.01 then return fromPos end
+        local allowed = math.max(0, length - 0.35)
+        return Vector3(fromPos.x + dx / length * allowed,
+            fromPos.y + dy / length * allowed, fromPos.z)
+    end
+
+    method string GetRoomConnection(string roomId, string direction)
+        -- 방에서 특정 방향으로 이어지는 방 id. 연결이 없으면 "".
+        local room = self.rooms[roomId]
+        if room == nil then return "" end
+        return self:ToText(room.connections[direction])
+    end
+
+    ---------------------------------------------------------------
+    -- 키 공간 열거 (T8 저장이 쓴다)
+    ---------------------------------------------------------------
+    --
+    -- 왜 필요한가: 플레이어 진행 데이터는 SyncTable에 담겨 있는데
+    -- **SyncTable에는 순회 API가 없다** (Environment/NativeScripts에 .d.mlua 정의가
+    -- 아예 없어 pairs가 되는지 확인할 방법이 없었다). 그래서 저장할 때
+    -- "어떤 키가 들어 있는지"를 SyncTable에게 물어볼 수 없고,
+    -- 데이터 테이블이 정의한 **키 공간 전체를 훑어** 값이 있는 것만 담는다.
+    --
+    -- 부수 효과 하나: CSV에서 사라진 id는 다음 저장에서 함께 사라진다.
+    -- 콘텐츠를 지웠다가 되돌리면 그 사이 저장으로 값이 날아간다는 뜻이라,
+    -- 운영 중에 행을 지울 때는 주의해야 한다.
+    -- 정렬해 돌려주는 이유는 GetMonsterSkillIds와 같다 — 저장 페이로드의
+    -- 키 순서가 매번 달라지면 diff로 무엇이 바뀌었는지 읽을 수 없다.
+
+    method table GetAllSkillIds()
+        -- SkillTable의 모든 스킬 id (직업 스킬 포함).
+        local ids = {}
+        for id, _ in pairs(self.skills) do
+            ids[#ids + 1] = id
+        end
+        table.sort(ids)
+        return ids
+    end
+
+    method table GetAllMonsterIds()
+        -- MonsterTable의 모든 몬스터 id. 포획 천장 카운터의 키 공간이다.
+        local ids = {}
+        for id, _ in pairs(self.monsters) do
+            ids[#ids + 1] = id
+        end
+        table.sort(ids)
+        return ids
+    end
+
+
+    method table GetAllRoomIds()
+        -- RoomTable의 모든 방 id. 보스 클리어 원장의 키 공간이다.
+        local ids = {}
+        for id, _ in pairs(self.rooms) do
+            ids[#ids + 1] = id
+        end
+        table.sort(ids)
+        return ids
+    end
+
+    method table GetAllItemIds()
+        -- ItemTable의 모든 아이템 id. 인벤토리 저장(T13-3)의 키 공간이다.
+        local ids = {}
+        for id, _ in pairs(self.items) do
+            ids[#ids + 1] = id
+        end
+        table.sort(ids)
+        return ids
+    end
+
+    method table GetAllAreaIds()
+        -- 개방 구역의 키 공간. 구역 테이블이 따로 없어서 두 곳에서 모은다:
+        --
+        --   1. rebirth 게이트의 gate_key  — 구역을 **요구하는** 쪽 (RoomTable)
+        --   2. 랜드마크의 area 보상값     — 구역을 **주는** 쪽 (LandmarkTable)
+        --
+        -- 둘 다 봐야 하는 이유(T7 실측): 슬라이스의 Lv30 랜드마크가 area_02를 주는데
+        -- 그 구역을 요구하는 rebirth 게이트는 아직 RoomTable에 없다.
+        -- 요구하는 쪽만 훑으면 방금 개방한 구역이 저장에서 통째로 사라진다.
+        local seen = {}
+        local ids = {}
+
+        for _, room in pairs(self.rooms) do
+            if room.gate_type == "rebirth" and room.gate_key ~= "" then
+                if seen[room.gate_key] == nil then
+                    seen[room.gate_key] = true
+                    ids[#ids + 1] = room.gate_key
+                end
+            end
+        end
+
+        for _, list in pairs(self.landmarks) do
+            for i = 1, #list do
+                local r = list[i]
+                if r.reward_type == "area" and r.reward_value ~= "" then
+                    if seen[r.reward_value] == nil then
+                        seen[r.reward_value] = true
+                        ids[#ids + 1] = r.reward_value
+                    end
+                end
+            end
+        end
+
+        table.sort(ids)
+        return ids
+    end
+
+    ---------------------------------------------------------------
+    -- Roguelite Area Run / instance room / deterministic graph
+    ---------------------------------------------------------------
+
+    method table GetRoomsForArea(string areaId)
+        local out = {}
+        for id, room in pairs(self.rooms) do
+            if room.area_id == areaId and room.room_type ~= "town"
+                and string.sub(id, 1, 6) ~= "r_job_" then
+                out[#out + 1] = id
+            end
+        end
+        table.sort(out)
+        return out
+    end
+
+    method table GetMegaAreaIds()
+        return { "mega_01", "mega_02", "mega_03", "mega_04", "mega_05" }
+    end
+
+    method table GetMegaAreaSources(string megaAreaId)
+        if megaAreaId == "mega_01" then return { "area_00", "area_01", "area_03", "area_02" } end
+        if megaAreaId == "mega_02" then return { "area_04", "area_05", "area_07", "area_08" } end
+        if megaAreaId == "mega_03" then return { "area_09", "area_10", "area_11", "area_12" } end
+        if megaAreaId == "mega_04" then return { "area_13", "area_14", "area_15", "area_16" } end
+        if megaAreaId == "mega_05" then return { "area_17", "area_18", "area_19", "area_20" } end
+        return {}
+    end
+
+    method string GetMegaAreaDisplayName(string megaAreaId)
+        if megaAreaId == "mega_01" then return "MEGA 1 · 모험의 시작" end
+        if megaAreaId == "mega_02" then return "MEGA 2 · 도시와 하늘" end
+        if megaAreaId == "mega_03" then return "MEGA 3 · 설원과 시간" end
+        if megaAreaId == "mega_04" then return "MEGA 4 · 사막과 용의 숲" end
+        if megaAreaId == "mega_05" then return "MEGA 5 · 미래와 황혼" end
+        return megaAreaId
+    end
+
+    method boolean IsMegaArea(string areaId)
+        return #self:GetMegaAreaSources(areaId) > 0
+    end
+
+    method table GetRoomsForMegaArea(string megaAreaId)
+        local out = {}
+        local sourceAreas = self:GetMegaAreaSources(megaAreaId)
+        for i = 1, #sourceAreas do
+            local rooms = self:GetRoomsForArea(sourceAreas[i])
+            for j = 1, #rooms do out[#out + 1] = rooms[j] end
+        end
+        return out
+    end
+
+    method table GetMapsForMegaArea(string megaAreaId)
+        local out = {}
+        local seen = {}
+        for _, roomId in ipairs(self:GetRoomsForMegaArea(megaAreaId)) do
+            local room = self.rooms[roomId]
+            if room ~= nil and room.map_name ~= "" and seen[room.map_name] == nil then
+                seen[room.map_name] = true
+                out[#out + 1] = room.map_name
+            end
+        end
+        return out
+    end
+
+    method table GetMegaBossPool(string megaAreaId)
+        if megaAreaId == "mega_01" then return { "m_mano", "m_mushmom", "m_faust", "m_stumpy" } end
+        if megaAreaId == "mega_02" then return { "m_shade", "m_king_clang", "m_jr_balrog", "m_eliza" } end
+        if megaAreaId == "mega_03" then return { "m_snow_witch", "m_pianus", "m_rombot", "m_timer" } end
+        if megaAreaId == "mega_04" then return { "m_deo", "m_chimera", "m_tae_roon", "m_manon" } end
+        if megaAreaId == "mega_05" then return { "m_dodo", "m_zeno", "m_cygnus", "m_mutant_stumpy" } end
+        return {}
+    end
+
+    method table GetMegaMonsterPool(string megaAreaId)
+        local out = {}
+        local seen = {}
+        local bosses = {}
+        for _, id in ipairs(self:GetMegaBossPool(megaAreaId)) do bosses[id] = true end
+        for _, roomId in ipairs(self:GetRoomsForMegaArea(megaAreaId)) do
+            local room = self.rooms[roomId]
+            local monsterId = room ~= nil and room.monster_id or ""
+            if monsterId ~= "" and bosses[monsterId] == nil
+                and monsterId ~= "m_adv_hero" and monsterId ~= "m_adv_bowmaster"
+                and self.monsters[monsterId] ~= nil and seen[monsterId] == nil then
+                seen[monsterId] = true
+                out[#out + 1] = monsterId
+            end
+        end
+        table.sort(out)
+        return out
+    end
+
+    method table GetMapsForArea(string areaId)
+        local out = {}
+        local rooms = self:GetRoomsForArea(areaId)
+        for i = 1, #rooms do
+            local room = self.rooms[rooms[i]]
+            if room ~= nil and room.map_name ~= "" then out[#out + 1] = room.map_name end
+        end
+        return out
+    end
+
+    method integer RogueStreamSeed(string streamName)
+        local hash = 0
+        for i = 1, string.len(streamName) do
+            hash = (hash * 31 + string.byte(streamName, i)) % 2147483647
+        end
+        local seed = (self.RogueSeed + hash * 7919) % 2147483647
+        if seed <= 0 then seed = 1 end
+        return seed
+    end
+
+    method integer RogueStreamNextInt(string streamName, integer maxValue)
+        if maxValue <= 1 then return 1 end
+        local state = self.RogueRngStates[streamName]
+        if state == nil then state = self:RogueStreamSeed(streamName) end
+        state = (state * 1103515245 + 12345) % 2147483647
+        if state < 0 then state = -state end
+        self.RogueRngStates[streamName] = state
+        return (state % maxValue) + 1
+    end
+
+    method number RogueStreamNextDouble(string streamName)
+        return (self:RogueStreamNextInt(streamName, 1000000) - 1) / 1000000
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean TryReserveMonsterSpecial(number holdSeconds)
+        if self.RogueRunActive == false or self.RogueMode ~= "MONSTER_SKILL" then return true end
+        local maxConcurrent = math.floor(self:GetBalance("run_monster_special_max_concurrent"))
+        if maxConcurrent < 1 then maxConcurrent = 2 end
+        if self.RogueActiveMonsterSpecialCasts >= maxConcurrent then return false end
+        self.RogueActiveMonsterSpecialCasts += 1
+        local revision = self.RogueRunRevision
+        if holdSeconds <= 0 then holdSeconds = 0.6 end
+        _TimerService:SetTimerOnce(function()
+            if revision ~= self.RogueRunRevision then return end
+            self.RogueActiveMonsterSpecialCasts = math.max(0, self.RogueActiveMonsterSpecialCasts - 1)
+        end, holdSeconds)
+        return true
+    end
+
+    method integer RogueNextInt(integer maxValue)
+        if maxValue <= 1 then return 1 end
+        self.RogueRandomState = (self.RogueRandomState * 1103515245 + 12345) % 2147483647
+        if self.RogueRandomState < 0 then self.RogueRandomState = -self.RogueRandomState end
+        return (self.RogueRandomState % maxValue) + 1
+    end
+
+    ---------------------------------------------------------------
+    -- 탐험 상자 + Run 랜덤 강화
+    ---------------------------------------------------------------
+
+    method table GetRunUpgradeDefinitions()
+        local defaultCap = math.floor(self:GetBalance("run_upgrade_stack_cap"))
+        if defaultCap < 1 then defaultCap = 3 end
+        local extraCap = math.floor(self:GetBalance("run_upgrade_extra_target_cap"))
+        if extraCap < 1 then extraCap = 2 end
+        local pierceCap = math.floor(self:GetBalance("run_upgrade_pierce_cap"))
+        if pierceCap < 1 then pierceCap = 2 end
+        return {
+            {key = "attack_speed", label = "기본 공격 속도 +15%", cap = defaultCap},
+            {key = "attack_damage", label = "기본 공격 피해 +15%", cap = defaultCap},
+            {key = "attack_range", label = "기본 공격 사거리 +15%", cap = defaultCap},
+            {key = "extra_target", label = "기본 공격 추가 대상 +1", cap = extraCap},
+            {key = "pierce", label = "기본 공격 관통 +1", cap = pierceCap},
+            {key = "move_speed", label = "이동속도 +10%", cap = defaultCap},
+            {key = "max_hp", label = "최대 HP +15%", cap = defaultCap},
+            {key = "damage_reduction", label = "받는 피해 -10%", cap = defaultCap},
+        }
+    end
+
+    method table EnsureRunUpgradeState(string userId)
+        local state = self.RogueRunUpgradesByUser[userId]
+        if state == nil then
+            state = {}
+            for _, def in ipairs(self:GetRunUpgradeDefinitions()) do state[def.key] = 0 end
+            self.RogueRunUpgradesByUser[userId] = state
+        end
+        if self.RogueChestOpenedByUser[userId] == nil then self.RogueChestOpenedByUser[userId] = {} end
+        return state
+    end
+
+    method integer GetRunUpgradeStack(string userId, string key)
+        if self.RogueRunActive == false or userId == nil or userId == "" then return 0 end
+        local state = self.RogueRunUpgradesByUser[userId]
+        if state == nil then return 0 end
+        return math.max(0, math.floor(state[key] or 0))
+    end
+
+    method string BuildRunUpgradeSummary(string userId)
+        local state = self:EnsureRunUpgradeState(userId)
+        local rows = {}
+        for _, def in ipairs(self:GetRunUpgradeDefinitions()) do
+            local stack = math.max(0, math.floor(state[def.key] or 0))
+            if stack > 0 then rows[#rows + 1] = def.label .. "  ×" .. tostring(stack) end
+        end
+        if #rows == 0 then return "아직 획득한 Run 강화가 없습니다." end
+        return table.concat(rows, "\n")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SendRunUpgradeView(string userId)
+        self:ApplyRunUpgradeView(self:BuildRunUpgradeSummary(userId), userId)
+    end
+
+    @ExecSpace("Client")
+    method void ApplyRunUpgradeView(string summary)
+        self.RogueUpgradeSummary = summary
+        self:RefreshRunUpgradeUiClient()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshRunUpgradeUiClient()
+        local textEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/RunUpgradeWindow/Dialog/Body")
+        if isvalid(textEntity) and isvalid(textEntity.TextGUIRendererComponent) then
+            textEntity.TextGUIRendererComponent.Text = self.RogueUpgradeSummary
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetRunUpgradeWindowOpen(boolean open)
+        local allowed = open and self.RogueRunActive and self.RogueRunComplete == false and self.RogueRunFailed == false
+        self.RogueUpgradeWindowOpen = allowed
+        local window = _EntityService:GetEntityByPath("/ui/PlayerHud/RunUpgradeWindow")
+        if isvalid(window) then window.Enable = allowed; window:SetVisible(allowed) end
+        if allowed then self:RefreshRunUpgradeUiClient() end
+    end
+
+    @ExecSpace("Client")
+    method void NotifyRunChestResult(string title, string message)
+        _GateNotice:ShowNotice(title, message)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ResetRunChestAndUpgradeState()
+        for i = 1, #self.RogueChestRecords do
+            local record = self.RogueChestRecords[i]
+            if record.chest ~= nil then record.chest:PrepareRemove("RUN_RESET") end
+            if isvalid(record.entity) then record.entity:Destroy() end
+        end
+        self.RogueChestRecords = {}
+        self.RogueChestGeneratedMaps = {}
+        self.RogueChestOpenedByUser = {}
+        self.RogueRunUpgradesByUser = {}
+        self.RogueChestSerial = 0
+        log("[RunChest] Run 상자/강화 상태 초기화")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ClearRunUpgradeState(string userId)
+        self.RogueRunUpgradesByUser[userId] = nil
+        self.RogueChestOpenedByUser[userId] = nil
+        local player = _UserService:GetUserEntityByUserId(userId)
+        if isvalid(player) then
+            local stats = player:GetComponent("script.PlayerStats")
+            if stats ~= nil then stats:ApplyMaxHp(); stats:ApplySpeeds() end
+        end
+        self:ApplyRunUpgradeView("아직 획득한 Run 강화가 없습니다.", userId)
+    end
+
+    @ExecSpace("ServerOnly")
+    method any RollRunUpgrade(string userId)
+        local state = self:EnsureRunUpgradeState(userId)
+        local eligible = {}
+        for _, def in ipairs(self:GetRunUpgradeDefinitions()) do
+            if math.floor(state[def.key] or 0) < def.cap then eligible[#eligible + 1] = def end
+        end
+        if #eligible == 0 then return {key = "FULL", label = "모든 Run 강화가 최대 단계입니다.", stack = 0} end
+        local index = self:RogueStreamNextInt("run_upgrade:" .. userId, #eligible)
+        local picked = eligible[index]
+        state[picked.key] = math.floor(state[picked.key] or 0) + 1
+
+        local player = _UserService:GetUserEntityByUserId(userId)
+        if isvalid(player) then
+            local stats = player:GetComponent("script.PlayerStats")
+            if stats ~= nil and (picked.key == "max_hp" or picked.key == "move_speed"
+                or picked.key == "attack_speed") then
+                if picked.key == "max_hp" then stats:ApplyMaxHp() end
+                if picked.key == "move_speed" or picked.key == "attack_speed" then stats:ApplySpeeds() end
+            end
+        end
+        self:SendRunUpgradeView(userId)
+        log("[RunUpgrade] user=" .. userId .. " key=" .. picked.key
+            .. " stack=" .. tostring(state[picked.key]) .. "/" .. tostring(picked.cap))
+        return {key = picked.key, label = picked.label, stack = state[picked.key]}
+    end
+
+    method any FindRunChestRecord(integer serial)
+        for i = 1, #self.RogueChestRecords do
+            if self.RogueChestRecords[i].serial == serial then return self.RogueChestRecords[i] end
+        end
+        return nil
+    end
+
+    @ExecSpace("ServerOnly")
+    method any MaterializeRunChestRecord(any record, Entity mapEntity)
+        if record == nil or isvalid(mapEntity) == false or record.mapId ~= mapEntity.Name then return nil end
+        if isvalid(record.entity) then return record.chest end
+        local entity = _SpawnService:SpawnByModelId("runchest",
+            "RunChest_" .. tostring(record.serial), record.position, mapEntity)
+        if isvalid(entity) == false then
+            log_error("[RunChest] 모델 스폰 실패 serial=" .. tostring(record.serial))
+            return nil
+        end
+        local chest = entity:GetComponent("script.RunChest")
+        if chest == nil then
+            log_error("[RunChest] RunChest 컴포넌트 없음")
+            entity:Destroy()
+            return nil
+        end
+        chest.ChestSerial = record.serial
+        chest.ChestType = record.chestType
+        record.entity = entity
+        record.chest = chest
+        chest:ActivateServer()
+        return chest
+    end
+
+    @ExecSpace("ServerOnly")
+    method any RegisterRunChest(string roomId, string mapId, string chestType, Vector3 position, Entity mapEntity)
+        if self.RogueRunActive == false or self.RogueRunComplete or self.RogueRunFailed then return nil end
+        self.RogueChestSerial += 1
+        local record = {serial = self.RogueChestSerial, roomId = roomId, mapId = mapId,
+            chestType = chestType, position = position, entity = nil, chest = nil}
+        self.RogueChestRecords[#self.RogueChestRecords + 1] = record
+        self.RogueChestGeneratedMaps[mapId] = true
+        self:MaterializeRunChestRecord(record, mapEntity)
+        log("[RunChest] REGISTER serial=" .. tostring(record.serial) .. " type=" .. chestType
+            .. " room=" .. roomId .. " map=" .. mapId .. " x=" .. string.format("%.3f", position.x)
+            .. " y=" .. string.format("%.3f", position.y))
+        return record
+    end
+
+    @ExecSpace("ServerOnly")
+    method void MarkRunChestMapGenerated(string mapId)
+        self.RogueChestGeneratedMaps[mapId] = true
+    end
+
+    method boolean IsRunChestMapGenerated(string mapId)
+        return self.RogueChestGeneratedMaps[mapId] == true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RestoreRunChests(Entity mapEntity)
+        if self.RogueRunActive == false or isvalid(mapEntity) == false then return end
+        for i = 1, #self.RogueChestRecords do
+            local record = self.RogueChestRecords[i]
+            if record.mapId == mapEntity.Name and isvalid(record.entity) == false then
+                self:MaterializeRunChestRecord(record, mapEntity)
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SuspendRunChests(Entity mapEntity)
+        if isvalid(mapEntity) == false then return end
+        for i = 1, #self.RogueChestRecords do
+            local record = self.RogueChestRecords[i]
+            if record.mapId == mapEntity.Name then
+                if isvalid(record.entity) then record.entity:Destroy() end
+                record.entity = nil
+                record.chest = nil
+            end
+        end
+    end
+
+    method boolean HaveAllCurrentParticipantsOpenedRunChest(integer serial)
+        for i = 1, #self.RogueParticipantIds do
+            local userId = self.RogueParticipantIds[i]
+            if self.RogueParticipantResults[userId] ~= "ABANDONED" then
+                local opened = self.RogueChestOpenedByUser[userId]
+                if opened == nil or opened[serial] ~= true then return false end
+            end
+        end
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean TryOpenRunChest(integer serial, Entity player)
+        if self.RogueRunActive == false or self.RogueRunComplete or self.RogueRunFailed then return false end
+        if isvalid(player) == false or isvalid(player.PlayerComponent) == false then return false end
+        local userId = player.PlayerComponent.UserId
+        if self:IsRunParticipant(userId) == false or self.RogueParticipantResults[userId] == "ABANDONED" then return false end
+        local record = self:FindRunChestRecord(serial)
+        if record == nil or player.CurrentMap == nil or player.CurrentMap.Name ~= record.mapId then return false end
+        local opened = self.RogueChestOpenedByUser[userId]
+        if opened == nil then opened = {}; self.RogueChestOpenedByUser[userId] = opened end
+        if opened[serial] == true then
+            self:NotifyRunChestResult("탐험 상자", "이미 연 상자입니다.", userId)
+            return false
+        end
+
+        local title = "탐험 상자"
+        local message = ""
+        if record.chestType == "HEAL" then
+            local pc = player.PlayerComponent
+            local ratio = self:GetBalance("heal_chest_ratio")
+            if ratio <= 0 then ratio = 0.30 end
+            local amount = math.floor(pc.MaxHp * ratio + 0.5)
+            local hit = player:GetComponent("script.PlayerHit")
+            local healed = hit ~= nil and hit:Heal(amount) or 0
+            title = "회복 상자"
+            message = healed > 0 and ("HP " .. tostring(healed) .. " 회복") or "체력이 이미 가득합니다."
+            log("[RunChestHeal] user=" .. userId .. " serial=" .. tostring(serial)
+                .. " amount=" .. tostring(healed) .. " ratio=" .. tostring(ratio))
+        else
+            local reward = self:RollRunUpgrade(userId)
+            title = "Run 강화"
+            if reward.key == "FULL" then message = "FULL · " .. reward.label
+            else message = reward.label .. "  ×" .. tostring(reward.stack) end
+        end
+        opened[serial] = true
+        self:NotifyRunChestResult(title, message, userId)
+
+        if self:HaveAllCurrentParticipantsOpenedRunChest(serial) then
+            if record.chest ~= nil then record.chest:PrepareRemove("ALL_PARTICIPANTS_OPENED") end
+            if isvalid(record.entity) then record.entity:Destroy() end
+            record.entity = nil
+            record.chest = nil
+        end
+        return true
+    end
+
+    method table SplitRogueKey(string raw, string separator)
+        local out = {}
+        if raw == nil or raw == "" then return out end
+        local pattern = "([^" .. separator .. "]+)"
+        for token in string.gmatch(raw, pattern) do out[#out + 1] = token end
+        return out
+    end
+
+    method string BuildRogueliteRoomKey(string areaId, integer seed, table userIds, string mode)
+        -- RoomKey는 길이 제한이 있으므로 참가자 전체 ID를 직렬화하지 않는다.
+        -- 참가자는 실제 입장 시 서버가 등록하고, 시작 인원만 HP 배율 고정값으로 넣는다.
+        -- 끝의 owner 조각은 같은 Seed를 고른 다른 파티의 방 키 충돌을 낮춘다.
+        local areaToken = string.sub(areaId, -2)
+        local ownerToken = "000000"
+        if #userIds > 0 then ownerToken = string.sub(tostring(userIds[1]), -6) end
+        local modeToken = mode == "MONSTER_SKILL" and "M" or "N"
+        return "r~" .. areaToken .. "~" .. tostring(seed) .. "~"
+            .. tostring(math.floor(self:GetBalance("run_generator_version"))) .. "~"
+            .. tostring(self.RogueContentRevision) .. "~" .. modeToken .. "~"
+            .. tostring(#userIds) .. "~" .. ownerToken
+    end
+
+    ---------------------------------------------------------------
+    -- 명시적 로비 파티 (2~4인)
+    ---------------------------------------------------------------
+
+    method string SanitizeRoguePartyText(string raw)
+        if raw == nil then return "" end
+        local value = ""
+        for i = 1, string.len(raw) do
+            local ch = string.sub(raw, i, i)
+            if ch == "|" or ch == "~" then ch = " " end
+            value = value .. ch
+        end
+        return value
+    end
+
+    method string NormalizeRoguePartyCode(string raw)
+        if raw == nil then return "" end
+        local value = ""
+        for i = 1, string.len(raw) do
+            local ch = string.sub(raw, i, i)
+            if ch ~= " " and ch ~= "\t" and ch ~= "\n" and ch ~= "\r" then
+                value = value .. ch
+            end
+        end
+        return value
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean CanEditRogueParty(string userId)
+        if self.RogueRunActive then return false end
+        local player = _UserService:GetUserEntityByUserId(userId)
+        if not isvalid(player) or player.CurrentMap == nil then return false end
+        return player.CurrentMap.Name == "maptown"
+    end
+
+    @ExecSpace("ServerOnly")
+    method string GetRoguePartyNickname(string userId)
+        local player = _UserService:GetUserEntityByUserId(userId)
+        if isvalid(player) and isvalid(player.PlayerComponent) then
+            return self:SanitizeRoguePartyText(player.PlayerComponent.Nickname)
+        end
+        return "Player"
+    end
+
+    @ExecSpace("ServerOnly")
+    method string AllocateRoguePartyCode()
+        for attempt = 1, 50 do
+            self.RoguePartySerial += 1
+            local raw = 100000 + ((self.RoguePartySerial
+                + math.floor(_UtilLogic.ElapsedSeconds * 1000)) % 900000)
+            local code = tostring(raw)
+            if self.RoguePartiesById["party_" .. code] == nil then return code end
+        end
+        return ""
+    end
+
+    @ExecSpace("ServerOnly")
+    method table GetRoguePartyForUser(string userId)
+        local partyId = self.RoguePartyByUserId[userId]
+        if partyId == nil or partyId == "" then return nil end
+        return self.RoguePartiesById[partyId]
+    end
+
+    @ExecSpace("ServerOnly")
+    method string BuildRoguePartyMemberRows(table party)
+        local rows = {}
+        if party == nil or party.members == nil then return "" end
+        for i = 1, #party.members do
+            local userId = party.members[i]
+            local name = party.names[userId]
+            if name == nil or name == "" then name = self:GetRoguePartyNickname(userId) end
+            local ready = party.ready[userId] == true and "1" or "0"
+            local connected = party.connected[userId] == true and "1" or "0"
+            rows[#rows + 1] = userId .. "~" .. self:SanitizeRoguePartyText(name)
+                .. "~" .. ready .. "~" .. connected
+        end
+        return table.concat(rows, "|")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SendRoguePartyView(string userId)
+        local party = self:GetRoguePartyForUser(userId)
+        if party == nil then
+            self:ApplyRoguePartyView({ exists = false }, userId)
+            return
+        end
+        local view = {}
+        view.exists = true
+        view.id = party.id
+        view.code = party.code
+        view.leader = party.leader
+        view.area = party.area
+        view.mode = party.mode
+        view.members = self:BuildRoguePartyMemberRows(party)
+        view.count = #party.members
+        self:ApplyRoguePartyView(view, userId)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void BroadcastRoguePartyView(string partyId)
+        local party = self.RoguePartiesById[partyId]
+        if party == nil then return end
+        for i = 1, #party.members do
+            local userId = party.members[i]
+            if isvalid(_UserService:GetUserEntityByUserId(userId)) then
+                self:SendRoguePartyView(userId)
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method any GetRoguePlayerHud()
+        return self
+    end
+
+    @ExecSpace("ClientOnly")
+    method void InitializeRogueUiClient()
+        self.RogueUiHandlerEntities = {}
+        self.RogueUiHandlerIds = {}
+        self:RogueBindPath("/ui/PlayerHud/RunMenuButton", function()
+            self:SetRunMenuOpen(not self.RogueRunMenuOpen)
+        end)
+        self:RogueBindPath("/ui/PlayerHud/RunMenuPanel/AbandonButton", function()
+            self:SetRunMenuOpen(false)
+            self:SetAbandonConfirmOpen(true)
+        end)
+        self:RogueBindPath("/ui/PlayerHud/AbandonConfirm/Dialog/ConfirmButton", function()
+            self:ConfirmRogueliteAbandonUi()
+        end)
+        self:RogueBindPath("/ui/PlayerHud/AbandonConfirm/Dialog/CancelButton", function()
+            self:SetAbandonConfirmOpen(false)
+            log("[RunAbandonUI] 취소 — 전투 입력 복구")
+        end)
+        self:RogueBindPath("/ui/PlayerHud/AbandonConfirm/Dialog/CloseButton", function()
+            self:SetAbandonConfirmOpen(false)
+        end)
+        self:RogueBindPath("/ui/PlayerHud/PartyMenuButton", function()
+            self:SetPartyWindowOpen(not self.RoguePartyWindowOpen)
+        end)
+        self:RogueBindPath("/ui/PlayerHud/RunUpgradeButton", function()
+            self:SetRunUpgradeWindowOpen(not self.RogueUpgradeWindowOpen)
+        end)
+        self:RogueBindPath("/ui/PlayerHud/RunUpgradeWindow/Dialog/CloseButton", function()
+            self:SetRunUpgradeWindowOpen(false)
+        end)
+        self:RogueBindPath("/ui/PlayerHud/PartyWindow/Dialog/CloseButton", function()
+            self:SetPartyWindowOpen(false)
+        end)
+        self:RogueBindPath("/ui/PlayerHud/PartyWindow/Dialog/NoPartyPanel/CreateButton", function()
+            self:RequestCreateRogueParty()
+        end)
+        self:RogueBindPath("/ui/PlayerHud/PartyWindow/Dialog/NoPartyPanel/JoinButton", function()
+            local input = _EntityService:GetEntityByPath(
+                "/ui/PlayerHud/PartyWindow/Dialog/NoPartyPanel/JoinCodeInput")
+            local code = ""
+            if isvalid(input) and isvalid(input.TextInputComponent) then code = input.TextInputComponent.Text end
+            self:RequestJoinRogueParty(code)
+        end)
+        self:RogueBindPath("/ui/PlayerHud/PartyWindow/Dialog/InPartyPanel/ReadyButton", function()
+            self:RequestSetRoguePartyReady(not self:GetLocalRoguePartyReady())
+        end)
+        self:RogueBindPath("/ui/PlayerHud/PartyWindow/Dialog/InPartyPanel/LeaveButton", function()
+            self:RequestLeaveRogueParty()
+        end)
+        self:RogueBindPath("/ui/PlayerHud/PartyWindow/Dialog/InPartyPanel/DisbandButton", function()
+            self:RequestDisbandRogueParty()
+        end)
+        self:CloseRunMenuUi()
+        self:SetPartyWindowOpen(false)
+        self.RogueUiRefreshTimer = _TimerService:SetTimerRepeat(function()
+            self:RefreshRogueUiClient()
+        end, 0.2)
+        log("[RogueHud] GameData 기반 RUN/파티 UI 컨트롤러 준비")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RogueBindPath(string path, any fn)
+        local ent = _EntityService:GetEntityByPath(path)
+        if not isvalid(ent) then
+            log_warning("[RogueHud] UI 경로 누락 " .. path)
+            return
+        end
+        self.RogueUiHandlerEntities[#self.RogueUiHandlerEntities + 1] = ent
+        self.RogueUiHandlerIds[#self.RogueUiHandlerIds + 1] = ent:ConnectEvent(ButtonClickEvent, fn)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void UnbindRogueUiClient()
+        for i = 1, #self.RogueUiHandlerEntities do
+            local ent = self.RogueUiHandlerEntities[i]
+            if isvalid(ent) then ent:DisconnectEvent(ButtonClickEvent, self.RogueUiHandlerIds[i]) end
+        end
+        self.RogueUiHandlerEntities = {}
+        self.RogueUiHandlerIds = {}
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshRogueUiClient()
+        local active = self.RogueRunActive and self.RogueRunComplete == false and self.RogueRunFailed == false
+        local runButton = _EntityService:GetEntityByPath("/ui/PlayerHud/RunMenuButton")
+        local partyButton = _EntityService:GetEntityByPath("/ui/PlayerHud/PartyMenuButton")
+        local upgradeButton = _EntityService:GetEntityByPath("/ui/PlayerHud/RunUpgradeButton")
+        if isvalid(runButton) then runButton.Enable = active; runButton:SetVisible(active) end
+        if isvalid(partyButton) then partyButton.Enable = not active; partyButton:SetVisible(not active) end
+        if isvalid(upgradeButton) then upgradeButton.Enable = active; upgradeButton:SetVisible(active) end
+        if not active and (self.RogueRunMenuOpen or self.RogueAbandonConfirmOpen) then self:CloseRunMenuUi() end
+        if not active and self.RogueUpgradeWindowOpen then self:SetRunUpgradeWindowOpen(false) end
+        if active and self.RoguePartyWindowOpen then self:SetPartyWindowOpen(false) end
+        self:RefreshPartyRunHud()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetRunMenuOpen(boolean open)
+        local allowed = open and self.RogueRunActive and self.RogueRunComplete == false and self.RogueRunFailed == false
+        self.RogueRunMenuOpen = allowed
+        local panel = _EntityService:GetEntityByPath("/ui/PlayerHud/RunMenuPanel")
+        if isvalid(panel) then panel.Enable = allowed; panel:SetVisible(allowed) end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetAbandonConfirmOpen(boolean open)
+        local allowed = open and self.RogueRunActive and self.RogueRunComplete == false and self.RogueRunFailed == false
+        self.RogueAbandonConfirmOpen = allowed
+        local confirm = _EntityService:GetEntityByPath("/ui/PlayerHud/AbandonConfirm")
+        if isvalid(confirm) then confirm.Enable = allowed; confirm:SetVisible(allowed) end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void CloseRunMenuUi()
+        self.RogueRunMenuOpen = false
+        self.RogueAbandonConfirmOpen = false
+        local panel = _EntityService:GetEntityByPath("/ui/PlayerHud/RunMenuPanel")
+        local confirm = _EntityService:GetEntityByPath("/ui/PlayerHud/AbandonConfirm")
+        if isvalid(panel) then panel.Enable = false; panel:SetVisible(false) end
+        if isvalid(confirm) then confirm.Enable = false; confirm:SetVisible(false) end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void ConfirmRogueliteAbandonUi()
+        if self.RogueRunActive == false or self.RogueRunComplete or self.RogueRunFailed then
+            self:CloseRunMenuUi()
+            return
+        end
+        self:CloseRunMenuUi()
+        log("[RunAbandonUI] ABANDON 요청 전송")
+        self:RequestAbandonRogueliteRun()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnRogueliteAbandoned()
+        self:CloseRunMenuUi()
+        self:SetPartyWindowOpen(false)
+        if _EquipPanel ~= nil then _EquipPanel:SetOpen(false) end
+        if _SkillBar ~= nil then _SkillBar:CloseRunOverlays() end
+        if _GateNotice ~= nil then _GateNotice:HideNotice() end
+        log("[RunAbandonUI] ABANDONED 승인 — Run UI 정리")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void SetPartyWindowOpen(boolean open)
+        local allowed = open and self.RogueRunActive == false
+        self.RoguePartyWindowOpen = allowed
+        local window = _EntityService:GetEntityByPath("/ui/PlayerHud/PartyWindow")
+        if isvalid(window) then window.Enable = allowed; window:SetVisible(allowed) end
+        if allowed then self:RequestRoguePartyView(); self:RefreshPartyWindow() end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnPartyViewUpdated()
+        if self.RoguePartyWindowOpen then self:RefreshPartyWindow() end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshPartyWindow()
+        local hasParty = self.RoguePartyViewId ~= ""
+        local noParty = _EntityService:GetEntityByPath("/ui/PlayerHud/PartyWindow/Dialog/NoPartyPanel")
+        local inParty = _EntityService:GetEntityByPath("/ui/PlayerHud/PartyWindow/Dialog/InPartyPanel")
+        local status = _EntityService:GetEntityByPath("/ui/PlayerHud/PartyWindow/Dialog/StatusText")
+        if isvalid(noParty) then noParty.Enable = not hasParty; noParty:SetVisible(not hasParty) end
+        if isvalid(inParty) then inParty.Enable = hasParty; inParty:SetVisible(hasParty) end
+        if isvalid(status) and isvalid(status.TextGUIRendererComponent) then
+            status.TextGUIRendererComponent.Text = hasParty
+                and ("PARTY " .. tostring(self.RoguePartyViewCount) .. "/4 · 서버 동기화")
+                or "현재 SOLO 상태입니다."
+        end
+        if hasParty == false then return end
+        local codeText = _EntityService:GetEntityByPath(
+            "/ui/PlayerHud/PartyWindow/Dialog/InPartyPanel/PartyCodeText")
+        if isvalid(codeText) and isvalid(codeText.TextGUIRendererComponent) then
+            codeText.TextGUIRendererComponent.Text = "참가 코드  " .. self.RoguePartyViewCode
+        end
+        local rows = self:SplitRogueKey(self.RoguePartyViewMembers, "|")
+        for i = 1, 4 do
+            local row = _EntityService:GetEntityByPath(
+                "/ui/PlayerHud/PartyWindow/Dialog/InPartyPanel/Member" .. tostring(i))
+            if isvalid(row) and isvalid(row.TextGUIRendererComponent) then
+                local text = tostring(i) .. ". 빈 자리"
+                if i <= #rows then
+                    local fields = self:SplitRogueKey(rows[i], "~")
+                    local leader = fields[1] == self.RoguePartyViewLeaderId and " [파티장]" or ""
+                    local connected = fields[4] == "1" and "접속" or "연결 끊김"
+                    local ready = fields[3] == "1" and "준비" or "대기"
+                    text = tostring(i) .. ". " .. (fields[2] or "Player") .. leader
+                        .. "  ·  " .. connected .. "  ·  " .. ready
+                end
+                row.TextGUIRendererComponent.Text = text
+            end
+        end
+        local readyButton = _EntityService:GetEntityByPath(
+            "/ui/PlayerHud/PartyWindow/Dialog/InPartyPanel/ReadyButton")
+        if isvalid(readyButton) and isvalid(readyButton.TextGUIRendererComponent) then
+            readyButton.TextGUIRendererComponent.Text = self:GetLocalRoguePartyReady() and "준비 해제" or "준비"
+        end
+        local disband = _EntityService:GetEntityByPath(
+            "/ui/PlayerHud/PartyWindow/Dialog/InPartyPanel/DisbandButton")
+        if isvalid(disband) then
+            local leader = self:IsLocalRoguePartyLeader()
+            disband.Enable = leader
+            disband:SetVisible(leader)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshPartyRunHud()
+        local hud = _EntityService:GetEntityByPath("/ui/PlayerHud/PartyRunHud")
+        local show = self.RogueRunActive and self.RogueStartParticipantCount > 1
+        if not isvalid(hud) then return end
+        hud.Enable = show
+        hud:SetVisible(show)
+        if show == false then return end
+        local rows = self:SplitRogueKey(self.RogueParticipantSummary, "|")
+        for i = 1, 4 do
+            local row = hud:GetChildByName("Member" .. tostring(i), false)
+            if isvalid(row) and isvalid(row.TextGUIRendererComponent) then
+                local text = ""
+                if i <= #rows then
+                    local fields = self:SplitRogueKey(rows[i], "~")
+                    local name = fields[2] or "Player"
+                    if fields[3] ~= "1" then
+                        text = name .. "  ·  DEAD"
+                    else
+                        local partyPlayer = _UserService:GetUserEntityByUserId(fields[1])
+                        if isvalid(partyPlayer) and isvalid(partyPlayer.PlayerComponent) then
+                            text = name .. "  ·  HP " .. tostring(math.floor(partyPlayer.PlayerComponent.Hp))
+                                .. "/" .. tostring(math.floor(partyPlayer.PlayerComponent.MaxHp))
+                        else
+                            text = name .. "  ·  연결 확인 중"
+                        end
+                    end
+                end
+                row.TextGUIRendererComponent.Text = text
+            end
+        end
+    end
+
+    @ExecSpace("Client")
+    method void ApplyRoguePartyView(table view)
+        if view == nil or view.exists ~= true then
+            self.RoguePartyViewId = ""
+            self.RoguePartyViewCode = ""
+            self.RoguePartyViewLeaderId = ""
+            self.RoguePartyViewAreaId = "mega_01"
+            self.RoguePartyViewMode = "NORMAL"
+            self.RoguePartyViewMembers = ""
+            self.RoguePartyViewCount = 0
+        else
+            self.RoguePartyViewId = view.id or ""
+            self.RoguePartyViewCode = view.code or ""
+            self.RoguePartyViewLeaderId = view.leader or ""
+            self.RoguePartyViewAreaId = view.area or "mega_01"
+            self.RoguePartyViewMode = view.mode == "MONSTER_SKILL" and "MONSTER_SKILL" or "NORMAL"
+            self.RoguePartyViewMembers = view.members or ""
+            self.RoguePartyViewCount = view.count or 0
+        end
+        if _AreaSelectPanel ~= nil then _AreaSelectPanel:OnPartyViewUpdated() end
+        local hud = self:GetRoguePlayerHud()
+        if hud ~= nil then hud:OnPartyViewUpdated() end
+    end
+
+    @ExecSpace("Client")
+    method void NotifyRoguePartyMessage(string title, string message)
+        if _GateNotice ~= nil then _GateNotice:ShowNotice(title, message) end
+    end
+
+    method boolean IsLocalRoguePartyLeader()
+        local me = _UserService.LocalPlayer
+        if not isvalid(me) or not isvalid(me.PlayerComponent) then return false end
+        return self.RoguePartyViewId ~= ""
+            and self.RoguePartyViewLeaderId == me.PlayerComponent.UserId
+    end
+
+    method boolean GetLocalRoguePartyReady()
+        local me = _UserService.LocalPlayer
+        if not isvalid(me) or not isvalid(me.PlayerComponent) then return false end
+        local myId = me.PlayerComponent.UserId
+        local rows = self:SplitRogueKey(self.RoguePartyViewMembers, "|")
+        for i = 1, #rows do
+            local fields = self:SplitRogueKey(rows[i], "~")
+            if fields[1] == myId then return fields[3] == "1" end
+        end
+        return false
+    end
+
+    method boolean AreAllRoguePartyMembersReady()
+        if self.RoguePartyViewCount < 2 then return false end
+        local rows = self:SplitRogueKey(self.RoguePartyViewMembers, "|")
+        if #rows ~= self.RoguePartyViewCount then return false end
+        for i = 1, #rows do
+            local fields = self:SplitRogueKey(rows[i], "~")
+            if fields[3] ~= "1" or fields[4] ~= "1" then return false end
+        end
+        return true
+    end
+
+    @ExecSpace("Server")
+    method void RequestRoguePartyView()
+        self:SendRoguePartyView(senderUserId)
+    end
+
+    @ExecSpace("Server")
+    method void RequestCreateRogueParty()
+        if self:CanEditRogueParty(senderUserId) == false then
+            self:NotifyRoguePartyMessage("파티", "마을에서만 파티를 만들 수 있습니다.", senderUserId)
+            return
+        end
+        if self:GetRoguePartyForUser(senderUserId) ~= nil then
+            self:SendRoguePartyView(senderUserId)
+            return
+        end
+        local code = self:AllocateRoguePartyCode()
+        if code == "" then
+            self:NotifyRoguePartyMessage("파티", "파티 코드를 만들지 못했습니다.", senderUserId)
+            return
+        end
+        local party = {}
+        party.id = "party_" .. code
+        party.code = code
+        party.leader = senderUserId
+        party.members = { senderUserId }
+        party.names = {}
+        party.names[senderUserId] = self:GetRoguePartyNickname(senderUserId)
+        party.ready = {}
+        party.ready[senderUserId] = false
+        party.connected = {}
+        party.connected[senderUserId] = true
+        party.area = "mega_01"
+        party.mode = "NORMAL"
+        self.RoguePartiesById[party.id] = party
+        self.RoguePartyByUserId[senderUserId] = party.id
+        self:BroadcastRoguePartyView(party.id)
+        log("[RogueParty] 생성 id=" .. party.id .. " leader=" .. senderUserId)
+    end
+
+    @ExecSpace("Server")
+    method void RequestJoinRogueParty(string rawCode)
+        if self:CanEditRogueParty(senderUserId) == false then
+            self:NotifyRoguePartyMessage("파티", "마을에서만 파티에 참가할 수 있습니다.", senderUserId)
+            return
+        end
+        if self:GetRoguePartyForUser(senderUserId) ~= nil then return end
+        local code = self:NormalizeRoguePartyCode(rawCode)
+        local party = self.RoguePartiesById["party_" .. code]
+        if party == nil then
+            self:NotifyRoguePartyMessage("파티 참가", "유효한 참가 코드를 확인해 주세요.", senderUserId)
+            return
+        end
+        local maxPlayers = math.floor(self:GetBalance("run_party_max"))
+        if maxPlayers < 2 then maxPlayers = 4 end
+        if #party.members >= maxPlayers then
+            self:NotifyRoguePartyMessage("파티 참가", "파티가 가득 찼습니다.", senderUserId)
+            return
+        end
+        party.members[#party.members + 1] = senderUserId
+        party.names[senderUserId] = self:GetRoguePartyNickname(senderUserId)
+        party.ready[senderUserId] = false
+        party.connected[senderUserId] = true
+        self.RoguePartyByUserId[senderUserId] = party.id
+        for i = 1, #party.members do party.ready[party.members[i]] = false end
+        self:BroadcastRoguePartyView(party.id)
+        log("[RogueParty] 참가 id=" .. party.id .. " member=" .. senderUserId
+            .. " count=" .. tostring(#party.members))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RemoveRoguePartyMember(string userId, boolean disband)
+        local party = self:GetRoguePartyForUser(userId)
+        if party == nil then return end
+        local partyId = party.id
+        if disband and party.leader == userId then
+            for i = 1, #party.members do
+                local memberId = party.members[i]
+                self.RoguePartyByUserId[memberId] = nil
+                if isvalid(_UserService:GetUserEntityByUserId(memberId)) then
+                    self:ApplyRoguePartyView({ exists = false }, memberId)
+                end
+            end
+            self.RoguePartiesById[partyId] = nil
+            log("[RogueParty] 해체 id=" .. partyId)
+            return
+        end
+
+        local retained = {}
+        for i = 1, #party.members do
+            if party.members[i] ~= userId then retained[#retained + 1] = party.members[i] end
+        end
+        party.members = retained
+        party.ready[userId] = nil
+        party.connected[userId] = nil
+        party.names[userId] = nil
+        self.RoguePartyByUserId[userId] = nil
+        if isvalid(_UserService:GetUserEntityByUserId(userId)) then
+            self:ApplyRoguePartyView({ exists = false }, userId)
+        end
+        if #party.members <= 0 then
+            self.RoguePartiesById[partyId] = nil
+            return
+        end
+        if party.leader == userId then party.leader = party.members[1] end
+        for i = 1, #party.members do party.ready[party.members[i]] = false end
+        self:BroadcastRoguePartyView(partyId)
+        log("[RogueParty] 이탈 id=" .. partyId .. " member=" .. userId
+            .. " remaining=" .. tostring(#party.members))
+    end
+
+    @ExecSpace("Server")
+    method void RequestLeaveRogueParty()
+        if self.RogueRunActive then return end
+        self:RemoveRoguePartyMember(senderUserId, false)
+    end
+
+    @ExecSpace("Server")
+    method void RequestDisbandRogueParty()
+        if self.RogueRunActive then return end
+        self:RemoveRoguePartyMember(senderUserId, true)
+    end
+
+    @ExecSpace("Server")
+    method void RequestSetRoguePartyReady(boolean ready)
+        if self:CanEditRogueParty(senderUserId) == false then return end
+        local party = self:GetRoguePartyForUser(senderUserId)
+        if party == nil then return end
+        party.ready[senderUserId] = ready
+        party.connected[senderUserId] = true
+        self:BroadcastRoguePartyView(party.id)
+        log("[RogueParty] 준비 id=" .. party.id .. " member=" .. senderUserId
+            .. " ready=" .. tostring(ready))
+    end
+
+    @ExecSpace("Server")
+    method void RequestSetRoguePartyArea(string areaId)
+        if self:CanEditRogueParty(senderUserId) == false or self:IsMegaArea(areaId) == false then return end
+        local party = self:GetRoguePartyForUser(senderUserId)
+        if party == nil or party.leader ~= senderUserId then return end
+        party.area = areaId
+        for i = 1, #party.members do party.ready[party.members[i]] = false end
+        self:BroadcastRoguePartyView(party.id)
+        log("[RogueParty] Area 변경 id=" .. party.id .. " area=" .. areaId)
+    end
+
+    @ExecSpace("Server")
+    method void RequestSetRoguePartyMode(string mode)
+        if self:CanEditRogueParty(senderUserId) == false then return end
+        local party = self:GetRoguePartyForUser(senderUserId)
+        if party == nil or party.leader ~= senderUserId then return end
+        party.mode = mode == "MONSTER_SKILL" and "MONSTER_SKILL" or "NORMAL"
+        for i = 1, #party.members do party.ready[party.members[i]] = false end
+        self:BroadcastRoguePartyView(party.id)
+        log("[RogueParty] 모드 변경 id=" .. party.id .. " mode=" .. party.mode)
+    end
+
+    @ExecSpace("Server")
+    method void RequestStartRoguePartyRun(integer requestedSeed)
+        if self:CanEditRogueParty(senderUserId) == false then return end
+        local party = self:GetRoguePartyForUser(senderUserId)
+        if party == nil or party.leader ~= senderUserId then
+            self:NotifyRoguePartyMessage("RUN 시작", "파티장만 시작할 수 있습니다.", senderUserId)
+            return
+        end
+        local maxPlayers = math.floor(self:GetBalance("run_party_max"))
+        if maxPlayers < 2 then maxPlayers = 4 end
+        if #party.members < 2 or #party.members > maxPlayers then
+            self:NotifyRoguePartyMessage("RUN 시작", "파티 Run은 2~4인이 필요합니다.", senderUserId)
+            return
+        end
+        local validated = {}
+        for i = 1, #party.members do
+            local userId = party.members[i]
+            local player = _UserService:GetUserEntityByUserId(userId)
+            local lobby = isvalid(player) and player.CurrentMap ~= nil and player.CurrentMap.Name == "maptown"
+            if party.ready[userId] ~= true or party.connected[userId] ~= true or lobby == false then
+                self:NotifyRoguePartyMessage("RUN 시작", "모든 파티원이 접속 후 준비해야 합니다.", senderUserId)
+                return
+            end
+            validated[#validated + 1] = userId
+        end
+        table.sort(validated)
+        for i = 1, #party.members do party.ready[party.members[i]] = false end
+        self:BroadcastRoguePartyView(party.id)
+        log("[RogueParty] 참가자 확정 id=" .. party.id .. " count=" .. tostring(#validated)
+            .. " area=" .. party.area .. " mode=" .. party.mode)
+        self:StartRogueliteAreaValidated(party.area, validated, requestedSeed, party.mode)
+    end
+
+    @ExecSpace("ServerOnly")
+    method string DebugRoguePartyStateSimulation(integer memberCount)
+        -- 독립 클라이언트가 없는 Maker에서도 원장 규칙을 검증하기 위한 순수 서버 시뮬레이션.
+        -- 실제 사용자/Run/파티 테이블은 변경하지 않는다. 파티장 권한, 전원 준비,
+        -- Run 시작 스냅샷, 파티 간 격리, 개인 이탈/마지막 이탈 정리와 HP 배율을 함께 본다.
+        if memberCount < 2 or memberCount > 4 then return "FAIL:COUNT" end
+        local members = {}
+        local ready = {}
+        for i = 1, memberCount do
+            local id = "SIM_" .. tostring(i)
+            members[i] = id
+            ready[id] = true
+        end
+        local leader = members[1]
+        local area = "mega_01"
+        local mode = "NORMAL"
+        local memberEditRejected = members[2] ~= leader
+        if leader == members[1] then
+            area = "mega_03"
+            mode = "MONSTER_SKILL"
+        end
+        local allReady = true
+        for i = 1, #members do
+            if ready[members[i]] ~= true then allReady = false end
+        end
+        local frozen = {}
+        for i = 1, #members do frozen[i] = members[i] end
+        local secondParty = { "OTHER_1", "OTHER_2" }
+        local partiesIsolated = frozen[1] ~= secondParty[1] and frozen[2] ~= secondParty[2]
+        table.remove(members, #members)
+        local memberAbandonRemaining = #members == memberCount - 1
+        while #members > 0 do table.remove(members, #members) end
+        local lastParticipantCloses = #members == 0
+        local snapshotIsolated = #frozen == memberCount
+        local hpScale = 1 + 0.25 * (memberCount - 1)
+        local result = allReady and memberEditRejected and snapshotIsolated and partiesIsolated
+            and memberAbandonRemaining and lastParticipantCloses and leader == "SIM_1"
+            and area == "mega_03" and mode == "MONSTER_SKILL"
+        local status = result and "PASS" or "FAIL"
+        return status .. ":members=" .. tostring(memberCount)
+            .. ";hpScale=" .. tostring(hpScale)
+            .. ";leader=" .. leader .. ";leaderOnly=1;readyAll=" .. (allReady and "1" or "0")
+            .. ";area=" .. area .. ";mode=" .. mode
+            .. ";snapshot=" .. tostring(#frozen) .. ";isolated=" .. (partiesIsolated and "1" or "0")
+            .. ";memberAbandon=" .. (memberAbandonRemaining and "1" or "0")
+            .. ";lastCloses=" .. (lastParticipantCloses and "1" or "0")
+    end
+
+    @ExecSpace("ClientOnly")
+    method void DebugOpenRoguePartyWindow(boolean open)
+        -- Maker QA가 표준 UI 클릭을 주입할 수 없을 때 실제 UI Component 경로를 실행한다.
+        local hud = self:GetRoguePlayerHud()
+        if hud ~= nil then hud:SetPartyWindowOpen(open) end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void DebugSetRogueAreaSelectMode(string mode)
+        if _AreaSelectPanel ~= nil then _AreaSelectPanel:SelectMode(mode) end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void DebugOpenRogueRunMenu(boolean confirm)
+        local hud = self:GetRoguePlayerHud()
+        if hud == nil then return end
+        if confirm then
+            hud:SetRunMenuOpen(false)
+            hud:SetAbandonConfirmOpen(true)
+        else
+            hud:SetAbandonConfirmOpen(false)
+            hud:SetRunMenuOpen(true)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void DebugCancelRogueAbandon()
+        local hud = self:GetRoguePlayerHud()
+        if hud ~= nil then hud:SetAbandonConfirmOpen(false) end
+    end
+
+    @ExecSpace("Server")
+    method void RequestSetRogueliteReady(string areaId, boolean ready)
+        -- 레거시 호환 RPC. 신규 UI는 명시적 파티 준비를 사용하며, 이 표로 주변
+        -- 플레이어를 자동 합류시키지 않는다.
+        if self:GetBalance("roguelite_run_mode_enabled") < 0.5 then return end
+        if self:CanStartRogueliteFromLobby(_UserService:GetUserEntityByUserId(senderUserId)) == false then return end
+        if ready then
+            if self:IsMegaArea(areaId) == false then return end
+            self.RogueReadyAreaByUser[senderUserId] = areaId
+            if self.RogueReadyModeByUser[senderUserId] == nil then
+                self.RogueReadyModeByUser[senderUserId] = "NORMAL"
+            end
+            log("[RogueRun] 협동 준비 " .. tostring(senderUserId) .. " area=" .. areaId)
+        else
+            self.RogueReadyAreaByUser[senderUserId] = nil
+            self.RogueReadyModeByUser[senderUserId] = nil
+            log("[RogueRun] 협동 준비 해제 " .. tostring(senderUserId))
+        end
+    end
+
+    @ExecSpace("Server")
+    method void RequestSetRogueliteMode(string mode)
+        if mode ~= "MONSTER_SKILL" then mode = "NORMAL" end
+        self.RogueReadyModeByUser[senderUserId] = mode
+    end
+
+    @ExecSpace("Server")
+    method void RequestStartReadyRogueliteArea(string areaId, integer requestedSeed)
+        -- 레거시 호환: 예전의 "같은 마을 + 같은 Area 준비" 자동 합류는 제거했다.
+        -- 명시적 파티가 없을 때 요청자 한 명만 Solo Run으로 시작한다.
+        if self:CanStartRogueliteFromLobby(_UserService:GetUserEntityByUserId(senderUserId)) == false then return end
+        if self:GetBalance("roguelite_run_mode_enabled") < 0.5 then return end
+        if self:GetRoguePartyForUser(senderUserId) ~= nil then
+            self:NotifyRoguePartyMessage("RUN 시작", "파티 창에서 준비한 뒤 파티장이 시작해 주세요.", senderUserId)
+            return
+        end
+        if self.RogueReadyAreaByUser[senderUserId] ~= areaId then
+            log_warning("[RogueRun] 준비하지 않은 시작 요청 차단: " .. tostring(senderUserId))
+            return
+        end
+        local ids = { senderUserId }
+        local mode = self.RogueReadyModeByUser[senderUserId]
+        if mode ~= "MONSTER_SKILL" then mode = "NORMAL" end
+        self:StartRogueliteAreaValidated(areaId, ids, requestedSeed, mode)
+    end
+
+    @ExecSpace("Server")
+    method void RequestStartRogueliteArea(string areaId, string participantIdsJoined, integer requestedSeed, string mode)
+        -- 직접 시작 RPC에도 준비 UI와 동일한 로비/중복 요청 검사를 적용한다.
+        if self:CanStartRogueliteFromLobby(_UserService:GetUserEntityByUserId(senderUserId)) == false then return end
+        if self:GetBalance("roguelite_run_mode_enabled") < 0.5 then return end
+        if self:IsMegaArea(areaId) == false then
+            log_warning("[RogueRun] 시작할 수 없는 Area: " .. tostring(areaId))
+            return
+        end
+
+        if participantIdsJoined ~= nil and participantIdsJoined ~= "" then
+            -- 클라이언트가 임의 UserId 목록을 보내 협동 Run을 만들 수 없게 한다.
+            -- 파티 Run은 서버 원장 기반 RequestStartRoguePartyRun만 허용한다.
+            log_warning("[RogueRun] 직접 참가자 목록 시작 요청 차단 user=" .. tostring(senderUserId))
+            return
+        end
+        if self:GetRoguePartyForUser(senderUserId) ~= nil then
+            self:NotifyRoguePartyMessage("RUN 시작", "파티 Run은 파티장이 시작해야 합니다.", senderUserId)
+            return
+        end
+
+        if mode ~= "MONSTER_SKILL" then mode = "NORMAL" end
+        self:StartRogueliteAreaValidated(areaId, { senderUserId }, requestedSeed, mode)
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean CanStartRogueliteFromLobby(Entity player)
+        -- 실제 정적 로비에서만 새 InstanceRoom을 만든다. 생성 중인 참가자는 중복 요청 불가.
+        -- Maker Play 자체가 TestPlayInstance에서 실행되므로, 개발 환경에서는 그
+        -- 외곽 테스트 룸을 정적 로비로 취급한다. 생성된 Run 인스턴스는
+        -- RogueRunActive가 true라 동일 검사를 통과하지 못한다.
+        if self.RogueRunActive
+            or (_RoomService:IsInstanceRoom() and Environment:IsMakerPlay() == false) then
+            log_warning("[RogueRun] 시작 거부 — 정적 maptown 로비에서만 시작 가능")
+            return false
+        end
+        if not isvalid(player) or player.CurrentMap == nil or player.CurrentMap.Name ~= "maptown" then return false end
+        return self.RogueStartingUsers[player.PlayerComponent.UserId] ~= true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void StartRogueliteAreaValidated(string areaId, table validated, integer requestedSeed, string mode)
+        -- 생성 API가 yield하기 전에 참가자 모두의 로비 상태와 중복 요청을 검사한다.
+        local sourceAreas = self:GetMegaAreaSources(areaId)
+        if #sourceAreas <= 0 or #validated <= 0 then return end
+        local firstArea = self:GetArea(sourceAreas[1])
+        if firstArea == nil or firstArea.entry_room_id == "" then return end
+        for _, userId in ipairs(validated) do
+            if self:CanStartRogueliteFromLobby(_UserService:GetUserEntityByUserId(userId)) == false then return end
+        end
+        local seed = math.floor(requestedSeed)
+        if seed <= 0 then seed = math.floor(_UtilLogic.ElapsedSeconds * 1000) + self:RogueNextInt(999999) end
+        if self:ValidateRogueliteBeforeRoomCreation(areaId, seed) == false then
+            log_error("[RogueRun] 생성 검증 실패 — 로비 유지 area=" .. areaId .. " seed=" .. tostring(seed))
+            return
+        end
+        local key = self:BuildRogueliteRoomKey(areaId, seed, validated, mode)
+        local maps = self:GetMapsForMegaArea(areaId)
+        if #maps <= 0 then return end
+        local first = self.rooms[firstArea.entry_room_id]
+
+        -- Maker도 maptown에서 시작하여 운영과 같은 Room 경계를 검증한다.
+        for _, userId in ipairs(validated) do self.RogueStartingUsers[userId] = true end
+
+        local instance = _RoomService:CreateInstanceRoom(key, maps, 10)
+        if instance == nil or instance:IsValid() == false then
+            -- Maker Play는 바깥 실행 환경 자체가 TestPlayInstance라 중첩
+            -- CreateInstanceRoom을 지원하지 않는다. 운영 서버 경로는 건드리지 않고,
+            -- Maker에서만 현재 테스트 인스턴스를 동일 Run 상태로 초기화해 실제 맵/전투를 검증한다.
+            if Environment:IsMakerPlay() then
+                self.RogueAreaId = areaId
+                self.RogueSeed = seed
+                self.RogueMode = mode == "MONSTER_SKILL" and "MONSTER_SKILL" or "NORMAL"
+                self.RogueParticipantIds = {}
+                self.RogueAliveParticipants = {}
+                for i = 1, #validated do
+                    self.RogueParticipantIds[i] = validated[i]
+                    self.RogueAliveParticipants[validated[i]] = true
+                end
+                self.RogueStartParticipantCount = math.max(1, #validated)
+                self.RogueRandomState = seed
+                self.RogueRngStates = {}
+                self.RogueDamageLedger = {}
+                self.RogueDamageSummary = ""
+                self.RogueActiveMonsterSpecialCasts = 0
+                self:ResetRunChestAndUpgradeState()
+                self.RogueRunActive = self:GenerateRogueliteGraph()
+                if self.RogueRunActive then
+                    for _, userId in ipairs(validated) do
+                        local player = _UserService:GetUserEntityByUserId(userId)
+                        if isvalid(player) then
+                            local slots = player:GetComponent("script.PlayerSkillSlots")
+                            if slots ~= nil then slots:BeginRogueliteRun() end
+                            _TeleportService:TeleportToMapPosition(player, Vector3(0, 0, 0), first.map_name)
+                        end
+                        self.RogueReadyAreaByUser[userId] = nil
+                        self.RogueReadyModeByUser[userId] = nil
+                        self.RogueStartingUsers[userId] = nil
+                    end
+                    log("[RogueRun] MAKER_LOCAL_INSTANCE_FALLBACK area=" .. areaId
+                        .. " seed=" .. tostring(seed) .. " mode=" .. self.RogueMode)
+                    return
+                end
+            end
+            for _, userId in ipairs(validated) do self.RogueStartingUsers[userId] = nil end
+            log_error("[RogueRun] 인스턴스 룸 생성 실패 key=" .. key)
+            return
+        end
+        local moved = _RoomService:MoveUsersToInstanceRoom(key, validated, first.map_name)
+        for i = 1, #validated do
+            self.RogueReadyAreaByUser[validated[i]] = nil
+            self.RogueReadyModeByUser[validated[i]] = nil
+            self.RogueStartingUsers[validated[i]] = nil
+        end
+        log("[RogueRun] 인스턴스 시작 요청 area=" .. areaId .. " seed=" .. tostring(seed)
+            .. " mode=" .. mode .. " participants=" .. tostring(#validated) .. " moved=" .. tostring(moved))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void InitializeRogueliteInstance()
+        if self:GetBalance("roguelite_run_mode_enabled") < 0.5 then return end
+        if _RoomService:IsInstanceRoom() == false then return end
+        local parts = self:SplitRogueKey(_RoomService.RoomKey, "~")
+        if #parts < 7 or (parts[1] ~= "r" and parts[1] ~= "rogue") then return end
+        local compact = parts[1] == "r"
+        local contentToken = compact and parts[5] or parts[6]
+        if self:ToNumber(contentToken, -1) ~= self.RogueContentRevision then
+            log_error("[RogueRun] 콘텐츠 버전 불일치 — Run 생성 중단")
+            return
+        end
+        self.RogueAreaId = compact and ("mega_" .. parts[2]) or parts[2]
+        self.RogueSeed = math.floor(self:ToNumber(parts[3], 0))
+        self.RogueGeneratorVersion = math.floor(self:ToNumber(parts[4], 2))
+        self.RogueParticipantIds = compact and {} or self:SplitRogueKey(parts[5], "+")
+        local modeToken = compact and parts[6] or parts[7]
+        self.RogueMode = (modeToken == "M" or modeToken == "MONSTER_SKILL") and "MONSTER_SKILL" or "NORMAL"
+        self.RogueStartParticipantCount = compact and math.floor(self:ToNumber(parts[7], 1))
+            or #self.RogueParticipantIds
+        if self.RogueStartParticipantCount < 1 then self.RogueStartParticipantCount = 1 end
+        for i = 1, #self.RogueParticipantIds do
+            self.RogueAliveParticipants[self.RogueParticipantIds[i]] = true
+        end
+        self.RogueRandomState = self.RogueSeed
+        self.RogueRngStates = {}
+        self.RogueDamageLedger = {}
+        self.RogueDamageSummary = ""
+        self.RogueActiveMonsterSpecialCasts = 0
+        _SkillDropManager:ClearAll("RUN_INIT")
+        self:ResetRunChestAndUpgradeState()
+        self.RogueRunActive = self:GenerateRogueliteGraph()
+        log("[RogueRun] instance init area=" .. self.RogueAreaId
+            .. " seed=" .. tostring(self.RogueSeed)
+            .. " generator=" .. tostring(self.RogueGeneratorVersion)
+            .. " content=" .. tostring(self.RogueContentRevision)
+            .. " mode=" .. self.RogueMode .. " players=" .. tostring(self.RogueStartParticipantCount)
+            .. " valid=" .. tostring(self.RogueRunActive))
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean ValidateRogueliteBeforeRoomCreation(string areaId, integer seed)
+        -- 그래프 실패 상태로 참가자를 이동시키지 않는다. 로비의 상태는 검사 전후 동일하다.
+        local saved = {area = self.RogueAreaId, seed = self.RogueSeed, rng = self.RogueRandomState,
+            rngs = self.RogueRngStates, boss = self.RogueBossMonsterId,
+            attempt = self.RogueGenerationAttempt, graph = self.RogueGraph, roles = self.RogueRoomRoles,
+            encounters = self.RogueEncounters, path = self.RogueMainPath, start = self.RogueStartRoomId,
+            final = self.RogueFinalRoomId, objective = self.RogueObjectiveType,
+            revision = self.RogueRunRevision, result = self.RogueRunResult,
+            participantResults = self.RogueParticipantResults, spawners = self.RogueLoadedSpawnerEntities,
+            pendingDiscoveries = self.RoguePendingDiscoveries,
+            complete = self.RogueRunComplete, failed = self.RogueRunFailed,
+            objectiveComplete = self.RogueObjectiveComplete, transitionLocked = self.RogueTransitionLocked}
+        self.RogueAreaId = areaId
+        self.RogueSeed = seed
+        local valid = self:GenerateRogueliteGraph()
+        self.RogueAreaId = saved.area
+        self.RogueSeed = saved.seed
+        self.RogueRandomState = saved.rng
+        self.RogueRngStates = saved.rngs
+        self.RogueBossMonsterId = saved.boss
+        self.RogueGenerationAttempt = saved.attempt
+        self.RogueGraph = saved.graph
+        self.RogueRoomRoles = saved.roles
+        self.RogueEncounters = saved.encounters
+        self.RogueMainPath = saved.path
+        self.RogueStartRoomId = saved.start
+        self.RogueFinalRoomId = saved.final
+        self.RogueObjectiveType = saved.objective
+        -- GenerateRogueliteGraph는 실제 Run 시작에도 쓰인다. 사전 검사의 임시 초기화가
+        -- 로비/이전 Run의 결과, revision, 스포너 원장을 덮어쓰지 않도록 함께 복원한다.
+        self.RogueRunRevision = saved.revision
+        self.RogueRunResult = saved.result
+        self.RogueParticipantResults = saved.participantResults
+        self.RoguePendingDiscoveries = saved.pendingDiscoveries
+        self.RogueLoadedSpawnerEntities = saved.spawners
+        self.RogueRunComplete = saved.complete
+        self.RogueRunFailed = saved.failed
+        self.RogueObjectiveComplete = saved.objectiveComplete
+        self.RogueTransitionLocked = saved.transitionLocked
+        return valid
+    end
+
+    method table GetOpenDirections(table room)
+        local out = {}
+        if room == nil then return out end
+        local order = { "north", "east", "south", "west" }
+        for i = 1, #order do
+            local d = order[i]
+            if room.connections[d] ~= nil and room.connections[d] ~= "" then out[#out + 1] = d end
+        end
+        return out
+    end
+
+    method string OppositeDirection(string direction)
+        if direction == "north" then return "south" end
+        if direction == "south" then return "north" end
+        if direction == "east" then return "west" end
+        if direction == "west" then return "east" end
+        return ""
+    end
+
+    method string FindCompatibleRunDirection(string fromId, string toId)
+        local fromRoom = self.rooms[fromId]
+        local toRoom = self.rooms[toId]
+        local directions = self:GetOpenDirections(fromRoom)
+        for i = 1, #directions do
+            local d = directions[i]
+            local opposite = self:OppositeDirection(d)
+            if self.RogueGraph[fromId][d] == nil
+                and toRoom.connections[opposite] ~= nil and toRoom.connections[opposite] ~= ""
+                and self.RogueGraph[toId][opposite] == nil then
+                return d
+            end
+        end
+        return ""
+    end
+
+    method boolean ConnectRunRooms(string fromId, string toId)
+        local direction = self:FindCompatibleRunDirection(fromId, toId)
+        if direction == "" then return false end
+        local opposite = self:OppositeDirection(direction)
+        self.RogueGraph[fromId][direction] = toId
+        self.RogueGraph[toId][opposite] = fromId
+        return true
+    end
+
+    method void DisconnectRunRooms(string fromId, string toId)
+        local fromEdges = self.RogueGraph[fromId]
+        local toEdges = self.RogueGraph[toId]
+        if fromEdges == nil or toEdges == nil then return end
+        for direction, target in pairs(fromEdges) do
+            if target == toId then
+                fromEdges[direction] = nil
+                local opposite = self:OppositeDirection(direction)
+                if opposite ~= "" and toEdges[opposite] == fromId then toEdges[opposite] = nil end
+                return
+            end
+        end
+    end
+
+    method table BuildMixedRunEncounter(string roomId, string role)
+        local room = self.rooms[roomId]
+        if room == nil then return nil end
+        if role == "start" then
+            return {monster_id = "", monster_count = 0, members = {}, subzone = room.area_id}
+        end
+        if role == "final" then
+            return {monster_id = self.RogueBossMonsterId, monster_count = 1,
+                members = {{monster_id = self.RogueBossMonsterId, count = 1}}, subzone = room.area_id}
+        end
+
+        local pool = self:GetMegaMonsterPool(self.RogueAreaId)
+        if #pool <= 0 then return nil end
+        local minCount = math.floor(self:GetBalance("run_encounter_count_min"))
+        local maxCount = math.floor(self:GetBalance("run_encounter_count_max"))
+        local minSpecies = math.floor(self:GetBalance("run_encounter_species_min"))
+        local maxSpecies = math.floor(self:GetBalance("run_encounter_species_max"))
+        if minCount < 1 then minCount = 6 end
+        if maxCount < minCount then maxCount = math.max(minCount, 10) end
+        if minSpecies < 1 then minSpecies = 2 end
+        if maxSpecies < minSpecies then maxSpecies = math.max(minSpecies, 4) end
+        maxSpecies = math.min(maxSpecies, #pool, maxCount)
+        minSpecies = math.min(minSpecies, maxSpecies)
+        local total = minCount + self:RogueStreamNextInt("encounter", maxCount - minCount + 1) - 1
+        local speciesCount = minSpecies + self:RogueStreamNextInt("encounter", maxSpecies - minSpecies + 1) - 1
+        local available = {}
+        for i = 1, #pool do available[i] = pool[i] end
+        local members = {}
+        for i = 1, speciesCount do
+            local pick = self:RogueStreamNextInt("encounter", #available)
+            members[i] = {monster_id = available[pick], count = 1}
+            table.remove(available, pick)
+        end
+        local remaining = total - speciesCount
+        while remaining > 0 do
+            local index = self:RogueStreamNextInt("encounter", #members)
+            members[index].count += 1
+            remaining -= 1
+        end
+        return {monster_id = members[1].monster_id, monster_count = total,
+            members = members, subzone = room.area_id}
+    end
+
+    method boolean GenerateRogueliteGraph()
+        -- Maker fallback에서는 같은 Logic이 다음 Run에도 살아 있으므로 판 경계 상태를
+        -- 생성 시작점에서 명시적으로 초기화한다. 운영 인스턴스에서도 같은 규칙이다.
+        self.RogueRunRevision += 1
+        self.RogueRunResult = "ACTIVE"
+        self.RogueParticipantResults = {}
+        self.RoguePendingDiscoveries = {}
+        self.RogueLoadedSpawnerEntities = {}
+        self.RogueRunComplete = false
+        self.RogueRunFailed = false
+        self.RogueObjectiveComplete = false
+        self.RogueTransitionLocked = false
+        local sourceAreas = self:GetMegaAreaSources(self.RogueAreaId)
+        local all = self:GetRoomsForMegaArea(self.RogueAreaId)
+        if #sourceAreas ~= 4 or #all < 10 then return false end
+        local firstArea = self:GetArea(sourceAreas[1])
+        if firstArea == nil then return false end
+
+        self.RogueObjectiveType = "defeat_final_guardian"
+        self.RogueRngStates = {}
+        local bossPool = self:GetMegaBossPool(self.RogueAreaId)
+        if #bossPool ~= 4 then return false end
+        self.RogueBossMonsterId = bossPool[self:RogueStreamNextInt("boss", #bossPool)]
+        local finalId = ""
+        for _, roomId in ipairs(all) do
+            local room = self.rooms[roomId]
+            if room ~= nil and room.monster_id == self.RogueBossMonsterId then finalId = roomId break end
+        end
+        if finalId == "" then return false end
+
+        local retryMax = math.floor(self:GetBalance("run_generator_retry_max"))
+        if retryMax < 1 then retryMax = 8 end
+        for attempt = 1, retryMax do
+            self.RogueGenerationAttempt = attempt
+            self.RogueGraph = {}
+            self.RogueRoomRoles = {}
+            self.RogueEncounters = {}
+            self.RogueMainPath = {}
+            self.RogueRngStates["layout"] = self:RogueStreamSeed("layout") + attempt - 1
+            self.RogueRngStates["encounter"] = self:RogueStreamSeed("encounter") + attempt - 1
+            local startId = firstArea.entry_room_id
+            local desired = math.floor(self:GetBalance("run_main_path_min"))
+            local maxLength = math.floor(self:GetBalance("run_main_path_max"))
+            if desired < 8 then desired = 8 end
+            if maxLength < desired then maxLength = math.max(desired, 10) end
+            desired += self:RogueStreamNextInt("layout", maxLength - desired + 1) - 1
+
+            local ordered = {}
+            for areaIndex = 1, #sourceAreas do
+                local candidates = {}
+                for _, roomId in ipairs(self:GetRoomsForArea(sourceAreas[areaIndex])) do
+                    local room = self.rooms[roomId]
+                    if roomId ~= startId and roomId ~= finalId and room.room_type ~= "boss" then
+                        candidates[#candidates + 1] = roomId
+                    end
+                end
+                for i = #candidates, 2, -1 do
+                    local j = self:RogueStreamNextInt("layout", i)
+                    local tmp = candidates[i]
+                    candidates[i] = candidates[j]
+                    candidates[j] = tmp
+                end
+                for _, roomId in ipairs(candidates) do ordered[#ordered + 1] = roomId end
+            end
+
+            for _, roomId in ipairs(all) do self.RogueGraph[roomId] = {} end
+            -- 방을 먼저 뽑고 나중에 출입구를 맞추면 8~10칸 경로는 거의 항상
+            -- 중간에서 끊긴다. 실제 연결 가능한 후보만 순서대로 채택하고,
+            -- 마지막 중간방은 보스방으로 이어질 출입구까지 남는지 확인한다.
+            self.RogueMainPath[1] = startId
+            local chosen = {[startId] = true, [finalId] = true}
+            local connected = true
+            local wantedMiddle = desired - 2
+            while #self.RogueMainPath < desired - 1 do
+                local currentId = self.RogueMainPath[#self.RogueMainPath]
+                local pickedId = ""
+                local middleIndex = #self.RogueMainPath
+                local sourceIndex = math.floor((middleIndex - 1) * #sourceAreas / wantedMiddle) + 1
+                if sourceIndex > #sourceAreas then sourceIndex = #sourceAreas end
+                local preferredArea = sourceAreas[sourceIndex]
+                -- 우선 해당 구간의 하위 Area 템플릿을 고른다. 연결 규격상 불가능한
+                -- Seed만 두 번째 패스에서 다른 하위 Area를 임시 대체하고 재시도한다.
+                for pass = 1, 2 do
+                    for _, candidate in ipairs(ordered) do
+                        local areaMatches = self.rooms[candidate].area_id == preferredArea
+                        if chosen[candidate] == nil and ((pass == 1 and areaMatches) or (pass == 2 and not areaMatches))
+                            and self:ConnectRunRooms(currentId, candidate) then
+                            local isLastMiddle = (#self.RogueMainPath + 1 == desired - 1)
+                            if isLastMiddle == false or self:FindCompatibleRunDirection(candidate, finalId) ~= "" then
+                                pickedId = candidate
+                                break
+                            end
+                            self:DisconnectRunRooms(currentId, candidate)
+                        end
+                    end
+                    if pickedId ~= "" then break end
+                end
+                if pickedId == "" then
+                    connected = false
+                    break
+                end
+                chosen[pickedId] = true
+                self.RogueMainPath[#self.RogueMainPath + 1] = pickedId
+            end
+            if connected and self:ConnectRunRooms(self.RogueMainPath[#self.RogueMainPath], finalId) then
+                self.RogueMainPath[#self.RogueMainPath + 1] = finalId
+            else
+                connected = false
+            end
+            if connected then
+                self.RogueStartRoomId = startId
+                self.RogueFinalRoomId = finalId
+                for i = 1, #self.RogueMainPath do
+                    local roomId = self.RogueMainPath[i]
+                    local role = i == 1 and "start" or (i == #self.RogueMainPath and "final" or "combat")
+                    self.RogueRoomRoles[roomId] = role
+                    self.RogueEncounters[roomId] = self:BuildMixedRunEncounter(roomId, role)
+                end
+
+                local branchMin = math.floor(self:GetBalance("run_branch_min"))
+                local branchMax = math.floor(self:GetBalance("run_branch_budget"))
+                if branchMin < 2 then branchMin = 2 end
+                if branchMax < branchMin then branchMax = math.max(branchMin, 4) end
+                local wantedBranches = branchMin + self:RogueStreamNextInt("layout", branchMax - branchMin + 1) - 1
+                local branchCount = 0
+                for _, candidate in ipairs(ordered) do
+                    if self.RogueRoomRoles[candidate] == nil and branchCount < wantedBranches then
+                        local anchorCount = math.max(1, #self.RogueMainPath - 1)
+                        local anchorStart = self:RogueStreamNextInt("layout", anchorCount)
+                        for offset = 0, anchorCount - 1 do
+                            local anchorIndex = ((anchorStart + offset - 1) % anchorCount) + 1
+                            local anchor = self.RogueMainPath[anchorIndex]
+                            if self:ConnectRunRooms(anchor, candidate) then
+                                self.RogueRoomRoles[candidate] = "optional_risk"
+                                self.RogueEncounters[candidate] = self:BuildMixedRunEncounter(candidate, "optional_risk")
+                                branchCount += 1
+                                break
+                            end
+                        end
+                    end
+                end
+                if branchCount >= branchMin and self:ValidateRogueliteGraph() then
+                    log("[MegaRun] GRAPH_PASS mega=" .. self.RogueAreaId
+                        .. " seed=" .. tostring(self.RogueSeed) .. " mode=" .. self.RogueMode
+                        .. " boss=" .. self.RogueBossMonsterId .. " main=" .. tostring(#self.RogueMainPath)
+                        .. " branches=" .. tostring(branchCount))
+                    return true
+                end
+            end
+        end
+        log_error("[MegaRun] 그래프 생성 실패 mega=" .. self.RogueAreaId
+            .. " seed=" .. tostring(self.RogueSeed))
+        return false
+    end
+
+    method boolean GenerateLegacyRogueliteGraph()
+        local area = self:GetArea(self.RogueAreaId)
+        local all = self:GetRoomsForArea(self.RogueAreaId)
+        if area == nil or #all < 2 then return false end
+        self.RogueObjectiveType = "defeat_final_guardian"
+        for _, id in ipairs(self:SplitIds(self.RogueReachExitAreas)) do
+            if id == self.RogueAreaId then self.RogueObjectiveType = "reach_exit" end
+        end
+        local retryMax = math.floor(self:GetBalance("run_generator_retry_max"))
+        if retryMax < 1 then retryMax = 8 end
+
+        for attempt = 1, retryMax do
+            self.RogueGenerationAttempt = attempt
+            self.RogueGraph = {}
+            self.RogueRoomRoles = {}
+            self.RogueEncounters = {}
+            self.RogueMainPath = {}
+            self.RogueRandomState = self.RogueSeed + attempt - 1
+
+            local startId = area.entry_room_id
+            local finalId = ""
+            local middle = {}
+            for i = 1, #all do
+                local id = all[i]
+                local room = self.rooms[id]
+                if self.RogueObjectiveType ~= "reach_exit" and room.room_type == "boss" and finalId == "" then finalId = id
+                elseif id ~= startId then middle[#middle + 1] = id end
+            end
+            if self.RogueObjectiveType == "reach_exit" then
+                for i = #all, 1, -1 do
+                    if all[i] ~= startId and self.rooms[all[i]].room_type ~= "boss" then finalId = all[i] break end
+                end
+                -- 막다른 일반 공간을 출구로 우선한다. 양방향 공간만 최종으로
+                -- 고르면 Area 01처럼 4방 경로 자체가 불가능할 수 있다.
+                for i = #all, 1, -1 do
+                    local candidate = all[i]
+                    if candidate ~= startId and self.rooms[candidate].room_type ~= "boss"
+                        and #self:GetOpenDirections(self.rooms[candidate]) == 1 then finalId = candidate break end
+                end
+            end
+            if finalId == "" then finalId = all[#all] end
+            for i = #middle, 2, -1 do
+                local j = self:RogueNextInt(i)
+                local tmp = middle[i]
+                middle[i] = middle[j]
+                middle[j] = tmp
+            end
+
+            local minLength = math.floor(self:GetBalance("run_main_path_min"))
+            local maxLength = math.floor(self:GetBalance("run_main_path_max"))
+            if minLength < 2 then minLength = 4 end
+            if maxLength < minLength then maxLength = minLength end
+            local desired = minLength + self:RogueNextInt(maxLength - minLength + 1) - 1
+            if desired > #all then desired = #all end
+            self.RogueMainPath[1] = startId
+            local neededMiddle = desired - 2
+            local cursor = 1
+            while #self.RogueMainPath < desired - 1 and cursor <= #middle do
+                if middle[cursor] ~= finalId then self.RogueMainPath[#self.RogueMainPath + 1] = middle[cursor] end
+                cursor += 1
+            end
+            self.RogueMainPath[#self.RogueMainPath + 1] = finalId
+
+            for i = 1, #all do self.RogueGraph[all[i]] = {} end
+            local valid = true
+            for i = 1, #self.RogueMainPath - 1 do
+                if self:ConnectRunRooms(self.RogueMainPath[i], self.RogueMainPath[i + 1]) == false then
+                    valid = false
+                    break
+                end
+            end
+            if valid then
+                self.RogueStartRoomId = startId
+                self.RogueFinalRoomId = finalId
+                for i = 1, #self.RogueMainPath do
+                    local id = self.RogueMainPath[i]
+                    self.RogueRoomRoles[id] = (i == 1 and "start")
+                        or (i == #self.RogueMainPath and "final") or "combat"
+                    local room = self.rooms[id]
+                    self.RogueEncounters[id] = {
+                        monster_id = room.monster_id,
+                        -- 최종 목표는 해당 공간의 지정 강적 1체다. 첫 사망으로 완료되는
+                        -- 조건과 여러 일반 몬스터를 동시에 두어 모순을 만들지 않는다.
+                        monster_count = i == #self.RogueMainPath and 1 or room.monster_count,
+                    }
+                end
+                -- 남은 템플릿 일부를 선택 위험 가지길로 연결한다.
+                local branchBudget = math.floor(self:GetBalance("run_branch_budget"))
+                local branchCount = 0
+                for i = 1, #middle do
+                    local candidate = middle[i]
+                    if self.RogueRoomRoles[candidate] == nil and branchCount < branchBudget then
+                        local anchor = self.RogueMainPath[self:RogueNextInt(math.max(1, #self.RogueMainPath - 1))]
+                        if self:ConnectRunRooms(anchor, candidate) then
+                            self.RogueRoomRoles[candidate] = "optional_risk"
+                            local room = self.rooms[candidate]
+                            self.RogueEncounters[candidate] = {
+                                monster_id = room.monster_id,
+                                monster_count = math.max(1, room.monster_count + 1),
+                            }
+                            branchCount += 1
+                        end
+                    end
+                end
+                if self:ValidateRogueliteGraph() then
+                log("[RogueGen] GRAPH_PASS seed=" .. tostring(self.RogueSeed)
+                    .. " attempt=" .. tostring(attempt)
+                    .. " main=" .. table.concat(self.RogueMainPath, ">")
+                    .. " branches=" .. tostring(branchCount))
+                return true
+                end
+            end
+        end
+
+        -- 실패 시도와 분리된, 상한 있는 결정적 템플릿 탐색으로 대체한다.
+        -- 원본 Area 전체 연결을 복사하면 주 경로/가지 예산과 목표가 달라질 수 있다.
+        self.RogueGraph = {}
+        self.RogueRoomRoles = {}
+        self.RogueEncounters = {}
+        self.RogueMainPath = {}
+        for i = 1, #all do
+            self.RogueGraph[all[i]] = {}
+        end
+        self.RogueStartRoomId = area.entry_room_id
+        self.RogueFinalRoomId = ""
+        for i = 1, #all do
+            local id = all[i]
+            if self.RogueObjectiveType == "reach_exit" then
+                if id ~= self.RogueStartRoomId and self.rooms[id].room_type ~= "boss" then self.RogueFinalRoomId = id end
+            elseif self.RogueFinalRoomId == "" and self.rooms[id].room_type == "boss" then
+                self.RogueFinalRoomId = id
+            end
+        end
+        if self.RogueFinalRoomId == "" then self.RogueFinalRoomId = all[#all] end
+        if self.RogueObjectiveType == "reach_exit" then
+            for i = #all, 1, -1 do
+                local candidate = all[i]
+                if candidate ~= self.RogueStartRoomId and self.rooms[candidate].room_type ~= "boss"
+                    and #self:GetOpenDirections(self.rooms[candidate]) == 1 then self.RogueFinalRoomId = candidate break end
+            end
+        end
+        local minimum = math.floor(self:GetBalance("run_main_path_min"))
+        if minimum < 2 then minimum = 4 end
+        minimum = math.min(minimum, #all)
+        local maximum = math.max(minimum, math.min(#all, math.floor(self:GetBalance("run_main_path_max"))))
+        local visited = {[self.RogueStartRoomId] = true}
+        local path = {self.RogueStartRoomId}
+        local probes = 0
+        local search
+        search = function(desired)
+            if probes >= 4096 then return false end
+            local fromId = path[#path]
+            if #path == desired then return fromId == self.RogueFinalRoomId end
+            if fromId == self.RogueFinalRoomId then return false end
+            for _, toId in ipairs(all) do
+                if visited[toId] == nil and ((#path == desired - 1) == (toId == self.RogueFinalRoomId)) then
+                    for _, direction in ipairs(self:GetOpenDirections(self.rooms[fromId])) do
+                        probes += 1
+                        if probes > 4096 then return false end
+                        local opposite = self:OppositeDirection(direction)
+                        local exits = self.rooms[toId].connections
+                        if self.RogueGraph[fromId][direction] == nil and exits[opposite] ~= nil and exits[opposite] ~= ""
+                            and self.RogueGraph[toId][opposite] == nil then
+                            self.RogueGraph[fromId][direction] = toId
+                            self.RogueGraph[toId][opposite] = fromId
+                            visited[toId] = true
+                            path[#path + 1] = toId
+                            if search(desired) then return true end
+                            path[#path] = nil
+                            visited[toId] = nil
+                            self.RogueGraph[fromId][direction] = nil
+                            self.RogueGraph[toId][opposite] = nil
+                        end
+                    end
+                end
+            end
+            return false
+        end
+        local found = false
+        for desired = minimum, maximum do
+            if search(desired) then found = true break end
+        end
+        if found then
+            self.RogueMainPath = path
+            for i, id in ipairs(path) do
+                self.RogueRoomRoles[id] = i == 1 and "start" or (i == #path and "final" or "combat")
+                self.RogueEncounters[id] = {monster_id = self.rooms[id].monster_id,
+                    monster_count = i == #path and 1 or self.rooms[id].monster_count}
+            end
+        end
+        local validFallback = found and self:ValidateRogueliteGraph()
+        log_warning("[RogueGen] 재시도 상한 · fallback graph valid=" .. tostring(validFallback))
+        return validFallback
+    end
+
+    method boolean ValidateRogueliteGraph()
+        if self:IsMegaArea(self.RogueAreaId) == false then return false end
+        if self.RogueStartRoomId == "" or self.RogueFinalRoomId == "" then return false end
+        local minLength = math.floor(self:GetBalance("run_main_path_min"))
+        local maxLength = math.floor(self:GetBalance("run_main_path_max"))
+        if #self.RogueMainPath < minLength or #self.RogueMainPath > maxLength then return false end
+        local allowedAreas = {}
+        for _, id in ipairs(self:GetMegaAreaSources(self.RogueAreaId)) do allowedAreas[id] = true end
+        local representedAreas = {}
+        for _, roomId in ipairs(self.RogueMainPath) do
+            local pathRoom = self.rooms[roomId]
+            if pathRoom ~= nil then representedAreas[pathRoom.area_id] = true end
+        end
+        for areaId, _ in pairs(allowedAreas) do
+            if representedAreas[areaId] ~= true then return false end
+        end
+        local reached = {[self.RogueStartRoomId] = true}
+        local queue = {self.RogueStartRoomId}
+        local cursor = 1
+        while cursor <= #queue do
+            local roomId = queue[cursor]
+            cursor += 1
+            local room = self.rooms[roomId]
+            if room == nil or allowedAreas[room.area_id] ~= true or room.map_name == "" then return false end
+            local edges = self.RogueGraph[roomId]
+            if edges == nil then return false end
+            for direction, target in pairs(edges) do
+                local opposite = self:OppositeDirection(direction)
+                if opposite == "" or self.RogueGraph[target] == nil
+                    or self.RogueGraph[target][opposite] ~= roomId then return false end
+                if reached[target] == nil then reached[target] = true queue[#queue + 1] = target end
+            end
+        end
+        if reached[self.RogueFinalRoomId] ~= true then return false end
+        local branchCount = 0
+        for roomId, role in pairs(self.RogueRoomRoles) do
+            if reached[roomId] ~= true or self.RogueEncounters[roomId] == nil then return false end
+            if role == "optional_risk" then branchCount += 1 end
+        end
+        local branchMin = math.floor(self:GetBalance("run_branch_min"))
+        local branchMax = math.floor(self:GetBalance("run_branch_budget"))
+        if branchCount < branchMin or branchCount > branchMax then return false end
+        local finalEncounter = self.RogueEncounters[self.RogueFinalRoomId]
+        if finalEncounter == nil or finalEncounter.monster_id ~= self.RogueBossMonsterId then return false end
+        return true
+    end
+
+    method boolean ValidateLegacyRogueliteGraph()
+        -- 그래프 연결뿐 아니라 공개할 주 경로/역할/조우 계약을 검사한다.
+        if self.RogueStartRoomId == "" or self.RogueFinalRoomId == "" then return false end
+        local path = self.RogueMainPath
+        local minimum = math.floor(self:GetBalance("run_main_path_min"))
+        if minimum < 2 then minimum = 4 end
+        minimum = math.min(minimum, #self:GetRoomsForArea(self.RogueAreaId))
+        local maximum = math.max(minimum, math.floor(self:GetBalance("run_main_path_max")))
+        if #path < minimum or #path > maximum or path[1] ~= self.RogueStartRoomId
+            or path[#path] ~= self.RogueFinalRoomId then return false end
+        local mainRooms = {}
+        for i, id in ipairs(path) do
+            if mainRooms[id] then return false end
+            mainRooms[id] = true
+            local expectedRole = i == 1 and "start" or (i == #path and "final" or "combat")
+            if self.RogueRoomRoles[id] ~= expectedRole then return false end
+            if i > 1 then
+                local connected = false
+                for _, target in pairs(self.RogueGraph[path[i - 1]] or {}) do
+                    if target == id then connected = true end
+                end
+                if connected == false then return false end
+            end
+        end
+        local branches = 0
+        for id, role in pairs(self.RogueRoomRoles) do
+            if self.RogueEncounters[id] == nil then return false end
+            if mainRooms[id] == nil then
+                if role ~= "optional_risk" then return false end
+                branches += 1
+            end
+        end
+        if branches > math.max(0, math.floor(self:GetBalance("run_branch_budget"))) then return false end
+        local reached = {[self.RogueStartRoomId] = true}
+        local queue = {self.RogueStartRoomId}
+        local cursor = 1
+        while cursor <= #queue do
+            local id = queue[cursor]
+            cursor += 1
+            local room = self.rooms[id]
+            if room == nil or room.area_id ~= self.RogueAreaId or room.map_name == "" then return false end
+            local edges = self.RogueGraph[id]
+            if edges == nil then return false end
+            for direction, target in pairs(edges) do
+                local opposite = self:OppositeDirection(direction)
+                if opposite == "" or room.connections[direction] == nil or room.connections[direction] == "" then return false end
+                if self.RogueGraph[target] == nil or self.RogueGraph[target][opposite] ~= id then return false end
+                if reached[target] == nil then reached[target] = true queue[#queue + 1] = target end
+            end
+        end
+        if reached[self.RogueFinalRoomId] ~= true then return false end
+        for id, _ in pairs(self.RogueRoomRoles) do if reached[id] ~= true then return false end end
+        -- 타일 충돌은 별도의 Maker 검증 대상이다. 여기서는 그래프만 검사한다.
+        return true
+    end
+
+    method string GetRunRoomConnection(string roomId, string direction)
+        if self.RogueRunActive and self.RogueGraph[roomId] ~= nil then
+            local target = self.RogueGraph[roomId][direction]
+            if target ~= nil then return target end
+            return ""
+        end
+        return self:GetRoomConnection(roomId, direction)
+    end
+
+    method table GetRunEncounter(string roomId)
+        if self.RogueRunActive then return self.RogueEncounters[roomId] end
+        return nil
+    end
+
+    method number GetRunHpScale()
+        local perExtra = self:GetBalance("run_hp_scale_per_extra_player")
+        if perExtra < 0 then perExtra = 0.25 end
+        return 1 + perExtra * math.max(0, self.RogueStartParticipantCount - 1)
+    end
+
+    method boolean IsRunParticipant(string userId)
+        for i = 1, #self.RogueParticipantIds do
+            if self.RogueParticipantIds[i] == userId then return true end
+        end
+        return false
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean TryBeginRogueliteTransition(string mapName, Vector3 portalPosition)
+        if self.RogueRunActive == false or self.RogueRunComplete or self.RogueRunFailed then return false end
+        if self.RogueTransitionLocked then return false end
+
+        local radius = self:GetBalance("run_transition_gather_radius")
+        if radius <= 0 then radius = 4 end
+        local radiusSquared = radius * radius
+        for i = 1, #self.RogueParticipantIds do
+            local userId = self.RogueParticipantIds[i]
+            if self.RogueAliveParticipants[userId] == true then
+                local player = _UserService:GetUserEntityByUserId(userId)
+                if not isvalid(player) or player.CurrentMap == nil or player.CurrentMap.Name ~= mapName then
+                    return false
+                end
+                local p = player.TransformComponent.WorldPosition
+                local dx = p.x - portalPosition.x
+                local dy = p.y - portalPosition.y
+                if dx * dx + dy * dy > radiusSquared then return false end
+            end
+        end
+
+        -- 같은 프레임에 여러 사용자가 포탈을 밟아도 전환은 서버에서 한 번만 확정한다.
+        self.RogueTransitionLocked = true
+        _TimerService:SetTimerOnce(function()
+            self.RogueTransitionLocked = false
+        end, 1)
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RegisterRunParticipant(Entity player)
+        if self.RogueRunActive == false or not isvalid(player) then return end
+        if self.RogueRunComplete or self.RogueRunFailed then
+            -- 같은 Run으로 재접속한 기존 참가자의 메모리 발견 원장도 종료 결과로
+            -- 정산한다. 아직 로드되지 않은 실계정/새 참가자에게는 기록하지 않는다.
+            local collection = player:GetComponent("script.PlayerCollection")
+            if collection ~= nil then collection:FinalizeRogueliteDiscoveries(self.RogueRunResult) end
+            _RoomService:MoveUsersToStaticRoom({ player.PlayerComponent.UserId }, "maptown")
+            return
+        end
+        local userId = player.PlayerComponent.UserId
+        if self:IsRunParticipant(userId) == false then
+            -- 압축 RoomKey는 길이 제한 때문에 참가자 ID 대신 시작 인원만 담는다.
+            -- RoomService가 실제로 이 인스턴스로 이동시킨 최초 N명만 서버 원장에 등록한다.
+            if #self.RogueParticipantIds < self.RogueStartParticipantCount then
+                self.RogueParticipantIds[#self.RogueParticipantIds + 1] = userId
+                self.RogueAliveParticipants[userId] = true
+                log("[RogueRun] 시작 참가자 등록 " .. tostring(userId)
+                    .. " (" .. tostring(#self.RogueParticipantIds) .. "/"
+                    .. tostring(self.RogueStartParticipantCount) .. ")")
+            else
+                log_warning("[RogueRun] 사전 참가자가 아닌 중도 난입 차단: " .. tostring(userId))
+                _RoomService:MoveUsersToStaticRoom({ userId }, "maptown")
+                return
+            end
+        end
+        ---@type PlayerSkillSlots
+        local slots = player:GetComponent("script.PlayerSkillSlots")
+        if player.CurrentMap ~= nil then
+            local currentRoom = self:GetRoomByMapName(player.CurrentMap.Name)
+            if currentRoom ~= nil then self:SetRunSubzone(currentRoom.id) end
+        end
+        self:SendRogueliteView(userId)
+        if slots ~= nil and slots.RogueliteRunActive then
+            -- 동일 Run 재등록/방 이동은 회복이나 쿨다운 초기화가 아니다.
+            self.RogueDisconnectedAt[userId] = nil
+            return
+        end
+        self.RogueAliveParticipants[userId] = true
+        self.RogueDisconnectedAt[userId] = nil
+        self:EnsureRunUpgradeState(userId)
+        self:SendRunUpgradeView(userId)
+        ---@type PlayerStats
+        local stats = player:GetComponent("script.PlayerStats")
+        if stats ~= nil then stats:ApplyMaxHp(); stats:ApplySpeeds() end
+        if slots ~= nil and slots.RogueliteRunActive == false then slots:BeginRogueliteRun() end
+        -- Run 전투력은 레거시 레벨/장비/스탯을 합산하지 않는다. 기존 세이브를
+        -- 로드한 채 입장해도 즉시 공통 Run HP로 맞춰야 한다.
+        if stats ~= nil then stats:ApplyMaxHp() end
+        -- PlayerStats의 레거시 저장 복원 순서와 무관하게 Run 공통 HP를 서버가
+        -- 최종 확정한다. 장비/레벨 HP가 입장 뒤 남는 경로를 여기서 차단한다.
+        local pc = player.PlayerComponent
+        if isvalid(pc) then
+            local runMaxHp = stats ~= nil and math.floor(stats:GetMaxHp() + 0.5)
+                or math.floor(self:GetBalance("run_player_base_hp") + 0.5)
+            if runMaxHp < 1 then runMaxHp = 1000 end
+            pc.MaxHp = runMaxHp
+            pc.Hp = runMaxHp
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SetRunSubzone(string roomId)
+        if self.RogueRunActive == false then return end
+        local room = self:GetRoom(roomId)
+        if room == nil then return end
+        self.RogueCurrentSubzone = room.area_id
+        self:BroadcastRogueliteView()
+        log("[MegaRun] SUBZONE room=" .. roomId .. " source=" .. room.area_id)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void StageRogueliteDiscovery(string userId, string monsterId, string skillId)
+        if self.RogueRunActive == false or self.RogueRunResult ~= "ACTIVE"
+            or self:IsRunParticipant(userId) == false
+            or self.RogueParticipantResults[userId] == "ABANDONED" then return end
+        if type(self.RoguePendingDiscoveries) ~= "table" then self.RoguePendingDiscoveries = {} end
+        local pending = self.RoguePendingDiscoveries[userId]
+        if pending == nil then
+            pending = {monsters = {}, abilities = {}}
+            self.RoguePendingDiscoveries[userId] = pending
+        end
+        if monsterId ~= "" and self:GetMonster(monsterId) ~= nil then pending.monsters[monsterId] = 1 end
+        local skill = skillId ~= "" and self:GetSkill(skillId) or nil
+        if skill ~= nil and skill.source == "monster" and skill.slot_type == "monster"
+            and (skill.skill_kind == "attack" or skill.skill_kind == "defense"
+                or skill.skill_kind == "buff") then
+            pending.abilities[skillId] = 1
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void DiscardRogueliteDiscoveries(string userId)
+        if type(self.RoguePendingDiscoveries) == "table" then self.RoguePendingDiscoveries[userId] = nil end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void FinalizeRogueliteParticipantDiscoveries(string result)
+        if (result ~= "CLEAR" and result ~= "FAILED") or self.RogueRunResult ~= result then return end
+        for _, userId in ipairs(self.RogueParticipantIds) do
+            local player = _UserService:GetUserEntityByUserId(userId)
+            if isvalid(player) then
+                local collection = player:GetComponent("script.PlayerCollection")
+                if collection ~= nil then collection:FinalizeRogueliteDiscoveries(result) end
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void GrantRunKillRewards(string monsterId, string mapName, Vector3 deathPosition)
+        if self.RogueRunActive == false then return end
+        local users = _UserService:GetUsersByMapName(mapName)
+        if users == nil then return end
+        local radius = self:GetBalance("run_participation_radius")
+        if radius <= 0 then radius = 12 end
+        local dropMap = nil
+        local eligiblePlayers = {}
+        for i = 1, #users do
+            local player = users[i]
+            if isvalid(player) and self:IsRunParticipant(player.PlayerComponent.UserId) then
+                if dropMap == nil then dropMap = player.CurrentMap end
+                local p = player.TransformComponent.WorldPosition
+                local dx = p.x - deathPosition.x
+                local dy = p.y - deathPosition.y
+                if dx * dx + dy * dy <= radius * radius then
+                    ---@type PlayerCollection
+                    local collection = player:GetComponent("script.PlayerCollection")
+                    if collection ~= nil then collection:RecordRogueliteKill(monsterId) end
+                    eligiblePlayers[#eligiblePlayers + 1] = player
+                end
+            end
+        end
+        -- 최초 보장/10%는 SkillDropManager의 Run 단위 공유 원장에서 한 번만 판정한다.
+        -- 이 목록은 막타자가 아니라 해당 처치 위치 반경의 실제 참여자를 뜻한다.
+        if isvalid(dropMap) and #eligiblePlayers > 0 then
+            _SkillDropManager:TrySpawnFromKill(monsterId, deathPosition, dropMap, eligiblePlayers)
+        end
+        -- 신규 Run의 일반 몬스터 보상은 World Skill Drop만 사용한다. 회복은 Seed 기반
+        -- 회복 상자로 분리해 전투 RNG와 생존 자원을 섞지 않는다.
+        log("[RunPotion] disabled monster=" .. monsterId .. " dropped=false")
+        -- 보상과 목표 진행을 하나의 서버 사망 처리에서 확정한다. RoomMonster가
+        -- 별도로 목표 콜백을 호출하면 리스폰/네트워크 중복 이벤트에 따라 둘 중
+        -- 하나만 실행되는 경로가 생길 수 있으므로 mapName 정본에서 한 번만 진행한다.
+        local room = self:GetRoomByMapName(mapName)
+        if room ~= nil then self:OnRunMonsterDefeated(room.id, monsterId) end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RecordRunDamage(Entity attacker, number effectiveDamage)
+        if self.RogueRunActive == false or effectiveDamage <= 0 or not isvalid(attacker) then return end
+        local pc = attacker.PlayerComponent
+        if not isvalid(pc) or self:IsRunParticipant(pc.UserId) == false then return end
+        self.RogueDamageLedger[pc.UserId] = (self.RogueDamageLedger[pc.UserId] or 0) + effectiveDamage
+    end
+
+    method string BuildRunDamageSummary()
+        local rows = {}
+        local total = 0
+        for _, userId in ipairs(self.RogueParticipantIds) do
+            local damage = self.RogueDamageLedger[userId] or 0
+            total += damage
+            rows[#rows + 1] = {userId = userId, damage = damage}
+        end
+        table.sort(rows, function(a, b)
+            if a.damage == b.damage then return a.userId < b.userId end
+            return a.damage > b.damage
+        end)
+        local text = ""
+        for i = 1, #rows do
+            local userId = rows[i].userId
+            local player = _UserService:GetUserEntityByUserId(userId)
+            local name = isvalid(player) and player.PlayerComponent.Nickname or userId
+            local percent = total > 0 and rows[i].damage / total * 100 or 0
+            if i > 1 then text = text .. " | " end
+            text = text .. tostring(i) .. ". " .. name .. " "
+                .. tostring(math.floor(rows[i].damage + 0.5)) .. " ("
+                .. string.format("%.1f", percent) .. "%)"
+        end
+        return text .. " | TOTAL " .. tostring(math.floor(total + 0.5))
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnRunMonsterDefeated(string roomId, string monsterId)
+        if self.RogueRunActive == false or self.RogueRunComplete or self.RogueRunFailed then return end
+        local encounter = self.RogueEncounters[self.RogueFinalRoomId]
+        if self.RogueObjectiveType == "defeat_final_guardian"
+            and roomId == self.RogueFinalRoomId and encounter ~= nil
+            and monsterId == encounter.monster_id and monsterId == self.RogueBossMonsterId
+            and self.RogueObjectiveComplete == false then
+            self.RogueObjectiveComplete = true
+            log("[MegaBossClear] boss death confirmed room=" .. roomId .. " monster=" .. monsterId)
+            self:BroadcastRogueliteView()
+            self:TryCompleteRunAtFinal()
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void TryCompleteRunAtFinal()
+        if self.RogueRunActive == false or self.RogueRunComplete or self.RogueRunFailed then return end
+        local final = self:GetRoom(self.RogueFinalRoomId)
+        if final == nil then return end
+        local alive = 0
+        for _, userId in ipairs(self.RogueParticipantIds) do
+            if self.RogueAliveParticipants[userId] == true then
+                alive += 1
+                local player = _UserService:GetUserEntityByUserId(userId)
+                if not isvalid(player) or player.CurrentMap == nil or player.CurrentMap.Name ~= final.map_name then return end
+            end
+        end
+        if alive == 0 then return end
+        -- Mega Area의 성공 조건은 서버가 확정한 최종 보스 사망뿐이다. 최종 맵에
+        -- 도착하거나 출구 트리거를 밟는 것만으로는 Objective를 만들지 않는다.
+        if self.RogueObjectiveType == "defeat_final_guardian" and self.RogueObjectiveComplete then
+            self:CompleteRogueliteRun()
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void CompleteRogueliteRun()
+        if self.RogueRunComplete or self.RogueRunFailed or self.RogueRunResult ~= "ACTIVE" then return end
+        self.RogueRunComplete = true
+        self.RogueRunResult = "CLEAR"
+        _SkillDropManager:ClearAll("RUN_CLEAR")
+        self:ResetRunChestAndUpgradeState()
+        self:FinalizeRogueliteParticipantDiscoveries("CLEAR")
+        self.RogueDamageSummary = self:BuildRunDamageSummary()
+        self:BroadcastRogueliteView()
+        log("[RogueRun] 완료 후처리 시작 participants=" .. tostring(#self.RogueParticipantIds))
+        -- 막타/현재 map 배열이 아니라 Run 시작 시 고정된 참가자에게 완료를 기록한다.
+        for i = 1, #self.RogueParticipantIds do
+            local player = _UserService:GetUserEntityByUserId(self.RogueParticipantIds[i])
+            if isvalid(player) then
+                log("[RogueRun] 완료 참가자 처리 " .. tostring(self.RogueParticipantIds[i]))
+                ---@type PlayerDBManager
+                local db = player:GetComponent("script.PlayerDBManager")
+                if db ~= nil then
+                    db.RogueAreaClears[self.RogueAreaId] = (db.RogueAreaClears[self.RogueAreaId] or 0) + 1
+                    db:MarkPermDirty("Roguelite Area 클리어")
+                    log("[RogueRun] Area 클리어 기록 " .. self.RogueAreaId)
+                end
+                ---@type PlayerSkillSlots
+                local slots = player:GetComponent("script.PlayerSkillSlots")
+                if slots ~= nil then
+                    slots:EndRogueliteRun()
+                end
+                self:ClearRunUpgradeState(self.RogueParticipantIds[i])
+            else
+                log_warning("[RogueRun] 완료 참가자 엔티티 없음 " .. tostring(self.RogueParticipantIds[i]))
+            end
+        end
+        log("[RogueRun] COMPLETE area=" .. self.RogueAreaId .. " seed=" .. tostring(self.RogueSeed))
+        local completedRevision = self.RogueRunRevision
+        _TimerService:SetTimerOnce(function()
+            if completedRevision ~= self.RogueRunRevision then return end
+            self:ReturnRogueliteParticipantsToLobby()
+        end, 3)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnRunPlayerDied(Entity player)
+        if self.RogueRunActive == false or not isvalid(player) then return end
+        local userId = player.PlayerComponent.UserId
+        if self:IsRunParticipant(userId) == false then return end
+        self.RogueAliveParticipants[userId] = false
+        if self:CheckRogueliteRunFailure() == false then
+            local alive = 0
+            for i = 1, #self.RogueParticipantIds do
+                if self.RogueAliveParticipants[self.RogueParticipantIds[i]] == true then alive += 1 end
+            end
+            log("[RogueRun] 참가자 사망/관전 " .. userId .. " — 생존 " .. tostring(alive))
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean CheckRogueliteRunFailure()
+        if self.RogueRunActive == false or self.RogueRunComplete or self.RogueRunFailed
+            or self.RogueRunResult ~= "ACTIVE" then return false end
+        for i = 1, #self.RogueParticipantIds do
+            if self.RogueAliveParticipants[self.RogueParticipantIds[i]] == true then return false end
+        end
+        self.RogueRunFailed = true
+        self.RogueRunResult = "FAILED"
+        _SkillDropManager:ClearAll("RUN_FAILED")
+        self:ResetRunChestAndUpgradeState()
+        self:FinalizeRogueliteParticipantDiscoveries("FAILED")
+        self.RogueDamageSummary = self:BuildRunDamageSummary()
+        self:BroadcastRogueliteView()
+        log("[RogueRun] FAILED — 전원 사망/이탈")
+        local failedRevision = self.RogueRunRevision
+        _TimerService:SetTimerOnce(function()
+            if failedRevision ~= self.RogueRunRevision then return end
+            for i = 1, #self.RogueParticipantIds do
+                local player = _UserService:GetUserEntityByUserId(self.RogueParticipantIds[i])
+                if isvalid(player) then
+                    ---@type PlayerSkillSlots
+                    local slots = player:GetComponent("script.PlayerSkillSlots")
+                    if slots ~= nil then
+                        slots:EndRogueliteRun()
+                    end
+                    self:ClearRunUpgradeState(self.RogueParticipantIds[i])
+                end
+            end
+            self:ReturnRogueliteParticipantsToLobby()
+        end, 3)
+        return true
+    end
+
+    @ExecSpace("Server")
+    method void RequestAbandonRogueliteRun()
+        -- UI가 보낸 사용자 ID나 슬롯 정보를 신뢰하지 않는다. RPC 발신자만 자기 참가
+        -- 상태를 포기할 수 있다.
+        self:AbandonRogueliteParticipant(senderUserId)
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean AbandonRogueliteParticipant(string userId)
+        if userId == nil or userId == "" then return false end
+        if self.RogueRunActive == false or self.RogueRunComplete or self.RogueRunFailed
+            or self.RogueRunResult ~= "ACTIVE" then
+            log_warning("[RogueAbandon] 이미 확정된 Run 요청 무시 user=" .. tostring(userId)
+                .. " result=" .. tostring(self.RogueRunResult))
+            return false
+        end
+        if self:IsRunParticipant(userId) == false then
+            log_warning("[RogueAbandon] 참가자가 아닌 요청 차단 user=" .. tostring(userId))
+            return false
+        end
+
+        -- 서버의 한 실행 흐름에서 먼저 원장에서 제외한다. 이후 같은 프레임에 Boss가
+        -- 죽어도 CompleteRogueliteRun의 보상/기록 대상에 이 사용자는 들어가지 않는다.
+        self.RogueParticipantResults[userId] = "ABANDONED"
+        self:DiscardRogueliteDiscoveries(userId)
+        self:ClearRunUpgradeState(userId)
+        self.RogueAliveParticipants[userId] = nil
+        self.RogueDisconnectedAt[userId] = nil
+        self.RogueDamageLedger[userId] = nil
+        local remaining = {}
+        for i = 1, #self.RogueParticipantIds do
+            if self.RogueParticipantIds[i] ~= userId then
+                remaining[#remaining + 1] = self.RogueParticipantIds[i]
+            end
+        end
+        self.RogueParticipantIds = remaining
+
+        local player = _UserService:GetUserEntityByUserId(userId)
+        local hasPlayer = isvalid(player)
+        if hasPlayer then
+            self:CleanupAbandonedRunPlayer(player)
+            self:NotifyRogueAbandonAccepted(userId)
+        end
+
+        if #self.RogueParticipantIds == 0 then
+            -- 모든 참가자가 이탈한 경우에만 공유 Run을 닫는다. 남은 참가자가 있으면
+            -- Graph/Encounter/Boss는 그대로 두고 그들의 Run은 계속된다.
+            self.RogueRunResult = "ABANDONED"
+            self.RogueRunActive = false
+            self.RogueRunRevision += 1
+            self.RogueTransitionLocked = false
+            self:StopRogueliteRunSchedulers()
+            _SkillDropManager:ClearAll("RUN_ABANDONED")
+            self:ClearAbandonedRogueliteRunState()
+        else
+            -- 마지막 생존자가 나가 사망 참가자만 남으면 기존 전원 사망 경로로
+            -- 종료한다. 생존자가 있는 다른 참가자의 Run은 계속 유지한다.
+            if self:CheckRogueliteRunFailure() == false then
+                self:BroadcastRogueliteView()
+            end
+        end
+
+        local moved = 0
+        if hasPlayer then
+            moved = _RoomService:MoveUsersToStaticRoom({ userId }, "maptown") or 0
+            if moved < 1 and Environment:IsMakerPlay() then
+                -- Maker local instance fallback은 중첩 Room 이동을 지원하지 않을 수 있다.
+                _TeleportService:TeleportToMapPosition(player, Vector3(0, 0, 0), "maptown")
+            end
+        end
+        log("[RogueAbandon] ABANDONED user=" .. userId
+            .. " remaining=" .. tostring(#self.RogueParticipantIds)
+            .. " moved=" .. tostring(moved))
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void CleanupAbandonedRunPlayer(Entity player)
+        ---@type PlayerSkillSlots
+        local slots = player:GetComponent("script.PlayerSkillSlots")
+        if slots ~= nil then slots:EndRogueliteRun() end
+
+        local pc = player.PlayerComponent
+        if isvalid(pc) and pc:IsDead() then pc:Respawn() end
+        ---@type PlayerStats
+        local stats = player:GetComponent("script.PlayerStats")
+        if stats ~= nil then stats:ApplyMaxHp() end
+        if isvalid(pc) then pc.Hp = pc.MaxHp end
+        ---@type PlayerHit
+        local hit = player:GetComponent("script.PlayerHit")
+        if hit ~= nil then hit.LastHitTime = 0 end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void StopRogueliteRunSchedulers()
+        -- 등록된 실제 로드 맵만 정리한다. GetEntityByPath로 Graph 전체를 조회하면
+        -- 미로드 맵이 활성화되어 OnBeginPlay/몬스터 스폰이 발생할 수 있다.
+        for i = 1, #self.RogueLoadedSpawnerEntities do
+            local mapEntity = self.RogueLoadedSpawnerEntities[i]
+            if isvalid(mapEntity) then
+                ---@type RoomSpawner
+                local spawner = mapEntity:GetComponent("script.RoomSpawner")
+                if spawner ~= nil then spawner:StopRogueRunSchedulers() end
+            end
+        end
+        self.RogueLoadedSpawnerEntities = {}
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RegisterRogueSpawner(Entity mapEntity)
+        if isvalid(mapEntity) == false then return end
+        for i = 1, #self.RogueLoadedSpawnerEntities do
+            if self.RogueLoadedSpawnerEntities[i] == mapEntity then return end
+        end
+        self.RogueLoadedSpawnerEntities[#self.RogueLoadedSpawnerEntities + 1] = mapEntity
+    end
+
+    @ExecSpace("ServerOnly")
+    method void UnregisterRogueSpawner(Entity mapEntity)
+        local retained = {}
+        for i = 1, #self.RogueLoadedSpawnerEntities do
+            local candidate = self.RogueLoadedSpawnerEntities[i]
+            if isvalid(candidate) and candidate ~= mapEntity then
+                retained[#retained + 1] = candidate
+            end
+        end
+        self.RogueLoadedSpawnerEntities = retained
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ClearAbandonedRogueliteRunState()
+        self:ResetRunChestAndUpgradeState()
+        self.RoguePendingDiscoveries = {}
+        self.RogueGraph = {}
+        self.RogueRoomRoles = {}
+        self.RogueEncounters = {}
+        self.RogueMainPath = {}
+        self.RogueRngStates = {}
+        self.RogueDamageLedger = {}
+        self.RogueDamageSummary = ""
+        self.RogueLoadedSpawnerEntities = {}
+        self.RogueActiveMonsterSpecialCasts = 0
+        self.RogueCurrentSubzone = ""
+        self.RogueBossMonsterId = ""
+        self.RogueStartRoomId = ""
+        self.RogueFinalRoomId = ""
+        self.RogueObjectiveType = ""
+        self.RogueObjectiveComplete = false
+        self.RogueReadyAreaByUser = {}
+        self.RogueReadyModeByUser = {}
+        self.RogueStartingUsers = {}
+        self.RogueDisconnectedAt = {}
+        self.RogueSeed = 0
+        log("[RogueAbandon] 공유 Run Graph/Objective/Boss/Damage 정리")
+    end
+
+    @ExecSpace("Client")
+    method void NotifyRogueAbandonAccepted()
+        -- 이 RPC는 요청한 사용자에게만 전송된다. 다른 참가자의 로컬 Run HUD에는
+        -- 손대지 않는다.
+        self.RogueRunActive = false
+        self.RogueRunComplete = false
+        self.RogueRunFailed = false
+        self.RogueRunResult = "ABANDONED"
+        self.RogueDamageSummary = ""
+        local hud = self:GetRoguePlayerHud()
+        if hud ~= nil then hud:OnRogueliteAbandoned() end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ReviveRunSpectatorsAtTransition(string targetRoomId, Vector3 arrivalPosition)
+        if self.RogueRunActive == false then return end
+        local target = self:GetRoom(targetRoomId)
+        if target == nil or target.map_name == "" then return end
+        for i = 1, #self.RogueParticipantIds do
+            local userId = self.RogueParticipantIds[i]
+            if self.RogueAliveParticipants[userId] == false then
+                local player = _UserService:GetUserEntityByUserId(userId)
+                if isvalid(player) then
+                    local pc = player.PlayerComponent
+                    if isvalid(pc) and pc:IsDead() then pc:Respawn() end
+                    self.RogueAliveParticipants[userId] = true
+                    -- 목적지 (0,0)은 맵에 따라 벽/물/장애물일 수 있다. 살아 있는 참가자와
+                    -- 같은 RoomPortal.ArrivePosition 결과를 써서 안전 전환 지점에 합류시킨다.
+                    _TeleportService:TeleportToMapPosition(player, arrivalPosition, target.map_name)
+                    log("[RogueRun] 안전 전환 재합류 " .. userId .. " → " .. targetRoomId)
+                end
+            end
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    @EventSender("Service", "UserService")
+    handler HandleRogueDisconnect(UserDisconnectEvent event)
+        self.RogueReadyAreaByUser[event.UserId] = nil
+        self.RogueReadyModeByUser[event.UserId] = nil
+        local lobbyParty = self:GetRoguePartyForUser(event.UserId)
+        if lobbyParty ~= nil then
+            lobbyParty.connected[event.UserId] = false
+            lobbyParty.ready[event.UserId] = false
+            self:BroadcastRoguePartyView(lobbyParty.id)
+            log("[RogueParty] 연결 끊김 member=" .. event.UserId)
+        end
+        if self.RogueRunActive == false or self:IsRunParticipant(event.UserId) == false then return end
+        local userId = event.UserId
+        self.RogueDisconnectedAt[userId] = _UtilLogic.ElapsedSeconds
+        local grace = self:GetBalance("run_reconnect_grace_seconds")
+        if grace <= 0 then grace = 90 end
+        _TimerService:SetTimerOnce(function()
+            local at = self.RogueDisconnectedAt[userId]
+            if at ~= nil and _UtilLogic.ElapsedSeconds - at >= grace then
+                self.RogueAliveParticipants[userId] = false
+                self.RogueDisconnectedAt[userId] = nil
+                log("[RogueRun] 재접속 유예 만료 " .. userId)
+                self:CheckRogueliteRunFailure()
+            end
+        end, grace)
+    end
+
+    @ExecSpace("ServerOnly")
+    @EventSender("Service", "UserService")
+    handler HandleRogueReconnect(UserReconnectEvent event)
+        local lobbyParty = self:GetRoguePartyForUser(event.UserId)
+        if lobbyParty ~= nil then
+            lobbyParty.connected[event.UserId] = true
+            lobbyParty.ready[event.UserId] = false
+            lobbyParty.names[event.UserId] = self:GetRoguePartyNickname(event.UserId)
+            self:BroadcastRoguePartyView(lobbyParty.id)
+            log("[RogueParty] 재접속 member=" .. event.UserId)
+        end
+        if self.RogueRunActive == false or self:IsRunParticipant(event.UserId) == false then return end
+        if self.RogueDisconnectedAt[event.UserId] == nil then return end
+        self.RogueDisconnectedAt[event.UserId] = nil
+        log("[RogueRun] 동일 참가자 재접속 " .. event.UserId .. " — Run 상태 유지")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ReturnRogueliteParticipantsToLobby()
+        local moved = _RoomService:MoveUsersToStaticRoom(self.RogueParticipantIds, "maptown")
+        log("[RogueRun] 로비 Room 전환 결과 moved=" .. tostring(moved)
+            .. " requested=" .. tostring(#self.RogueParticipantIds))
+        if moved < #self.RogueParticipantIds then
+            log_warning("[RogueRun] 로비 복귀 미완료 — 현재 Room과 시작 맵 등록 상태 확인 필요")
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method string BuildRogueParticipantSummary()
+        local rows = {}
+        for i = 1, #self.RogueParticipantIds do
+            local userId = self.RogueParticipantIds[i]
+            local name = self:GetRoguePartyNickname(userId)
+            local alive = self.RogueAliveParticipants[userId] == true and "1" or "0"
+            rows[#rows + 1] = userId .. "~" .. name .. "~" .. alive
+        end
+        return table.concat(rows, "|")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SendRogueliteView(string userId)
+        -- 재접속 유예 중인 참가자는 원장에는 남아 있을 수 있지만 Client RPC 대상은
+        -- 아니다. 연결된 Entity가 있을 때만 뷰를 보낸다.
+        if isvalid(_UserService:GetUserEntityByUserId(userId)) == false then return end
+        -- Seed/전체 Room Graph는 서버 권한 상태로만 보존한다. 플레이 HUD에는 현재
+        -- 서브존·목표·모드·결과만 전달해 탐색 경로를 미리 노출하지 않는다.
+        self:ApplyRogueliteView({active = self.RogueRunActive, area = self.RogueAreaId,
+            mode = self.RogueMode, subzone = self.RogueCurrentSubzone,
+            boss = self.RogueBossMonsterId, objective = self.RogueObjectiveType,
+            objectiveComplete = self.RogueObjectiveComplete, complete = self.RogueRunComplete,
+            failed = self.RogueRunFailed, result = self.RogueRunResult,
+            count = self.RogueStartParticipantCount,
+            participants = self:BuildRogueParticipantSummary(),
+            damageSummary = self.RogueDamageSummary}, userId)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void BroadcastRogueliteView()
+        for _, userId in ipairs(self.RogueParticipantIds) do self:SendRogueliteView(userId) end
+    end
+
+    @ExecSpace("Client")
+    method void ApplyRogueliteView(table view)
+        self.RogueRunActive = view.active
+        self.RogueAreaId = view.area
+        self.RogueMode = view.mode
+        self.RogueCurrentSubzone = view.subzone
+        self.RogueBossMonsterId = view.boss
+        self.RogueObjectiveType = view.objective
+        self.RogueObjectiveComplete = view.objectiveComplete
+        self.RogueRunComplete = view.complete
+        self.RogueRunFailed = view.failed
+        self.RogueRunResult = view.result or "ACTIVE"
+        self.RogueStartParticipantCount = view.count
+        self.RogueParticipantSummary = view.participants or ""
+        self.RogueDamageSummary = view.damageSummary
+        _WorldMapPanel.lastRoomId = ""
+        log("[RogueView] 서버 Run HUD 상태 수신 area=" .. tostring(view.area)
+            .. " subzone=" .. tostring(view.subzone) .. " mode=" .. tostring(view.mode))
+    end
+
+    method string DescribeRogueliteRun()
+        if self.RogueRunActive == false then return "NOT_ACTIVE" end
+        return "area=" .. self.RogueAreaId .. ";seed=" .. tostring(self.RogueSeed)
+            .. ";generator=" .. tostring(self.RogueGeneratorVersion)
+            .. ";attempt=" .. tostring(self.RogueGenerationAttempt)
+            .. ";players=" .. tostring(self.RogueStartParticipantCount)
+            .. ";path=" .. table.concat(self.RogueMainPath, ">")
+    end
+
+end

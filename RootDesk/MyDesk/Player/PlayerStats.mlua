@@ -393,6 +393,13 @@ script PlayerStats extends Component
         if self:IsRogueliteRunMode() then
             local value = _GameData:GetBalance("run_player_base_hp")
             if value < 1 then value = 1000 end
+            local pc = self.Entity.PlayerComponent
+            if _GameData.RogueRunActive and isvalid(pc) then
+                local stack = _GameData:GetRunUpgradeStack(pc.UserId, "max_hp")
+                local ratio = _GameData:GetBalance("run_upgrade_max_hp_ratio")
+                if ratio <= 0 then ratio = 0.15 end
+                value = value * (1 + stack * ratio)
+            end
             return value
         end
         if self:IsSimplifiedGrowth() then
@@ -461,6 +468,18 @@ script PlayerStats extends Component
         --
         -- 실행공간을 비워 둔다: 서버는 타이머에, 클라는 스탯 창 표시에 쓴다.
         local base = _GameData:GetBalance("player_attack_interval")
+        if self:IsRogueliteRunMode() and _GameData.RogueRunActive then
+            local pc = self.Entity.PlayerComponent
+            local stack = isvalid(pc) and _GameData:GetRunUpgradeStack(pc.UserId, "attack_speed") or 0
+            local ratio = _GameData:GetBalance("run_upgrade_attack_speed_ratio")
+            if ratio <= 0 then ratio = 0.15 end
+            -- 공속 +15%는 주기에서 15%를 빼는 대신 초당 공격 횟수를 1.15배로 만든다.
+            local interval = base / (1 + stack * ratio)
+            local floorValue = _GameData:GetBalance("min_player_attack_interval")
+            if floorValue <= 0 then floorValue = 0.30 end
+            if interval < floorValue then interval = floorValue end
+            return interval
+        end
         if self:IsSimplifiedGrowth() then return base end
         local perPoint = _GameData:GetBalance("luk_attack_speed_per_point")
         local floorValue = _GameData:GetBalance("player_attack_interval_min")
@@ -479,6 +498,13 @@ script PlayerStats extends Component
         -- 상한을 안 두는 이유: 주기·회피와 달리 빨라져도 규칙이 깨지지 않는다.
         -- LUK 1000이어도 2배일 뿐이다.
         local base = _GameData:GetBalance("player_base_move_speed")
+        if self:IsRogueliteRunMode() and _GameData.RogueRunActive then
+            local pc = self.Entity.PlayerComponent
+            local stack = isvalid(pc) and _GameData:GetRunUpgradeStack(pc.UserId, "move_speed") or 0
+            local ratio = _GameData:GetBalance("run_upgrade_move_speed_ratio")
+            if ratio <= 0 then ratio = 0.10 end
+            return base * (1 + stack * ratio)
+        end
         if self:IsSimplifiedGrowth() then return base end
         local perPoint = _GameData:GetBalance("luk_move_speed_per_point")
         return base * (1 + self:GetTotalLuk() * perPoint)

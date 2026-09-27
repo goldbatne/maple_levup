@@ -60,6 +60,7 @@ script RoomSpawner extends Component
     @HideFromInspector property integer runSpawnPlanIndex = 0
     @HideFromInspector property integer runRespawnTimer = 0
     @HideFromInspector property string runSpawnReason = "INITIAL"
+    @HideFromInspector property integer runChestRandomState = 0
     property number RunSpawnClearance = 0.75
     property number RunEntranceClearance = 2.5
 
@@ -71,6 +72,10 @@ script RoomSpawner extends Component
             log_warning("[RoomSpawner] RoomTable에 없는 맵: " .. self.Entity.Name)
             return
         end
+
+        -- 맵 unload 동안에도 논리 수명이 남아 있던 World Skill Drop을 원래
+        -- expireAt 기준으로 복원한다. Room 자체를 억지로 계속 로드하지 않는다.
+        if _GameData.RogueRunActive then _SkillDropManager:RestoreMap(self.Entity) end
 
         self.monsterId = room.monster_id
         self.monsterCount = math.floor(room.monster_count)
@@ -105,6 +110,11 @@ script RoomSpawner extends Component
                 self.runSpawnPlan[i] = self.runSpawnPlan[j]
                 self.runSpawnPlan[j] = tmp
             end
+        end
+
+        if _GameData.RogueRunActive then
+            _GameData:RestoreRunChests(self.Entity)
+            self:EnsureRunChest()
         end
 
         if self.monsterId == "" or self.monsterCount <= 0 then
@@ -157,6 +167,12 @@ script RoomSpawner extends Component
 
     @ExecSpace("ServerOnly")
     method void OnEndPlay()
+        -- 단순 Room 이동은 Drop 삭제 사유가 아니다. 시각 Entity만 내리고 서버
+        -- Logic의 Record/만료 타이머는 유지한다.
+        if _GameData.RogueRunActive then
+            _SkillDropManager:SuspendMapEntities(self.Entity, "MAP_UNLOAD")
+            _GameData:SuspendRunChests(self.Entity)
+        end
         _GameData:UnregisterRogueSpawner(self.Entity)
         -- 맵이 내려갈 때 타이머를 놓으면 파괴된 엔티티를 계속 채우려 든다.
         if self.checkTimer ~= 0 then
@@ -647,6 +663,91 @@ script RoomSpawner extends Component
         end
         self.runSpawnRandomState = (self.runSpawnRandomState * 48271) % 2147483647
         return self.runSpawnRandomState / 2147483647
+    end
+
+    @ExecSpace("ServerOnly")
+    method number NextRunChestRandom()
+        -- 몬스터/스킬/전투 RNG와 분리된 방별 상자 스트림.
+        if self.runChestRandomState == 0 then
+            local state = math.max(1, _GameData.RogueSeed % 2147483647)
+            local token = self.roomId .. ":exploration_chest"
+            for i = 1, #token do state = (state * 31 + string.byte(token, i)) % 2147483647 end
+            self.runChestRandomState = math.max(1, state)
+        end
+        self.runChestRandomState = (self.runChestRandomState * 48271) % 2147483647
+        return self.runChestRandomState / 2147483647
+    end
+
+    @ExecSpace("ServerOnly")
+    method void EnsureRunChest()
+        if _GameData.RogueRunActive == false or self.isBossRoom then return end
+        if _GameData:IsRunChestMapGenerated(self.Entity.Name) then return end
+        local role = _GameData.RogueRoomRoles[self.roomId]
+        if role ~= "combat" and role ~= "optional_risk" then
+            _GameData:MarkRunChestMapGenerated(self.Entity.Name)
+            return
+        end
+        local chance = role == "optional_risk"
+            and _GameData:GetBalance("run_chest_optional_chance")
+            or _GameData:GetBalance("run_chest_combat_chance")
+        if chance < 0 then chance = 0 end
+        if chance > 1 then chance = 1 end
+        local placementRoll = self:NextRunChestRandom()
+        if placementRoll >= chance then
+            _GameData:MarkRunChestMapGenerated(self.Entity.Name)
+            log("[RunChestSeed] NONE room=" .. self.roomId .. " role=" .. tostring(role)
+                .. " roll=" .. string.format("%.5f", placementRoll)
+                .. " chance=" .. string.format("%.2f", chance))
+            return
+        end
+        local position = self:FindRunChestPosition()
+        if position == nil then
+            _GameData:MarkRunChestMapGenerated(self.Entity.Name)
+            log_warning("[RunChestSeed] 유효 위치 없음 room=" .. self.roomId)
+            return
+        end
+        local healWeight = _GameData:GetBalance("run_chest_heal_weight")
+        if healWeight <= 0 then healWeight = 0.35 end
+        local typeRoll = self:NextRunChestRandom()
+        local chestType = typeRoll < healWeight and "HEAL" or "UPGRADE"
+        _GameData:RegisterRunChest(self.roomId, self.Entity.Name, chestType, position, self.Entity)
+        log("[RunChestSeed] SPAWN room=" .. self.roomId .. " role=" .. tostring(role)
+            .. " placement=" .. string.format("%.5f", placementRoll)
+            .. " typeRoll=" .. string.format("%.5f", typeRoll) .. " type=" .. chestType)
+    end
+
+    @ExecSpace("ServerOnly")
+    method any FindRunChestPosition()
+        local tileMap = self.Entity:GetFirstChildComponentByTypeName("RectTileMapComponent", true)
+        if tileMap == nil then return nil end
+        local boundary = self.Entity:GetComponent("script.NautilusWaterBoundary")
+        local anchors = {}
+        for _, child in ipairs(self.Entity.Children:ToTable()) do
+            if child:GetComponent("script.RoomPortal") ~= nil or child.SpawnLocationComponent ~= nil then
+                if child.TransformComponent ~= nil then anchors[#anchors + 1] = child.TransformComponent.WorldPosition end
+            end
+        end
+        local clearance = _GameData:GetBalance("run_chest_entrance_clearance")
+        if clearance <= 0 then clearance = 3 end
+        local footprint = 0.65
+        for attempt = 1, 96 do
+            local x = self.SpawnMinX + self:NextRunChestRandom() * (self.SpawnMaxX - self.SpawnMinX)
+            local y = self.SpawnMinY + self:NextRunChestRandom() * (self.SpawnMaxY - self.SpawnMinY)
+            local valid = true
+            for _, dx in ipairs({-footprint, 0, footprint}) do
+                for _, dy in ipairs({-footprint, 0, footprint}) do
+                    local tile = tileMap:GetTile(tileMap:ToCellPosition(Vector3(x + dx, y + dy, 0)))
+                    if tile == nil or tile.IsCollidable
+                        or (boundary ~= nil and tile.Name == boundary.waterTileName) then valid = false end
+                end
+            end
+            for _, anchor in ipairs(anchors) do
+                local dx, dy = x - anchor.x, y - anchor.y
+                if dx * dx + dy * dy < clearance * clearance then valid = false end
+            end
+            if valid then return Vector3(x, y, 0) end
+        end
+        return nil
     end
 
     @ExecSpace("ServerOnly")
