@@ -282,13 +282,24 @@ script MonsterAttack extends AttackComponent
 
 	@ExecSpace("ServerOnly")
 	method void StartBossSkills(RoomMonster monster)
-		-- 보스방의 몬스터만 스킬을 쓴다 (히어로 계보 + 각 지역 보스 포획 스킬).
+		-- Run NORMAL에서는 보스도 평타만 사용한다. 보스방 여부로 먼저 허용하면
+		-- NORMAL의 보스가 MONSTER_SKILL 모드처럼 고유 스킬을 시전한다.
+		-- Run 밖의 레거시 보스방 규칙은 그대로 보존한다.
 		--
 		-- 왜 종이 아니라 **방**으로 가르나: 스톤골렘처럼 한 종을 일반 사냥방에도 세울 수 있다.
 		-- 종에 플래그를 달면 그때 초반 방이 조용히 어려워진다. 보스 배율(T16-1)이
 		-- 방으로 갈리는 것과 같은 기준이다.
 		local monsterSkillMode = _GameData.RogueRunActive and _GameData.RogueMode == "MONSTER_SKILL"
-		if monster:IsBossRoom() == false and monsterSkillMode == false then return end
+		if _GameData.RogueRunActive then
+			if monsterSkillMode == false then
+				if monster:IsBossRoom() then
+					log("[MonsterAttack] NORMAL boss skill disabled monster=" .. monster.MonsterId)
+				end
+				return
+			end
+		elseif monster:IsBossRoom() == false then
+			return
+		end
 
 		local skillIds = self:UsableSkillIds()
 		if #skillIds == 0 then return end
@@ -325,6 +336,7 @@ script MonsterAttack extends AttackComponent
 	@ExecSpace("ServerOnly")
 	method boolean TryUseSkill()
 		-- 이번 평타 틱을 스킬로 바꿔 쓸지. 실제로 나갔으면 true(= 평타를 건너뛴다).
+		if _GameData.RogueRunActive and _GameData.RogueMode ~= "MONSTER_SKILL" then return false end
 		if self._T.bossSkills == nil then return false end
 		if _UtilLogic.ElapsedSeconds < self._T.nextSkillAt then return false end
 

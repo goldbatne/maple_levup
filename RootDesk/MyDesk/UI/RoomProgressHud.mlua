@@ -42,7 +42,7 @@ script RoomProgressHud extends Logic
                     if isvalid(label) then label.Entity.UITransformComponent.RectSize = Vector2(500, 36) end
                 end
             end
-            if isvalid(self.panel) then self.panel.Enable = true end
+            if isvalid(self.panel) then self.panel.Enable = false end
             self.refreshTimer = _TimerService:SetTimerRepeat(function() self:Refresh() end,
                 self.refreshInterval)
             self:Refresh()
@@ -93,9 +93,15 @@ script RoomProgressHud extends Logic
     method void Refresh()
         if not isvalid(self.panel) then return end
 
-        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 and _GameData.RogueRunActive == false then
-            self.panel.Enable = false
-            return
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            local me = _UserService.LocalPlayer
+            local slots = isvalid(me) and me:GetComponent("script.PlayerSkillSlots") or nil
+            local map = isvalid(me) and me.CurrentMap or nil
+            if not _GameData.RogueRunActive or slots == nil or not slots.RogueliteRunActive
+                or not isvalid(map) or map.Name == "maptown" then
+                self.panel.Enable = false
+                return
+            end
         end
 
         if _GameData.RogueRunActive then

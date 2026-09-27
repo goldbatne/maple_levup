@@ -24,6 +24,7 @@ script SkillDrop extends Component
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
+        log("[SkillDropVisual] compact_skill_button_v2")
         self:RefreshVisual()
     end
 
@@ -111,9 +112,19 @@ script SkillDrop extends Component
         local skill = self.SkillId ~= "" and _GameData:GetSkill(self.SkillId) or nil
 
         local icon = self.Entity:GetChildByName("Icon", false)
+        -- 등록된 모델 캐시가 남아 있어도 월드 표시는 스킬 버튼 크기로 고정한다.
+        -- 상호작용 반경은 루트의 InteractionComponent가 별도로 유지한다.
+        if isvalid(icon) and isvalid(icon.TransformComponent) then
+            icon.TransformComponent.Scale = Vector3(0.29, 0.29, 1)
+        end
         if isvalid(icon) and isvalid(icon.SpriteRendererComponent) and skill ~= nil
             and skill.icon_ruid ~= nil and skill.icon_ruid ~= "" then
             icon.SpriteRendererComponent.SpriteRUID = skill.icon_ruid
+        end
+
+        local frame = self.Entity:GetChildByName("SkillFrame", false)
+        if isvalid(frame) and isvalid(frame.TransformComponent) then
+            frame.TransformComponent.Scale = Vector3(1.9, 1.9, 1)
         end
 
         local warningAt = math.floor(_GameData:GetBalance("skill_drop_warning_seconds"))
@@ -130,14 +141,14 @@ script SkillDrop extends Component
         local frame = self.Entity:GetChildByName("SkillFrame", false)
         if isvalid(frame) == false or isvalid(frame.PixelRendererComponent) == false then return end
 
-        -- UI 전용 RUID를 World SpriteRenderer에 넣지 않는다. PixelRenderer로 기존
-        -- SkillBar의 어두운 슬롯/금색 테두리 인상을 작게 재현한다.
+        -- UI 전용 RUID를 World SpriteRenderer에 넣지 않는다. 작은 회색 스킬 버튼
+        -- 프레임을 월드에 그려 아이콘이 큰 전리품 카드처럼 보이지 않게 한다.
         local pixels = {}
-        local outer = urgent and Color(0.72, 0.13, 0.10, 1) or Color(0.12, 0.10, 0.08, 1)
-        local accent = urgent and Color(1.00, 0.48, 0.16, 1) or Color(0.86, 0.67, 0.28, 1)
-        -- Frame가 renderer 순서 차이로 Icon 위에 놓여도 중앙을 가리지 않도록
-        -- 내부는 투명하게 둔다. 외곽/금색 bevel만 Skill 버튼으로 읽힌다.
-        local inner = Color(0.09, 0.11, 0.14, 0)
+        local outer = urgent and Color(0.55, 0.13, 0.10, 1) or Color(0.11, 0.12, 0.14, 1)
+        local accent = urgent and Color(0.96, 0.53, 0.25, 1) or Color(0.63, 0.66, 0.70, 1)
+        -- PixelRenderer가 SpriteRenderer보다 앞에 그려질 수 있으므로 중앙은
+        -- 투명하게 둬야 실제 스킬 아이콘을 가리지 않는다.
+        local inner = Color(0.16, 0.18, 0.21, 0)
         for y = 1, 32 do
             for x = 1, 32 do
                 local edge = math.min(x - 1, y - 1, 32 - x, 32 - y)

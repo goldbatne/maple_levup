@@ -545,6 +545,20 @@ script SkillBar extends Logic
         ---@type PlayerSkillSlots
         local slots = self:GetSlots()
         if slots == nil then return end
+        if slots:IsRogueliteRunMode() and not slots.RogueliteRunActive then
+            -- 로비에서는 일회성 전투 재고가 없다. 빈 다섯 칸과 지난 Run 토스트가
+            -- 남지 않도록 전체 버튼/획득 UI를 비활성화한다.
+            for i = 1, 5 do
+                local btn = self:GetButton(i)
+                if btn ~= nil then btn.Entity.Enable = false end
+            end
+            self:CloseRunOverlays()
+            return
+        end
+        for i = 1, 5 do
+            local btn = self:GetButton(i)
+            if btn ~= nil then btn.Entity.Enable = true end
+        end
         self:RefreshOffer(slots)
 
         -- 저장된 키 배치가 도착했는지 본다 (T14-2). 달라졌을 때만 다시 만든다.
