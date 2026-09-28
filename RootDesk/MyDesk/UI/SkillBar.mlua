@@ -654,6 +654,23 @@ script SkillBar extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method void ShowMetaToast(string message)
+        if isvalid(self.abilityToast) == false then return end
+        local title = self.abilityToast:GetChildByName("Title", false)
+        local details = self.abilityToast:GetChildByName("Details", false)
+        local icon = self.abilityToast:GetChildByName("Icon", false)
+        if isvalid(title) then title.TextGUIRendererComponent.Text = message end
+        if isvalid(details) then details.TextGUIRendererComponent.Text = "몬스터 컬렉션" end
+        if isvalid(icon) then icon:SetVisible(false) end
+        self.abilityToast.Enable = true
+        if self.abilityToastTimer ~= nil then _TimerService:ClearTimer(self.abilityToastTimer) end
+        self.abilityToastTimer = _TimerService:SetTimerOnce(function()
+            if isvalid(self.abilityToast) then self.abilityToast.Enable = false end
+            self.abilityToastTimer = nil
+        end, 2.5)
+    end
+
+    @ExecSpace("ClientOnly")
     method void CloseRunOverlays()
         -- Run 포기/종료 직후에는 이전 획득 후보와 토스트가 로비 위에 남으면 안 된다.
         if isvalid(self.offerPanel) then self.offerPanel.Enable = false end

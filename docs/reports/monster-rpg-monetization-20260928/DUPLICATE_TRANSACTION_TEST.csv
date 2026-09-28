@@ -1,0 +1,8 @@
+Case,상태,TransactionId,첫 요청,재요청,결과
+동일 요청 즉시 재전송,PASS,DEV:IDEMPOTENCY:20260928,true,false,선택권 0→1→1
+Maker Stop→Play 후 같은 ID,PASS,DEV:IDEMPOTENCY:20260928,기록 로드,false,선택권 0→0
+DAILY PRODUCT_B 3회,PASS,서버 생성 DEV ID,3회 지급,4회 거부,정수 220→260 count3
+WEEKLY PRODUCT_C 2회,PASS,서버 생성 DEV ID,2회 지급,3회 거부,core3→9 count2
+ACCOUNT_ONCE 유형,NOT_RUN,데이터 구조만 제공,미적용,미검증
+실제 플랫폼 재전송,BLOCKED,PlatformProductId 미등록,미실행,WorldShop 실제 거래 없음
+256건 이전 ID 재전송,BLOCKED,순환 영수증 256건,미실행,실서비스에서는 플랫폼 성공 ACK 보장 확인 필요

@@ -1,0 +1,8 @@
+MonsterID,Stage,DuplicateCount,ExpectedHP,ExpectedBaseAttack,ExpectedSkillMultiplier,Verification,Evidence
+m_snail,1,0,250,20.0,1.00,STATIC_ONLY,GameBalance companion_base_hp/attack and growth rates
+m_snail,2,1,263,20.8,1.03,MAKER_RUNTIME_HP_AND_SAVE,CompanionCombat stage=2 HP=263 log and reload tame=2
+m_snail,3,2,275,21.6,1.06,STATIC_ONLY,Formula; runtime not exercised
+m_snail,4,3,288,22.4,1.09,STATIC_ONLY,Formula; runtime not exercised
+m_snail,5,4,300,23.2,1.12,STATIC_ONLY,Formula; runtime not exercised
+m_axe_stump,1,0,250,20.0,1.00,MAKER_RUNTIME_COLLECTION_ONLY,Natural tame rate=0.10 roll=0.01908 and count=1; no companion spawn
+m_axe_stump,2,1,263,20.8,1.03,MAKER_SERVER_QA_FUNCTION_ONLY,TryTameFromRunKill duplicate rate=0.03 count 1 to 2 on attempt 12; save logged; not natural kill

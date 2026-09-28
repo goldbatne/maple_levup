@@ -1,0 +1,26 @@
+No,항목,상태,검증,근거
+1,기존 v3 저장 이관,PARTIAL,Maker DecodeRogueliteRecord에 v3 샘플 입력,실제 기존 계정 v3 원본 재접속은 하지 않음
+2,무료 성장 코어 획득,PARTIAL,Run 서버의 CompleteRogueliteRun 경로 호출,core 2→3 clear 8→9; 자연 Boss 처치 아님
+3,성장 코어 저장 재접속,PASS,Maker Stop→Play,core 3 유지
+4,보유 몬스터 코어 사용,PASS,클라이언트 RPC RequestSpendGrowthCore,m_red_snail Lv1→2
+5,코어 차감,PASS,동일 RPC,core 3→2
+6,몬스터 Level +1,PASS,동일 RPC,저장 재접속 후 m_red_snail Lv2
+7,미보유 몬스터 거부,PASS,클라이언트 RPC m_blue_snail 요청,Lv0 core2 유지
+8,Level cap 거부,PASS,Maker 격리 데이터에서 임시 Lv20 설정 후 RPC,core2 유지; 테스트 후 Lv2 복구
+9,선택권 지급,PASS,Maker DEV 상품 A,서버 지급 저장 및 클라이언트 보유 1 확인
+10,미보유 몬스터 선택,PASS,기존 컬렉션 선택 경로와 서버 RPC,m_red_snail Lv0→1
+11,보유 몬스터 선택,PASS,서버 RPC,m_slime Lv1→2
+12,선택권 cap 초과 거부,PASS,Maker 격리 데이터에서 임시 Lv20 설정 후 클라이언트 RPC,선택권1/Lv20 유지; 테스트 후 Lv2 복구
+13,성장 정수 묶음 지급,PASS,Maker DEV 상품 B,기존 정수 200→220
+14,기존 성장 정수 합산,PASS,서버 원장 확인,별도 재화 생성 없음
+15,정수를 Enhance에 사용,PASS,클라이언트 RPC,m_red_snail +0→+1 및 정수 260→255
+16,성장 코어 묶음 지급,PASS,Maker DEV 상품 C,3개 지급 로그
+17,성장 코어 증가,PASS,서버 원장 확인,첫 상품 C core0→3
+18,같은 거래 ID 두 번,PASS,ProcessReward 동일 ID 연속 호출,DEV:IDEMPOTENCY:20260928
+19,첫 요청만 지급,PASS,Maker 서버 로그,first=true ticket0→1
+20,두 번째 요청 거부,PASS,Maker 서버 로그,second=false ticket1 유지
+21,저장 후 Maker Stop→Play,PASS,격리 MakerTest 키,재접속 완료
+22,상품과 몬스터 성장 유지,PASS,Maker 재접속,core3 redLv2 slimeLv2 redEnhance1 essence255
+23,기존 3 Companion Run,PASS,이번 Maker Run 시작,서버가 3 Entity 확인; 전투 동작은 기존 보고서 재사용
+24,Player Random 5 Slot,PARTIAL,기존 20260928 Companion Runtime 보고서 재사용,이번 세션에서는 Run 진입 후 빈 슬롯만 확인
+25,Boss Clear,PARTIAL,기존 보고서의 자연 Boss Clear 및 이번 서버 Clear 경로 확인,이번 변경 후 자연 Boss 처치 재실행 안 함

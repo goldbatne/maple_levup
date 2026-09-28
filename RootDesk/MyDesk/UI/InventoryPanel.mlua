@@ -97,6 +97,22 @@ script InventoryPanel extends Logic
 
     property integer equipRowCount = 3
     property integer itemRowCount = 48
+    property boolean newModeHidden = false
+
+    @ExecSpace("ClientOnly")
+    method void OnUpdate(number delta)
+        if self.newModeHidden or _GameData:GetBalance("roguelite_run_mode_enabled") < 0.5 then return end
+        self:Hide()
+        if isvalid(self.panel) then
+            self.panel.Enable = false
+            self.panel:SetVisible(false)
+        end
+        if isvalid(self.openBtn) then
+            self.openBtn.Entity.Enable = false
+            self.openBtn.Entity:SetVisible(false)
+        end
+        self.newModeHidden = true
+    end
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -108,6 +124,9 @@ script InventoryPanel extends Logic
             -- 버튼을 Enable=false로 끄면 보이지 않는 입력 차단도 함께 사라진다.
             if isvalid(self.panel) then self.panel.Enable = false end
             if isvalid(self.openBtn) then self.openBtn.Entity.Enable = false end
+            if isvalid(self.panel) then self.panel:SetVisible(false) end
+            if isvalid(self.openBtn) then self.openBtn.Entity:SetVisible(false) end
+            self.newModeHidden = true
             return
         end
 

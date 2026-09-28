@@ -63,6 +63,8 @@ script EquipPanel extends Logic
 
     -- M2A 신규 모드에서 상세/동행 대상으로 고른 몬스터.
     property string selectedMonsterId = ""
+    property boolean pickingMonsterSkill = false
+    property boolean ticketSelectionMode = false
 
     -- 격자 칸 번호 -> skillId. Refresh가 매번 다시 만든다.
     property any rowSkillIds = nil
@@ -158,7 +160,7 @@ script EquipPanel extends Logic
     method void SetOpen(boolean open)
         if open and _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
             local slots = self:GetSlots()
-            if slots == nil or not slots.RogueliteRunActive then return end
+            if slots == nil or (not slots.RogueliteRunActive and not self:IsMonsterLobby()) then return end
         end
         -- 창과 열기 버튼은 항상 반대 상태여야 한다. 둘 다 보이면 겹치고,
         -- 둘 다 숨으면 다시 열 방법이 없어진다 (StatPanel과 같은 규칙).
@@ -179,19 +181,35 @@ script EquipPanel extends Logic
             -- 닫힌 창의 선택 상태도 지운다. Window 전체를 Disable하므로 투명 입력 차단도 남지 않는다.
             self.selectedSkillId = ""
             self.selectedMonsterId = ""
+            self.pickingMonsterSkill = false
+            self.ticketSelectionMode = false
             log("[RunSkillWindow] close input released")
         end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OpenTicketSelection()
+        if self:IsMonsterLobby() == false then return end
+        local collection = self:GetCollection()
+        if collection == nil or collection.MonsterSelectionTickets < 1 then return end
+        self:SetOpen(true)
+        self.ticketSelectionMode = true
+        self.selectedMonsterId = ""
+        self:Refresh()
     end
 
     @ExecSpace("ClientOnly")
     method void RefreshModeVisibility()
         if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
             local slots = self:GetSlots()
-            if slots == nil or not slots.RogueliteRunActive then
+            if slots == nil or (not slots.RogueliteRunActive and not self:IsMonsterLobby()) then
                 if self.isOpen then self:SetOpen(false) end
                 self.btnOpen.Entity.Enable = false
                 self.btnOpen.Entity:SetVisible(false)
                 return
+            end
+            if isvalid(self.btnOpen.Entity.TextGUIRendererComponent) then
+                self.btnOpen.Entity.TextGUIRendererComponent.Text = self:IsMonsterLobby() and "몬스터" or "스킬"
             end
         end
         -- 로그라이트에서도 이번 Run 보유 능력을 확인할 수 있어야 한다. 창이 닫혀 있을 때만
@@ -215,6 +233,13 @@ script EquipPanel extends Logic
         local me = _UserService.LocalPlayer
         if not isvalid(me) then return nil end
         return me:GetComponent("script.PlayerCollection")
+    end
+
+    @ExecSpace("ClientOnly")
+    method boolean IsMonsterLobby()
+        if _GameData:GetBalance("roguelite_run_mode_enabled") < 0.5 then return false end
+        local me = _UserService.LocalPlayer
+        return isvalid(me) and isvalid(me.CurrentMap) and me.CurrentMap.Name == "maptown"
     end
 
     @ExecSpace("ClientOnly")
@@ -242,6 +267,30 @@ script EquipPanel extends Logic
     @ExecSpace("ClientOnly")
     method void SelectSlot(integer index)
         local slots = self:GetSlots()
+        if self:IsMonsterLobby() then
+            local collection = self:GetCollection()
+            if collection == nil or self.selectedMonsterId == "" then return end
+            if self.ticketSelectionMode then
+                if index == 4 and collection.MonsterSelectionTickets > 0 then
+                    _MonsterShop:RequestUseSelectionTicket(self.selectedMonsterId)
+                    self.ticketSelectionMode = false
+                end
+                self:Refresh()
+                return
+            end
+            if collection:GetTamedCount(self.selectedMonsterId) <= 0 then return end
+            if index >= 1 and index <= 3 then
+                local current = collection:GetEquippedCompanion(index)
+                collection:RequestEquipCompanion(index,
+                    current == self.selectedMonsterId and "" or self.selectedMonsterId)
+            elseif index == 4 then
+                collection:RequestEnhanceMonster(self.selectedMonsterId)
+            elseif index == 5 then
+                collection:RequestSpendGrowthCore(self.selectedMonsterId)
+            end
+            self:Refresh()
+            return
+        end
         if slots ~= nil and slots:IsRogueliteRunMode() then
             return
         end
@@ -342,6 +391,21 @@ script EquipPanel extends Logic
     method void RenderTabs()
         local slots = self:GetSlots()
         local collection = self:GetCollection()
+        if self:IsMonsterLobby() then
+            local total = #_GameData:GetTameableMonsterIds()
+            local owned = 0
+            if collection ~= nil then
+                for _, monsterId in ipairs(_GameData:GetTameableMonsterIds()) do
+                    if collection:GetTamedCount(monsterId) > 0 then owned += 1 end
+                end
+            end
+            if isvalid(self.lblOwned) then
+                self.lblOwned.Text = self.pickingMonsterSkill
+                    and ("영구 스킬 컬렉션 · " .. tostring(#self.rowSkillIds) .. "종")
+                    or ("몬스터 컬렉션  " .. tostring(owned) .. "/" .. tostring(total))
+            end
+            return
+        end
         if slots ~= nil and slots:IsRogueliteRunMode() then
             local owned = #slots:GetRunOwnedSkillIds()
             if isvalid(self.lblOwned) then
@@ -398,6 +462,13 @@ script EquipPanel extends Logic
     method void ClickRow(integer index)
         -- 신규 전투에서는 설명 선택만 한다. 레거시 모드에서만 두 번째 클릭이 장착 요청이다.
         local runtimeSlots = self:GetSlots()
+        if self:IsMonsterLobby() then
+            local monsterId = self.rowMonsterIds ~= nil and self.rowMonsterIds[index] or nil
+            if monsterId == nil then return end
+            self.selectedMonsterId = monsterId
+            self:Refresh()
+            return
+        end
         if runtimeSlots ~= nil and runtimeSlots:IsRogueliteRunMode() then
             if self.rowSkillIds == nil then return end
             local skillId = self.rowSkillIds[index]
@@ -613,6 +684,41 @@ script EquipPanel extends Logic
         end
 
         local slots = self:GetSlots()
+        if self:IsMonsterLobby() then
+            local count = collection:GetMonsterLevel(monster.id)
+            local kills = collection:GetTotalMonsterKills(monster.id)
+            local ownSkill = _GameData:GetSkill(monster.drop_skill_id)
+            self:SetRunDetailIcons(ownSkill, monster)
+            if count <= 0 then
+                self.lblDesc.Text = "[미획득] " .. monster.name .. " · 누적 처치 " .. tostring(kills)
+                    .. (self.ticketSelectionMode and "\n선택권 사용 시 Lv.1 획득" or "")
+                return
+            end
+            local maxStage = math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
+            local hpRatio = _GameData:GetBalance("companion_growth_hp_per_stage")
+            local attackRatio = _GameData:GetBalance("companion_growth_attack_per_stage")
+            local enhance = collection:GetMonsterEnhance(monster.id)
+            local hpGrowth = 1 + (count - 1) * hpRatio
+                + enhance * _GameData:GetBalance("monster_enhance_hp_per_stage")
+            local attackGrowth = 1 + (count - 1) * attackRatio
+                + enhance * _GameData:GetBalance("monster_enhance_attack_per_stage")
+            local skillGrowth = 1 + (count - 1) * _GameData:GetBalance("companion_growth_skill_per_stage")
+                + enhance * _GameData:GetBalance("monster_enhance_skill_per_stage")
+            local ownSkillText = ownSkill ~= nil and ownSkill.skill_kind ~= "passive"
+                and (ownSkill.name .. " · " .. ownSkill.description) or "사용 가능한 액티브 능력 없음"
+            self.lblDesc.Text = monster.name .. "  Lv." .. tostring(count)
+                .. "/" .. tostring(maxStage)
+                .. " · 강화 +" .. tostring(enhance)
+                .. " · 동행 HP ×" .. string.format("%.2f", hpGrowth)
+                .. " / 공격 ×" .. string.format("%.2f", attackGrowth)
+                .. " / 능력 ×" .. string.format("%.2f", skillGrowth)
+                .. "\n고유 능력: " .. ownSkillText
+                .. "\n성장 정수 " .. tostring(collection.MonsterGrowthCurrency)
+                .. " · 성장 코어 " .. tostring(collection.MonsterGrowthCore)
+                .. " · 코어 비용 " .. tostring(collection:GetMonsterCoreLevelCost(monster.id))
+                .. "\n누적 처치 " .. tostring(kills)
+            return
+        end
         if slots ~= nil and slots:IsRogueliteRunMode() then
             if collection.RogueDiscoveredMonsters[monster.id] == nil then
                 self.lblDesc.Text = "[미발견] " .. monster.name
@@ -666,6 +772,11 @@ script EquipPanel extends Logic
         if not isvalid(self.lblDesc) then return end
 
         local runtimeSlots = self:GetSlots()
+        if self:IsMonsterLobby() then
+            if self.pickingMonsterSkill then self:RenderRunSkillDesc()
+            else self:RenderMonsterDesc() end
+            return
+        end
         if runtimeSlots ~= nil and runtimeSlots:IsRogueliteRunMode() then
             self:RenderRunSkillDesc()
             return
@@ -807,7 +918,8 @@ script EquipPanel extends Logic
         local rogueMode = slots ~= nil and slots:IsRogueliteRunMode()
         local count = collection:GetTamedCount(monsterId)
         local discovered = collection.RogueDiscoveredMonsters[monsterId] ~= nil
-        local available = rogueMode and discovered or count > 0
+        local available = self.ticketSelectionMode
+            or ((rogueMode and not self:IsMonsterLobby()) and discovered or count > 0)
 
         local iconEntity = cell:GetChildByName("Icon", false)
         if iconEntity ~= nil then
@@ -824,8 +936,8 @@ script EquipPanel extends Logic
         local nameEntity = cell:GetChildByName("Name", false)
         if nameEntity ~= nil and isvalid(nameEntity.TextGUIRendererComponent) then
             if available then
-                nameEntity.TextGUIRendererComponent.Text = rogueMode and monster.name
-                    or (monster.name .. " ★" .. tostring(count))
+                nameEntity.TextGUIRendererComponent.Text = (rogueMode and not self:IsMonsterLobby()) and monster.name
+                    or (monster.name .. " Lv." .. tostring(collection:GetMonsterLevel(monsterId)))
             else
                 nameEntity.TextGUIRendererComponent.Text = "잠김 · " .. monster.name
             end
@@ -953,6 +1065,73 @@ script EquipPanel extends Logic
     end
 
     @ExecSpace("ClientOnly")
+    method void RefreshMonsterLobby()
+        local collection = self:GetCollection()
+        if collection == nil then return end
+        local title = self.windowRoot:GetChildByName("Title", true)
+        if isvalid(title) and isvalid(title.TextGUIRendererComponent) then
+            title.TextGUIRendererComponent.Text = "몬스터 컬렉션"
+        end
+        local slotLabel = self.windowRoot:GetChildByName("LblSlots", true)
+        if isvalid(slotLabel) and isvalid(slotLabel.TextGUIRendererComponent) then
+            slotLabel.TextGUIRendererComponent.Text = "동행 3마리 · 성장 재화 "
+                .. tostring(collection.MonsterGrowthCurrency) .. " · 성장 코어 "
+                .. tostring(collection.MonsterGrowthCore) .. " · 선택권 "
+                .. tostring(collection.MonsterSelectionTickets)
+        end
+        local selected = self.selectedMonsterId
+        local owned = selected ~= "" and collection:GetTamedCount(selected) > 0
+        for i = 1, 5 do
+            local btn = self:GetSlotButton(i)
+            if btn ~= nil then
+                btn.Entity:SetVisible(self.ticketSelectionMode and i == 4 or not self.ticketSelectionMode)
+                btn.Enable = owned
+                local label = "몬스터 선택"
+                if self.ticketSelectionMode then
+                    label = "선택권 사용\n"
+                        .. (selected ~= "" and (_GameData:GetMonster(selected).name or selected) or "몬스터 선택")
+                    btn.Enable = i == 4 and selected ~= ""
+                        and collection.MonsterSelectionTickets > 0
+                        and collection:GetMonsterLevel(selected)
+                            < math.floor(_GameData:GetBalance("monster_level_cap"))
+                elseif i <= 3 then
+                    local companionId = collection:GetEquippedCompanion(i)
+                    local companion = _GameData:GetMonster(companionId)
+                    local name = companion ~= nil and companion.name or "비어 있음"
+                    label = "동행 " .. tostring(i) .. "\n" .. name
+                    if selected ~= "" and selected == companionId then label = "동행 해제\n" .. name end
+                elseif i == 4 then
+                    label = "강화 +1\n재화 " .. tostring(collection:GetMonsterEnhanceCost(selected))
+                    btn.Enable = owned and collection.MonsterGrowthCurrency
+                        >= collection:GetMonsterEnhanceCost(selected)
+                        and collection:GetMonsterEnhance(selected)
+                            < math.floor(_GameData:GetBalance("monster_enhance_cap"))
+                elseif i == 5 then
+                    label = "코어로 Level +1\n비용 "
+                        .. tostring(collection:GetMonsterCoreLevelCost(selected))
+                    btn.Enable = owned and collection.MonsterGrowthCore
+                        >= collection:GetMonsterCoreLevelCost(selected)
+                        and collection:GetMonsterLevel(selected)
+                            < math.floor(_GameData:GetBalance("monster_level_cap"))
+                end
+                btn.Entity.TextGUIRendererComponent.Text = label
+            end
+        end
+
+        self.rowMonsterIds = _GameData:GetTameableMonsterIds()
+        self.rowSkillIds = {}
+        self.pickingMonsterSkill = false
+        for i = 1, self.cellCount do self:RenderMonsterCell(i, collection) end
+        local emptyState = self.windowRoot:GetChildByName("EmptyState", true)
+        if isvalid(emptyState) then
+            emptyState.Enable = false
+            emptyState:SetVisible(false)
+        end
+        self:RenderTabs()
+        self:RenderDesc()
+    end
+
+    @ExecSpace("ClientOnly")
     method void Refresh()
         -- 슬롯 3칸과 보유 목록을 지금 상태로 다시 그린다.
         ---@type PlayerSkillSlots
@@ -966,6 +1145,10 @@ script EquipPanel extends Logic
         local randomMode = slots:IsPhase1CombatEnabled()
         local rogueMode = slots:IsRogueliteRunMode()
         local emptyState = self.windowRoot:GetChildByName("EmptyState", true)
+        if self:IsMonsterLobby() then
+            self:RefreshMonsterLobby()
+            return
+        end
 
         -- 같은 .ui를 두 모드가 공유하므로 제목도 런타임 역할에 맞춰 바꾼다.
         -- 신규 모드에서 "장착"이 남아 있으면 숨긴 슬롯이 고장처럼 보인다.

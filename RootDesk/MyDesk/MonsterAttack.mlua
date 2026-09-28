@@ -1174,7 +1174,10 @@ script MonsterAttack extends AttackComponent
 		if mon ~= nil then atk = mon.Atk end
 
 		local def = 0
-		if _GameData.RogueRunActive then
+		local companion = defender:GetComponent("script.CompanionCombat")
+		if companion ~= nil then
+			def = math.max(0, _GameData:GetBalance("companion_base_defense"))
+		elseif _GameData.RogueRunActive then
 			-- 신규 Run은 레거시 레벨/장비 방어력을 합산하지 않는다.
 			def = _GameData:GetBalance("run_player_base_defense")
 			if def < 0 then def = 0 end
@@ -1254,9 +1257,11 @@ script MonsterAttack extends AttackComponent
 		-- Restrict the attack to Player entities; delegate to base rules.
 		--
 		-- ⚠ 부모 AttackComponent.IsAttackTarget에는 @ExecSpace가 없다 — 붙이면 LEA-3014.
-		if isvalid(defender.PlayerComponent) == false then
+		local companion = defender:GetComponent("script.CompanionCombat")
+		if isvalid(defender.PlayerComponent) == false and companion == nil then
 			return false
 		end
+		if companion ~= nil and (companion.IsDefeated or companion.OwnerUserId == "") then return false end
 
 		if __base:IsAttackTarget(defender, attackInfo) == false then return false end
 		if self.projectileTerrainCheck then
