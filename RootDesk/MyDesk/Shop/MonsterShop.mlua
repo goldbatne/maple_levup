@@ -1,0 +1,203 @@
+-- Monster RPG 상품 원장. 실제 결제는 WorldShopService 콜백으로만 진입한다.
+-- PlatformProductId가 비어 있는 초기 카탈로그는 Maker DEV 테스트 전용이다.
+@Logic
+script MonsterShop extends Logic
+
+    property table DevCounters = {}
+
+    @ExecSpace("ServerOnly")
+    method void OnBeginPlay()
+        _WorldShopService:SetProcessPurchaseCallback(function(info)
+            return self:ProcessPlatformPurchase(info)
+        end)
+        log("[MonsterShop] WorldShop 구매 콜백 등록")
+    end
+
+    method table GetProduct(string productId)
+        local data = _DataService:GetTable("MonsterProductCatalog")
+        if data == nil then return nil end
+        local row = data:FindRow("ProductId", productId)
+        if row == nil then return nil end
+        local result = {
+            id = row:GetItem("ProductId"),
+            name = row:GetItem("DisplayName"),
+            productType = row:GetItem("ProductType"),
+            price = math.max(0, math.floor(tonumber(row:GetItem("Price")) or 0)),
+            platformId = row:GetItem("PlatformProductId") or "",
+            rewardType = row:GetItem("RewardType"),
+            rewardId = row:GetItem("RewardId"),
+            amount = math.floor(tonumber(row:GetItem("RewardAmount")) or 0),
+            limit = math.floor(tonumber(row:GetItem("PurchaseLimit")) or 0),
+            resetType = row:GetItem("ResetType"),
+            enabled = row:GetItem("Enabled") == "1",
+        }
+        if result.amount <= 0 or result.amount > 100000 or result.limit < 0 then return nil end
+        if result.rewardType ~= "MONSTER_SELECTION_TICKET"
+            and result.rewardType ~= "GROWTH_ESSENCE"
+            and result.rewardType ~= "GROWTH_CORE" then return nil end
+        if result.resetType ~= "NONE" and result.resetType ~= "DAILY"
+            and result.resetType ~= "WEEKLY" and result.resetType ~= "ACCOUNT_ONCE" then return nil end
+        return result
+    end
+
+    @ExecSpace("ServerOnly")
+    method table FindProductByPlatformId(string platformId)
+        if platformId == nil or platformId == "" then return nil end
+        local data = _DataService:GetTable("MonsterProductCatalog")
+        if data == nil then return nil end
+        for i = 1, data:GetRowCount() do
+            local row = data:GetRow(i)
+            local product = self:GetProduct(row:GetItem("ProductId"))
+            if product ~= nil and product.platformId == platformId then return product end
+        end
+        return nil
+    end
+
+    @ExecSpace("ServerOnly")
+    method string GetLimitKey(table product)
+        if product.resetType == "NONE" then return "" end
+        if product.resetType == "ACCOUNT_ONCE" then return product.id .. ":ALL" end
+        local now = DateTime.UtcNow
+        if product.resetType == "DAILY" then
+            return string.format("%s:D:%04d%02d%02d", product.id, now.Year, now.Month, now.Day)
+        end
+        -- Gregorian 일수 기준 UTC 월요일 시작 7일 버킷. 월말에 조기 초기화되지 않는다.
+        local y = now.Year - 1
+        local ordinal = 365 * y + math.floor(y / 4) - math.floor(y / 100)
+            + math.floor(y / 400)
+        local monthDays = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
+        if now.Year % 4 == 0 and (now.Year % 100 ~= 0 or now.Year % 400 == 0) then
+            monthDays[2] = 29
+        end
+        for month = 1, now.Month - 1 do ordinal += monthDays[month] end
+        ordinal += now.Day
+        return product.id .. ":W:" .. tostring(math.floor((ordinal - 1) / 7))
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean ProcessReward(string userId, string productId, string purchaseId, boolean platformVerified)
+        if type(userId) ~= "string" or userId == "" or type(purchaseId) ~= "string"
+            or purchaseId == "" or #purchaseId > 160 then return false end
+        if platformVerified == false and Environment:IsMakerPlay() == false then return false end
+        local product = self:GetProduct(productId)
+        if product == nil or product.enabled == false then return false end
+        if platformVerified and product.platformId == "" then return false end
+        local player = _UserService:GetUserEntityByUserId(userId)
+        if not isvalid(player) then return false end
+        ---@type PlayerDBManager
+        local db = player:GetComponent("script.PlayerDBManager")
+        ---@type PlayerCollection
+        local collection = player:GetComponent("script.PlayerCollection")
+        if db == nil or collection == nil or db:IsRogueEconomyReady() == false then return false end
+        local payload = db.RogueSavedPayload
+        if payload.purchase_receipts[purchaseId] ~= nil then
+            log("[MonsterShop] 중복 지급 거부 id=" .. purchaseId)
+            return false
+        end
+        local limitKey = self:GetLimitKey(product)
+        local oldLimit = limitKey ~= "" and (payload.purchase_limits[limitKey] or 0) or 0
+        if limitKey ~= "" and oldLimit >= product.limit then return false end
+        local oldEssence = collection.MonsterGrowthCurrency
+        local oldCore = collection.MonsterGrowthCore
+        local oldTicket = collection.MonsterSelectionTickets
+        if product.rewardType == "MONSTER_SELECTION_TICKET" then
+            if oldTicket > 2000000000 - product.amount then return false end
+            collection.MonsterSelectionTickets += product.amount
+        elseif product.rewardType == "GROWTH_ESSENCE" then
+            if oldEssence > 2000000000 - product.amount then return false end
+            collection.MonsterGrowthCurrency += product.amount
+        else
+            if oldCore > 2000000000 - product.amount then return false end
+            collection.MonsterGrowthCore += product.amount
+        end
+        payload.purchase_receipts[purchaseId] = productId
+        local order = payload.purchase_receipt_order
+        order[#order + 1] = purchaseId
+        if limitKey ~= "" then
+            -- 지난 DAILY/WEEKLY 버킷을 제거해 구매 제한 기록이 무한히 커지지 않게 한다.
+            for key, _ in pairs(payload.purchase_limits) do
+                if string.sub(key, 1, #productId + 1) == productId .. ":"
+                    and key ~= limitKey then payload.purchase_limits[key] = nil end
+            end
+            payload.purchase_limits[limitKey] = oldLimit + 1
+        end
+        if #order > 256 then
+            local expired = table.remove(order, 1)
+            payload.purchase_receipts[expired] = nil
+        end
+        if db:SaveRogueEconomyNow("상품 지급 " .. productId) == false then
+            collection.MonsterGrowthCurrency = oldEssence
+            collection.MonsterGrowthCore = oldCore
+            collection.MonsterSelectionTickets = oldTicket
+            payload.purchase_receipts[purchaseId] = nil
+            table.remove(order, #order)
+            if limitKey ~= "" then payload.purchase_limits[limitKey] = oldLimit end
+            return false
+        end
+        log("[MonsterShop] 지급 완료 user=" .. userId .. " product=" .. productId
+            .. " purchase=" .. purchaseId)
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean ProcessPlatformPurchase(WorldShopPurchaseInfo info)
+        if info == nil or info.UserId == nil or info.PurchaseId == nil then return false end
+        local product = self:FindProductByPlatformId(info.ProductId)
+        if product == nil then return false end
+        local player = _UserService:GetUserEntityByUserId(info.UserId)
+        if not isvalid(player) then return false end
+        local db = player:GetComponent("script.PlayerDBManager")
+        if db == nil or db.IsLoadSuccess == false then return false end
+        local purchaseId = "MSW:" .. info.PurchaseId
+        -- 이미 지급된 콜백은 true로 ACK해 플랫폼 재전달을 끝내되 다시 지급하지 않는다.
+        if db.RogueSavedPayload.purchase_receipts[purchaseId] ~= nil then return true end
+        return self:ProcessReward(info.UserId, product.id, purchaseId, true)
+    end
+
+    @ExecSpace("Server")
+    method void RequestDevPurchase(string productId)
+        if Environment:IsMakerPlay() == false then return end
+        if self.DevCounters == nil then self.DevCounters = {} end
+        local n = (self.DevCounters[senderUserId] or 0) + 1
+        self.DevCounters[senderUserId] = n
+        local purchaseId = "DEV:" .. senderUserId .. ":" .. tostring(_UtilLogic.ElapsedSeconds)
+            .. ":" .. tostring(n)
+        self:ProcessReward(senderUserId, productId, purchaseId, false)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RequestCatalogPurchase(string productId)
+        local product = self:GetProduct(productId)
+        if product == nil or product.enabled == false then return end
+        if Environment:IsMakerPlay() then
+            self:RequestDevPurchase(productId)
+        elseif product.platformId ~= "" then
+            _WorldShopService:PromptPurchase(product.platformId)
+        end
+    end
+
+    @ExecSpace("Server")
+    method void RequestUseSelectionTicket(string monsterId)
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) or player.CurrentMap == nil
+            or player.CurrentMap.Name ~= "maptown" or _GameData.RogueRunActive then return end
+        ---@type PlayerCollection
+        local collection = player:GetComponent("script.PlayerCollection")
+        ---@type PlayerDBManager
+        local db = player:GetComponent("script.PlayerDBManager")
+        if collection == nil or db == nil or db:IsRogueEconomyReady() == false
+            or collection.MonsterSelectionTickets < 1 then return end
+        local oldCount = collection:GetTamedCount(monsterId)
+        local oldLevel = collection:GetMonsterLevel(monsterId)
+        if collection:GrantTamingEquivalent(monsterId, false) == false then return end
+        collection.MonsterSelectionTickets -= 1
+        if db:SaveRogueEconomyNow("몬스터 선택권 사용") == false then
+            collection:SetTamedCount(monsterId, oldCount)
+            collection.MonsterLevels[monsterId] = oldLevel > 0 and oldLevel or nil
+            collection.MonsterSelectionTickets += 1
+            return
+        end
+        log("[MonsterShop] 선택권 사용 monster=" .. monsterId
+            .. " level=" .. tostring(collection:GetMonsterLevel(monsterId)))
+    end
+end

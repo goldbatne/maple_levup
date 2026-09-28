@@ -1,0 +1,15 @@
+Check,Status,Evidence,Limit
+Run entry spawn,PASS_RUNTIME,CompanionCombat owner log and map001 screenshot,Single client only
+Portal re-spawn,PASS_RUNTIME,map001 to map002 portal log and one new companion,No full 5-Area traversal
+Follow,PASS_RUNTIME,RectTile Kinematicbody SetWorldPosition and player/companion delta 0.8,One companion tested
+Basic attack,PASS_RUNTIME,CompanionBasic server logs during map002 encounter,Visual hit-specific capture not saved
+Skill 1 LINE_STRIKE,PASS_RUNTIME,CompanionSkill s_mon_snail_dew_trail server logs,Representative skill only
+Skill 2 SHIELD,PASS_RUNTIME,CompanionSkill s_mon_blue_snail server logs,Representative skill only
+Skill 3 DASH_STRIKE,PASS_RUNTIME,CompanionSkill s_mon_red_snail server logs,Representative skill only
+Damage attribution,PASS_STATIC_ONLY,RoomMonster HitEvent to GameData RecordRunDamage owner mapping; ledger 1920 observed,Player also attacked so isolated companion damage not measured
+Enemy can hit companion,PASS_RUNTIME,CompanionCombat defeated log and no immediate same-room respawn,One room tested
+Boss encounter,PASS_RUNTIME,Boss screenshot and CompanionSkill/CompanionBasic before MegaBossClear,Companion-only boss damage not isolated
+Run abandonment cleanup,PASS_RUNTIME,ABANDONED return maptown and comp=false,Single client only
+Party owner separation,PASS_STATIC_ONLY,OwnerUserId on each component and per-player loadout lookup,2-4 independent clients NOT_RUN
+Two to four companions,BLOCKED_MULTICLIENT,Maker Play exposed one client,No actual party runtime
+All 66 skills as companion loadout,NOT_RUN,No full companion-AI 66-skill test,Existing Player and MONSTER_SKILL paths not edited

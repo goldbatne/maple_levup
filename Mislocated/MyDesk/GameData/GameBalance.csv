@@ -84,6 +84,28 @@ capture_rate_max,1,최종 포획 확률 상한. 현재 100%라 첫 10%·중복 3
 drop_rate_global_multiplier,1,LUK와 분리한 아이템 드랍 확률 전역 배율. 경제 밸런스는 유지한다
 skill_stack_max,5,같은 몬스터를 테이밍해 올릴 수 있는 최대 별 단계. ★5이면 추가 테이밍 판정을 건너뛴다
 skill_stack_bonus,0.2,중복 테이밍 1회당 고유 액티브 계수 비례 증가분 - 계수 = 기본 x (1 + 이 값 x (별-1)). ★5이면 x1.8
+companion_growth_hp_per_stage,0.05,동행 몬스터 성장 단계당 최대 HP 증가율 초안
+companion_growth_attack_per_stage,0.04,동행 몬스터 성장 단계당 기본 공격 증가율 초안
+companion_growth_skill_per_stage,0.03,동행 몬스터 성장 단계당 장착 스킬 피해 증가율 초안
+companion_base_hp,250,동행 몬스터 기본 최대 HP 초안
+companion_base_attack,20,동행 몬스터 기본 공격력 초안
+companion_base_defense,0,동행 몬스터 기본 방어력 초안
+companion_basic_attack_interval,1.0,동행 몬스터 기본 공격 간격 초안
+companion_basic_attack_range,1.5,동행 몬스터 기본 공격 범위 초안
+monster_level_cap,20,동일 몬스터 중복 테이밍으로 증가하는 영구 레벨 상한
+monster_enhance_cap,20,성장 정수로 올리는 별도 강화 상한
+monster_essence_per_kill,1,일반 적 처치 참여자별 성장 정수
+monster_essence_per_boss_kill,10,보스 처치 참여자별 성장 정수
+monster_growth_core_level_cost,1,보유 몬스터 Level +1에 필요한 성장 코어 수
+monster_growth_core_per_mega_clear,1,Mega Area 클리어 참가자별 무료 성장 코어 지급량
+monster_enhance_cost_base,5,첫 강화에 필요한 성장 정수
+monster_enhance_cost_step,2,강화 단계별 성장 정수 비용 증가
+monster_enhance_hp_per_stage,0.02,강화 단계당 동행 최대 HP 보정
+monster_enhance_attack_per_stage,0.02,강화 단계당 동행 기본 공격 보정
+monster_enhance_skill_per_stage,0.015,강화 단계당 동행 고유 스킬 보정
+companion_formation_radius,1.15,동행 3마리의 비전투 편성 반경 월드 단위
+companion_engage_radius,6,동행의 적 탐색 반경 월드 단위
+companion_special_cast_spacing,0.35,같은 소유자의 동행 특수 시전 사이 최소 간격 초
 monster_slot_start,1,몬스터 스킬 슬롯 시작 개수 - 기획서 4.3
 monster_slot_max,5,스킬 슬롯 상한 - 현재 직업 차수에 따라 1~5칸을 사용한다 / 스킬 창은 몬스터 스킬만 다룬다
 phase1_random_combat_enabled,1,Phase 1 신규 전투 플래그. 1이면 단일 기본공격·분리된 몬스터 공격거리·보유 액티브 기반 일회성 스킬 재고를 사용하고 0이면 기존 전투로 돌아간다

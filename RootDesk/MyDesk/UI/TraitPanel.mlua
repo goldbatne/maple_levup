@@ -18,6 +18,20 @@ script TraitPanel extends Logic
     property any handlers = nil
     property integer refreshTimer = 0
     property boolean isOpen = false
+    property boolean newModeHidden = false
+
+    @ExecSpace("ClientOnly")
+    method void OnUpdate(number delta)
+        -- DataSet이 Logic.OnBeginPlay보다 늦게 준비되면 초기 판정은 false일 수 있다.
+        -- 이후 한 번 더 확정해 로비의 레거시 특성 버튼이 남지 않게 한다.
+        if self.newModeHidden or self:IsDisabledForNewCombat() == false then return end
+        self.isOpen = false
+        self.windowRoot.Enable = false
+        self.windowRoot:SetVisible(false)
+        self.btnOpen.Entity.Enable = false
+        self.btnOpen.Entity:SetVisible(false)
+        self.newModeHidden = true
+    end
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -28,6 +42,7 @@ script TraitPanel extends Logic
             self.btnOpen.Entity.Enable = false
             self.windowRoot:SetVisible(false)
             self.btnOpen.Entity:SetVisible(false)
+            self.newModeHidden = true
             log("[TraitPanel] Phase3.5 신규 전투 — 창·버튼 전체 비활성")
             return
         end

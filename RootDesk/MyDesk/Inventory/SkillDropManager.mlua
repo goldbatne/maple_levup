@@ -205,6 +205,8 @@ script SkillDropManager extends Logic
             return false
         end
         _GameData:StageRogueliteDiscovery(userId, drop.MonsterId, drop.SkillId)
+        local collection = player:GetComponent("script.PlayerCollection")
+        if collection ~= nil then collection:UnlockPermanentSkill(drop.SkillId) end
         record.state = "REMOVED"
         drop.ClaimState = "REMOVED"
         log("[SkillDropClaim] SUCCESS user=" .. userId .. " monster=" .. drop.MonsterId

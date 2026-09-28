@@ -16,6 +16,19 @@ script PlayerCollection extends Component
 
     -- M2A 신규 모드의 유일한 수집·해금·강화 원장. monsterId -> 1~5.
     @TargetUserSync property SyncTable<string, integer> TamedMonsters
+    -- 신규 동행 성장 원장. TamedMonsters는 레거시 ★/소유 미러로 남긴다.
+    @TargetUserSync property SyncTable<string, integer> MonsterLevels
+    @TargetUserSync property SyncTable<string, integer> MonsterEnhances
+    @TargetUserSync property integer MonsterGrowthCurrency = 0
+    @TargetUserSync property integer MonsterGrowthCore = 0
+    @TargetUserSync property integer MonsterSelectionTickets = 0
+    @TargetUserSync property SyncTable<string, string> EquippedCompanions
+
+    -- Run Skill Drop을 실제로 획득했을 때만 해금되는 영구 장착 후보.
+    -- 발견 기록과 다르며 Run 포기 후에도 남는다.
+    @TargetUserSync property SyncTable<string, integer> PermanentSkillCollection
+    -- monster_id:slot(1~3) -> skill_id. 중첩 테이블을 피하여 SyncTable과 저장을 일치시킨다.
+    @TargetUserSync property SyncTable<string, string> MonsterSkillLoadouts
 
     -- 선택한 비전투 동행. 서버가 보유 여부를 검증하고 저장한다.
     @TargetUserSync property string SelectedCompanionMonsterId = ""
@@ -34,8 +47,12 @@ script PlayerCollection extends Component
 
     -- 동행 런타임 상태는 저장하지 않는다. 맵 전환/재접속 때 선택 id로 다시 만든다.
     @HideFromInspector property Entity CompanionEntity = nil
+    @HideFromInspector property string CompanionDefeatedMapName = ""
     @HideFromInspector property string companionMapName = ""
     @HideFromInspector property number companionTickLeft = 0
+    @HideFromInspector property table CompanionEntities = {}
+    @HideFromInspector property table CompanionDefeatedMaps = {}
+    @HideFromInspector property number NextCompanionSpecialAt = 0
 
     property string companionModelId = "companionvisual"
     property number companionUpdateInterval = 0.1
@@ -144,6 +161,86 @@ script PlayerCollection extends Component
         if n < 0 then return 0 end
         if n > stackMax then return stackMax end
         return n
+    end
+
+    method integer GetMonsterLevel(string monsterId)
+        local n = self.MonsterLevels[monsterId]
+        if n == nil then n = self:GetTamedCount(monsterId) end
+        n = math.max(0, math.floor(n or 0))
+        local cap = math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
+        return math.min(cap, n)
+    end
+
+    method integer GetMonsterEnhance(string monsterId)
+        local n = self.MonsterEnhances[monsterId] or 0
+        local cap = math.max(0, math.floor(_GameData:GetBalance("monster_enhance_cap")))
+        return math.min(cap, math.max(0, math.floor(n)))
+    end
+
+    method integer GetMonsterEnhanceCost(string monsterId)
+        return math.max(1, math.floor(_GameData:GetBalance("monster_enhance_cost_base")
+            + self:GetMonsterEnhance(monsterId) * _GameData:GetBalance("monster_enhance_cost_step")))
+    end
+
+    method integer GetMonsterCoreLevelCost(string monsterId)
+        return math.max(1, math.floor(_GameData:GetBalance("monster_growth_core_level_cost")))
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean GrantGrowthCore(integer amount, string reason, boolean markSave)
+        if amount <= 0 or amount > 100000 then return false end
+        if self.MonsterGrowthCore > 2000000000 - amount then return false end
+        self.MonsterGrowthCore += amount
+        if markSave then self:MarkSave(reason) end
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean GrantTamingEquivalent(string monsterId, boolean markSave)
+        if _GameData:IsTameableMonster(monsterId) == false then return false end
+        local cap = math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
+        local current = self:GetMonsterLevel(monsterId)
+        if current >= cap then return false end
+        if current == 0 then
+            if self:SetTamedCount(monsterId, 1) == false then return false end
+            self.MonsterLevels[monsterId] = 1
+        else
+            self.MonsterLevels[monsterId] = current + 1
+            local count = self:GetTamedCount(monsterId)
+            local stackMax = math.max(1, math.floor(_GameData:GetBalance("skill_stack_max")))
+            if count < stackMax then self:SetTamedCount(monsterId, count + 1) end
+        end
+        if markSave then self:MarkSave("몬스터 성장") end
+        return true
+    end
+
+    @ExecSpace("Server")
+    method void RequestSpendGrowthCore(string monsterId)
+        if senderUserId ~= self.Entity.PlayerComponent.UserId then return end
+        if _GameData.RogueRunActive or self.Entity.CurrentMap == nil
+            or self.Entity.CurrentMap.Name ~= "maptown" then return end
+        if self:GetTamedCount(monsterId) <= 0 then return end
+        local level = self:GetMonsterLevel(monsterId)
+        local cap = math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
+        local cost = self:GetMonsterCoreLevelCost(monsterId)
+        if level >= cap or self.MonsterGrowthCore < cost then return end
+        ---@type PlayerDBManager
+        local db = self.Entity:GetComponent("script.PlayerDBManager")
+        if db == nil or db:IsRogueEconomyReady() == false then return end
+        self.MonsterGrowthCore -= cost
+        self.MonsterLevels[monsterId] = level + 1
+        if db:SaveRogueEconomyNow("성장 코어 사용") == false then
+            self.MonsterGrowthCore += cost
+            self.MonsterLevels[monsterId] = level
+            log_error("[MonsterGrowth] 코어 사용 저장 실패, 상태 복원")
+            return
+        end
+        log("[MonsterGrowth] core level monster=" .. monsterId .. " level=" .. tostring(level + 1))
+    end
+
+    method string GetEquippedCompanion(integer slot)
+        if slot < 1 or slot > 3 then return "" end
+        return self.EquippedCompanions[tostring(slot)] or ""
     end
 
     method integer GetAbilityStackCount(string skillId)
@@ -334,7 +431,15 @@ script PlayerCollection extends Component
         -- 처치/몬스터 발견은 Run 종료 전 임시 원장에 남긴다. 능력 발견은 실제
         -- Skill Drop 상호작용 성공 시 SkillDropManager가 별도로 기록한다.
         self.TotalMonsterKills[monsterId] = self:GetTotalMonsterKills(monsterId) + 1
+        local room = self.Entity.CurrentMap ~= nil and _GameData:GetRoomByMapName(self.Entity.CurrentMap.Name) or nil
+        local rewardKey = room ~= nil and room.room_type == "boss"
+            and "monster_essence_per_boss_kill" or "monster_essence_per_kill"
+        local reward = math.max(0, math.floor(_GameData:GetBalance(rewardKey)))
+        self.MonsterGrowthCurrency += reward
         _GameData:StageRogueliteDiscovery(self.Entity.PlayerComponent.UserId, monsterId, "")
+        -- 스킬 드롭 판정과 독립적인 몬스터 테이밍. 근처의 각 참가자가
+        -- GrantRunKillRewards에서 한 번씩 호출되므로 막타 독점도 없다.
+        self:TryTameFromRunKill(monsterId)
         local skillId = record.drop_skill_id
         local skill = skillId ~= "" and _GameData:GetSkill(skillId) or nil
         if skill == nil or skill.source ~= "monster" or skill.slot_type ~= "monster"
@@ -348,6 +453,79 @@ script PlayerCollection extends Component
         log("[RogueliteReward] monster=" .. monsterId .. " skill=" .. skillId
             .. " auto_acquired=false")
         return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean TryTameFromRunKill(string monsterId)
+        if _GameData.RogueRunActive == false or _GameData:IsTameableMonster(monsterId) == false then return false end
+        local pc = self.Entity.PlayerComponent
+        if not isvalid(pc) or _GameData:IsRunParticipant(pc.UserId) == false then return false end
+        local before = self:GetMonsterLevel(monsterId)
+        local levelCap = math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
+        if before >= levelCap then return false end
+        local rate = self:GetCaptureRateForMonster(monsterId)
+        local roll = _UtilLogic:RandomDouble()
+        log("[MonsterTame] monster=" .. monsterId .. " count=" .. tostring(before)
+            .. " rate=" .. tostring(rate) .. " roll=" .. tostring(roll))
+        if roll >= rate then return false end
+        if self:SetTamedCount(monsterId, math.min(before + 1,
+            math.max(1, math.floor(_GameData:GetBalance("skill_stack_max"))))) == false then return false end
+        self.MonsterLevels[monsterId] = before + 1
+        self:MarkSave("Run 몬스터 테이밍")
+        local monster = _GameData:GetMonster(monsterId)
+        self:ShowTameToast(monster.name, before + 1, pc.UserId)
+        return true
+    end
+
+    @ExecSpace("Client")
+    method void ShowTameToast(string monsterName, integer count)
+        local message = monsterName .. (count == 1 and "을(를) 동료로 획득했습니다. Lv.1"
+            or (" 중복 테이밍 · Lv." .. tostring(count)))
+        _SkillBar:ShowMetaToast(message)
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean UnlockPermanentSkill(string skillId)
+        local skill = _GameData:GetSkill(skillId)
+        if skill == nil or skill.source ~= "monster" or skill.slot_type ~= "monster"
+            or skill.skill_kind == "passive" then return false end
+        if self.PermanentSkillCollection[skillId] ~= nil then return false end
+        self.PermanentSkillCollection[skillId] = 1
+        self:MarkSave("영구 Skill Collection")
+        log("[PermanentSkill] unlocked=" .. skillId)
+        return true
+    end
+
+    method string GetMonsterLoadoutSkill(string monsterId, integer slot)
+        if slot < 1 or slot > 3 then return "" end
+        return self.MonsterSkillLoadouts[monsterId .. ":" .. tostring(slot)] or ""
+    end
+
+    @ExecSpace("Server")
+    method void RequestSetMonsterLoadout(string monsterId, integer slot, string skillId)
+        -- Rogue 동행은 MonsterTable의 자기 스킬만 사용한다. 과거 임의 3스킬
+        -- Loadout 요청은 데이터 호환을 위해 함수만 보존하고 실행하지 않는다.
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then return end
+        if senderUserId ~= self.Entity.PlayerComponent.UserId then return end
+        if _GameData.RogueRunActive or self.Entity.CurrentMap == nil
+            or self.Entity.CurrentMap.Name ~= "maptown" then return end
+        if self:GetTamedCount(monsterId) <= 0 or slot < 1 or slot > 3 then return end
+        if skillId == nil then skillId = "" end
+        if skillId ~= "" then
+            local skill = _GameData:GetSkill(skillId)
+            if self.PermanentSkillCollection[skillId] == nil or skill == nil
+                or skill.source ~= "monster" or skill.slot_type ~= "monster"
+                or skill.skill_kind == "passive" then return end
+            for i = 1, 3 do
+                if i ~= slot and self:GetMonsterLoadoutSkill(monsterId, i) == skillId then return end
+            end
+        end
+        local key = monsterId .. ":" .. tostring(slot)
+        if skillId == "" then self.MonsterSkillLoadouts[key] = nil
+        else self.MonsterSkillLoadouts[key] = skillId end
+        self:MarkSave("몬스터 스킬 장착")
+        log("[MonsterLoadout] monster=" .. monsterId .. " slot=" .. tostring(slot)
+            .. " skill=" .. skillId)
     end
 
     @ExecSpace("ServerOnly")
@@ -427,9 +605,16 @@ script PlayerCollection extends Component
 
     @ExecSpace("Server")
     method void RequestSetCompanion(string monsterId)
-        -- 신규 Run에서 숨긴 동행 기능은 서버 요청으로도 실행할 수 없다.
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            self:RequestEquipCompanion(1, monsterId)
+            return
+        end
         if senderUserId ~= self.Entity.PlayerComponent.UserId then return end
-        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then return end
+        -- 영구 Loadout/동행 선택은 로비에서만 가능하다. Run 중 교체를 막는다.
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            if _GameData.RogueRunActive or self.Entity.CurrentMap == nil
+                or self.Entity.CurrentMap.Name ~= "maptown" then return end
+        end
         if monsterId == nil then monsterId = "" end
 
         if monsterId ~= "" then
@@ -455,105 +640,175 @@ script PlayerCollection extends Component
         log("[Companion] 선택=" .. (monsterId == "" and "(없음)" or monsterId))
     end
 
+    @ExecSpace("Server")
+    method void RequestEquipCompanion(integer slot, string monsterId)
+        if senderUserId ~= self.Entity.PlayerComponent.UserId then return end
+        if slot < 1 or slot > 3 or _GameData.RogueRunActive
+            or self.Entity.CurrentMap == nil or self.Entity.CurrentMap.Name ~= "maptown" then return end
+        if monsterId == nil then monsterId = "" end
+        if monsterId ~= "" then
+            if _GameData:IsTameableMonster(monsterId) == false
+                or self:GetMonsterLevel(monsterId) <= 0 then return end
+            local monster = _GameData:GetMonster(monsterId)
+            if monster == nil or monster.companion_visual_ruid == "" then return end
+            for i = 1, 3 do
+                if i ~= slot and self:GetEquippedCompanion(i) == monsterId then return end
+            end
+        end
+        self.EquippedCompanions[tostring(slot)] = monsterId ~= "" and monsterId or nil
+        self:MarkSave("동행 편성")
+        log("[CompanionTeam] slot=" .. tostring(slot) .. " monster=" .. monsterId)
+    end
+
+    @ExecSpace("Server")
+    method void RequestEnhanceMonster(string monsterId)
+        if senderUserId ~= self.Entity.PlayerComponent.UserId then return end
+        if _GameData.RogueRunActive or self.Entity.CurrentMap == nil
+            or self.Entity.CurrentMap.Name ~= "maptown" then return end
+        if self:GetMonsterLevel(monsterId) <= 0 then return end
+        local stage = self:GetMonsterEnhance(monsterId)
+        if stage >= math.max(0, math.floor(_GameData:GetBalance("monster_enhance_cap"))) then return end
+        local cost = self:GetMonsterEnhanceCost(monsterId)
+        if self.MonsterGrowthCurrency < cost then return end
+        self.MonsterGrowthCurrency -= cost
+        self.MonsterEnhances[monsterId] = stage + 1
+        self:MarkSave("동행 강화")
+        log("[CompanionEnhance] monster=" .. monsterId .. " stage=" .. tostring(stage + 1)
+            .. " cost=" .. tostring(cost))
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean TryReserveCompanionSpecial()
+        local now = _UtilLogic.ElapsedSeconds
+        if now < self.NextCompanionSpecialAt then return false end
+        self.NextCompanionSpecialAt = now + math.max(0.1,
+            _GameData:GetBalance("companion_special_cast_spacing"))
+        return true
+    end
+
     @ExecSpace("ServerOnly")
     method void DestroyCompanion()
         if isvalid(self.CompanionEntity) then self.CompanionEntity:Destroy() end
         self.CompanionEntity = nil
+        for slot = 1, 3 do
+            local entity = self.CompanionEntities[slot]
+            if isvalid(entity) then entity:Destroy() end
+            self.CompanionEntities[slot] = nil
+        end
         self.companionMapName = ""
     end
 
     @ExecSpace("ServerOnly")
-    method void RefreshCompanion()
-        -- 기존 선택 기록은 지우지 않고 신규 모드의 월드 표현만 비활성화한다.
-        self:DestroyCompanion()
-        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then return end
-        local monsterId = self.SelectedCompanionMonsterId
-        if monsterId == "" or self:GetTamedCount(monsterId) <= 0 then return end
+    method void NotifyCompanionDefeated(string mapName, integer slot)
+        if slot < 1 or slot > 3 then return end
+        self.CompanionDefeatedMaps[slot] = mapName
+        self.CompanionEntities[slot] = nil
+        log("[Companion] slot=" .. tostring(slot) .. " 다음 안전 전환까지 소환 보류 map=" .. mapName)
+    end
 
-        local monster = _GameData:GetMonster(monsterId)
+    @ExecSpace("ServerOnly")
+    method void RefreshCompanion()
+        self:DestroyCompanion()
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+            local pc = self.Entity.PlayerComponent
+            if _GameData.RogueRunActive == false or not isvalid(pc)
+                or _GameData:IsRunParticipant(pc.UserId) == false then return end
+        end
         local map = self.Entity.CurrentMap
         local playerTransform = self.Entity.TransformComponent
-        if monster == nil or monster.companion_visual_ruid == ""
-            or map == nil or not isvalid(playerTransform) then return end
-
+        if map == nil or map.Name == "maptown" or not isvalid(playerTransform) then return end
         local p = playerTransform.WorldPosition
-        local at = Vector3(p.x + self.companionOffset.x, p.y + self.companionOffset.y, p.z)
-        local name = "Companion_" .. tostring(self.Entity.PlayerComponent.UserId)
-        local entity = _SpawnService:SpawnByModelId(self.companionModelId, name, at, map)
-        if entity == nil then
-            log_error("[Companion] 모델 스폰 실패: " .. self.companionModelId)
-            return
+        local radius = math.max(0.5, _GameData:GetBalance("companion_formation_radius"))
+        for slot = 1, 3 do
+            local monsterId = self:GetEquippedCompanion(slot)
+            if monsterId ~= "" and self:GetMonsterLevel(monsterId) > 0
+                and self.CompanionDefeatedMaps[slot] ~= map.Name then
+                local monster = _GameData:GetMonster(monsterId)
+                if monster ~= nil and monster.companion_visual_ruid ~= "" then
+                    local angle = (slot - 1) * math.pi * 2 / 3
+                    local at = Vector3(p.x + math.cos(angle) * radius,
+                        p.y + math.sin(angle) * radius, p.z)
+                    local name = "Companion_" .. tostring(self.Entity.PlayerComponent.UserId)
+                        .. "_" .. tostring(slot)
+                    local entity = _SpawnService:SpawnByModelId(self.companionModelId, name, at, map)
+                    if entity ~= nil and isvalid(entity.SpriteRendererComponent) then
+                        entity.SpriteRendererComponent.SpriteRUID = monster.companion_visual_ruid
+                        entity.SpriteRendererComponent.PlayRate = 1
+                        entity.TransformComponent.Scale = Vector3(0.75, 0.75, 1)
+                        local combat = entity:GetComponent("script.CompanionCombat")
+                        if combat ~= nil then
+                            combat:Configure(self.Entity.PlayerComponent.UserId, monsterId,
+                                self:GetMonsterLevel(monsterId), self:GetMonsterEnhance(monsterId), slot)
+                            self.CompanionEntities[slot] = entity
+                            log("[Companion] slot=" .. tostring(slot) .. " monster=" .. monsterId
+                                .. " map=" .. map.Name)
+                        else
+                            entity:Destroy()
+                            log_error("[Companion] CompanionCombat 모델 연결 없음")
+                        end
+                    elseif entity ~= nil then entity:Destroy() end
+                end
+            end
         end
-
-        local sprite = entity.SpriteRendererComponent
-        if not isvalid(sprite) then
-            entity:Destroy()
-            log_error("[Companion] SpriteRendererComponent 없음")
-            return
-        end
-        sprite.SpriteRUID = monster.companion_visual_ruid
-        sprite.PlayRate = 1
-        entity.TransformComponent.Scale = Vector3(0.75, 0.75, 1)
-
-        self.CompanionEntity = entity
         self.companionMapName = map.Name
-        log("[Companion] 생성 monster_id=" .. monsterId .. " map=" .. map.Name
-            .. " combat_components=none")
     end
 
     @ExecSpace("ServerOnly")
     method void OnUpdate(number delta)
-        -- 매 프레임 동기화하지 않고 10Hz 기본값으로 제한한다.
-        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
-            if isvalid(self.CompanionEntity) then self:DestroyCompanion() end
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5
+            and (_GameData.RogueRunActive == false
+                or _GameData:IsRunParticipant(self.Entity.PlayerComponent.UserId) == false) then
+            if self.companionMapName ~= "" then self:DestroyCompanion() end
+            self.CompanionDefeatedMaps = {}
             return
         end
         self.companionTickLeft -= delta
         if self.companionTickLeft > 0 then return end
         self.companionTickLeft = self.companionUpdateInterval
-
         local map = self.Entity.CurrentMap
-        if self.SelectedCompanionMonsterId == "" then
-            if isvalid(self.CompanionEntity) then self:DestroyCompanion() end
-            return
-        end
         if map == nil then
             self:DestroyCompanion()
             return
         end
-
-        -- 맵 이동 또는 외부 파괴를 감지하면 옛 엔티티를 없애고 정확히 하나만 다시 만든다.
-        if not isvalid(self.CompanionEntity) or self.companionMapName ~= map.Name then
+        if map.Name == "maptown" then
+            if self.companionMapName ~= "" then self:DestroyCompanion() end
+            return
+        end
+        if self.companionMapName ~= map.Name then
+            self.CompanionDefeatedMaps = {}
             self:RefreshCompanion()
             return
         end
-
         local playerTransform = self.Entity.TransformComponent
-        local companionTransform = self.CompanionEntity.TransformComponent
-        if not isvalid(playerTransform) or not isvalid(companionTransform) then return end
-
+        if not isvalid(playerTransform) then return end
         local p = playerTransform.WorldPosition
-        local c = companionTransform.WorldPosition
-        local targetX = p.x + self.companionOffset.x
-        local targetY = p.y + self.companionOffset.y
-        local dx = targetX - c.x
-        local dy = targetY - c.y
-        local distanceSq = dx * dx + dy * dy
-        local teleportSq = self.companionTeleportDistance * self.companionTeleportDistance
-
-        if distanceSq >= teleportSq then
-            companionTransform.WorldPosition = Vector3(targetX, targetY, p.z)
-            return
+        local radius = math.max(0.5, _GameData:GetBalance("companion_formation_radius"))
+        for slot = 1, 3 do
+            local entity = self.CompanionEntities[slot]
+            if isvalid(entity) then
+                local combat = entity:GetComponent("script.CompanionCombat")
+                local body = entity.KinematicbodyComponent
+                if not isvalid(body) then continue end
+                if combat ~= nil and (combat.HasCombatTarget
+                    or _UtilLogic.ElapsedSeconds < combat.DashUntil) then continue end
+                local c = entity.TransformComponent.WorldPosition
+                local angle = (slot - 1) * math.pi * 2 / 3
+                local targetX = p.x + math.cos(angle) * radius
+                local targetY = p.y + math.sin(angle) * radius
+                local dx, dy = targetX - c.x, targetY - c.y
+                local distanceSq = dx * dx + dy * dy
+                if distanceSq >= self.companionTeleportDistance ^ 2 then
+                    body:SetWorldPosition(Vector2(targetX, targetY))
+                    body.MoveVelocity = Vector2(0, 0)
+                elseif distanceSq > 0.04 then
+                    local distance = math.sqrt(distanceSq)
+                    body.MoveVelocity = Vector2(dx / distance * self.companionFollowSpeed,
+                        dy / distance * self.companionFollowSpeed)
+                else body.MoveVelocity = Vector2(0, 0) end
+                local sprite = entity.SpriteRendererComponent
+                if isvalid(sprite) and math.abs(dx) > 0.05 then sprite.FlipX = dx > 0 end
+            end
         end
-        if distanceSq <= 0.0025 then return end
-
-        local distance = math.sqrt(distanceSq)
-        local step = self.companionFollowSpeed * self.companionUpdateInterval
-        if step > distance then step = distance end
-        companionTransform.WorldPosition = Vector3(c.x + dx / distance * step, c.y + dy / distance * step, p.z)
-
-        local sprite = self.CompanionEntity.SpriteRendererComponent
-        if isvalid(sprite) and math.abs(dx) > 0.05 then sprite.FlipX = dx > 0 end
     end
 
     @ExecSpace("ServerOnly")

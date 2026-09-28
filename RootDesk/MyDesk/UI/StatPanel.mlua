@@ -85,6 +85,23 @@ script StatPanel extends Logic
 
     -- 표시 갱신 주기(초). @TargetUserSync 값 7개를 읽는 것뿐이라 비용은 무시할 만하다.
     property number refreshInterval = 0.2
+    property boolean newModeHidden = false
+
+    @ExecSpace("ClientOnly")
+    method void OnUpdate(number delta)
+        if self.newModeHidden or _GameData:GetBalance("roguelite_run_mode_enabled") < 0.5 then return end
+        self.isOpen = false
+        self.detailOpen = false
+        self.windowRoot.Entity.Enable = false
+        self.windowRoot.Entity:SetVisible(false)
+        if isvalid(self.detailRoot) then
+            self.detailRoot.Entity.Enable = false
+            self.detailRoot.Entity:SetVisible(false)
+        end
+        self.btnOpen.Entity.Enable = false
+        self.btnOpen.Entity:SetVisible(false)
+        self.newModeHidden = true
+    end
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
@@ -97,6 +114,9 @@ script StatPanel extends Logic
             if isvalid(self.windowRoot) then self.windowRoot.Entity.Enable = false end
             if isvalid(self.detailRoot) then self.detailRoot.Entity.Enable = false end
             if isvalid(self.btnOpen) then self.btnOpen.Entity.Enable = false end
+            self.windowRoot.Entity:SetVisible(false)
+            self.btnOpen.Entity:SetVisible(false)
+            self.newModeHidden = true
             return
         end
         -- 상세 UI 바인딩 하나가 깨져도 기본 창의 닫기/열기 기능은 먼저 살린다.

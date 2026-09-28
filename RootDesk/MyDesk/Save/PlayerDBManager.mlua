@@ -36,6 +36,7 @@ script PlayerDBManager extends Component
     property boolean RogueStorageMode = false
     property boolean StorageWriteBlocked = false
     property table RogueSavedPayload = {}
+    property boolean RogueWriteBusy = false
 
     -- 로드가 끝나기 전에는 절대 저장하지 않는다. 이 게이트가 없으면
     -- 로드 실패 시 기본값(Lv1·빈 컬렉션)으로 저장을 덮어써 세이브가 날아간다.
@@ -408,6 +409,33 @@ script PlayerDBManager extends Component
                     collection.RogueDiscoveredAbilities[skillId] = 1
                 end
             end
+
+            for _, skillId in ipairs(_GameData:GetAllSkillIds()) do
+                collection.PermanentSkillCollection[skillId] = nil
+            end
+            local permanentSkills = perm.roguelite_permanent_skills
+            if type(permanentSkills) ~= "table" then permanentSkills = {} end
+            for skillId, owned in pairs(permanentSkills) do
+                local skill = _GameData:GetSkill(skillId)
+                if owned and skill ~= nil and skill.source == "monster"
+                    and skill.slot_type == "monster" and skill.skill_kind ~= "passive" then
+                    collection.PermanentSkillCollection[skillId] = 1
+                end
+            end
+            for _, monsterId in ipairs(_GameData:GetTameableMonsterIds()) do
+                for slot = 1, 3 do
+                    collection.MonsterSkillLoadouts[monsterId .. ":" .. tostring(slot)] = nil
+                end
+            end
+            local savedLoadouts = perm.roguelite_monster_loadouts
+            if type(savedLoadouts) ~= "table" then savedLoadouts = {} end
+            for key, skillId in pairs(savedLoadouts) do
+                local monsterId = string.match(key, "^(.+):[123]$")
+                if monsterId ~= nil and collection:GetTamedCount(monsterId) > 0
+                    and collection.PermanentSkillCollection[skillId] ~= nil then
+                    collection.MonsterSkillLoadouts[key] = skillId
+                end
+            end
         end
 
         if type(perm.roguelite_area_clears) == "table" then self.RogueAreaClears = perm.roguelite_area_clears else self.RogueAreaClears = {} end
@@ -696,6 +724,7 @@ script PlayerDBManager extends Component
     method void SaveToDB(boolean isLeaving, string reason)
         if self.IsLoadSuccess == false then return end
         if self.StorageWriteBlocked or self:ValidateStorageData() == false then return end
+        if self.RogueStorageMode and self.RogueWriteBusy then return end
 
         -- saveData / savedGenerations는 **지역 변수**다. 저장 두 개가 동시에
         -- 떠 있어도(퇴장 저장이 진행 중인 비동기 저장과 겹칠 때) 각자 자기
@@ -730,7 +759,19 @@ script PlayerDBManager extends Component
         local profileCode = self.Entity.PlayerComponent.ProfileCode
         local ds = _DataStorageService:GetUserDataStorage(profileCode)
 
-        if isLeaving then
+        if self.RogueStorageMode then
+            -- 영구 경제 원장은 하나의 키에 순서대로 저장한다. 구매/코어 사용과
+            -- 과거 비동기 스냅샷이 경쟁해 지급 내역을 되돌리는 일을 막는다.
+            self.RogueWriteBusy = true
+            local code, successKeys = ds:BatchSetAndWait(saveData)
+            self.RogueWriteBusy = false
+            self:OnSavedToDB(successKeys, savedGens)
+            if code ~= 0 then
+                log_error("[PlayerDB] Rogue 영구 저장 실패 ErrorCode=" .. tostring(code))
+            elseif self.permDirty then
+                self:RequestSave("Rogue 저장 중 변경 재시도")
+            end
+        elseif isLeaving then
             local code, successKeys = ds:BatchSetAndWait(saveData)
             self:OnSavedToDB(successKeys, savedGens)
             if code ~= 0 then
@@ -750,6 +791,49 @@ script PlayerDBManager extends Component
                 end
             end)
         end
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean IsRogueEconomyReady()
+        return self.RogueStorageMode and self.IsLoadSuccess
+            and self.StorageWriteBlocked == false and self.RogueWriteBusy == false
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean SaveRogueEconomyNow(string reason)
+        if self:IsRogueEconomyReady() == false or self:ValidateStorageData() == false then return false end
+        self.RogueWriteBusy = true
+        local function copyTable(source)
+            local result = {}
+            for key, value in pairs(source) do
+                result[key] = type(value) == "table" and copyTable(value) or value
+            end
+            return result
+        end
+        local previousPayload = copyTable(self.RogueSavedPayload)
+        local ok, encoded = pcall(function()
+            return _HttpService:JSONEncode(self:GatherRogueliteRecords())
+        end)
+        if ok == false then
+            self.RogueSavedPayload = previousPayload
+            self.RogueWriteBusy = false
+            log_error("[PlayerDB] 경제 직렬화 실패: " .. reason)
+            return false
+        end
+        local gen = self.permGen
+        local ds = _DataStorageService:GetUserDataStorage(self.Entity.PlayerComponent.ProfileCode)
+        local code = ds:SetAndWait(self.KeyRogue, encoded)
+        self.RogueWriteBusy = false
+        if code ~= 0 then
+            self.RogueSavedPayload = previousPayload
+            log_error("[PlayerDB] 경제 저장 실패 ErrorCode=" .. tostring(code) .. " reason=" .. reason)
+            return false
+        end
+        if gen == self.permGen then self.permDirty = false end
+        self.lastSaveAt = _UtilLogic.ElapsedSeconds
+        if self.permDirty then self:RequestSave("경제 저장 중 변경 재시도") end
+        log("[PlayerDB] 경제 저장 완료: " .. reason)
+        return true
     end
 
     -- successKeys의 타입이 table이 아니라 any인 이유: BatchSet*이 돌려주는 값은
@@ -808,18 +892,24 @@ script PlayerDBManager extends Component
             if decoded.RoguelitePermanent == nil then return {} end
             if type(decoded.RoguelitePermanent) ~= "table" then return nil end
             decoded = decoded.RoguelitePermanent
-            if decoded.schema_version ~= nil and decoded.schema_version ~= 1 then return nil end
-        elseif decoded.schema_version ~= 1 then
+            if decoded.schema_version ~= nil and decoded.schema_version ~= 1
+                and decoded.schema_version ~= 2 and decoded.schema_version ~= 3
+                and decoded.schema_version ~= 4 then return nil end
+        elseif decoded.schema_version ~= 1 and decoded.schema_version ~= 2
+            and decoded.schema_version ~= 3 and decoded.schema_version ~= 4 then
             return nil
         end
+        local migrate = (decoded.schema_version or 1) < 4
         if self:ValidateRogueliteRecord(decoded) == false then return nil end
+        if migrate then decoded._needs_migration_save = true end
         return decoded
     end
 
     @ExecSpace("ServerOnly")
     method boolean ValidateRogueliteRecord(table payload)
         -- 누락 필드만 기본값으로 채운다. 잘못된 타입/미래 schema는 자동 덮어쓰지 않는다.
-        for _, field in ipairs({"discovered_monsters", "discovered_abilities", "area_clears", "optional_encounters", "settings"}) do
+        local oldSchema = payload.schema_version or 1
+        for _, field in ipairs({"discovered_monsters", "discovered_abilities", "area_clears", "optional_encounters", "settings", "tamed_monsters", "permanent_skills", "monster_loadouts", "monster_levels", "monster_enhances", "equipped_companions", "purchase_receipts", "purchase_limits", "purchase_receipt_order"}) do
             if payload[field] ~= nil and type(payload[field]) ~= "table" then return false end
             if payload[field] == nil then payload[field] = {} end
         end
@@ -833,8 +923,66 @@ script PlayerDBManager extends Component
             if type(id) ~= "string" or type(count) ~= "number" then return false end
             if count ~= count or count < 0 or count >= math.huge or count ~= math.floor(count) then return false end
         end
+        for id, count in pairs(payload.tamed_monsters) do
+            if type(id) ~= "string" or type(count) ~= "number"
+                or count ~= count or count < 0 or count > 5 or count ~= math.floor(count) then return false end
+        end
+        for id, owned in pairs(payload.permanent_skills) do
+            if type(id) ~= "string" or (owned ~= 1 and owned ~= true) then return false end
+        end
+        for key, skillId in pairs(payload.monster_loadouts) do
+            if type(key) ~= "string" or type(skillId) ~= "string" then return false end
+        end
+        for id, level in pairs(payload.monster_levels) do
+            if type(id) ~= "string" or type(level) ~= "number" or level ~= math.floor(level)
+                or level < 0 or level >= math.huge then return false end
+        end
+        for id, stage in pairs(payload.monster_enhances) do
+            if type(id) ~= "string" or type(stage) ~= "number" or stage ~= math.floor(stage)
+                or stage < 0 or stage >= math.huge then return false end
+        end
+        for id, count in pairs(payload.tamed_monsters) do
+            if count > 0 and (payload.monster_levels[id] == nil
+                or payload.monster_levels[id] == 0) then payload.monster_levels[id] = count end
+        end
+        if payload.monster_growth_currency ~= nil and (type(payload.monster_growth_currency) ~= "number"
+            or payload.monster_growth_currency < 0 or payload.monster_growth_currency ~= math.floor(payload.monster_growth_currency)) then return false end
+        payload.monster_growth_currency = payload.monster_growth_currency or 0
+        for _, field in ipairs({"growth_core", "monster_selection_tickets"}) do
+            local value = payload[field]
+            if value ~= nil and (type(value) ~= "number" or value ~= math.floor(value)
+                or value < 0 or value >= math.huge) then return false end
+            payload[field] = value or 0
+        end
+        for purchaseId, marker in pairs(payload.purchase_receipts) do
+            if type(purchaseId) ~= "string" or type(marker) ~= "string" then return false end
+        end
+        for key, count in pairs(payload.purchase_limits) do
+            if type(key) ~= "string" or type(count) ~= "number" or count < 0
+                or count ~= math.floor(count) then return false end
+        end
+        if #payload.purchase_receipt_order > 256 then return false end
+        for _, purchaseId in ipairs(payload.purchase_receipt_order) do
+            if type(purchaseId) ~= "string" then return false end
+        end
+        local chosen = {}
+        for slot, id in pairs(payload.equipped_companions) do
+            if (slot ~= "1" and slot ~= "2" and slot ~= "3") or type(id) ~= "string"
+                or chosen[id] then return false end
+            chosen[id] = true
+        end
+        if payload.selected_companion ~= nil and type(payload.selected_companion) ~= "string" then return false end
+        if payload.selected_companion == nil then payload.selected_companion = "" end
         if payload.settings.key_order ~= nil and type(payload.settings.key_order) ~= "string" then return false end
-        payload.schema_version = 1
+        if oldSchema < 3 then
+            if payload.selected_companion ~= ""
+                and payload.equipped_companions["1"] == nil
+                and payload.equipped_companions["2"] ~= payload.selected_companion
+                and payload.equipped_companions["3"] ~= payload.selected_companion then
+                payload.equipped_companions["1"] = payload.selected_companion
+            end
+        end
+        payload.schema_version = 4
         return true
     end
 
@@ -862,7 +1010,7 @@ script PlayerDBManager extends Component
                 log_error("[PlayerDB] 레거시 로그라이트 기록 읽기 실패 — 원본 보존")
                 return
             end
-            if legacy.schema_version == 1 then
+            if legacy.schema_version == 4 then
                 payload = legacy
                 self.permDirty = true
                 self.permGen += 1
@@ -873,7 +1021,12 @@ script PlayerDBManager extends Component
             log_error("[PlayerDB] 로그라이트 저장 필드 불일치 — 원본 보존")
             return
         end
-        payload.schema_version = 1
+        if payload._needs_migration_save then
+            payload._needs_migration_save = nil
+            self.permDirty = true
+            self.permGen += 1
+        end
+        payload.schema_version = 4
         self.RogueSavedPayload = payload
         self.RogueAreaClears = payload.area_clears
         self.RogueOptionalEncounters = payload.optional_encounters
@@ -892,6 +1045,56 @@ script PlayerDBManager extends Component
         for id, value in pairs(payload.discovered_abilities) do
             if (value == true or value == 1) and _GameData:GetSkill(id) ~= nil then collection.RogueDiscoveredAbilities[id] = 1 end
         end
+        for _, monsterId in ipairs(_GameData:GetTameableMonsterIds()) do
+            collection:SetTamedCount(monsterId, 0)
+        end
+        for monsterId, count in pairs(payload.tamed_monsters) do
+            if _GameData:IsTameableMonster(monsterId) then collection:SetTamedCount(monsterId, count) end
+        end
+        collection.MonsterGrowthCurrency = payload.monster_growth_currency
+        collection.MonsterGrowthCore = payload.growth_core
+        collection.MonsterSelectionTickets = payload.monster_selection_tickets
+        for _, monsterId in ipairs(_GameData:GetTameableMonsterIds()) do
+            collection.MonsterLevels[monsterId] = nil
+            collection.MonsterEnhances[monsterId] = nil
+        end
+        for monsterId, level in pairs(payload.monster_levels) do
+            if collection:GetTamedCount(monsterId) > 0 then
+                collection.MonsterLevels[monsterId] = level
+            end
+        end
+        for monsterId, stage in pairs(payload.monster_enhances) do
+            if collection:GetTamedCount(monsterId) > 0 then
+                collection.MonsterEnhances[monsterId] = stage
+            end
+        end
+        for _, skillId in ipairs(_GameData:GetAllSkillIds()) do
+            collection.PermanentSkillCollection[skillId] = nil
+        end
+        for skillId, owned in pairs(payload.permanent_skills) do
+            local skill = _GameData:GetSkill(skillId)
+            if (owned == true or owned == 1) and skill ~= nil and skill.source == "monster"
+                and skill.slot_type == "monster" and skill.skill_kind ~= "passive" then
+                collection.PermanentSkillCollection[skillId] = 1
+            end
+        end
+        for _, monsterId in ipairs(_GameData:GetTameableMonsterIds()) do
+            for slot = 1, 3 do collection.MonsterSkillLoadouts[monsterId .. ":" .. tostring(slot)] = nil end
+        end
+        for key, skillId in pairs(payload.monster_loadouts) do
+            local monsterId = string.match(key, "^(.+):[123]$")
+            if monsterId ~= nil and collection:GetTamedCount(monsterId) > 0
+                and collection.PermanentSkillCollection[skillId] ~= nil then
+                collection.MonsterSkillLoadouts[key] = skillId
+            end
+        end
+        for slot = 1, 3 do
+            local key = tostring(slot)
+            local id = payload.equipped_companions[key] or ""
+            collection.EquippedCompanions[key] = id ~= "" and collection:GetMonsterLevel(id) > 0
+                and id or nil
+        end
+        collection.SelectedCompanionMonsterId = collection:GetEquippedCompanion(1)
         self.IsLoadSuccess = true
         self.roomRestored = true
         log("[PlayerDB] 로그라이트 전용 로드 완료 key=" .. self.KeyRogue .. " legacyWrites=false")
@@ -908,6 +1111,33 @@ script PlayerDBManager extends Component
         end
         for _, id in ipairs(_GameData:GetAllSkillIds()) do
             if collection ~= nil and collection.RogueDiscoveredAbilities[id] ~= nil then payload.discovered_abilities[id] = 1 end
+        end
+        if collection ~= nil then
+            for _, monsterId in ipairs(_GameData:GetTameableMonsterIds()) do
+                local count = collection:GetTamedCount(monsterId)
+                if count > 0 then payload.tamed_monsters[monsterId] = count end
+                local level = collection.MonsterLevels[monsterId] or count
+                if level > 0 then payload.monster_levels[monsterId] = level end
+                local enhance = collection.MonsterEnhances[monsterId] or 0
+                if enhance > 0 then payload.monster_enhances[monsterId] = enhance end
+                for slot = 1, 3 do
+                    local key = monsterId .. ":" .. tostring(slot)
+                    local skillId = collection:GetMonsterLoadoutSkill(monsterId, slot)
+                    if skillId ~= "" then payload.monster_loadouts[key] = skillId end
+                end
+            end
+            for _, skillId in ipairs(_GameData:GetAllSkillIds()) do
+                if collection.PermanentSkillCollection[skillId] ~= nil then payload.permanent_skills[skillId] = 1 end
+            end
+            payload.monster_growth_currency = collection.MonsterGrowthCurrency
+            payload.growth_core = collection.MonsterGrowthCore
+            payload.monster_selection_tickets = collection.MonsterSelectionTickets
+            for slot = 1, 3 do
+                local id = collection:GetEquippedCompanion(slot)
+                payload.equipped_companions[tostring(slot)] = id ~= "" and id or nil
+            end
+            -- 과거 selected_companion/monster_loadouts는 payload 그대로 보존하지만
+            -- 신규 로직에서 다시 쓰거나 성장에 연결하지 않는다.
         end
         payload.area_clears = self.RogueAreaClears
         payload.optional_encounters = self.RogueOptionalEncounters
@@ -1001,6 +1231,28 @@ script PlayerDBManager extends Component
                 end
             end
             perm.roguelite_discovered_abilities = discoveredAbilities
+
+            local permanentSkills = {}
+            for _, skillId in ipairs(_GameData:GetAllSkillIds()) do
+                if collection.PermanentSkillCollection[skillId] ~= nil then
+                    permanentSkills[skillId] = 1
+                end
+            end
+            perm.roguelite_permanent_skills = permanentSkills
+
+            local loadouts = {}
+            for _, monsterId in ipairs(_GameData:GetTameableMonsterIds()) do
+                if collection:GetTamedCount(monsterId) > 0 then
+                    for slot = 1, 3 do
+                        local key = monsterId .. ":" .. tostring(slot)
+                        local skillId = collection.MonsterSkillLoadouts[key]
+                        if skillId ~= nil and collection.PermanentSkillCollection[skillId] ~= nil then
+                            loadouts[key] = skillId
+                        end
+                    end
+                end
+            end
+            perm.roguelite_monster_loadouts = loadouts
         end
 
         perm.roguelite_area_clears = self.RogueAreaClears

@@ -1,0 +1,403 @@
+-- Run 전용 동행 전투. 피해·대상·재사용 제한은 서버에서 결정한다.
+-- 플레이어의 Random SkillBar와 별개로 MonsterTable의 자기 스킬 한 개만 쓴다.
+@Component
+script CompanionCombat extends AttackComponent
+
+    @Sync property string OwnerUserId = ""
+    @Sync property string MonsterId = ""
+    @Sync property integer GrowthStage = 1
+    @Sync property integer EnhanceStage = 0
+    @Sync property integer SlotIndex = 1
+    @Sync property number MaxHp = 1
+    @Sync property number Hp = 1
+    @Sync property boolean IsDefeated = false
+    property string Skill1 = ""
+    property boolean HasCombatTarget = false
+    property table SkillReadyAt = {}
+    property number NextBasicAt = 0
+    property number NextDecisionAt = 0
+    property number DashUntil = 0
+    property number ShieldRatio = 0
+    property number ShieldUntil = 0
+    property number AttackBoostRatio = 0
+    property number AttackBoostUntil = 0
+    property boolean Limited = false
+    property integer HitBudget = 0
+    property string Behavior = ""
+    property Vector3 CastOrigin = Vector3(0, 0, 0)
+    property Vector2 CastDirection = Vector2(1, 0)
+    property number ConeDegrees = 0
+    property Entity BasicTarget = nil
+
+    @ExecSpace("ServerOnly")
+    method void Configure(string userId, string monsterId, integer stage,
+        integer enhance, integer slot)
+        self.OwnerUserId = userId
+        self.MonsterId = monsterId
+        self.GrowthStage = math.max(1, stage)
+        self.EnhanceStage = math.max(0, enhance)
+        self.SlotIndex = slot
+        local monster = _GameData:GetMonster(monsterId)
+        local skill = monster ~= nil and _GameData:GetSkill(monster.drop_skill_id) or nil
+        if skill ~= nil and skill.source == "monster" and skill.slot_type == "monster"
+            and skill.skill_kind ~= "passive" then self.Skill1 = skill.id
+        else self.Skill1 = "" end
+        self.SkillReadyAt = {}
+        local baseHp = _GameData:GetBalance("companion_base_hp")
+        if baseHp <= 0 then baseHp = 250 end
+        self.MaxHp = math.floor(baseHp *
+            (1 + (self.GrowthStage - 1) * _GameData:GetBalance("companion_growth_hp_per_stage")
+                + self.EnhanceStage * _GameData:GetBalance("monster_enhance_hp_per_stage")) + 0.5)
+        self.Hp = self.MaxHp
+        self.IsDefeated = false
+        log("[CompanionCombat] owner=" .. userId .. " monster=" .. monsterId
+            .. " stage=" .. tostring(stage) .. " HP=" .. tostring(self.MaxHp)
+            .. " skill=" .. self.Skill1 .. " enhance=" .. tostring(enhance))
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean IsOwnerActive()
+        if self.OwnerUserId == "" or self.IsDefeated or not _GameData.RogueRunActive
+            or _GameData:IsRunParticipant(self.OwnerUserId) == false then return false end
+        local owner = _UserService:GetUserEntityByUserId(self.OwnerUserId)
+        return isvalid(owner) and isvalid(owner.PlayerComponent)
+            and owner.PlayerComponent:IsDead() == false
+            and owner.CurrentMap == self.Entity.CurrentMap
+    end
+
+    @ExecSpace("ServerOnly")
+    method table FindTarget(number radius)
+        local map = self.Entity.CurrentMap
+        local spawner = map ~= nil and map:GetComponent("script.RoomSpawner") or nil
+        if spawner == nil then return nil end
+        local from = self.Entity.TransformComponent.WorldPosition
+        local owner = _UserService:GetUserEntityByUserId(self.OwnerUserId)
+        if not isvalid(owner) then return nil end
+        local ownerPosition = owner.TransformComponent.WorldPosition
+        local participationRadius = _GameData:GetBalance("run_participation_radius")
+        if participationRadius <= 0 then participationRadius = 12 end
+        -- 동행이 주인과 무관한 먼 전투를 시작해 보상 자격 밖에서 막타를
+        -- 가져가지 않도록, 서버의 기존 참가 반경 안에서만 목표를 잡는다.
+        local ownerRadiusSq = math.max(2, participationRadius - 2) ^ 2
+        local best = nil
+        local bestDist = radius * radius
+        local nearby = 0
+        for i = 1, #spawner.spawned do
+            local enemy = spawner.spawned[i]
+            if isvalid(enemy) then
+                local monster = enemy:GetComponent("script.RoomMonster")
+                if monster ~= nil and monster.IsDead == false then
+                    local p = enemy.TransformComponent.WorldPosition
+                    local dx, dy = p.x - from.x, p.y - from.y
+                    local d = dx * dx + dy * dy
+                    local ownerDx, ownerDy = p.x - ownerPosition.x, p.y - ownerPosition.y
+                    if d <= radius * radius
+                        and ownerDx * ownerDx + ownerDy * ownerDy <= ownerRadiusSq then
+                        nearby += 1
+                        if best == nil or d < bestDist then best, bestDist = enemy, d end
+                    end
+                end
+            end
+        end
+        if best == nil then return nil end
+        return {entity = best, distance = math.sqrt(bestDist), nearby = nearby}
+    end
+
+    @ExecSpace("ServerOnly")
+    method void OnUpdate(number delta)
+        if self:IsOwnerActive() == false then
+            self.HasCombatTarget = false
+            if isvalid(self.Entity.KinematicbodyComponent) then
+                self.Entity.KinematicbodyComponent.MoveVelocity = Vector2(0, 0)
+            end
+            return
+        end
+        local now = _UtilLogic.ElapsedSeconds
+        if now < self.NextDecisionAt then return end
+        self.NextDecisionAt = now + 0.2
+        local target = self:FindTarget(math.max(2, _GameData:GetBalance("companion_engage_radius")))
+        self.HasCombatTarget = target ~= nil
+        local body = self.Entity.KinematicbodyComponent
+        if target == nil then
+            if isvalid(body) then body.MoveVelocity = Vector2(0, 0) end
+            return
+        end
+
+        local skillId = self.Skill1
+        local ownSkill = skillId ~= "" and _GameData:GetSkill(skillId) or nil
+        if skillId ~= "" and now >= (self.SkillReadyAt[skillId] or 0) then
+            local skill = ownSkill
+            if skill ~= nil and self:ShouldUseSkill(skill, target) then
+                local owner = _UserService:GetUserEntityByUserId(self.OwnerUserId)
+                local collection = isvalid(owner) and owner:GetComponent("script.PlayerCollection") or nil
+                if collection ~= nil and collection:TryReserveCompanionSpecial() then
+                    if isvalid(body) then body.MoveVelocity = Vector2(0, 0) end
+                    if self:UseEquippedSkill(skill, target) then
+                        local cooldown = skill.cooldown
+                        if cooldown == nil or cooldown <= 0 then
+                            cooldown = _GameData:GetBalance("run_skill_cooldown_fallback")
+                        end
+                        self.SkillReadyAt[skillId] = now + math.max(0.5, cooldown)
+                        return
+                    end
+                end
+            end
+        end
+
+        local basicRange = _GameData:GetBalance("companion_basic_attack_range")
+        if basicRange <= 0 then basicRange = 1.5 end
+        if isvalid(body) then
+            local ranged = ownSkill ~= nil and ownSkill.projectile_ruid ~= ""
+            local preferred = basicRange * 0.85
+            if ranged then preferred = math.min(4, math.max(2.2, ownSkill.range * 0.6)) end
+            if now >= self.DashUntil and (target.distance > preferred + 0.25
+                or (ranged and target.distance < preferred - 0.8)) then
+                local from = self.Entity.TransformComponent.WorldPosition
+                local to = target.entity.TransformComponent.WorldPosition
+                local angle = (self.SlotIndex - 1) * math.pi * 2 / 3
+                local dx = to.x + math.cos(angle) * 0.45 - from.x
+                local dy = to.y + math.sin(angle) * 0.45 - from.y
+                local dist = math.max(0.01, math.sqrt(dx * dx + dy * dy))
+                local direction = ranged and target.distance < preferred - 0.8 and -1 or 1
+                body.MoveVelocity = Vector2(dx / dist * 3 * direction,
+                    dy / dist * 3 * direction)
+            else body.MoveVelocity = Vector2(0, 0) end
+        end
+
+        local interval = _GameData:GetBalance("companion_basic_attack_interval")
+        if interval <= 0 then interval = 1 end
+        if now >= self.NextBasicAt and target.distance <= basicRange then
+            local from = self.Entity.TransformComponent.WorldPosition
+            self.BasicTarget = target.entity
+            self:AttackFast(CircleShape(Vector2(from.x, from.y + 0.5), basicRange),
+                nil, CollisionGroups.Monster)
+            self.BasicTarget = nil
+            self.NextBasicAt = now + interval
+            log("[CompanionBasic] owner=" .. self.OwnerUserId .. " monster=" .. self.MonsterId)
+        end
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean ShouldUseSkill(table skill, table target)
+        local kind = skill.skill_kind
+        if kind == "passive" then return false end
+        if kind == "defense" or skill.behavior == "SHIELD" then
+            return self.Hp <= self.MaxHp * 0.65 and _UtilLogic.ElapsedSeconds >= self.ShieldUntil
+        end
+        if kind == "buff" or skill.behavior == "BUFF" then
+            return _UtilLogic.ElapsedSeconds >= self.AttackBoostUntil
+        end
+        if skill.dash_distance > 0 or skill.behavior == "DASH_STRIKE" then
+            return target.distance > 1.2 and target.distance <= math.max(2, skill.dash_distance + 1)
+        end
+        local range = math.max(1.5, skill.range)
+        if skill.projectile_ruid ~= "" then return target.distance <= range and target.distance >= 0.7 end
+        if skill.behavior == "DAMAGE_ZONE" or skill.behavior == "DELAYED_BLAST" then
+            return target.distance <= range and target.nearby >= 2
+        end
+        return target.distance <= range
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean UseEquippedSkill(table skill, table target)
+        if self:IsOwnerActive() == false then return false end
+        local map = self.Entity.CurrentMap
+        local from = self.Entity.TransformComponent.WorldPosition
+        local to = target.entity.TransformComponent.WorldPosition
+        local dx, dy = to.x - from.x, to.y - from.y
+        local distance = math.sqrt(dx * dx + dy * dy)
+        if distance <= 0.01 then return false end
+        local dir = Vector2(dx / distance, dy / distance)
+        local kind = skill.skill_kind
+        local effectGrowth = 1 + (self.GrowthStage - 1) *
+            _GameData:GetBalance("companion_growth_skill_per_stage")
+            + self.EnhanceStage * _GameData:GetBalance("monster_enhance_skill_per_stage")
+        if kind == "defense" or skill.behavior == "SHIELD" then
+            self.ShieldRatio = math.min(0.8, math.max(0, skill.effect_value * effectGrowth))
+            self.ShieldUntil = _UtilLogic.ElapsedSeconds + math.max(0.5, skill.duration)
+            _SkillEffect:PlayCast(skill.id, self.Entity, dir.x < 0)
+        elseif kind == "buff" or skill.behavior == "BUFF" then
+            self.AttackBoostRatio = math.min(1, math.max(0, skill.effect_value * effectGrowth))
+            self.AttackBoostUntil = _UtilLogic.ElapsedSeconds + math.max(0.5, skill.duration)
+            _SkillEffect:PlayCast(skill.id, self.Entity, dir.x < 0)
+        elseif skill.projectile_ruid ~= "" then
+            local endpoints = {to}
+            if skill.behavior == "SPREAD_PROJECTILE" then
+                local spread = math.max(6, skill.behavior_width)
+                local side = math.max(1, skill.range) * math.tan(math.rad(spread))
+                endpoints = {
+                    Vector3(to.x + dir.y * side, to.y - dir.x * side, to.z),
+                    to,
+                    Vector3(to.x - dir.y * side, to.y + dir.x * side, to.z)
+                }
+            end
+            local played = false
+            for i = 1, #endpoints do
+                endpoints[i] = _GameData:TraceSkillEndpoint(map, from, endpoints[i])
+                if _SkillEffect:PlayProjectile(skill.id, self.Entity, endpoints[i]) then played = true end
+            end
+            if played == false then _SkillEffect:PlayCast(skill.id, self.Entity, dir.x < 0) end
+            local flight = math.max(0.05, _GameData:GetBalance("projectile_seconds"))
+            _TimerService:SetTimerOnce(function()
+                if self:IsOwnerActive() == false or self.Entity.CurrentMap ~= map then return end
+                local width = skill.behavior == "PROJECTILE_BLAST" and
+                    math.max(0.8, skill.behavior_width) or
+                    math.max(0.5, _GameData:GetBalance("projectile_hit_radius"))
+                if skill.target_mode == "area" then
+                    width = math.max(width, math.min(math.max(1, skill.range) * 0.4, 2.5))
+                end
+                for i = 1, #endpoints do
+                    self:HitAt(skill, endpoints[i], width, dir, from)
+                end
+            end, flight)
+        elseif skill.dash_distance > 0 or skill.behavior == "DASH_STRIKE" then
+            local endpoint = _GameData:ClampDashTravel(map, from,
+                Vector3(from.x + dir.x * skill.dash_distance,
+                    from.y + dir.y * skill.dash_distance, from.z))
+            local seconds = math.max(0.05, _GameData:GetBalance("skill_dash_seconds"))
+            self.DashUntil = _UtilLogic.ElapsedSeconds + seconds
+            if _SkillEffect:PlayDashTravelIfNeeded(skill.id, self.Entity, from, endpoint,
+                seconds, dir.x < 0) == false then
+                _SkillEffect:PlayCast(skill.id, self.Entity, dir.x < 0)
+            end
+            self.Entity.KinematicbodyComponent:SetWorldPosition(Vector2(endpoint.x, endpoint.y))
+            _TimerService:SetTimerOnce(function()
+                if self:IsOwnerActive() == false or self.Entity.CurrentMap ~= map then return end
+                self:HitAt(skill, endpoint, math.max(0.8, skill.range), dir, from)
+                _SkillEffect:PlayDashImpactIfNeeded(skill.id, self.Entity, endpoint, dir.x < 0)
+            end, seconds)
+        elseif skill.behavior == "DAMAGE_ZONE" or skill.behavior == "DELAYED_BLAST" then
+            local endpoint = _GameData:TraceSkillEndpoint(map, from, to)
+            local ticks = math.max(1, math.floor(skill.behavior_ticks))
+            local delay = math.max(0, skill.behavior_delay)
+            local gap = math.max(0.05, skill.behavior_interval)
+            _SkillEffect:PlayAreaAt(skill.id, self.Entity, endpoint, dir.x < 0,
+                delay + (ticks - 1) * gap + 0.2)
+            for i = 1, ticks do
+                _TimerService:SetTimerOnce(function()
+                    if self:IsOwnerActive() == false or self.Entity.CurrentMap ~= map then return end
+                    self:HitAt(skill, endpoint, math.max(0.8, skill.behavior_width), dir, from)
+                end, delay + (i - 1) * gap)
+            end
+        else
+            self:HitAt(skill, from, math.max(0.8, skill.range), dir, from)
+            _SkillEffect:PlayAttackAt(skill.id, self.Entity, from, dir.x < 0)
+        end
+        log("[CompanionSkill] owner=" .. self.OwnerUserId .. " monster=" .. self.MonsterId
+            .. " skill=" .. skill.id .. " behavior=" .. skill.behavior)
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    method void HitAt(table skill, Vector3 point, number radius, Vector2 dir, Vector3 origin)
+        self.Limited = skill.max_targets > 0
+        self.HitBudget = math.floor(skill.max_targets)
+        self.Behavior = skill.behavior
+        self.CastOrigin = origin
+        self.CastDirection = dir
+        self.ConeDegrees = math.max(30, skill.behavior_width)
+        local shape = CircleShape(Vector2(point.x, point.y + 0.5), radius)
+        if skill.behavior == "LINE_STRIKE" or skill.behavior == "PIERCING_PROJECTILE" then
+            local length = math.max(0.1, skill.range)
+            if skill.behavior == "PIERCING_PROJECTILE" then
+                local dx, dy = point.x - origin.x, point.y - origin.y
+                length = math.max(0.1, math.sqrt(dx * dx + dy * dy))
+            end
+            shape = BoxShape(Vector2(origin.x + dir.x * length * 0.5,
+                origin.y + dir.y * length * 0.5 + 0.5),
+                Vector2(length, math.max(0.6, skill.behavior_width)),
+                math.deg(math.atan(dir.y, dir.x)))
+        end
+        local hits = self:Attack(shape, skill.id, CollisionGroups.Monster)
+        self.Limited = false
+        self.Behavior = ""
+        self:ApplySecondary(skill, hits, point)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ApplySecondary(table skill, table hits, Vector3 origin)
+        if hits == nil or skill.secondary_effect == "" then return end
+        for i = 1, #hits do
+            local hit = hits[i]
+            if isvalid(hit) and isvalid(hit.Entity) then
+                local monster = hit.Entity:GetComponent("script.RoomMonster")
+                if monster ~= nil and monster.IsDead == false then
+                    local scale = monster:IsBossRoom() and skill.boss_control_scale
+                        or skill.enemy_control_scale
+                    local value = skill.secondary_value * scale
+                    local seconds = skill.secondary_duration * scale
+                    if skill.secondary_effect == "SLOW" then monster:ApplySlow(value, seconds)
+                    elseif skill.secondary_effect == "STUN" then monster:ApplyStun(seconds)
+                    elseif skill.secondary_effect == "WEAKEN" then
+                        monster:ApplyWeaken(value, seconds)
+                        _SkillEffect:PlayWeakenStatus(skill.id, hit.Entity, seconds)
+                    elseif skill.secondary_effect == "KNOCKBACK" then
+                        monster:ApplyImpulse(origin, value, false)
+                    elseif skill.secondary_effect == "PULL" then
+                        monster:ApplyImpulse(origin, value, true) end
+                end
+            end
+        end
+    end
+
+    method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
+        local baseAttack = _GameData:GetBalance("companion_base_attack")
+        if baseAttack <= 0 then baseAttack = 20 end
+        local attack = baseAttack * (1 + (self.GrowthStage - 1) *
+            _GameData:GetBalance("companion_growth_attack_per_stage")
+            + self.EnhanceStage * _GameData:GetBalance("monster_enhance_attack_per_stage"))
+        local monster = defender:GetComponent("script.RoomMonster")
+        local defense = monster ~= nil and monster.Def or 0
+        local coefficient = _CombatFormula:GetSkillCoefficient(attackInfo)
+        if attackInfo ~= nil and attackInfo ~= "" then
+            coefficient *= 1 + (self.GrowthStage - 1) *
+                _GameData:GetBalance("companion_growth_skill_per_stage")
+                + self.EnhanceStage * _GameData:GetBalance("monster_enhance_skill_per_stage")
+        end
+        if _UtilLogic.ElapsedSeconds < self.AttackBoostUntil then
+            coefficient *= 1 + self.AttackBoostRatio
+        end
+        return _CombatFormula:CalcDamage(attack, defense, coefficient)
+    end
+
+    method boolean IsAttackTarget(Entity defender, string attackInfo)
+        local monster = defender:GetComponent("script.RoomMonster")
+        if monster == nil or monster.IsDead then return false end
+        if (attackInfo == nil or attackInfo == "") and defender ~= self.BasicTarget then return false end
+        if __base:IsAttackTarget(defender, attackInfo) == false then return false end
+        if self.Behavior == "FRONT_CONE" then
+            local p = defender.TransformComponent.WorldPosition
+            local dx, dy = p.x - self.CastOrigin.x, p.y - self.CastOrigin.y
+            local length = math.sqrt(dx * dx + dy * dy)
+            if length > 0.01 and dx / length * self.CastDirection.x
+                + dy / length * self.CastDirection.y <
+                math.cos(math.rad(self.ConeDegrees * 0.5)) then return false end
+        end
+        if self.Limited then
+            if self.HitBudget <= 0 then return false end
+            self.HitBudget -= 1
+        end
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
+    @EventSender("Self")
+    handler HandleHitEvent(HitEvent event)
+        if self.IsDefeated or self.OwnerUserId == "" then return end
+        local damage = math.max(0, event.TotalDamage)
+        if _UtilLogic.ElapsedSeconds < self.ShieldUntil then
+            damage = math.max(1, math.floor(damage * (1 - self.ShieldRatio) + 0.5))
+        end
+        self.Hp = math.max(0, self.Hp - damage)
+        if self.Hp > 0 then return end
+        self.IsDefeated = true
+        local owner = _UserService:GetUserEntityByUserId(self.OwnerUserId)
+        if isvalid(owner) then
+            local collection = owner:GetComponent("script.PlayerCollection")
+            if collection ~= nil then collection:NotifyCompanionDefeated(self.Entity.CurrentMap.Name,
+                self.SlotIndex) end
+        end
+        log("[CompanionCombat] defeated owner=" .. self.OwnerUserId .. " monster=" .. self.MonsterId)
+        self.Entity:Destroy()
+    end
+end

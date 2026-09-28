@@ -1,0 +1,10 @@
+State,Storage,RunEntry,RunEnd,MakerEvidence
+TamedMonsters,RoguelitePermanentV1 schema2,load,keep,m_snail 2 and m_axe_stump 1 retained after abandon
+PermanentSkillCollection,RoguelitePermanentV1 schema2,load,keep,s_mon_axe_stump unlocked by E pickup retained after abandon
+MonsterSkillLoadouts,RoguelitePermanentV1 schema2,load,keep,m_snail slots 1-3 retained after stop/play and instance entry
+SelectedCompanion,RoguelitePermanentV1 schema2,load,keep,m_snail retained after stop/play and instance entry
+Run OwnedSkillPool,run instance,empty,clear,s_mon_axe_stump 1 after pickup and nil in lobby after abandon
+Random SkillBar,run instance,empty,clear,No slot leak observed in lobby screenshot; supply cycle not explicitly timed in this turn
+Run chest upgrades,run instance,empty,clear,Existing cleanup untouched; not re-measured in this turn
+Companion entity,run instance,spawn from permanent selection,destroy,comp=false in lobby after abandon
+Old RPG/M2 save,legacy namespace,not loaded in rogue mode,not written,PlayerDB key MakerTest_RoguelitePermanentV1 in Maker; legacyWrites=false

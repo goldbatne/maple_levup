@@ -71,12 +71,16 @@ script SavePermanentData
 
     -- 별도 RoguelitePermanent namespace. 과거 RPG/M2 진행을 시작 전투력으로
     -- 변환하지 않고, 발견·클리어·선택 조우·설정만 영구 보존한다.
-    property integer roguelite_schema_version = 1
+    property integer roguelite_schema_version = 2
     property table roguelite_discovered_monsters = {}
     property table roguelite_discovered_abilities = {}
     property table roguelite_area_clears = {}
     property table roguelite_optional_encounters = {}
     property table roguelite_settings = {}
+    -- Skill Drop 실제 획득으로만 해금. 발견 도감과 별도 원장이다.
+    property table roguelite_permanent_skills = {}
+    -- monster_id:slot(1~3) -> skill_id. Monster별 영구 전투 준비.
+    property table roguelite_monster_loadouts = {}
 
     method void Init(number startingSlotCount)
         -- 신규 계정 기본값. startingSlotCount는 호출자가 GameBalance의
@@ -99,12 +103,14 @@ script SavePermanentData
         self.selected_trait = "balance"
         self.inventory = {}
         self.equipped = {}
-        self.roguelite_schema_version = 1
+        self.roguelite_schema_version = 2
         self.roguelite_discovered_monsters = {}
         self.roguelite_discovered_abilities = {}
         self.roguelite_area_clears = {}
         self.roguelite_optional_encounters = {}
         self.roguelite_settings = {}
+        self.roguelite_permanent_skills = {}
+        self.roguelite_monster_loadouts = {}
     end
 
     method boolean HasAny(any t)
@@ -165,6 +171,12 @@ script SavePermanentData
             rogue["optional_encounters"] = self.roguelite_optional_encounters
         end
         if self:HasAny(self.roguelite_settings) then rogue["settings"] = self.roguelite_settings end
+        if self:HasAny(self.roguelite_permanent_skills) then
+            rogue["permanent_skills"] = self.roguelite_permanent_skills
+        end
+        if self:HasAny(self.roguelite_monster_loadouts) then
+            rogue["monster_loadouts"] = self.roguelite_monster_loadouts
+        end
         return true
     end
 
@@ -201,6 +213,12 @@ script SavePermanentData
             if type(rogue["area_clears"]) == "table" then self.roguelite_area_clears = rogue["area_clears"] else self.roguelite_area_clears = {} end
             if type(rogue["optional_encounters"]) == "table" then self.roguelite_optional_encounters = rogue["optional_encounters"] else self.roguelite_optional_encounters = {} end
             if type(rogue["settings"]) == "table" then self.roguelite_settings = rogue["settings"] else self.roguelite_settings = {} end
+            if type(rogue["permanent_skills"]) == "table" then
+                self.roguelite_permanent_skills = rogue["permanent_skills"]
+            else self.roguelite_permanent_skills = {} end
+            if type(rogue["monster_loadouts"]) == "table" then
+                self.roguelite_monster_loadouts = rogue["monster_loadouts"]
+            else self.roguelite_monster_loadouts = {} end
         end
         return true
     end
