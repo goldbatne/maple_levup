@@ -24,7 +24,7 @@ script SkillDrop extends Component
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
-        log("[SkillDropVisual] compact_skill_button_v2")
+        log("[SkillDropVisual] msw_item_slot_frame_v5")
         self:RefreshVisual()
     end
 
@@ -71,13 +71,12 @@ script SkillDrop extends Component
     method void RefreshInteractionLabelServer(integer remain)
         local interaction = self.Entity.InteractionComponent
         if isvalid(interaction) == false then return end
-        local skill = self.SkillId ~= "" and _GameData:GetSkill(self.SkillId) or nil
-        local skillName = skill ~= nil and skill.name or "능력"
         local startAt = math.floor(_GameData:GetBalance("skill_drop_countdown_start"))
         local warningAt = math.floor(_GameData:GetBalance("skill_drop_warning_seconds"))
         if startAt <= 0 then startAt = 30 end
         if warningAt <= 0 then warningAt = 10 end
-        local label = skillName .. " · 획득"
+        -- 엔진의 근접 Interaction 안내는 작은 획득 힌트로만 사용한다.
+        local label = "능력 획득"
         if remain <= startAt then
             label = label .. " · " .. tostring(math.max(0, remain)) .. "초"
             if remain <= warningAt then label = "! " .. label end
@@ -115,7 +114,7 @@ script SkillDrop extends Component
         -- 등록된 모델 캐시가 남아 있어도 월드 표시는 스킬 버튼 크기로 고정한다.
         -- 상호작용 반경은 루트의 InteractionComponent가 별도로 유지한다.
         if isvalid(icon) and isvalid(icon.TransformComponent) then
-            icon.TransformComponent.Scale = Vector3(0.29, 0.29, 1)
+            icon.TransformComponent.Scale = Vector3(0.22, 0.22, 1)
         end
         if isvalid(icon) and isvalid(icon.SpriteRendererComponent) and skill ~= nil
             and skill.icon_ruid ~= nil and skill.icon_ruid ~= "" then
@@ -124,12 +123,14 @@ script SkillDrop extends Component
 
         local frame = self.Entity:GetChildByName("SkillFrame", false)
         if isvalid(frame) and isvalid(frame.TransformComponent) then
-            frame.TransformComponent.Scale = Vector3(1.9, 1.9, 1)
+            -- The existing frame sprite is 39 x 100 px. Fit its visual bounds to
+            -- a 44 x 44 px square; the drop root and interaction radius stay unchanged.
+            frame.TransformComponent.Scale = Vector3(44 / 39, 0.44, 1)
         end
 
         local warningAt = math.floor(_GameData:GetBalance("skill_drop_warning_seconds"))
         if warningAt <= 0 then warningAt = 10 end
-        self:ApplySkillFrame(self.RemainingSeconds <= warningAt)
+        self:ApplySkillFrame(self.RemainingSeconds > 0 and self.RemainingSeconds <= warningAt)
 
         self.Entity:SetVisible(self.ClaimState == "AVAILABLE")
     end
@@ -139,25 +140,10 @@ script SkillDrop extends Component
         local style = urgent and "URGENT" or "NORMAL"
         if self.lastFrameStyle == style then return end
         local frame = self.Entity:GetChildByName("SkillFrame", false)
-        if isvalid(frame) == false or isvalid(frame.PixelRendererComponent) == false then return end
-
-        -- UI 전용 RUID를 World SpriteRenderer에 넣지 않는다. 작은 회색 스킬 버튼
-        -- 프레임을 월드에 그려 아이콘이 큰 전리품 카드처럼 보이지 않게 한다.
-        local pixels = {}
-        local outer = urgent and Color(0.55, 0.13, 0.10, 1) or Color(0.11, 0.12, 0.14, 1)
-        local accent = urgent and Color(0.96, 0.53, 0.25, 1) or Color(0.63, 0.66, 0.70, 1)
-        -- PixelRenderer가 SpriteRenderer보다 앞에 그려질 수 있으므로 중앙은
-        -- 투명하게 둬야 실제 스킬 아이콘을 가리지 않는다.
-        local inner = Color(0.16, 0.18, 0.21, 0)
-        for y = 1, 32 do
-            for x = 1, 32 do
-                local edge = math.min(x - 1, y - 1, 32 - x, 32 - y)
-                if edge < 1 then pixels[#pixels + 1] = outer
-                elseif edge < 3 then pixels[#pixels + 1] = accent
-                else pixels[#pixels + 1] = inner end
-            end
-        end
-        frame.PixelRendererComponent:ResetWithColors(32, 32, pixels)
+        if isvalid(frame) == false or isvalid(frame.SpriteRendererComponent) == false then return end
+        -- 기존 MSW 아이템 슬롯 프레임을 재사용한다. 만료 임박은 색만 바꾼다.
+        frame.SpriteRendererComponent.Color = urgent
+            and Color(1, 0.76, 0.52, 1) or Color(1, 1, 1, 1)
         self.lastFrameStyle = style
     end
 

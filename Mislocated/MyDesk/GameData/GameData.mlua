@@ -116,9 +116,16 @@ script GameData extends Logic
         -- 월드 세션 시작 시 데이터셋을 한 번만 읽어 캐시한다.
         self:LoadAll()
         self:InitializeRogueliteInstance()
-        _TimerService:SetTimerOnce(function()
-            if isvalid(_UserService.LocalPlayer) then self:InitializeRogueUiClient() end
-        end, 0.5)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnUpdate(number delta)
+        -- 고정 지연 1회 시도 대신 실제 LocalPlayer/UI 준비 시 초기화한다.
+        if self.RogueUiRefreshTimer ~= 0 then return end
+        if not isvalid(_UserService.LocalPlayer) then return end
+        if not isvalid(_EntityService:GetEntityByPath("/ui/PlayerHud/RunMenuButton")) then return end
+        if not isvalid(_EntityService:GetEntityByPath("/ui/PlayerHud/PartyWindow/Dialog/NoPartyPanel/JoinButton")) then return end
+        self:InitializeRogueUiClient()
     end
 
     method void OnEndPlay()
@@ -1569,6 +1576,20 @@ script GameData extends Logic
         if isvalid(textEntity) and isvalid(textEntity.TextGUIRendererComponent) then
             textEntity.TextGUIRendererComponent.Text = self.RogueUpgradeSummary
         end
+        local window = _EntityService:GetEntityByPath("/ui/PlayerHud/RunUpgradeWindow")
+        local dialog = _EntityService:GetEntityByPath("/ui/PlayerHud/RunUpgradeWindow/Dialog")
+        local empty = self.RogueUpgradeSummary == ""
+            or self.RogueUpgradeSummary == "아직 획득한 Run 강화가 없습니다."
+        local height = empty and 260 or 410
+        if isvalid(window) then window.UITransformComponent.RectSize = Vector2(470, height) end
+        if isvalid(dialog) then dialog.UITransformComponent.RectSize = Vector2(470, height) end
+        if isvalid(textEntity) then
+            textEntity.UITransformComponent.RectSize = Vector2(400, empty and 92 or 230)
+            textEntity.TextGUIRendererComponent.HorizontalAlignment = empty
+                and TextHorizontalAlignmentOption.Center or TextHorizontalAlignmentOption.Left
+            textEntity.TextGUIRendererComponent.VerticalAlignment = empty
+                and TextVerticalAlignmentOption.Middle or TextVerticalAlignmentOption.Top
+        end
     end
 
     @ExecSpace("ClientOnly")
@@ -1914,6 +1935,8 @@ script GameData extends Logic
 
     @ExecSpace("ClientOnly")
     method void InitializeRogueUiClient()
+        -- 준비된 클라이언트가 서버 정본을 요청한다. 중복 입력 등록은 하지 않는다.
+        if self.RogueUiRefreshTimer ~= 0 then return end
         self.RogueUiHandlerEntities = {}
         self.RogueUiHandlerIds = {}
         self:RogueBindPath("/ui/PlayerHud/RunMenuButton", function()
@@ -1970,6 +1993,7 @@ script GameData extends Logic
             self:RefreshRogueUiClient()
         end, 0.2)
         log("[RogueHud] GameData 기반 RUN/파티 UI 컨트롤러 준비")
+        self:EnsureRogueliteViewClient()
     end
 
     @ExecSpace("ClientOnly")
@@ -1995,12 +2019,19 @@ script GameData extends Logic
 
     @ExecSpace("ClientOnly")
     method void RefreshRogueUiClient()
+        self:EnsureRogueliteViewClient()
         local active = self.RogueRunActive and self.RogueRunComplete == false and self.RogueRunFailed == false
         local runButton = _EntityService:GetEntityByPath("/ui/PlayerHud/RunMenuButton")
         local partyButton = _EntityService:GetEntityByPath("/ui/PlayerHud/PartyMenuButton")
         local upgradeButton = _EntityService:GetEntityByPath("/ui/PlayerHud/RunUpgradeButton")
         if isvalid(runButton) then runButton.Enable = active; runButton:SetVisible(active) end
-        if isvalid(partyButton) then partyButton.Enable = not active; partyButton:SetVisible(not active) end
+        if isvalid(partyButton) then
+            local areaPanel = _EntityService:GetEntityByPath("/ui/AreaSelect/Window")
+            local showParty = not active and not _EquipPanel.isOpen and not _MonsterShopUi.ShopOpen
+                and (not isvalid(areaPanel) or not areaPanel.Enable)
+            partyButton.Enable = showParty
+            partyButton:SetVisible(showParty)
+        end
         if isvalid(upgradeButton) then upgradeButton.Enable = active; upgradeButton:SetVisible(active) end
         if not active and (self.RogueRunMenuOpen or self.RogueAbandonConfirmOpen) then self:CloseRunMenuUi() end
         if not active and self.RogueUpgradeWindowOpen then self:SetRunUpgradeWindowOpen(false) end
@@ -3608,7 +3639,7 @@ script GameData extends Logic
         _TimerService:SetTimerOnce(function()
             if completedRevision ~= self.RogueRunRevision then return end
             self:ReturnRogueliteParticipantsToLobby()
-        end, 3)
+        end, 10)
     end
 
     @ExecSpace("ServerOnly")
@@ -3656,8 +3687,22 @@ script GameData extends Logic
                 end
             end
             self:ReturnRogueliteParticipantsToLobby()
-        end, 3)
+        end, 10)
         return true
+    end
+
+    @ExecSpace("Server")
+    method void RequestCloseRogueliteResult()
+        -- The result screen is a presentation state, not another Clear/Fail.
+        -- Only a participant of an already finalized Run may leave it early.
+        if self.RogueRunResult ~= "CLEAR" and self.RogueRunResult ~= "FAILED" then return end
+        local userId = senderUserId
+        if userId == nil or userId == "" or self:IsRunParticipant(userId) == false then return end
+        local player = _UserService:GetUserEntityByUserId(userId)
+        if isvalid(player) == false or not isvalid(player.CurrentMap)
+            or player.CurrentMap.Name == "maptown" then return end
+        local moved = _RoomService:MoveUsersToStaticRoom({ userId }, "maptown") or 0
+        log("[RogueResult] lobby requested user=" .. userId .. " moved=" .. tostring(moved))
     end
 
     @ExecSpace("Server")
@@ -3898,10 +3943,19 @@ script GameData extends Logic
 
     @ExecSpace("ServerOnly")
     method void ReturnRogueliteParticipantsToLobby()
-        local moved = _RoomService:MoveUsersToStaticRoom(self.RogueParticipantIds, "maptown")
+        local pending = {}
+        for _, userId in ipairs(self.RogueParticipantIds) do
+            local player = _UserService:GetUserEntityByUserId(userId)
+            if isvalid(player) and isvalid(player.CurrentMap)
+                and player.CurrentMap.Name ~= "maptown" then
+                pending[#pending + 1] = userId
+            end
+        end
+        if #pending == 0 then return end
+        local moved = _RoomService:MoveUsersToStaticRoom(pending, "maptown")
         log("[RogueRun] 로비 Room 전환 결과 moved=" .. tostring(moved)
-            .. " requested=" .. tostring(#self.RogueParticipantIds))
-        if moved < #self.RogueParticipantIds then
+            .. " requested=" .. tostring(#pending))
+        if moved < #pending then
             log_warning("[RogueRun] 로비 복귀 미완료 — 현재 Room과 시작 맵 등록 상태 확인 필요")
         end
     end
@@ -3925,7 +3979,10 @@ script GameData extends Logic
         if isvalid(_UserService:GetUserEntityByUserId(userId)) == false then return end
         -- Seed/전체 Room Graph는 서버 권한 상태로만 보존한다. 플레이 HUD에는 현재
         -- 서브존·목표·모드·결과만 전달해 탐색 경로를 미리 노출하지 않는다.
+        local player = _UserService:GetUserEntityByUserId(userId)
+        if not isvalid(player.CurrentMap) then return end
         self:ApplyRogueliteView({active = self.RogueRunActive, area = self.RogueAreaId,
+            viewMap = player.CurrentMap.Name,
             mode = self.RogueMode, subzone = self.RogueCurrentSubzone,
             boss = self.RogueBossMonsterId, objective = self.RogueObjectiveType,
             objectiveComplete = self.RogueObjectiveComplete, complete = self.RogueRunComplete,
@@ -3942,6 +3999,12 @@ script GameData extends Logic
 
     @ExecSpace("Client")
     method void ApplyRogueliteView(table view)
+        -- 떠난 맵의 지연 응답은 현재 HUD를 덮어쓰지 않는다.
+        local player = _UserService.LocalPlayer
+        if not isvalid(player) or not isvalid(player.CurrentMap) then return end
+        if view.viewMap ~= player.CurrentMap.Name then return end
+        self._T.rogueViewMap = view.viewMap
+        self._T.rogueViewAttempts = 0
         self.RogueRunActive = view.active
         self.RogueAreaId = view.area
         self.RogueMode = view.mode
@@ -3957,7 +4020,53 @@ script GameData extends Logic
         self.RogueDamageSummary = view.damageSummary
         _WorldMapPanel.lastRoomId = ""
         log("[RogueView] 서버 Run HUD 상태 수신 area=" .. tostring(view.area)
-            .. " subzone=" .. tostring(view.subzone) .. " mode=" .. tostring(view.mode))
+            .. " subzone=" .. tostring(view.subzone) .. " mode=" .. tostring(view.mode)
+            .. " map=" .. tostring(view.viewMap) .. " active=" .. tostring(view.active))
+    end
+
+    @ExecSpace("ClientOnly")
+    method void EnsureRogueliteViewClient()
+        -- 초기 RPC 유실/맵 진입/슬롯 Sync와의 불일치만 복구한다. 상태를 추측해 켜지 않는다.
+        local player = _UserService.LocalPlayer
+        if not isvalid(player) or not isvalid(player.CurrentMap) then return end
+        local mapName = player.CurrentMap.Name
+        local slots = player:GetComponent("script.PlayerSkillSlots")
+        if not isvalid(slots) then return end
+        local mismatch = slots.RogueliteRunActive ~= self.RogueRunActive
+        if self._T.rogueViewMap == mapName and not mismatch then return end
+        if self._T.rogueRequestedMap ~= mapName then
+            self._T.rogueRequestedMap = mapName
+            self._T.rogueViewNextRequest = 0
+            self._T.rogueViewAttempts = 0
+        end
+        local now = _UtilLogic.ElapsedSeconds
+        if now < (self._T.rogueViewNextRequest or 0) then return end
+        self._T.rogueViewNextRequest = now + 1
+        self._T.rogueViewAttempts = (self._T.rogueViewAttempts or 0) + 1
+        if self._T.rogueViewAttempts == 1 then
+            log("[RogueViewSync] client-ready request map=" .. mapName .. " mismatch=" .. tostring(mismatch))
+        elseif self._T.rogueViewAttempts == 8 then
+            log_warning("[RogueViewSync] 서버 상태 재동기화 응답 지연 map=" .. mapName)
+        end
+        self:RequestRogueliteView(mapName)
+    end
+
+    @ExecSpace("Server")
+    method void RequestRogueliteView(string mapName)
+        -- 읽기 전용 RPC. 발신자/현재 맵/참가자를 검증하고 등록·보상·Run 상태는 변경하지 않는다.
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if not isvalid(player) or not isvalid(player.CurrentMap) then return end
+        if player.CurrentMap.Name ~= mapName then return end
+        if self.RogueRunActive and not self:IsRunParticipant(senderUserId) then return end
+        if not self.RogueRunActive and mapName ~= "maptown" then return end
+        if self._T.rogueViewRequestAt == nil then self._T.rogueViewRequestAt = {} end
+        local now = _UtilLogic.ElapsedSeconds
+        local last = self._T.rogueViewRequestAt[senderUserId]
+        if last ~= nil and now - last < 0.5 then return end
+        self._T.rogueViewRequestAt[senderUserId] = now
+        log("[RogueViewSync] server snapshot map=" .. mapName .. " active=" .. tostring(self.RogueRunActive))
+        self:SendRogueliteView(senderUserId)
+        if self.RogueRunActive then self:SendRunUpgradeView(senderUserId) end
     end
 
     method string DescribeRogueliteRun()

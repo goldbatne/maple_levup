@@ -190,7 +190,7 @@
             "Id": "skilldrop-frame",
             "Components": [
               "MOD.Core.TransformComponent",
-              "MOD.Core.PixelRendererComponent"
+              "MOD.Core.SpriteRendererComponent"
             ],
             "Properties": [],
             "Values": [
@@ -235,31 +235,22 @@
                 },
                 "Value": {
                   "$type": "MOD.Core.MODVector3, MOD.Core",
-                  "x": 1.9,
-                  "y": 1.9,
+                  "x": 0.58,
+                  "y": 0.58,
                   "z": 1
                 }
               },
               {
-                "TargetType": "MOD.Core.PixelRendererComponent",
-                "Name": "Width",
+                "TargetType": "MOD.Core.SpriteRendererComponent",
+                "Name": "SpriteRUID",
                 "ValueType": {
                   "$type": "MODNativeType",
-                  "type": "System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+                  "type": "System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
                 },
-                "Value": 32
+                "Value": "d9d1070e225f46e9b445ada1bffc49ce"
               },
               {
-                "TargetType": "MOD.Core.PixelRendererComponent",
-                "Name": "Height",
-                "ValueType": {
-                  "$type": "MODNativeType",
-                  "type": "System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
-                },
-                "Value": 32
-              },
-              {
-                "TargetType": "MOD.Core.PixelRendererComponent",
+                "TargetType": "MOD.Core.SpriteRendererComponent",
                 "Name": "SortingLayer",
                 "ValueType": {
                   "$type": "MODNativeType",
@@ -268,7 +259,7 @@
                 "Value": "MapLayer0"
               },
               {
-                "TargetType": "MOD.Core.PixelRendererComponent",
+                "TargetType": "MOD.Core.SpriteRendererComponent",
                 "Name": "OrderInLayer",
                 "ValueType": {
                   "$type": "MODNativeType",

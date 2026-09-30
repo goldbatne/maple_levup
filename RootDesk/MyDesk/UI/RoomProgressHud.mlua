@@ -23,6 +23,10 @@ script RoomProgressHud extends Logic
     property TextGUIRendererComponent lblRow2 = "6b16f4a0-0f60-4f8e-a470-4398d32cce86"
     property TextGUIRendererComponent lblRow3 = "6ef92b95-16dd-4e0a-a49d-d6acd1388af5"
 
+    property Entity resultPanel = nil
+    property boolean resultDismissed = false
+    property any resultCloseHandler = nil
+
     property any refreshTimer = nil
 
     -- 갱신 주기(초). 값이 바뀌는 계기가 포획·드랍이라 촘촘할 필요가 없다.
@@ -30,6 +34,20 @@ script RoomProgressHud extends Logic
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
+        self.resultPanel = _EntityService:GetEntityByPath("/ui/RoomProgress/ResultPanel")
+        if isvalid(self.resultPanel) then
+            self.resultPanel.Enable = false
+            self.resultPanel:SetVisible(false)
+            local closeButton = self.resultPanel:GetChildByName("CloseButton", false)
+            if isvalid(closeButton) then
+                self.resultCloseHandler = closeButton:ConnectEvent(ButtonClickEvent, function()
+                    _GameData:RequestCloseRogueliteResult()
+                    self.resultDismissed = true
+                    self.resultPanel.Enable = false
+                    self.resultPanel:SetVisible(false)
+                end)
+            end
+        end
         if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
             if isvalid(self.panel) then
                 -- 신규 HUD는 우측 월드맵과 겹치지 않게 배치한다.
@@ -91,6 +109,7 @@ script RoomProgressHud extends Logic
 
     @ExecSpace("ClientOnly")
     method void Refresh()
+        self:RefreshRunResult()
         if not isvalid(self.panel) then return end
 
         if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
@@ -187,6 +206,60 @@ script RoomProgressHud extends Logic
                 self:SetRow(labels[i], "외 " .. tostring(#rows - 2) .. "종 더")
             else
                 self:SetRow(labels[i], rows[i])
+            end
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void RefreshRunResult()
+        if not isvalid(self.resultPanel) then
+            self.resultPanel = _EntityService:GetEntityByPath("/ui/RoomProgress/ResultPanel")
+        end
+        if not isvalid(self.resultPanel) then return end
+        if _UILogic.ScreenWidth > 0 and _UILogic.ScreenHeight > 0 then
+            local scale = math.min(1, (_UILogic.ScreenWidth - 40) / 900,
+                (_UILogic.ScreenHeight - 36) / 430)
+            scale = math.max(0.25, scale)
+            self.resultPanel.UITransformComponent.UIScale = Vector3(scale, scale, 1)
+        end
+        local hasResult = _GameData.RogueRunActive
+            and (_GameData.RogueRunComplete or _GameData.RogueRunFailed)
+        if _GameData.RogueRunActive and not hasResult then
+            self.resultDismissed = false
+        end
+        local showing = hasResult and not self.resultDismissed
+        self.resultPanel.Enable = showing
+        self.resultPanel:SetVisible(showing)
+        if not hasResult then return end
+        local title = self.resultPanel:GetChildByName("Title", false)
+        local body = self.resultPanel:GetChildByName("Body", false)
+        local portrait = self.resultPanel:GetChildByName("BossPortrait", false)
+        local boss = _GameData:GetMonster(_GameData.RogueBossMonsterId)
+        if isvalid(portrait) then
+            local visible = _GameData.RogueRunComplete and boss ~= nil
+                and boss.collection_icon_ruid ~= ""
+            portrait.Enable = visible
+            portrait:SetVisible(visible)
+            if visible then
+                portrait.SpriteGUIRendererComponent.ImageRUID =
+                    DataRef("thumbnail://" .. boss.collection_icon_ruid)
+            end
+        end
+        if isvalid(title) and isvalid(title.TextGUIRendererComponent) then
+            title.TextGUIRendererComponent.Text = _GameData.RogueRunComplete
+                and "CLEAR" or "실패"
+        end
+        if isvalid(body) and isvalid(body.TextGUIRendererComponent) then
+            body.UITransformComponent.anchoredPosition =
+                isvalid(portrait) and portrait.Enable and Vector2(90, -10) or Vector2(0, -10)
+            if _GameData.RogueRunComplete then
+                local bossName = boss ~= nil and boss.name or "최종 보스"
+                local coreReward = math.max(0,
+                    math.floor(_GameData:GetBalance("monster_growth_core_per_mega_clear")))
+                body.TextGUIRendererComponent.Text = bossName .. " 처치"
+                    .. "\n성장 코어 +" .. tostring(coreReward)
+            else
+                body.TextGUIRendererComponent.Text = "이번 모험이 끝났습니다."
             end
         end
     end

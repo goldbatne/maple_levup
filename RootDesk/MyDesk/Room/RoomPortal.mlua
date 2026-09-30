@@ -62,7 +62,7 @@ script RoomPortal extends Component
         --   ② TriggerEnter를 같이 물어 TownGate보다 먼저 플레이어를 보내 버린다.
         -- 파일을 고치는 것만으로는 이 설치본에서 못 고치므로 코드로 막는다. (T12-3 실측)
         if self.Entity:GetComponent("script.TownGate") ~= nil then
-            log_warning("[RoomPortal] 같은 엔티티에 TownGate가 있어 물러난다: "
+            log("[RoomPortal] TownGate가 입장을 담당, RoomPortal 입력 등록 생략: "
                 .. self.Entity.Name)
             return
         end
