@@ -10,6 +10,8 @@ script AreaSelectPanel extends Logic
 	property integer slotCount = 20
 
 	property integer megaCardCount = 5
+	property Entity lobbyDungeonButton = nil
+	property any lobbyButtonTimer = nil
 
 	property table slotIds = {}
 
@@ -83,6 +85,16 @@ script AreaSelectPanel extends Logic
 		        self:BindPath("/ui/AreaSelect/Window/Box/OptionsPanel/StartButton", function()
 		            self:StartSelectedRun()
 		        end)
+		        self.lobbyDungeonButton = _EntityService:GetEntityByPath(
+		            "/ui/AreaSelect/LobbyDungeonButton")
+		        self:BindPath("/ui/AreaSelect/LobbyDungeonButton", function()
+		            if isvalid(self.panel) and self.panel.Enable then self:Hide()
+		            else self:ShowLobbyAreas() end
+		        end)
+		        self.lobbyButtonTimer = _TimerService:SetTimerRepeat(function()
+		            self:RefreshLobbyButton()
+		        end, 0.4)
+		        self:RefreshLobbyButton()
 
 
 		        log("[AreaSelect] Mega Area 5장 + Run 옵션 분리 UI 준비")
@@ -96,6 +108,50 @@ script AreaSelectPanel extends Logic
 		        end
 		        self.handlerEntities = {}
 		        self.handlerIds = {}
+		        if self.lobbyButtonTimer ~= nil then
+		            _TimerService:ClearTimer(self.lobbyButtonTimer)
+		            self.lobbyButtonTimer = nil
+		        end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void RefreshLobbyButton()
+		if not isvalid(self.lobbyDungeonButton) then return end
+		local player = _UserService.LocalPlayer
+		local lobby = isvalid(player) and isvalid(player.CurrentMap)
+			and player.CurrentMap.Name == "maptown" and not _GameData.RogueRunActive
+		local show = lobby and (not isvalid(self.panel) or not self.panel.Enable)
+			and not _EquipPanel.isOpen and not _MonsterShopUi.ShopOpen
+			and not _GameData.RoguePartyWindowOpen
+		self.lobbyDungeonButton.Enable = show
+		self.lobbyDungeonButton:SetVisible(show)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void ShowLobbyAreas()
+		local player = _UserService.LocalPlayer
+		if not isvalid(player) or not isvalid(player.CurrentMap)
+			or player.CurrentMap.Name ~= "maptown" or _GameData.RogueRunActive then return end
+		local ids = _GameData:GetMegaAreaIds()
+		local idText = ""
+		local names = ""
+		for i = 1, #ids do
+			if i > 1 then
+				idText = idText .. "|"
+				names = names .. "|"
+			end
+			idText = idText .. ids[i]
+			names = names .. _GameData:GetMegaAreaDisplayName(ids[i])
+		end
+		if #ids > 0 then self:Show(idText, names) end
+		self:RefreshLobbyButton()
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnKeyDown(KeyDownEvent event)
+		if event.key == KeyboardKey.Escape and isvalid(self.panel) and self.panel.Enable then
+			self:Hide()
+		end
 	end
 
 	@ExecSpace("ClientOnly")
@@ -149,7 +205,7 @@ script AreaSelectPanel extends Logic
 
 		        if self.selectedAreaId == "" and #ids > 0 then
 		            self.selectedAreaId = ids[1]
-		            self.selectedAreaName = names[1] or ids[1]
+		            self.selectedAreaName = self.slotNames[1] or ids[1]
 		        end
 		        if _GameData.RoguePartyViewId ~= "" then
 		            self.selectedAreaId = _GameData.RoguePartyViewAreaId
@@ -158,6 +214,12 @@ script AreaSelectPanel extends Logic
 		        end
 
 		        if isvalid(self.panel) then self.panel.Enable = true end
+		        local box = _EntityService:GetEntityByPath("/ui/AreaSelect/Window/Box")
+		        if isvalid(box) and _UILogic.ScreenWidth > 0 and _UILogic.ScreenHeight > 0 then
+		            local scale = math.min(1, (_UILogic.ScreenWidth - 40) / 1160,
+		                (_UILogic.ScreenHeight - 36) / 720)
+		            box.UITransformComponent.UIScale = Vector3(math.max(0.25, scale), math.max(0.25, scale), 1)
+		        end
 		        self:ResetScroll()
 		        self:RefreshOptions()
 		        _GameData:RequestRoguePartyView()
@@ -174,7 +236,11 @@ script AreaSelectPanel extends Logic
 		        end
 		        slot.Enable = true
 		        self.slotIds[index] = ids[index]
-		        self.slotNames[index] = names[index] or ids[index]
+		        local displayName = names[index] or ids[index]
+		        if string.sub(displayName, 1, 5) == "MEGA " then
+		            displayName = "지역 " .. string.sub(displayName, 6)
+		        end
+		        self.slotNames[index] = displayName
 		        self:PaintAreaSlot(index)
 	end
 
@@ -184,12 +250,14 @@ script AreaSelectPanel extends Logic
 		        if slot == nil then return end
 		        local active = self.slotIds[index] == self.selectedAreaId
 		        if isvalid(slot.TextGUIRendererComponent) then
-		            local prefix = active and "▶  " or "    "
-		            slot.TextGUIRendererComponent.Text = prefix .. (self.slotNames[index] or self.slotIds[index] or "")
+                    slot.TextGUIRendererComponent.Text = self.slotNames[index] or self.slotIds[index] or ""
 		        end
 		        if isvalid(slot.SpriteGUIRendererComponent) then
-		            slot.SpriteGUIRendererComponent.Color = active
-		                and Color(0.72, 0.83, 0.95, 1) or Color(0.91, 0.90, 0.88, 1)
+                    slot.SpriteGUIRendererComponent.Color = active
+                        and Color(0.86, 0.95, 0.98, 1) or Color(0.98, 0.99, 0.99, 1)
+                    slot.SpriteGUIRendererComponent.OutlineColor = active
+                        and Color(0.19, 0.61, 0.83, 1) or Color(0.77, 0.82, 0.85, 1)
+                    slot.SpriteGUIRendererComponent.OutlineWidth = 1
 		        end
 	end
 
@@ -283,16 +351,22 @@ script AreaSelectPanel extends Logic
 		        self:ResolveOptionUi()
 		        for i = 1, self.megaCardCount do self:PaintAreaSlot(i) end
 		        if isvalid(self.selectedAreaText) and isvalid(self.selectedAreaText.TextGUIRendererComponent) then
-		            self.selectedAreaText.TextGUIRendererComponent.Text = "선택 Area  ·  " .. self.selectedAreaName
+		            self.selectedAreaText.TextGUIRendererComponent.Text = "선택 지역  ·  " .. self.selectedAreaName
 		        end
 
 		        if isvalid(self.normalButton) and isvalid(self.normalButton.SpriteGUIRendererComponent) then
-		            self.normalButton.SpriteGUIRendererComponent.Color = self.selectedMode == "NORMAL"
-		                and Color(0.72, 0.84, 0.72, 1) or Color(0.88, 0.86, 0.82, 1)
+            self.normalButton.SpriteGUIRendererComponent.Color = self.selectedMode == "NORMAL"
+                and Color(0.86, 0.95, 0.98, 1) or Color(0.98, 0.99, 0.99, 1)
+            self.normalButton.SpriteGUIRendererComponent.OutlineColor = self.selectedMode == "NORMAL"
+                and Color(0.19, 0.61, 0.83, 1) or Color(0.77, 0.82, 0.85, 1)
+            self.normalButton.SpriteGUIRendererComponent.OutlineWidth = 1
 		        end
 		        if isvalid(self.monsterSkillButton) and isvalid(self.monsterSkillButton.SpriteGUIRendererComponent) then
-		            self.monsterSkillButton.SpriteGUIRendererComponent.Color = self.selectedMode == "MONSTER_SKILL"
-		                and Color(0.72, 0.83, 0.95, 1) or Color(0.88, 0.86, 0.82, 1)
+            self.monsterSkillButton.SpriteGUIRendererComponent.Color = self.selectedMode == "MONSTER_SKILL"
+                and Color(0.86, 0.95, 0.98, 1) or Color(0.98, 0.99, 0.99, 1)
+            self.monsterSkillButton.SpriteGUIRendererComponent.OutlineColor = self.selectedMode == "MONSTER_SKILL"
+                and Color(0.19, 0.61, 0.83, 1) or Color(0.77, 0.82, 0.85, 1)
+            self.monsterSkillButton.SpriteGUIRendererComponent.OutlineWidth = 1
 		        end
 
 		        local party = _GameData.RoguePartyViewId ~= ""
@@ -317,13 +391,13 @@ script AreaSelectPanel extends Logic
 
 		        local canStart = true
 		        local hint = "Solo는 별도 준비 없이 바로 시작합니다."
-		        local startLabel = "RUN 시작"
+		        local startLabel = "모험 시작"
 		        if party then
 		            local leader = _GameData:IsLocalRoguePartyLeader()
 		            canStart = leader and _GameData:AreAllRoguePartyMembersReady()
 		            if leader then
 		                hint = "파티장 · Area/모드 선택 후 전원 준비 시 시작"
-		                startLabel = canStart and "파티 RUN 시작" or "준비 대기"
+		                startLabel = canStart and "파티 모험 시작" or "준비 대기"
 		            else
 		                hint = "파티원 · Area/모드는 읽기 전용, 준비만 선택"
 		                startLabel = "파티장 대기"
@@ -333,13 +407,14 @@ script AreaSelectPanel extends Logic
 		            self.roleHintText.TextGUIRendererComponent.Text = hint
 		        end
 		        if isvalid(self.startButton) then
+		            self.startButton.UITransformComponent.anchoredPosition = Vector2(party and 114 or 0, 26)
 		            if isvalid(self.startButton.TextGUIRendererComponent) then
 		                self.startButton.TextGUIRendererComponent.Text = startLabel
 		            end
 		            if isvalid(self.startButton.ButtonComponent) then self.startButton.ButtonComponent.Enable = canStart end
 		            if isvalid(self.startButton.SpriteGUIRendererComponent) then
-		                self.startButton.SpriteGUIRendererComponent.Color = canStart
-		                    and Color(0.72, 0.84, 0.72, 1) or Color(0.72, 0.72, 0.72, 1)
+                self.startButton.SpriteGUIRendererComponent.Color = canStart
+                    and Color(0.24, 0.55, 0.76, 1) or Color(0.72, 0.75, 0.78, 1)
 		            end
 		        end
 	end

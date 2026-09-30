@@ -95,8 +95,9 @@ script RoomCamera extends Component
         self.cameraRetryLeft = self.cameraRetryMax
         self.cameraRetryTimer = _TimerService:SetTimerRepeat(function()
             self.cameraRetryLeft = self.cameraRetryLeft - 1
-            if self:ApplyCameraToLocalPlayer() or self.cameraRetryLeft <= 0 then
-                if self.cameraRetryLeft <= 0 then
+            local applied = self:ApplyCameraToLocalPlayer()
+            if applied or self.cameraRetryLeft <= 0 then
+                if not applied and self.cameraRetryLeft <= 0 then
                     log_warning("[RoomBounds] 카메라 적용 재시도 실패: " .. self.Entity.Name)
                 end
                 _TimerService:ClearTimer(self.cameraRetryTimer)
@@ -129,7 +130,14 @@ script RoomCamera extends Component
         -- 타일 셀 경계를 월드 좌표 외곽선으로 환산해 저장한다.
         local tileMap = self:FindTileMap()
         if tileMap == nil then
-            log_warning("[RoomBounds] RectTileMapComponent를 찾지 못함: " .. self.Entity.Name)
+            if not self._T.boundsPendingReported then
+                self._T.boundsPendingReported = true
+                if self:IsClient() then
+                    log("[RoomBounds] 타일 자식 준비 대기, 기존 카메라 유지 후 재시도: " .. self.Entity.Name)
+                else
+                    log_warning("[RoomBounds] RectTileMapComponent를 찾지 못함: " .. self.Entity.Name)
+                end
+            end
             return
         end
 
@@ -162,6 +170,7 @@ script RoomCamera extends Component
         self.roomRight = maxWorld.x + halfX
         self.roomTop = maxWorld.y + halfY
         self.roomReady = true
+        self._T.boundsPendingReported = false
 
         log("[RoomBounds] " .. self.Entity.Name .. " 외곽=("
             .. string.format("%.1f", self.roomLeft) .. "," .. string.format("%.1f", self.roomBottom)

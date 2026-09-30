@@ -45,14 +45,14 @@ script SkillBar extends Logic
     -- 그래서 "찬 칸만 순서대로, 오른쪽 끝부터" 채운다.
     -- 값은 `.ui`의 스킬 버튼과 같은 규격이다 (칸 122 + 사이 10 — T24-7에서
     -- MSW 프리셋 "스킬퀵슬롯" 규격으로 맞췄다).
-    property number slotRightX = -20
-    property number slotStepX = 132
+    property number slotRightX = 242
+    property number slotStepX = 98
 
     -- 아이콘을 넣을 상자 (T24-7). 그림은 이 안에 **비율을 지킨 채** 들어간다.
     -- 칸(122x122)에서 아래 이름표(26)와 여백을 뺀 나머지다.
     -- EquipPanel과 같은 방식이고 같은 함정을 피한다 — `FitIcon` 주석 참조.
-    property number iconBoxW = 72
-    property number iconBoxH = 72
+    property number iconBoxW = 70
+    property number iconBoxH = 70
 
     ---------------------------------------------------------------
     -- 키보드 입력 (T14-1)
@@ -452,6 +452,11 @@ script SkillBar extends Logic
         -- 칸 하나를 그린다 (T24-7). 아이콘 · 이름 · 키 · 남은 쿨다운 넷을
         -- **자식 엔티티**로 나눠 그린다 — 예전에는 이 넷을 글자 한 줄에 이어
         -- 붙였는데, 아이콘을 넣을 자리가 없었다.
+        if isvalid(slot.SpriteGUIRendererComponent) then
+            slot.SpriteGUIRendererComponent.Color = Color(0.27, 0.33, 0.37, 1)
+            slot.SpriteGUIRendererComponent.OutlineColor = Color(0.19, 0.61, 0.83, 1)
+            slot.SpriteGUIRendererComponent.OutlineWidth = 1
+        end
         local skill = _GameData:GetSkill(skillId)
         local remain = 0
         local slots = self:GetSlots()
@@ -480,10 +485,9 @@ script SkillBar extends Logic
 
         local nameEntity = slot:GetChildByName("Name", false)
         if nameEntity ~= nil then
-            nameEntity:SetVisible(true)
-            local name = skillId
-            if skill ~= nil then name = skill.name end
-            nameEntity.TextGUIRendererComponent.Text = name
+            -- The icon is the slot label; the full name lives in the Run skill window.
+            nameEntity.Enable = false
+            nameEntity:SetVisible(false)
         end
 
         local keyEntity = slot:GetChildByName("Key", false)
@@ -513,13 +517,18 @@ script SkillBar extends Logic
     @ExecSpace("ClientOnly")
     method void RenderEmptySlot(Entity slot, integer index)
         -- Mega Run의 빈 일회성 재고. 다음 서버 공급 주기를 기다린다.
+        if isvalid(slot.SpriteGUIRendererComponent) then
+            slot.SpriteGUIRendererComponent.Color = Color(0.27, 0.33, 0.37, 0.94)
+            slot.SpriteGUIRendererComponent.OutlineColor = Color(0.53, 0.58, 0.61, 1)
+            slot.SpriteGUIRendererComponent.OutlineWidth = 1
+        end
         local iconEntity = slot:GetChildByName("Icon", false)
         if iconEntity ~= nil then iconEntity:SetVisible(false) end
 
         local nameEntity = slot:GetChildByName("Name", false)
         if nameEntity ~= nil then
-            nameEntity:SetVisible(true)
-            nameEntity.TextGUIRendererComponent.Text = "비어 있음"
+            nameEntity.Enable = false
+            nameEntity:SetVisible(false)
         end
 
         local keyEntity = slot:GetChildByName("Key", false)
@@ -637,7 +646,7 @@ script SkillBar extends Logic
         local icon = self.abilityToast:GetChildByName("Icon", false)
         if isvalid(title) then
             title.TextGUIRendererComponent.Text = (monster ~= nil and monster.name or monsterId)
-                .. "의 능력을 획득했습니다."
+                .. " · 능력 획득"
         end
         if isvalid(details) then details.TextGUIRendererComponent.Text = skill ~= nil and skill.name or skillId end
         if isvalid(icon) then
