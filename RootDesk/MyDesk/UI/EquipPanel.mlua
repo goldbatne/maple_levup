@@ -68,6 +68,7 @@ script EquipPanel extends Logic
     property Entity ticketConfirm = nil
     property string ticketAwaitingMonsterId = ""
     property integer ticketPreviousLevel = 0
+    property string ticketSummaryIconRuid = ""
     property string observedMonsterId = ""
     property integer observedLevel = 0
     property integer observedEnhance = 0
@@ -78,6 +79,7 @@ script EquipPanel extends Logic
 
     -- 칸 클릭 핸들러. 칸 수만큼 있다.
     property any cellHandlers = nil
+    property any monsterCellIconRuids = nil
 
     -- .ui에 만들어 둔 칸 수. 여기와 .ui가 어긋나면 뒤쪽 칸이 조용히 안 그려진다.
     -- T68 현재 몬스터 포획 스킬 101종을 전부 담는다.
@@ -98,6 +100,7 @@ script EquipPanel extends Logic
         self.handlers = {}
         self.rowSkillIds = {}
         self.rowMonsterIds = {}
+        self.monsterCellIconRuids = {}
 
         self.handlers.open = self.btnOpen.Entity:ConnectEvent(ButtonClickEvent, function()
             self:SetOpen(not self.isOpen)
@@ -122,10 +125,24 @@ script EquipPanel extends Logic
                 self.handlers.ticketConfirm = confirm:ConnectEvent(ButtonClickEvent, function()
                     local collection = self:GetCollection()
                     if collection ~= nil and self.ticketSelectionMode
-                        and self.selectedMonsterId ~= "" and collection.MonsterSelectionTickets > 0 then
+                        and self.selectedMonsterId ~= "" and collection.MonsterSelectionTickets > 0
+                        and self.ticketAwaitingMonsterId == ""
+                        and _GameData:IsTameableMonster(self.selectedMonsterId)
+                        and collection:GetTamedCount(self.selectedMonsterId) > 0
+                        and collection:GetMonsterLevel(self.selectedMonsterId)
+                            < math.max(1, math.floor(_GameData:GetBalance("monster_level_cap"))) then
                         self.ticketAwaitingMonsterId = self.selectedMonsterId
                         self.ticketPreviousLevel = collection:GetMonsterLevel(self.selectedMonsterId)
-                        _MonsterShop:RequestUseSelectionTicket(self.selectedMonsterId)
+                        _MonsterShop:RequestUseGrowthTicket(self.selectedMonsterId)
+                        local requestedId = self.selectedMonsterId
+                        _TimerService:SetTimerOnce(function()
+                            if self.ticketAwaitingMonsterId == requestedId then
+                                self.ticketAwaitingMonsterId = ""
+                                self:Refresh()
+                                _GateNotice:ShowNotice("사용 확인 필요",
+                                    "저장 상태를 확인한 뒤 다시 시도해 주세요.")
+                            end
+                        end, 8)
                     end
                     self.ticketConfirm.Enable = false
                     self.ticketConfirm:SetVisible(false)
@@ -256,12 +273,13 @@ script EquipPanel extends Logic
     end
 
     @ExecSpace("ClientOnly")
-    method void OpenTicketSelection()
+    method void OpenGrowthTicketSelection()
         if self:IsMonsterLobby() == false then return end
         local collection = self:GetCollection()
         if collection == nil or collection.MonsterSelectionTickets < 1 then return end
         self:SetOpen(true)
         self.ticketSelectionMode = true
+        -- 성장권은 탐험에서 이미 해금한 몬스터의 레벨만 올린다.
         self.selectedMonsterId = ""
         self:Refresh()
     end
@@ -387,18 +405,25 @@ script EquipPanel extends Logic
             if self.ticketSelectionMode then
                 if index == 4 and collection.MonsterSelectionTickets > 0 then
                     local current = collection:GetMonsterLevel(self.selectedMonsterId)
-                    local cap = math.floor(_GameData:GetBalance("monster_level_cap"))
-                    if current >= cap then
-                        _GateNotice:ShowNotice("선택 불가", "이 몬스터는 최고 레벨입니다.")
+                    if collection:GetTamedCount(self.selectedMonsterId) <= 0 or current <= 0 then
+                        _GateNotice:ShowNotice("선택 불가", "미보유 몬스터는 탐험에서 해금해 주세요.")
                         return
                     end
+                    local cap = math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
+                    if current >= cap then
+                        _GateNotice:ShowNotice("선택 불가", "이미 최대 레벨인 몬스터입니다.")
+                        return
+                    end
+                    if self.ticketAwaitingMonsterId ~= "" then return end
                     if isvalid(self.ticketConfirm) then
                         local dialog = self.ticketConfirm:GetChildByName("Dialog", false)
                         local body = dialog ~= nil and dialog:GetChildByName("Body", false) or nil
                         local monster = _GameData:GetMonster(self.selectedMonsterId)
                         if isvalid(body) and isvalid(body.TextGUIRendererComponent) then
-                            body.TextGUIRendererComponent.Text = (monster ~= nil and monster.name or self.selectedMonsterId)
-                                .. "\nLv." .. tostring(current) .. "  →  Lv." .. tostring(current + 1)
+                            body.TextGUIRendererComponent.Text =
+                                (monster ~= nil and monster.name or self.selectedMonsterId)
+                                .. ("\n성장권 1개를 사용하면 Lv." .. tostring(current)
+                                    .. "에서 Lv." .. tostring(current + 1) .. "로 올라갑니다.")
                         end
                         self.ticketConfirm.Enable = true
                         self.ticketConfirm:SetVisible(true)
@@ -414,7 +439,7 @@ script EquipPanel extends Logic
                     for other = 1, 3 do
                         if other ~= index
                             and collection:GetEquippedCompanion(other) == self.selectedMonsterId then
-                            _GateNotice:ShowNotice("동행 편성", "같은 몬스터를 중복 편성할 수 없습니다.")
+                            _GateNotice:ShowNotice("몬스터 편성", "같은 몬스터를 중복 편성할 수 없습니다.")
                             return
                         end
                     end
@@ -424,16 +449,16 @@ script EquipPanel extends Logic
             elseif index == 4 then
                 local cost = collection:GetMonsterEnhanceCost(self.selectedMonsterId)
                 if collection.MonsterGrowthCurrency < cost then
-                    _GateNotice:ShowNotice("성장 정수 부족", "필요 " .. tostring(cost)
-                        .. " · 현재 " .. tostring(collection.MonsterGrowthCurrency))
+                    _GateNotice:ShowNotice("성장 점수 부족", "강화에 " .. tostring(cost)
+                        .. "점이 필요합니다. 현재 " .. tostring(collection.MonsterGrowthCurrency) .. "점이 있습니다.")
                     return
                 end
                 collection:RequestEnhanceMonster(self.selectedMonsterId)
             elseif index == 5 then
                 local cost = collection:GetMonsterCoreLevelCost(self.selectedMonsterId)
                 if collection.MonsterGrowthCore < cost then
-                    _GateNotice:ShowNotice("성장 코어 부족", "필요 " .. tostring(cost)
-                        .. " · 현재 " .. tostring(collection.MonsterGrowthCore))
+                    _GateNotice:ShowNotice("성장 코어 부족", "레벨업에 " .. tostring(cost)
+                        .. "개가 필요합니다. 현재 " .. tostring(collection.MonsterGrowthCore) .. "개가 있습니다.")
                     return
                 end
                 collection:RequestSpendGrowthCore(self.selectedMonsterId)
@@ -553,10 +578,10 @@ script EquipPanel extends Logic
                 self.lblOwned.Text = self.pickingMonsterSkill
                     and ("영구 스킬 컬렉션 · " .. tostring(#self.rowSkillIds) .. "종")
                     or (self.ticketSelectionMode
-                        and ("획득할 몬스터를 선택하세요 · 선택권 "
+                        and ("보유 몬스터를 선택하세요 · 성장권 "
                             .. tostring(collection.MonsterSelectionTickets))
                         or ("몬스터 " .. tostring(owned) .. "/" .. tostring(total)
-                            .. " · 성장 정수 " .. tostring(collection.MonsterGrowthCurrency)
+                            .. " · 성장 점수 " .. tostring(collection.MonsterGrowthCurrency)
                             .. " · 성장 코어 " .. tostring(collection.MonsterGrowthCore)))
             end
             return
@@ -620,6 +645,19 @@ script EquipPanel extends Logic
         if self:IsMonsterLobby() then
             local monsterId = self.rowMonsterIds ~= nil and self.rowMonsterIds[index] or nil
             if monsterId == nil then return end
+            if self.ticketSelectionMode then
+                local collection = self:GetCollection()
+                if collection == nil or _GameData:IsTameableMonster(monsterId) == false then return end
+                if collection:GetTamedCount(monsterId) <= 0 then
+                    _GateNotice:ShowNotice("선택 불가", "미보유 몬스터는 탐험에서 해금해 주세요.")
+                    return
+                end
+                if collection:GetMonsterLevel(monsterId)
+                    >= math.max(1, math.floor(_GameData:GetBalance("monster_level_cap"))) then
+                    _GateNotice:ShowNotice("선택 불가", "이미 최대 레벨인 몬스터입니다.")
+                    return
+                end
+            end
             self.selectedMonsterId = monsterId
             self:Refresh()
             return
@@ -628,6 +666,7 @@ script EquipPanel extends Logic
             if self.rowSkillIds == nil then return end
             local skillId = self.rowSkillIds[index]
             if skillId == nil then return end
+            log("[RunSkillWindow] click index=" .. tostring(index) .. " skill=" .. tostring(skillId))
             self.selectedSkillId = skillId
             self.selectedMonsterId = ""
             self:Refresh()
@@ -816,10 +855,14 @@ script EquipPanel extends Logic
 
         local source = monster ~= nil and monster.name or "연결 몬스터 정보 없음"
         local description = skill.description or ""
+        -- 844x475에서는 한 줄로 이어 붙인 설명이 작고 어두운 문자열로 뭉친다.
+        -- 제목/출처/유형/설명을 줄로 나눠 실제 기능을 읽을 수 있게 한다.
+        if string.len(description) > 84 then
+            description = string.sub(description, 1, 84) .. "..."
+        end
         self.lblDesc.Text = skill.name
-            .. "   제공 몬스터: " .. source
-            .. "   유형: " .. self:KindLabel(skill)
-            .. "   " .. description
+            .. "\n몬스터: " .. source .. " · " .. self:KindLabel(skill)
+            .. "\n" .. description
     end
 
     @ExecSpace("ClientOnly")
@@ -829,7 +872,8 @@ script EquipPanel extends Logic
             self:SetLobbyHero("몬스터를 선택하세요", "")
             self:SetCollectionPilotRows("", "")
             self:SetRunDetailIcons(nil, nil)
-            self:SetV4SkillCard(nil, "고유 능력 없음", "몬스터를 수집하면 여기에서 확인합니다.")
+            self:SetV4SkillCard(nil, "고유 능력", self.ticketSelectionMode
+                and "보유 몬스터를 직접 선택해 주세요." or "몬스터를 수집하면 여기에서 확인합니다.")
             self.lblDesc.Text = ""
             return
         end
@@ -859,20 +903,14 @@ script EquipPanel extends Logic
                 self:SetCollectionPilotRows("미획득", activeSkill
                     and ownSkill.name or "사용 가능한 액티브 능력 없음")
                 self:SetV4SkillCard(activeSkill and ownSkill or nil,
-                    activeSkill and ownSkill.name or "사용 가능한 액티브 능력 없음", self.ticketSelectionMode
-                    and "선택권으로 Lv.1 획득 가능" or "모험 중 테이밍 가능")
-                self.lblDesc.Text = self.ticketSelectionMode
-                    and "선택권으로 Lv.1 획득 가능" or "모험 중 테이밍 가능"
+                    activeSkill and ownSkill.name or "사용 가능한 액티브 능력 없음",
+                    "모험 중 테이밍 가능")
+                self.lblDesc.Text = "모험 중 테이밍 가능"
                 return
             end
             local maxStage = math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
-            local hpRatio = _GameData:GetBalance("companion_growth_hp_per_stage")
-            local attackRatio = _GameData:GetBalance("companion_growth_attack_per_stage")
             local enhance = collection:GetMonsterEnhance(monster.id)
-            local hpGrowth = 1 + (count - 1) * hpRatio
-                + enhance * _GameData:GetBalance("monster_enhance_hp_per_stage")
-            local attackGrowth = 1 + (count - 1) * attackRatio
-                + enhance * _GameData:GetBalance("monster_enhance_attack_per_stage")
+            local ownStats = collection:GetEffectiveCompanionStats(monster.id)
             local skillGrowth = 1 + (count - 1) * _GameData:GetBalance("companion_growth_skill_per_stage")
                 + enhance * _GameData:GetBalance("monster_enhance_skill_per_stage")
             local hasActive = ownSkill ~= nil and ownSkill.skill_kind ~= "passive"
@@ -880,14 +918,44 @@ script EquipPanel extends Logic
             local ownSkillDescription = hasActive and ownSkill.description or ""
             local stageText = "Lv." .. tostring(count) .. " / "
                 .. tostring(maxStage) .. "     +" .. tostring(enhance)
+            local roleSlot = 0
+            for slot = 1, 3 do
+                if collection:GetEquippedCompanion(slot) == monster.id then
+                    roleSlot = slot
+                    break
+                end
+            end
+            stageText ..= roleSlot == 1 and " · 메인 편성"
+                or (roleSlot > 1 and " · 지원 편성" or " · 미편성")
             if self.ticketSelectionMode then
                 stageText = count >= maxStage and "최대 레벨 · 선택 불가"
                     or ("Lv." .. tostring(count) .. " → Lv." .. tostring(count + 1))
             end
             self:SetLobbyHero(monster.name, stageText)
-            self:SetCollectionPilotRows(
-                "HP ×" .. string.format("%.2f", hpGrowth)
-                    .. "\n공격 ×" .. string.format("%.2f", attackGrowth),
+            local hpText = tostring(ownStats.maxHp)
+            local attackText = string.format("%.2f", ownStats.basicAttack)
+            local defenseText = string.format("%.2f", ownStats.defense)
+            if roleSlot == 1 then
+                local support = collection:GetCompanionSupportBonus()
+                -- 상세 패널의 HP/ATK/DEF를 한 줄에 놓으므로 역할 설명은 위의
+                -- "메인 편성" 표시에 맡기고 값은 기본 → 편성 합계로 압축한다.
+                hpText ..= " → " .. tostring(ownStats.maxHp + support.maxHp)
+                attackText ..= " → "
+                    .. string.format("%.2f", ownStats.basicAttack + support.basicAttack)
+                defenseText ..= " → "
+                    .. string.format("%.2f", ownStats.defense + support.defense)
+            elseif roleSlot > 1 then
+                local hpRate = math.max(0, _GameData:GetBalance("companion_support_hp_rate"))
+                local attackRate = math.max(0, _GameData:GetBalance("companion_support_attack_rate"))
+                local defenseRate = math.max(0, _GameData:GetBalance("companion_support_defense_rate"))
+                hpText ..= " (+" .. string.format("%.1f", ownStats.maxHp * hpRate) .. ")"
+                attackText ..= " (+"
+                    .. string.format("%.2f", ownStats.basicAttack * attackRate) .. ")"
+                defenseText ..= " (+"
+                    .. string.format("%.2f", ownStats.defense * defenseRate) .. ")"
+            end
+            self:SetCollectionPilotRows("HP " .. hpText .. "\n공격 " .. attackText
+                .. "\n방어 " .. defenseText,
                 ownSkillName .. "  ×" .. string.format("%.2f", skillGrowth))
             local shortDescription = string.match(ownSkillDescription, "^[^\n%.!?]+")
                 or ownSkillDescription
@@ -950,7 +1018,8 @@ script EquipPanel extends Logic
         local statRow = self.windowRoot:GetChildByName("DetailStats", false)
         local abilityRow = self.windowRoot:GetChildByName("DetailAbility", false)
         if isvalid(statRow) and isvalid(statRow.TextGUIRendererComponent) then
-            statRow.TextGUIRendererComponent.Text = stats
+            -- 실제 값은 정렬된 HP/ATK/DEF 칩에 표시한다. 뒤쪽 레거시 문구가 겹치지 않게 한다.
+            statRow.TextGUIRendererComponent.Text = ""
         end
         if isvalid(abilityRow) and isvalid(abilityRow.TextGUIRendererComponent) then
             abilityRow.TextGUIRendererComponent.Text = ability
@@ -958,11 +1027,15 @@ script EquipPanel extends Logic
         -- Keep the shared Run Skill text; V5 uses compact values in its place.
         local hp = self.windowRoot:GetChildByName("V5HPValue", false)
         local attack = self.windowRoot:GetChildByName("V5ATKValue", false)
+        local defense = self.windowRoot:GetChildByName("V5DEFValue", false)
         if isvalid(hp) and isvalid(hp.TextGUIRendererComponent) then
             hp.TextGUIRendererComponent.Text = string.match(stats, "HP ([^\n]+)") or "—"
         end
         if isvalid(attack) and isvalid(attack.TextGUIRendererComponent) then
             attack.TextGUIRendererComponent.Text = string.match(stats, "공격 ([^\n]+)") or "—"
+        end
+        if isvalid(defense) and isvalid(defense.TextGUIRendererComponent) then
+            defense.TextGUIRendererComponent.Text = string.match(stats, "방어 ([^\n]+)") or "—"
         end
     end
 
@@ -1164,15 +1237,23 @@ script EquipPanel extends Logic
         local rogueMode = slots ~= nil and slots:IsRogueliteRunMode()
         local count = collection:GetTamedCount(monsterId)
         local discovered = collection.RogueDiscoveredMonsters[monsterId] ~= nil
-        local available = self.ticketSelectionMode
-            or ((rogueMode and not self:IsMonsterLobby()) and discovered or count > 0)
+        local level = collection:GetMonsterLevel(monsterId)
+        local levelCap = math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
+        local available = self.ticketSelectionMode and count > 0 and level > 0 and level < levelCap
+            or (not self.ticketSelectionMode
+                and ((rogueMode and not self:IsMonsterLobby()) and discovered or count > 0))
 
         local iconEntity = cell:GetChildByName("Icon", false)
         if iconEntity ~= nil then
             local icon = iconEntity.SpriteGUIRendererComponent
             if isvalid(icon) and monster.collection_icon_ruid ~= "" then
                 -- animationclip 자체를 재생하지 않고 정지 썸네일로 표시한다.
-                icon.ImageRUID = DataRef("thumbnail://" .. monster.collection_icon_ruid)
+                -- 0.3초 Refresh마다 같은 RUID를 다시 넣으면 선택권 화면에서 아이콘이
+                -- 짧게 빈 프레임으로 바뀐다. 셀 내용이 실제로 달라질 때만 교체한다.
+                if self.monsterCellIconRuids[index] ~= monster.collection_icon_ruid then
+                    self.monsterCellIconRuids[index] = monster.collection_icon_ruid
+                    icon.ImageRUID = DataRef("thumbnail://" .. monster.collection_icon_ruid)
+                end
                 if available then icon.Color = Color(1, 1, 1, 1)
                 else icon.Color = Color(0.28, 0.28, 0.30, 0.72) end
                 self:FitIcon(iconEntity.UITransformComponent, 1)
@@ -1202,13 +1283,16 @@ script EquipPanel extends Logic
                         badgeNumber.TextGUIRendererComponent.Text = mark
                     end
                 end
-                if count > 0 then
+                if self.ticketSelectionMode and count > 0 then
+                    local cap = math.floor(_GameData:GetBalance("monster_level_cap"))
+                    nameEntity.TextGUIRendererComponent.Text = level >= cap and "MAX" or "Lv +1"
+                elseif count > 0 then
                     local enhance = collection:GetMonsterEnhance(monsterId)
                     nameEntity.TextGUIRendererComponent.Text = "Lv."
                         .. tostring(collection:GetMonsterLevel(monsterId))
                         .. (enhance > 0 and (" +" .. tostring(enhance)) or "")
                 elseif self.ticketSelectionMode then
-                    nameEntity.TextGUIRendererComponent.Text = "획득"
+                    nameEntity.TextGUIRendererComponent.Text = "탐험 해금"
                 else
                     nameEntity.TextGUIRendererComponent.Text = ""
                 end
@@ -1219,7 +1303,7 @@ script EquipPanel extends Logic
                     local level = collection:GetMonsterLevel(monsterId)
                     local cap = math.floor(_GameData:GetBalance("monster_level_cap"))
                     nameEntity.TextGUIRendererComponent.Text = monster.name .. "\n"
-                        .. (level >= cap and "MAX" or (level == 0 and "신규 획득" or "Lv +1"))
+                        .. (level >= cap and "MAX" or "Lv +1")
                 else
                     nameEntity.TextGUIRendererComponent.Text = monster.name .. "\nLv."
                         .. tostring(collection:GetMonsterLevel(monsterId)) .. "  +"
@@ -1362,6 +1446,16 @@ script EquipPanel extends Logic
         if isvalid(nameEntity) and isvalid(nameEntity.TextGUIRendererComponent) then
             nameEntity.UITransformComponent.anchoredPosition = Vector2(83, 0)
             nameEntity.TextGUIRendererComponent.Text = skill.name
+            -- Run 셀 배경은 밝은 슬롯이므로 이름은 어두운 고대비로 고정한다.
+            -- ApplyPilotVisualMode가 설정하는 흰색 전투 텍스트가 남으면
+            -- 아이콘 아래 이름이 배경에 묻혀 클릭 결과도 보이지 않는다.
+            nameEntity.TextGUIRendererComponent.FontColor = Color(0.12, 0.18, 0.22, 1)
+            nameEntity.TextGUIRendererComponent.FontSize = 24
+            nameEntity.TextGUIRendererComponent.BestFit = true
+            nameEntity.TextGUIRendererComponent.MinSize = 16
+            nameEntity.TextGUIRendererComponent.MaxSize = 24
+            nameEntity.TextGUIRendererComponent.HorizontalAlignment = TextHorizontalAlignmentOption.Left
+            nameEntity.TextGUIRendererComponent.VerticalAlignment = TextVerticalAlignmentOption.Middle
         end
         local sprite = cell.SpriteGUIRendererComponent
         if isvalid(sprite) then
@@ -1396,12 +1490,12 @@ script EquipPanel extends Logic
         local title = self.windowRoot:GetChildByName("Title", true)
         if isvalid(title) and isvalid(title.TextGUIRendererComponent) then
             title.TextGUIRendererComponent.Text = self.ticketSelectionMode
-                and "몬스터 선택권" or "몬스터 컬렉션"
+                and "몬스터 성장권" or "몬스터 컬렉션"
         end
         local slotLabel = self.windowRoot:GetChildByName("LblSlots", true)
         if isvalid(slotLabel) and isvalid(slotLabel.TextGUIRendererComponent) then
             slotLabel.TextGUIRendererComponent.Text = self.ticketSelectionMode
-                and "몬스터 선택권" or "동행 편성 · 3마리"
+                and "몬스터 성장권" or "몬스터 편성 · 메인 1 / 지원 2"
         end
         local selected = self.selectedMonsterId
         local ticketSummary = self.windowRoot:GetChildByName("TicketSummary", true)
@@ -1419,17 +1513,24 @@ script EquipPanel extends Logic
                 end
                 if isvalid(summaryLevel) then
                     local level = chosen ~= nil and collection:GetMonsterLevel(selected) or 0
-                    summaryLevel.TextGUIRendererComponent.Text = chosen ~= nil
-                        and ("Lv." .. tostring(level) .. " → Lv." .. tostring(level + 1))
-                        or "미보유는 새로 획득하고, 보유 중이면 Level이 증가합니다."
+                    summaryLevel.TextGUIRendererComponent.Text = chosen == nil
+                        and "성장시킬 보유 몬스터를 선택해 주세요"
+                        or (level >= math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
+                            and "최대 레벨 · 선택 불가"
+                            or (level > 0 and ("Lv." .. tostring(level) .. " → Lv."
+                                .. tostring(level + 1)) or "탐험에서 해금 필요"))
                 end
                 if isvalid(summaryIcon) then
                     local visible = chosen ~= nil and chosen.collection_icon_ruid ~= ""
-                    summaryIcon.Enable = visible
-                    summaryIcon:SetVisible(visible)
-                    if visible then
-                        summaryIcon.SpriteGUIRendererComponent.ImageRUID =
-                            DataRef("thumbnail://" .. chosen.collection_icon_ruid)
+                    local nextRuid = visible and chosen.collection_icon_ruid or ""
+                    if self.ticketSummaryIconRuid ~= nextRuid then
+                        self.ticketSummaryIconRuid = nextRuid
+                        summaryIcon.Enable = visible
+                        summaryIcon:SetVisible(visible)
+                        if visible then
+                            summaryIcon.SpriteGUIRendererComponent.ImageRUID =
+                                DataRef("thumbnail://" .. chosen.collection_icon_ruid)
+                        end
                     end
                 end
             end
@@ -1474,22 +1575,26 @@ script EquipPanel extends Logic
                 btn.Enable = owned
                 local label = "몬스터 선택"
                 if self.ticketSelectionMode then
-                    label = "선택권 확인\n"
+                    label = "성장권 확인\n"
                         .. (selected ~= "" and (_GameData:GetMonster(selected).name or selected) or "몬스터 선택")
                     btn.Enable = i == 4 and selected ~= ""
                         and collection.MonsterSelectionTickets > 0
+                        and self.ticketAwaitingMonsterId == ""
+                        and collection:GetTamedCount(selected) > 0
+                        and collection:GetMonsterLevel(selected) > 0
                         and collection:GetMonsterLevel(selected)
-                            < math.floor(_GameData:GetBalance("monster_level_cap"))
+                            < math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
                 elseif i <= 3 then
                     local companionId = collection:GetEquippedCompanion(i)
                     local companion = _GameData:GetMonster(companionId)
-                    local name = companion ~= nil and companion.name or "+ 동행 선택"
+                    local role = i == 1 and "[메인] " or "[지원] "
+                    local name = companion ~= nil and companion.name or "+ 선택"
                     local growth = companion ~= nil
                         and (" Lv." .. tostring(collection:GetMonsterLevel(companionId))
                             .. " +" .. tostring(collection:GetMonsterEnhance(companionId))) or ""
                     local portraitLabel = btn.Entity:GetChildByName("V4Label", false)
                     if isvalid(portraitLabel) and isvalid(portraitLabel.TextGUIRendererComponent) then
-                        portraitLabel.TextGUIRendererComponent.Text = name
+                        portraitLabel.TextGUIRendererComponent.Text = role .. name
                             .. (growth ~= "" and ("\n" .. growth) or "")
                     end
                     label = ""
@@ -1514,7 +1619,7 @@ script EquipPanel extends Logic
                     label = "강화 +" .. tostring(nextEnhance)
                     local costLabel = self.windowRoot:GetChildByName("V4EnhanceCost", false)
                     if isvalid(costLabel) and isvalid(costLabel.TextGUIRendererComponent) then
-                        costLabel.TextGUIRendererComponent.Text = "정수 "
+                        costLabel.TextGUIRendererComponent.Text = "점수 "
                             .. tostring(collection:GetMonsterEnhanceCost(selected))
                             .. " / " .. tostring(collection.MonsterGrowthCurrency)
                         costLabel.Enable = not self.ticketSelectionMode
@@ -1720,13 +1825,19 @@ script EquipPanel extends Logic
 
     @ExecSpace("ClientOnly")
     method void ApplyPilotVisualMode(boolean collectionMode)
-        -- EquipWindow is shared: the collection pilot must not redesign Run Skill.
+        -- Collection과 Run Skill은 동일 프레임/슬롯 문법의 밝은/어두운 변형이다.
         local mode = collectionMode and "COLLECTION" or "RUN_SKILL"
         if self.appliedPilotVisualMode == mode then return end
         self.appliedPilotVisualMode = mode
+        if collectionMode then
+            -- Run Skill 화면이 같은 셀 Icon을 사용하므로 모드 복귀 때 한 번은
+            -- 몬스터 썸네일을 다시 심고, 이후 반복 Refresh에서는 캐시한다.
+            self.monsterCellIconRuids = {}
+        end
         for _, childName in ipairs({"V4SkillCard", "V4EnhanceCost", "V4CoreCost",
             "V5InnerFrame", "V5TitleRule", "V5TitleHighlight",
-            "V5HPChip", "V5ATKChip", "V5HPValue", "V5ATKValue"}) do
+            "V5HPChip", "V5ATKChip", "V5DEFChip",
+            "V5HPValue", "V5ATKValue", "V5DEFValue"}) do
             local decoration = self.windowRoot:GetChildByName(childName, false)
             if isvalid(decoration) then
                 decoration.Enable = collectionMode
@@ -1738,8 +1849,10 @@ script EquipPanel extends Logic
         local window = self.windowRoot
         local frame = window.SpriteGUIRendererComponent
         if isvalid(frame) then
-            frame.Color = Color(0.93, 0.95, 0.96, 1)
-            frame.OutlineColor = Color(0.57, 0.63, 0.67, 1)
+            frame.Color = collectionMode and Color(0.93, 0.95, 0.96, 1)
+                or Color(0.16, 0.22, 0.27, 0.96)
+            frame.OutlineColor = collectionMode and Color(0.57, 0.63, 0.67, 1)
+                or Color(0.43, 0.53, 0.60, 1)
             frame.OutlineWidth = 2
         end
         local title = window:GetChildByName("Title", false)
@@ -1748,7 +1861,8 @@ script EquipPanel extends Logic
                 title.SpriteGUIRendererComponent.Color = Color(1, 1, 1, 0)
             end
             if isvalid(title.TextGUIRendererComponent) then
-                title.TextGUIRendererComponent.FontColor = Color(0.19, 0.24, 0.28, 1)
+                title.TextGUIRendererComponent.FontColor = collectionMode
+                    and Color(0.19, 0.24, 0.28, 1) or Color(0.90, 0.94, 0.96, 1)
                 title.TextGUIRendererComponent.FontSize = collectionMode and 27 or 30
                 title.TextGUIRendererComponent.HorizontalAlignment = TextHorizontalAlignmentOption.Center
             end
@@ -1768,8 +1882,10 @@ script EquipPanel extends Logic
                 layout.Type = LayoutGroupType.Grid
             end
             if isvalid(grid.SpriteGUIRendererComponent) then
-                grid.SpriteGUIRendererComponent.Color = Color(0.89, 0.92, 0.94, 1)
-                grid.SpriteGUIRendererComponent.OutlineColor = Color(0.62, 0.67, 0.70, 1)
+                grid.SpriteGUIRendererComponent.Color = collectionMode
+                    and Color(0.89, 0.92, 0.94, 1) or Color(0.20, 0.27, 0.32, 1)
+                grid.SpriteGUIRendererComponent.OutlineColor = collectionMode
+                    and Color(0.62, 0.67, 0.70, 1) or Color(0.43, 0.53, 0.60, 1)
             end
             for i = 1, self.cellCount do
                 local cell = grid:GetChildByName("Cell" .. tostring(i), false)
@@ -1777,8 +1893,10 @@ script EquipPanel extends Logic
                     cell.UITransformComponent.RectSize = collectionMode
                         and Vector2(111, 102) or Vector2(264, 100)
                     if isvalid(cell.SpriteGUIRendererComponent) then
-                        cell.SpriteGUIRendererComponent.Color = Color(0.98, 0.99, 0.99, 1)
-                        cell.SpriteGUIRendererComponent.OutlineColor = Color(0.72, 0.77, 0.80, 1)
+                        cell.SpriteGUIRendererComponent.Color = collectionMode
+                            and Color(0.98, 0.99, 0.99, 1) or Color(0.27, 0.33, 0.37, 1)
+                        cell.SpriteGUIRendererComponent.OutlineColor = collectionMode
+                            and Color(0.72, 0.77, 0.80, 1) or Color(0.45, 0.55, 0.62, 1)
                         cell.SpriteGUIRendererComponent.OutlineWidth = 1
                     end
                     local iconWell = cell:GetChildByName("V5IconWell", false)
@@ -1820,6 +1938,8 @@ script EquipPanel extends Logic
                         if isvalid(name.TextGUIRendererComponent) then
                             name.TextGUIRendererComponent.FontSize = collectionMode and 17 or 21
                             name.TextGUIRendererComponent.HorizontalAlignment = collectionMode and 2 or 1
+                            name.TextGUIRendererComponent.FontColor = collectionMode
+                                and Color(0.19, 0.24, 0.28, 1) or Color(0.89, 0.93, 0.95, 1)
                         end
                     end
                 end
@@ -1830,12 +1950,36 @@ script EquipPanel extends Logic
             close.SpriteGUIRendererComponent.Color = Color(1, 1, 1, 0)
             local icon = close:GetChildByName("XIcon", false)
             if isvalid(icon) and isvalid(icon.SpriteGUIRendererComponent) then
-                icon.SpriteGUIRendererComponent.Color = Color(0.31, 0.36, 0.39, 1)
+                icon.SpriteGUIRendererComponent.Color = collectionMode
+                    and Color(0.31, 0.36, 0.39, 1) or Color(0.88, 0.93, 0.95, 1)
             end
         end
         local ownedLabel = window:GetChildByName("LblOwned", false)
         if isvalid(ownedLabel) and isvalid(ownedLabel.TextGUIRendererComponent) then
             ownedLabel.TextGUIRendererComponent.FontSize = collectionMode and 20 or 22
+            ownedLabel.TextGUIRendererComponent.FontColor = collectionMode
+                and Color(0.19, 0.24, 0.28, 1) or Color(0.86, 0.91, 0.94, 1)
+        end
+        local slotsLabel = window:GetChildByName("LblSlots", false)
+        if isvalid(slotsLabel) and isvalid(slotsLabel.TextGUIRendererComponent) then
+            slotsLabel.TextGUIRendererComponent.FontColor = collectionMode
+                and Color(0.19, 0.24, 0.28, 1) or Color(0.87, 0.92, 0.95, 1)
+            slotsLabel.TextGUIRendererComponent.FontSize = collectionMode and 20 or 22
+        end
+        local description = window:GetChildByName("LblDesc", false)
+        if isvalid(description) and isvalid(description.TextGUIRendererComponent) then
+            description.TextGUIRendererComponent.FontColor = collectionMode
+                and Color(0.19, 0.24, 0.28, 1) or Color(0.88, 0.93, 0.96, 1)
+            description.TextGUIRendererComponent.FontSize = collectionMode and 22 or 24
+            description.TextGUIRendererComponent.BestFit = true
+            description.TextGUIRendererComponent.MinSize = 16
+            description.TextGUIRendererComponent.MaxSize = collectionMode and 26 or 28
+            description.TextGUIRendererComponent.VerticalAlignment = TextVerticalAlignmentOption.Middle
+        end
+        local empty = window:GetChildByName("EmptyState", false)
+        if isvalid(empty) and isvalid(empty.TextGUIRendererComponent) then
+            empty.TextGUIRendererComponent.FontColor = collectionMode
+                and Color(0.34, 0.39, 0.42, 1) or Color(0.82, 0.88, 0.91, 1)
         end
         local stats = window:GetChildByName("DetailStats", false)
         if isvalid(stats) and isvalid(stats.TextGUIRendererComponent) then
@@ -1921,6 +2065,11 @@ script EquipPanel extends Logic
         local emptyState = self.windowRoot:GetChildByName("EmptyState", true)
         if self:IsMonsterLobby() then
             self:RefreshMonsterLobby()
+            -- 상세 카드들이 매 Refresh에서 다시 켜진다. 활성 확인창은 그 뒤에
+            -- 형제 순서를 올려야 Dim/버튼 위로 배경 UI가 튀어나오지 않는다.
+            if isvalid(self.ticketConfirm) and self.ticketConfirm.Enable then
+                _UILogic:SetSiblingIndex(self.ticketConfirm.UITransformComponent, 1000000)
+            end
             return
         end
 
@@ -1951,13 +2100,13 @@ script EquipPanel extends Logic
                     local battleSlot = btn.Entity.SpriteGUIRendererComponent
                     if isvalid(battleSlot) then
                         battleSlot.Color = skill ~= nil
-                            and Color(0.95, 0.97, 0.98, 1) or Color(0.98, 0.99, 0.99, 1)
+                            and Color(0.29, 0.37, 0.42, 1) or Color(0.24, 0.31, 0.36, 1)
                         battleSlot.OutlineColor = skill ~= nil
-                            and Color(0.63, 0.72, 0.77, 1) or Color(0.77, 0.82, 0.85, 1)
+                            and Color(0.43, 0.64, 0.76, 1) or Color(0.43, 0.53, 0.60, 1)
                         battleSlot.OutlineWidth = 1
                     end
                     if isvalid(btn.Entity.TextGUIRendererComponent) then
-                        btn.Entity.TextGUIRendererComponent.FontColor = Color(0.19, 0.24, 0.28, 1)
+                        btn.Entity.TextGUIRendererComponent.FontColor = Color(0.87, 0.92, 0.95, 1)
                     end
                     btn.Entity.TextGUIRendererComponent.Text = tostring(i) .. " · "
                         .. (skill ~= nil and skill.name or "빈 슬롯")

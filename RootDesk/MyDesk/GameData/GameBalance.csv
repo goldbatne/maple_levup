@@ -86,26 +86,38 @@ skill_stack_max,5,같은 몬스터를 테이밍해 올릴 수 있는 최대 별 
 skill_stack_bonus,0.2,중복 테이밍 1회당 고유 액티브 계수 비례 증가분 - 계수 = 기본 x (1 + 이 값 x (별-1)). ★5이면 x1.8
 companion_growth_hp_per_stage,0.05,동행 몬스터 성장 단계당 최대 HP 증가율 초안
 companion_growth_attack_per_stage,0.04,동행 몬스터 성장 단계당 기본 공격 증가율 초안
+companion_growth_defense_per_stage,0.03,동행 몬스터 성장 단계당 방어력 증가율
 companion_growth_skill_per_stage,0.03,동행 몬스터 성장 단계당 장착 스킬 피해 증가율 초안
 companion_base_hp,250,동행 몬스터 기본 최대 HP 초안
 companion_base_attack,20,동행 몬스터 기본 공격력 초안
-companion_base_defense,0,동행 몬스터 기본 방어력 초안
+companion_base_defense,10,동행 몬스터 기본 방어력
 companion_basic_attack_interval,1.0,동행 몬스터 기본 공격 간격 초안
 companion_basic_attack_range,1.5,동행 몬스터 기본 공격 범위 초안
 monster_level_cap,20,동일 몬스터 중복 테이밍으로 증가하는 영구 레벨 상한
 monster_enhance_cap,20,성장 정수로 올리는 별도 강화 상한
-monster_essence_per_kill,1,일반 적 처치 참여자별 성장 정수
-monster_essence_per_boss_kill,10,보스 처치 참여자별 성장 정수
+monster_essence_per_kill,1,일반 적 처치 시 성장 점수 추첨 성공 지급량
+monster_essence_per_boss_kill,10,보스 처치 시 성장 점수 추첨 성공 지급량
+monster_growth_score_drop_rate,0.05,Run 일반 몬스터 처치 참여자별 성장 점수 추첨 확률
+monster_growth_score_boss_drop_rate,0.12,Run 보스 처치 참여자별 성장 점수 추첨 확률
+monster_growth_core_drop_rate,0.01,3층 이상 Run 일반 몬스터 처치 참여자별 성장 코어 추첨 확률
+monster_growth_core_boss_drop_rate,0.03,3층 이상 Run 보스 처치 참여자별 성장 코어 추첨 확률
+monster_growth_core_min_floor,3,Run 성장 코어 처치 추첨 및 층 클리어 지급 시작 층
 monster_growth_core_level_cost,1,보유 몬스터 Level +1에 필요한 성장 코어 수
 monster_growth_core_per_mega_clear,1,Mega Area 클리어 참가자별 무료 성장 코어 지급량
 monster_enhance_cost_base,5,첫 강화에 필요한 성장 정수
 monster_enhance_cost_step,2,강화 단계별 성장 정수 비용 증가
 monster_enhance_hp_per_stage,0.02,강화 단계당 동행 최대 HP 보정
 monster_enhance_attack_per_stage,0.02,강화 단계당 동행 기본 공격 보정
+monster_enhance_defense_per_stage,0.02,강화 단계당 동행 방어력 보정
 monster_enhance_skill_per_stage,0.015,강화 단계당 동행 고유 스킬 보정
-companion_formation_radius,1.15,동행 3마리의 비전투 편성 반경 월드 단위
+companion_formation_radius,1.15,메인 동행의 비전투 추적 반경 월드 단위
 companion_engage_radius,6,동행의 적 탐색 반경 월드 단위
-companion_special_cast_spacing,0.35,같은 소유자의 동행 특수 시전 사이 최소 간격 초
+companion_special_cast_spacing,0.35,레거시 다중 동행 특수 시전 간격 초
+companion_support_hp_rate,0.20,지원 몬스터 유효 최대 HP의 메인 전달 비율
+companion_support_attack_rate,0.20,지원 몬스터 유효 기본 공격의 메인 전달 비율
+companion_support_defense_rate,0.20,지원 몬스터 유효 방어력의 메인 전달 비율
+player_companion_stat_transfer_rate,0.50,편성 3마리 유효 HP 공격 방어 합계의 플레이어 전달 비율
+main_companion_skill_min_interval,8.0,메인 동행 고유 스킬 최소 시전 간격 초
 monster_slot_start,1,몬스터 스킬 슬롯 시작 개수 - 기획서 4.3
 monster_slot_max,5,스킬 슬롯 상한 - 현재 직업 차수에 따라 1~5칸을 사용한다 / 스킬 창은 몬스터 스킬만 다룬다
 phase1_random_combat_enabled,1,Phase 1 신규 전투 플래그. 1이면 단일 기본공격·분리된 몬스터 공격거리·보유 액티브 기반 일회성 스킬 재고를 사용하고 0이면 기존 전투로 돌아간다
@@ -166,6 +178,24 @@ run_monster_attack_base,24,Roguelite 일반 조우 몬스터 기본 공격력 �
 run_monster_attack_area_step,3,레거시 보존값. Mega Area Run 계산에는 사용하지 않음
 run_monster_defense_base,6,Roguelite 일반 조우 몬스터 기본 방어력 잠정값
 run_monster_defense_area_step,1,레거시 보존값. Mega Area Run 계산에는 사용하지 않음
+run_floor_count,5,Mega Area를 순차 성장 층으로 사용하는 총 층 수
+run_floor_stat_step,0.25,층이 하나 오를 때 일반 몬스터와 보스 HP·공격·방어에 더하는 배율. 1층 x1.0에서 5층 x2.0
+run_floor_clear_growth_currency_base,5,1층 클리어 시 지급하는 성장 점수
+run_floor_clear_growth_currency_step,5,층이 하나 오를 때 추가되는 클리어 성장 점수
+run_floor_clear_growth_core_base,1,3층 이상 클리어 보상 계산 기준값. 1~2층은 코어 미지급
+run_floor_clear_growth_core_step,0.5,3층부터 기존 층별 계산값을 내림해 2·2·3 지급
+run_floor_hazard_enabled,1,3층부터 MonsterTable drop_skill_id 기반 환경 회피 기믹 활성화
+run_floor_hazard_warning_seconds,3,고정 피해 발동 전 타원 경고 표시 시간
+run_floor_hazard_interval_floor3,15,3층 환경 기믹 발동 후 다음 경고까지 기본 간격
+run_floor_hazard_interval_step,3,층이 하나 오를 때 환경 기믹 간격 감소량. 3층 15초·4층 12초·5층 9초
+run_floor_hazard_interval_jitter,2,방별 전용 Seed RNG가 간격에 더하는 ±초 범위
+run_floor_hazard_damage_floor3,10,3층 환경 기믹 최종 고정 피해. DEF·실드·Run 감소 미적용
+run_floor_hazard_damage_floor4,20,4층 환경 기믹 최종 고정 피해. DEF·실드·Run 감소 미적용
+run_floor_hazard_damage_floor5,40,5층 환경 기믹 최종 고정 피해. DEF·실드·Run 감소 미적용
+run_floor_hazard_radius_x,2.6,환경 기믹 타원 판정 가로 반경(월드 유닛)
+run_floor_hazard_radius_y,1.6,환경 기믹 타원 판정 세로 반경(월드 유닛)
+run_floor_hazard_entrance_clearance,2.5,Portal과 Spawn 지점 주변 환경 기믹 생성 금지 반경
+run_floor_hazard_duplicate_guard_seconds,0.5,같은 환경 기믹 피해 RPC 중복 적용 방지 시간. 일반 피격 i-frame과 독립
 run_boss_hp_multiplier,4,Roguelite 목표/보스 조우 HP 배율 잠정값
 monster_attack_range_ratio,0.5,Phase 1 몬스터 기본 공격 반경 = player_attack_range x 이 비율. MonsterAttack.AttackRange가 0보다 크면 종별 값이 우선한다
 save_min_interval,10,저장 최소 간격(초) - 이벤트 저장 스로틀. 시트 외 구현 상수

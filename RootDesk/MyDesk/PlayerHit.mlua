@@ -30,6 +30,11 @@ script PlayerHit extends HitComponent
 	@HideFromInspector
 	property number LastHitTime = 0
 
+	-- 층 환경 기믹은 일반 몬스터 피격과 별도 원장으로 중복 RPC만 차단한다.
+	-- DEF/실드/Run 피해 감소를 타지 않는 이유: 3층 10, 4층 20, 5층 40은
+	-- 플레이어가 예고 타원을 보고 피해야 하는 최종 고정 피해값이다.
+	@HideFromInspector property number LastRunHazardHitTime = -9999
+
 	-- 실드 (T17-3b). 받는 피해를 ShieldRatio만큼 깎는 상태를 ShieldUntil까지 유지한다.
 	--
 	-- @TargetUserSync인 이유: 판정은 서버가 하지만 HUD도 "지금 실드 중"을 그려야 한다.
@@ -166,6 +171,30 @@ script PlayerHit extends HitComponent
 		end
 		if reduction > 0.9 then reduction = 0.9 end
 		return reduction
+	end
+
+	@ExecSpace("ServerOnly")
+	method boolean ApplyFixedRunHazardDamage(integer damage, string skillId)
+		if damage <= 0 or _GameData.RogueRunActive == false
+			or _GameData.RogueRunResult ~= "ACTIVE" then return false end
+		local pc = self.Entity.PlayerComponent
+		if not isvalid(pc) or pc:IsDead() then return false end
+		if _GameData:IsRunParticipant(pc.UserId) == false
+			or _GameData.RogueAliveParticipants[pc.UserId] ~= true then return false end
+
+		local now = _UtilLogic.ElapsedSeconds
+		local guard = _GameData:GetBalance("run_floor_hazard_duplicate_guard_seconds")
+		if guard <= 0 then guard = 0.5 end
+		if now < self.LastRunHazardHitTime + guard then return false end
+		self.LastRunHazardHitTime = now
+
+		local before = pc.Hp
+		pc.Hp = pc.Hp - damage
+		log("[FloorHazard] HIT user=" .. tostring(pc.UserId)
+			.. " skill=" .. tostring(skillId) .. " fixed=" .. tostring(damage)
+			.. " hp=" .. tostring(before) .. "->" .. tostring(pc.Hp))
+		if pc.Hp <= 0 then self:HandleDeath() end
+		return true
 	end
 
 	@ExecSpace("Client")

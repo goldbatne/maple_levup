@@ -378,6 +378,12 @@ script PlayerStats extends Component
     -- 최대 HP (T27-1)
     ---------------------------------------------------------------
 
+    method table GetInheritedCompanionStats()
+        local collection = self.Entity:GetComponent("script.PlayerCollection")
+        if collection == nil then return {maxHp = 0, basicAttack = 0, defense = 0} end
+        return collection:GetPlayerInheritedCompanionStats()
+    end
+
     method number GetMaxHp()
         -- 최대 HP = 기본 + STR x STR당 HP.
         --
@@ -393,6 +399,7 @@ script PlayerStats extends Component
         if self:IsRogueliteRunMode() then
             local value = _GameData:GetBalance("run_player_base_hp")
             if value < 1 then value = 1000 end
+            value += self:GetInheritedCompanionStats().maxHp
             local pc = self.Entity.PlayerComponent
             if _GameData.RogueRunActive and isvalid(pc) then
                 local stack = _GameData:GetRunUpgradeStack(pc.UserId, "max_hp")
@@ -764,6 +771,7 @@ script PlayerStats extends Component
         if self:IsRogueliteRunMode() then
             local value = _GameData:GetBalance("run_player_base_attack")
             if value < 1 then value = _GameData:GetBalance("player_base_atk") end
+            value += self:GetInheritedCompanionStats().basicAttack
             return value
         end
         if self:IsSimplifiedGrowth() then
@@ -786,6 +794,7 @@ script PlayerStats extends Component
         if self:IsRogueliteRunMode() then
             local value = _GameData:GetBalance("run_player_base_attack")
             if value < 1 then value = _GameData:GetBalance("player_base_atk") end
+            value += self:GetInheritedCompanionStats().basicAttack
             return value
         end
         if self:IsSimplifiedGrowth() then
@@ -800,6 +809,7 @@ script PlayerStats extends Component
         if self:IsRogueliteRunMode() then
             local value = _GameData:GetBalance("run_player_base_defense")
             if value < 0 then value = 0 end
+            value += self:GetInheritedCompanionStats().defense
             return value
         end
         if self:IsSimplifiedGrowth() then

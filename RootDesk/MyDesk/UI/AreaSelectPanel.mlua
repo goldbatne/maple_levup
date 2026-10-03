@@ -196,6 +196,18 @@ script AreaSelectPanel extends Logic
 	end
 
 	@ExecSpace("ClientOnly")
+	method integer GetDisplayedChallengeFloor()
+		        -- 파티의 현재 선택 층과 해금 상한은 다른 값이다. 현재 선택 층을 상한으로
+		        -- 쓰면 1층 재도전을 고른 순간 2층 이상 버튼이 잠기는 문제가 생긴다.
+		        local player = _UserService.LocalPlayer
+		        if not isvalid(player) then return 1 end
+		        ---@type PlayerDBManager
+		        local db = player:GetComponent("script.PlayerDBManager")
+		        if db == nil then return 1 end
+		        return math.max(1, math.min(self.megaCardCount, db.RogueHighestUnlockedFloor))
+	end
+
+	@ExecSpace("ClientOnly")
 	method void Show(string idsJoined, string namesJoined)
 		        local ids = self:Split(idsJoined)
 		        local names = self:Split(namesJoined)
@@ -203,9 +215,10 @@ script AreaSelectPanel extends Logic
 		        self.slotNames = {}
 		        for i = 1, self.slotCount do self:FillSlot(i, ids, names) end
 
-		        if self.selectedAreaId == "" and #ids > 0 then
-		            self.selectedAreaId = ids[1]
-		            self.selectedAreaName = self.slotNames[1] or ids[1]
+		        local challengeFloor = self:GetDisplayedChallengeFloor()
+		        if #ids > 0 then
+		            self.selectedAreaId = ids[challengeFloor] or ids[1]
+		            self.selectedAreaName = self.slotNames[challengeFloor] or self.selectedAreaId
 		        end
 		        if _GameData.RoguePartyViewId ~= "" then
 		            self.selectedAreaId = _GameData.RoguePartyViewAreaId
@@ -241,6 +254,9 @@ script AreaSelectPanel extends Logic
 		            displayName = "지역 " .. string.sub(displayName, 6)
 		        end
 		        self.slotNames[index] = displayName
+		        if isvalid(slot.ButtonComponent) then
+		            slot.ButtonComponent.Enable = index <= self:GetDisplayedChallengeFloor()
+		        end
 		        self:PaintAreaSlot(index)
 	end
 
@@ -248,16 +264,22 @@ script AreaSelectPanel extends Logic
 	method void PaintAreaSlot(integer index)
 		        local slot = self:GetSlot(index)
 		        if slot == nil then return end
-		        local active = self.slotIds[index] == self.selectedAreaId
+		        local challengeFloor = self:GetDisplayedChallengeFloor()
+		        local selectedFloor = _GameData:GetMegaFloorIndex(self.selectedAreaId)
+		        local active = index == selectedFloor
+		        local status = index <= challengeFloor and "도전" or "잠김"
 		        if isvalid(slot.TextGUIRendererComponent) then
-                    slot.TextGUIRendererComponent.Text = self.slotNames[index] or self.slotIds[index] or ""
+		            slot.TextGUIRendererComponent.Text = (self.slotNames[index]
+		                or self.slotIds[index] or "") .. "  [" .. status .. "]"
 		        end
 		        if isvalid(slot.SpriteGUIRendererComponent) then
-                    slot.SpriteGUIRendererComponent.Color = active
-                        and Color(0.86, 0.95, 0.98, 1) or Color(0.98, 0.99, 0.99, 1)
-                    slot.SpriteGUIRendererComponent.OutlineColor = active
-                        and Color(0.19, 0.61, 0.83, 1) or Color(0.77, 0.82, 0.85, 1)
-                    slot.SpriteGUIRendererComponent.OutlineWidth = 1
+		            slot.SpriteGUIRendererComponent.Color = active
+		                and Color(0.86, 0.95, 0.98, 1)
+		                or (index <= challengeFloor and Color(0.93, 0.97, 0.93, 1)
+		                    or Color(0.90, 0.91, 0.92, 1))
+		            slot.SpriteGUIRendererComponent.OutlineColor = active
+		                and Color(0.19, 0.61, 0.83, 1) or Color(0.77, 0.82, 0.85, 1)
+		            slot.SpriteGUIRendererComponent.OutlineWidth = 1
 		        end
 	end
 
@@ -283,8 +305,9 @@ script AreaSelectPanel extends Logic
 	method void ChooseArea(integer index)
 		        local areaId = self.slotIds[index]
 		        if areaId == nil or areaId == "" then return end
-		        if _GameData.RoguePartyViewId ~= "" and _GameData:IsLocalRoguePartyLeader() == false then
-		            _GateNotice:ShowNotice("파티 RUN", "Area 선택은 파티장이 변경합니다.")
+		        local challengeFloor = self:GetDisplayedChallengeFloor()
+		        if index > challengeFloor then
+		            _GateNotice:ShowNotice("층 진행", "앞 층을 먼저 클리어해야 합니다.")
 		            return
 		        end
 		        self.selectedAreaId = areaId
@@ -313,6 +336,12 @@ script AreaSelectPanel extends Logic
 
 	@ExecSpace("ClientOnly")
 	method void StartSelectedRun()
+		        local challengeFloor = self:GetDisplayedChallengeFloor()
+		        local selectedFloor = _GameData:GetMegaFloorIndex(self.selectedAreaId)
+		        if selectedFloor < 1 or selectedFloor > challengeFloor then
+		            self.selectedAreaId = _GameData:GetMegaAreaIdForFloor(challengeFloor)
+		            self:ResolveSelectedAreaName()
+		        end
 		        if self.selectedAreaId == "" then return end
 		        if _GameData.RoguePartyViewId == "" then
 		            self.startingRogueliteRun = true
@@ -349,9 +378,36 @@ script AreaSelectPanel extends Logic
 	@ExecSpace("ClientOnly")
 	method void RefreshOptions()
 		        self:ResolveOptionUi()
+		        local challengeFloor = self:GetDisplayedChallengeFloor()
+		        local selectedFloor = _GameData:GetMegaFloorIndex(self.selectedAreaId)
+		        if selectedFloor < 1 or selectedFloor > challengeFloor then
+		            self.selectedAreaId = _GameData:GetMegaAreaIdForFloor(challengeFloor)
+		            self:ResolveSelectedAreaName()
+		        end
 		        for i = 1, self.megaCardCount do self:PaintAreaSlot(i) end
 		        if isvalid(self.selectedAreaText) and isvalid(self.selectedAreaText.TextGUIRendererComponent) then
-		            self.selectedAreaText.TextGUIRendererComponent.Text = "선택 지역  ·  " .. self.selectedAreaName
+		            local scale = _GameData:GetRogueFloorStatMultiplier(self.selectedAreaId)
+		            local growth = _GameData:GetRogueFloorClearGrowthCurrency(self.selectedAreaId)
+		            local core = _GameData:GetRogueFloorClearGrowthCore(self.selectedAreaId)
+		            local coreStartFloor = math.floor(_GameData:GetBalance("monster_growth_core_min_floor"))
+		            local floor = _GameData:GetMegaFloorIndex(self.selectedAreaId)
+		            local extraText = ""
+		            if core > 0 then
+		                extraText = "성장 코어는 +" .. tostring(core) .. "개이며, 특수 기믹도 등장합니다."
+		            elseif coreStartFloor == 3 then
+		                extraText = "성장 코어와 특수 기믹은 3층부터 등장합니다."
+		            else
+		                extraText = "성장 코어는 " .. tostring(coreStartFloor)
+		                    .. "층부터 얻고, 특수 기믹은 3층부터 등장합니다."
+		            end
+		            if floor >= 3 and core <= 0 then
+		                extraText = "이 층에는 특수 기믹이 등장합니다."
+		            end
+		            self.selectedAreaText.TextGUIRendererComponent.Text = "선택한 도전은 \""
+		                .. self.selectedAreaName .. "\"입니다.\n"
+		                .. "적 능력치는 x" .. string.format("%.2f", scale)
+		                .. "이고, 보상 점수는 +" .. tostring(growth) .. "점입니다.\n"
+		                .. extraText
 		        end
 
 		        if isvalid(self.normalButton) and isvalid(self.normalButton.SpriteGUIRendererComponent) then
@@ -372,11 +428,12 @@ script AreaSelectPanel extends Logic
 		        local party = _GameData.RoguePartyViewId ~= ""
 		        if isvalid(self.partySummaryText) and isvalid(self.partySummaryText.TextGUIRendererComponent) then
 		            if party then
-		                local readyLabel = _GameData:AreAllRoguePartyMembersReady() and " · 전원 준비" or " · 준비 대기"
-		                self.partySummaryText.TextGUIRendererComponent.Text = "파티  ·  PARTY "
-		                    .. tostring(_GameData.RoguePartyViewCount) .. "/4" .. readyLabel
+		                local readyLabel = _GameData:AreAllRoguePartyMembersReady()
+		                    and "모두 준비했습니다." or "준비를 기다리고 있습니다."
+		                self.partySummaryText.TextGUIRendererComponent.Text = "파티원 "
+		                    .. tostring(_GameData.RoguePartyViewCount) .. "명. " .. readyLabel
 		            else
-		                self.partySummaryText.TextGUIRendererComponent.Text = "파티  ·  SOLO"
+		                self.partySummaryText.TextGUIRendererComponent.Text = "혼자 모험을 시작할 수 있습니다."
 		            end
 		        end
 
@@ -396,10 +453,10 @@ script AreaSelectPanel extends Logic
 		            local leader = _GameData:IsLocalRoguePartyLeader()
 		            canStart = leader and _GameData:AreAllRoguePartyMembersReady()
 		            if leader then
-		                hint = "파티장 · Area/모드 선택 후 전원 준비 시 시작"
+		                hint = "파티원이 모두 준비하면 파티장이 모험을 시작할 수 있습니다."
 		                startLabel = canStart and "파티 모험 시작" or "준비 대기"
 		            else
-		                hint = "파티원 · Area/모드는 읽기 전용, 준비만 선택"
+		                hint = "파티장이 고른 층과 모드를 확인하고 준비해 주세요."
 		                startLabel = "파티장 대기"
 		            end
 		        end

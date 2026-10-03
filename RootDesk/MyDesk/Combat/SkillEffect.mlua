@@ -96,7 +96,9 @@ script SkillEffect extends Logic
 
         local map = caster.CurrentMap
         if map == nil then return end
-        local h = _GameData:GetBalance("skill_effect_height")
+        -- RectTile actors are positioned at their feet. Match the +0.5 body-centre
+        -- used by the attack shapes without changing their actual hit geometry.
+        local h = _GameData:GetBalance("skill_effect_height") + 0.5
         local anchor = Vector3(targetPos.x, targetPos.y + h, targetPos.z)
 
         for i = 1, #layers do
@@ -136,7 +138,7 @@ script SkillEffect extends Logic
         local layers = skill.effect_layers or {}
         if #layers == 0 then self:PlayAttackAt(skillId, caster, targetPos, flipX) return end
         local map = caster.CurrentMap
-        local h = _GameData:GetBalance("skill_effect_height")
+        local h = _GameData:GetBalance("skill_effect_height") + 0.5
         local anchor = Vector3(targetPos.x, targetPos.y + h, targetPos.z)
         for i = 1, #layers do
             local source = layers[i]
@@ -203,6 +205,7 @@ script SkillEffect extends Logic
         fx.FollowOffset = Vector3(0, 1.15, 0)
         fx.DebugName = skill.name .. " 약화 표식"
         fx:Play("guard", seconds, Vector3(0, 0, 0))
+        entity:SetVisible(true)
     end
 
     @ExecSpace("ServerOnly")
@@ -211,7 +214,7 @@ script SkillEffect extends Logic
         if not isvalid(caster) or not isvalid(map) then return end
 
         local pos = caster.TransformComponent.WorldPosition
-        local h = _GameData:GetBalance("skill_effect_height")
+        local h = _GameData:GetBalance("skill_effect_height") + 0.5
         local anchor = Vector3(pos.x, pos.y + h, pos.z)
         local overlay = skill.skill_kind == "defense" or skill.skill_kind == "buff"
             or skill.dash_distance > 0
@@ -293,6 +296,9 @@ script SkillEffect extends Logic
         end
         fx.DebugName = skill.name .. " #" .. tostring(order)
         fx:Play(layer.style, layer.duration, drift)
+        -- 모델의 공용 기본 그림(초록 포자)은 스폰 시 숨긴다. 스킬 고유 RUID와
+        -- 첫 프레임을 모두 지정한 뒤 공개해 복제 첫 프레임의 색 번짐을 막는다.
+        entity:SetVisible(true)
 
         log("[다층 이펙트] " .. skill.name .. " #" .. tostring(order)
             .. " " .. layer.style .. " delay=" .. string.format("%.2f", layer.delay)
@@ -321,7 +327,7 @@ script SkillEffect extends Logic
             drift_x = (toPos.x - fromPos.x) / span * dir,
             drift_y = (toPos.y - fromPos.y) / span,
         }
-        local h = _GameData:GetBalance("skill_effect_height")
+        local h = _GameData:GetBalance("skill_effect_height") + 0.5
         self:SpawnLayerAt(skill, layer, caster, flipX, caster.CurrentMap, 1,
             Vector3(fromPos.x, fromPos.y + h, fromPos.z), false, "돌진 경로")
         return true
@@ -343,7 +349,7 @@ script SkillEffect extends Logic
             offset_x = source.offset_x, offset_y = source.offset_y,
             drift_x = 0, drift_y = 0,
         }
-        local h = _GameData:GetBalance("skill_effect_height")
+        local h = _GameData:GetBalance("skill_effect_height") + 0.5
         self:SpawnLayerAt(skill, layer, caster, flipX, caster.CurrentMap, 2,
             Vector3(targetPos.x, targetPos.y + h, targetPos.z), false, "도착 타격")
     end
@@ -393,7 +399,7 @@ script SkillEffect extends Logic
         if map == nil then return false end
 
         local from = caster.TransformComponent.WorldPosition
-        local h = _GameData:GetBalance("skill_effect_height")
+        local h = _GameData:GetBalance("skill_effect_height") + 0.5
         from = Vector3(from.x, from.y + h, from.z)
         local to = Vector3(targetPos.x, targetPos.y + h, from.z)
 
@@ -442,6 +448,7 @@ script SkillEffect extends Logic
                 (to.x - from.x) / flight,
                 (to.y - from.y) / flight,
                 0))
+            entity:SetVisible(true)
             local users = _UserService:GetUsersByMapName(map.Name)
             if users ~= nil then
                 for i = 1, #users do
@@ -479,6 +486,7 @@ script SkillEffect extends Logic
         proj:Launch(from, to,
             _GameData:GetBalance("projectile_seconds"),
             _GameData:GetBalance("projectile_spin_seconds"))
+        entity:SetVisible(true)
 
         -- 날아가는 그림은 0.35초라 스크린샷으로 잡기 어렵다. 로그로 증거를 남긴다
         -- (verify-checklist 2b: 짧은 연출은 만든 자리와 사라지는 자리에 로그를 짝지어 둔다).
@@ -515,7 +523,7 @@ script SkillEffect extends Logic
             local options = nil
             if flipX then options = { FlipX = true } end
 
-            local h = _GameData:GetBalance("skill_effect_height")
+            local h = _GameData:GetBalance("skill_effect_height") + 0.5
             _EffectService:PlayEffectAttached(skill.effect_ruid, caster,
                 Vector3(0, h, 0), 0, Vector3(1, 1, 1), false, options)
         end

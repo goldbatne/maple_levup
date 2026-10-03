@@ -63,6 +63,7 @@ script PlayerDBManager extends Component
     property table RogueAreaClears = {}
     property table RogueOptionalEncounters = {}
     property table RogueSettings = {}
+    @TargetUserSync property integer RogueHighestUnlockedFloor = 1
 
     -- 현재 방. OnMapEnter가 갱신하고 Run 키에 실린다.
     property string CurrentRoom = ""
@@ -439,6 +440,7 @@ script PlayerDBManager extends Component
         end
 
         if type(perm.roguelite_area_clears) == "table" then self.RogueAreaClears = perm.roguelite_area_clears else self.RogueAreaClears = {} end
+        self:RefreshRogueFloorProgress()
         if type(perm.roguelite_optional_encounters) == "table" then self.RogueOptionalEncounters = perm.roguelite_optional_encounters else self.RogueOptionalEncounters = {} end
         if type(perm.roguelite_settings) == "table" then self.RogueSettings = perm.roguelite_settings else self.RogueSettings = {} end
 
@@ -619,9 +621,21 @@ script PlayerDBManager extends Component
 
     @ExecSpace("ServerOnly")
     method void RecordRogueliteAreaClear(string areaId)
-        if areaId == nil or areaId == "" or _GameData:GetArea(areaId) == nil then return end
+        if areaId == nil or areaId == ""
+            or (_GameData:GetArea(areaId) == nil and _GameData:IsMegaArea(areaId) == false) then return end
         self.RogueAreaClears[areaId] = (self.RogueAreaClears[areaId] or 0) + 1
+        self:RefreshRogueFloorProgress()
         self:MarkPermDirty("Roguelite Area 클리어")
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RefreshRogueFloorProgress()
+        local before = self.RogueHighestUnlockedFloor
+        self.RogueHighestUnlockedFloor = _GameData:GetRogueUnlockedFloorFromClears(self.RogueAreaClears)
+        if before ~= self.RogueHighestUnlockedFloor then
+            log("[RogueFloor] 도전 층 갱신 user=" .. tostring(self.Entity.PlayerComponent.UserId)
+                .. " floor=" .. tostring(self.RogueHighestUnlockedFloor))
+        end
     end
 
     @ExecSpace("ServerOnly")
@@ -800,22 +814,58 @@ script PlayerDBManager extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method table PrepareRogueEconomyPayload()
+        -- 경제 변경 전 현재 영구 상태를 독립된 후보 원장으로 만든다.
+        if self:IsRogueEconomyReady() == false or self:ValidateStorageData() == false then return nil end
+        return self:GatherRogueliteRecords()
+    end
+
+    @ExecSpace("ServerOnly")
+    method boolean CommitRogueEconomyPayload(table candidate, string reason)
+        -- 성장/구매 후보를 한 키로 먼저 저장한 뒤에만 현재 원장으로 확정한다.
+        if candidate == nil or self:IsRogueEconomyReady() == false
+            or self:ValidateRogueliteRecord(candidate) == false then return false end
+        self.RogueWriteBusy = true
+        local ok, encoded = pcall(function()
+            return _HttpService:JSONEncode(self:MakeSerializableRoguePayload(candidate))
+        end)
+        if ok == false then
+            self.RogueWriteBusy = false
+            log_error("[PlayerDB] 경제 후보 직렬화 실패: " .. reason)
+            return false
+        end
+        if #encoded > 300000 then
+            self.RogueWriteBusy = false
+            log_error("[PlayerDB] 경제 후보 저장 한도 초과: " .. reason)
+            return false
+        end
+        local gen = self.permGen
+        local saveOk, code = pcall(function()
+            local ds = _DataStorageService:GetUserDataStorage(self.Entity.PlayerComponent.ProfileCode)
+            return ds:SetAndWait(self.KeyRogue, encoded)
+        end)
+        if saveOk == false or code ~= 0 then
+            self.RogueWriteBusy = false
+            log_error("[PlayerDB] 경제 후보 저장 실패 ErrorCode=" .. tostring(code) .. " reason=" .. reason)
+            return false
+        end
+        self.RogueSavedPayload = candidate
+        if gen == self.permGen then self.permDirty = false end
+        self.lastSaveAt = _UtilLogic.ElapsedSeconds
+        self.RogueWriteBusy = false
+        if self.permDirty then self:RequestSave("경제 후보 저장 중 변경 재시도") end
+        log("[PlayerDB] 경제 원장 확정: " .. reason)
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
     method boolean SaveRogueEconomyNow(string reason)
         if self:IsRogueEconomyReady() == false or self:ValidateStorageData() == false then return false end
         self.RogueWriteBusy = true
-        local function copyTable(source)
-            local result = {}
-            for key, value in pairs(source) do
-                result[key] = type(value) == "table" and copyTable(value) or value
-            end
-            return result
-        end
-        local previousPayload = copyTable(self.RogueSavedPayload)
         local ok, encoded = pcall(function()
             return _HttpService:JSONEncode(self:GatherRogueliteRecords())
         end)
         if ok == false then
-            self.RogueSavedPayload = previousPayload
             self.RogueWriteBusy = false
             log_error("[PlayerDB] 경제 직렬화 실패: " .. reason)
             return false
@@ -825,7 +875,6 @@ script PlayerDBManager extends Component
         local code = ds:SetAndWait(self.KeyRogue, encoded)
         self.RogueWriteBusy = false
         if code ~= 0 then
-            self.RogueSavedPayload = previousPayload
             log_error("[PlayerDB] 경제 저장 실패 ErrorCode=" .. tostring(code) .. " reason=" .. reason)
             return false
         end
@@ -1029,6 +1078,7 @@ script PlayerDBManager extends Component
         payload.schema_version = 4
         self.RogueSavedPayload = payload
         self.RogueAreaClears = payload.area_clears
+        self:RefreshRogueFloorProgress()
         self.RogueOptionalEncounters = payload.optional_encounters
         self.RogueSettings = payload.settings
         ---@type PlayerSkillSlots
@@ -1101,6 +1151,24 @@ script PlayerDBManager extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method table MakeSerializableRoguePayload(table source)
+        -- Maker JSONEncode가 빈 중첩 table을 거부하므로 직렬화 사본에서만 생략한다.
+        local function serializableCopy(value)
+            local out = {}
+            for key, item in pairs(value) do
+                if type(item) == "table" then
+                    local child = serializableCopy(item)
+                    if next(child) ~= nil then out[key] = child end
+                else
+                    out[key] = item
+                end
+            end
+            return out
+        end
+        return serializableCopy(source)
+    end
+
+    @ExecSpace("ServerOnly")
     method table GatherRogueliteRecords()
         -- 미등록/미래 식별자도 기존 payload에 보존하고 발견 기록만 추가한다.
         local payload = self.RogueSavedPayload
@@ -1145,22 +1213,7 @@ script PlayerDBManager extends Component
         ---@type PlayerSkillSlots
         local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
         if slots ~= nil then payload.settings.key_order = slots.KeyOrder end
-        -- Maker JSONEncode는 중첩된 빈 table을 UnknownType으로 거부한다.
-        -- 원장 자체는 보존하고 직렬화 사본에서만 빈 컨테이너를 생략한다.
-        -- 로더는 생략된 필드를 {}로 복원한다. 재귀 처리로 설정 하위 항목도 보호.
-        local function serializableCopy(source)
-            local out = {}
-            for key, value in pairs(source) do
-                if type(value) == "table" then
-                    local child = serializableCopy(value)
-                    if next(child) ~= nil then out[key] = child end
-                else
-                    out[key] = value
-                end
-            end
-            return out
-        end
-        return serializableCopy(payload)
+        return self:MakeSerializableRoguePayload(payload)
     end
 
     @ExecSpace("ServerOnly")

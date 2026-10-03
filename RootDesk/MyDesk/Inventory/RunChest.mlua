@@ -8,6 +8,59 @@ script RunChest extends Component
     @Sync property integer ChestSerial = 0
     @Sync property string ChestType = "UPGRADE"
     @Sync property string ChestState = "AVAILABLE"
+    property any touchHandler = nil
+    property any touchEntity = nil
+    property any visualTouchHandler = nil
+    property any visualTouchEntity = nil
+
+    @ExecSpace("ClientOnly")
+    method void OnInitialize()
+        -- InteractionComponent(E키)와 같은 서버 개봉 판정을 터치에도 연결한다.
+        self.touchEntity = self.Entity
+        self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.HandleTouch)
+        local visual = self.Entity:GetChildByName("Visual", false)
+        if isvalid(visual) then
+            self.visualTouchEntity = visual
+            self.visualTouchHandler = visual:ConnectEvent(TouchEvent, self.HandleTouch)
+        end
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnDestroy()
+        if self.touchHandler ~= nil and isvalid(self.touchEntity) then
+            self.touchEntity:DisconnectEvent(TouchEvent, self.touchHandler)
+            self.touchHandler = nil
+        end
+        if self.visualTouchHandler ~= nil and isvalid(self.visualTouchEntity) then
+            self.visualTouchEntity:DisconnectEvent(TouchEvent, self.visualTouchHandler)
+            self.visualTouchHandler = nil
+        end
+        self.touchEntity = nil
+        self.visualTouchEntity = nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method void HandleTouch(TouchEvent event)
+        if self.ChestState ~= "AVAILABLE" then return end
+        log("[RunChestTouch] tap serial=" .. tostring(self.ChestSerial))
+        self:RequestTouchOpen()
+    end
+
+    @ExecSpace("Server")
+    method void RequestTouchOpen()
+        if self.ChestState ~= "AVAILABLE" then return end
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if isvalid(player) == false or isvalid(player.PlayerComponent) == false then return end
+        if player.CurrentMap ~= self.Entity.CurrentMap then return end
+        local p = player.TransformComponent.WorldPosition
+        local c = self.Entity.TransformComponent.WorldPosition
+        local range = _GameData:GetBalance("run_chest_interact_range")
+        if range <= 0 then range = 1.35 end
+        local dx = p.x - c.x
+        local dy = p.y - c.y
+        if dx * dx + dy * dy > range * range then return end
+        _GameData:TryOpenRunChest(self.ChestSerial, player)
+    end
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
