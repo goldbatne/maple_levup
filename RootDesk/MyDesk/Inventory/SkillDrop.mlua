@@ -21,11 +21,57 @@ script SkillDrop extends Component
     property number ExpireAt = 0
     property integer lifetimeTimer = 0
     property string lastFrameStyle = ""
+    property any touchHandler = nil
+    property any touchEntity = nil
+    property any iconTouchHandler = nil
+    property any iconTouchEntity = nil
 
     @ExecSpace("ClientOnly")
     method void OnBeginPlay()
+        -- 모바일 화면 탭을 기존 서버 획득 판정으로 전달한다.
+        -- 루트와 아이콘 양쪽에 터치 영역을 둬서 투명 프레임/자식 Sprite의
+        -- 렌더 순서가 달라도 같은 탭이 누락되지 않게 한다.
+        self.touchEntity = self.Entity
+        self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.HandleTouch)
+        local icon = self.Entity:GetChildByName("Icon", false)
+        if isvalid(icon) then
+            self.iconTouchEntity = icon
+            self.iconTouchHandler = icon:ConnectEvent(TouchEvent, self.HandleTouch)
+        end
         log("[SkillDropVisual] msw_item_slot_frame_v5")
         self:RefreshVisual()
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnEndPlay()
+        -- 드롭 엔티티가 제거될 때 터치 핸들러를 해제한다.
+        if self.touchHandler ~= nil and isvalid(self.touchEntity) then
+            self.touchEntity:DisconnectEvent(TouchEvent, self.touchHandler)
+            self.touchHandler = nil
+        end
+        if self.iconTouchHandler ~= nil and isvalid(self.iconTouchEntity) then
+            self.iconTouchEntity:DisconnectEvent(TouchEvent, self.iconTouchHandler)
+            self.iconTouchHandler = nil
+        end
+        self.touchEntity = nil
+        self.iconTouchEntity = nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method void HandleTouch(TouchEvent event)
+        -- E키와 동일한 서버 거리·소유권·중복 획득 검사를 사용한다.
+        if self.ClaimState ~= "AVAILABLE" then return end
+        log("[SkillDropTouch] tap serial=" .. tostring(self.Serial))
+        self:RequestTouchClaim()
+    end
+
+    @ExecSpace("Server")
+    method void RequestTouchClaim()
+        -- 탭 요청자는 서버가 부여한 senderUserId로만 확인한다.
+        if self.ClaimState ~= "AVAILABLE" then return end
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if isvalid(player) == false or isvalid(player.PlayerComponent) == false then return end
+        _SkillDropManager:TryClaim(self, player)
     end
 
     @ExecSpace("ClientOnly")

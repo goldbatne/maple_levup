@@ -61,6 +61,14 @@ script RoomSpawner extends Component
     @HideFromInspector property integer runRespawnTimer = 0
     @HideFromInspector property string runSpawnReason = "INITIAL"
     @HideFromInspector property integer runChestRandomState = 0
+    @HideFromInspector property integer runHazardRandomState = 0
+    @HideFromInspector property integer runHazardTimer = 0
+    @HideFromInspector property integer runHazardResolveTimer = 0
+    @HideFromInspector property any runHazardTelegraph = nil
+    @HideFromInspector property any runHazardPosition = nil
+    @HideFromInspector property string runHazardSkillId = ""
+    -- msw-search에서 찾은 경고 원형 자산. 런타임에서 X/Y를 따로 늘려 타원으로 쓴다.
+    property string RunHazardTelegraphRUID = "2938cc2c38884068aa058a330a9ca553"
     property number RunSpawnClearance = 0.75
     property number RunEntranceClearance = 2.5
 
@@ -115,6 +123,7 @@ script RoomSpawner extends Component
         if _GameData.RogueRunActive then
             _GameData:RestoreRunChests(self.Entity)
             self:EnsureRunChest()
+            self:StartRunFloorHazards()
         end
 
         if self.monsterId == "" or self.monsterCount <= 0 then
@@ -191,6 +200,7 @@ script RoomSpawner extends Component
             _TimerService:ClearTimer(self.runRespawnTimer)
             self.runRespawnTimer = 0
         end
+        self:StopRunFloorHazard()
     end
 
     @ExecSpace("ServerOnly")
@@ -213,6 +223,7 @@ script RoomSpawner extends Component
             _UserService:DisconnectEvent(UserEnterEvent, self.userEnterHandler)
             self.userEnterHandler = nil
         end
+        self:StopRunFloorHazard()
         for i = 1, #self.spawned do
             local monster = self.spawned[i]
             if isvalid(monster) then monster:Destroy() end
@@ -676,6 +687,221 @@ script RoomSpawner extends Component
         end
         self.runChestRandomState = (self.runChestRandomState * 48271) % 2147483647
         return self.runChestRandomState / 2147483647
+    end
+
+    @ExecSpace("ServerOnly")
+    method number NextRunHazardRandom()
+        -- 맵 생성/몬스터/상자 RNG와 독립된 방별 환경 기믹 스트림.
+        if self.runHazardRandomState == 0 then
+            local state = math.max(1, _GameData.RogueSeed % 2147483647)
+            local token = self.roomId .. ":floor_hazard"
+            for i = 1, #token do state = (state * 31 + string.byte(token, i)) % 2147483647 end
+            self.runHazardRandomState = math.max(1, state)
+        end
+        self.runHazardRandomState = (self.runHazardRandomState * 48271) % 2147483647
+        return self.runHazardRandomState / 2147483647
+    end
+
+    @ExecSpace("ServerOnly")
+    method void StartRunFloorHazards()
+        if _GameData:GetBalance("run_floor_hazard_enabled") <= 0 then return end
+        if _GameData.RogueMode ~= "NORMAL" and _GameData.RogueMode ~= "MONSTER_SKILL" then
+            log_warning("[FloorHazard] 지원하지 않는 Run 모드라 시작하지 않음 mode="
+                .. tostring(_GameData.RogueMode))
+            return
+        end
+        local floor = _GameData:GetMegaFloorIndex(_GameData.RogueAreaId)
+        if floor < 3 then return end
+        local role = _GameData.RogueRoomRoles[self.roomId]
+        if role ~= "combat" and role ~= "optional_risk" and role ~= "final" then return end
+        log("[FloorHazard] START mode=" .. _GameData.RogueMode .. " floor=" .. tostring(floor)
+            .. " room=" .. self.roomId .. " role=" .. tostring(role))
+        self:ScheduleNextRunFloorHazard(4)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ScheduleNextRunFloorHazard(number overrideSeconds)
+        if self.runHazardTimer ~= 0 then _TimerService:ClearTimer(self.runHazardTimer) end
+        self.runHazardTimer = 0
+        if _GameData.RogueRunActive == false or _GameData.RogueRunResult ~= "ACTIVE" then return end
+        if _GameData.RogueMode ~= "NORMAL" and _GameData.RogueMode ~= "MONSTER_SKILL" then return end
+        local floor = _GameData:GetMegaFloorIndex(_GameData.RogueAreaId)
+        if floor < 3 then return end
+        local delay = overrideSeconds
+        if delay <= 0 then
+            local base = _GameData:GetBalance("run_floor_hazard_interval_floor3")
+                - (floor - 3) * _GameData:GetBalance("run_floor_hazard_interval_step")
+            local jitter = math.max(0, _GameData:GetBalance("run_floor_hazard_interval_jitter"))
+            delay = math.max(4, base + (self:NextRunHazardRandom() * 2 - 1) * jitter)
+        end
+        self.runHazardTimer = _TimerService:SetTimerOnce(function()
+            self.runHazardTimer = 0
+            self:BeginRunFloorHazard()
+        end, delay)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void BeginRunFloorHazard()
+        if _GameData.RogueRunActive == false or _GameData.RogueRunResult ~= "ACTIVE" then return end
+        if _GameData.RogueMode ~= "NORMAL" and _GameData.RogueMode ~= "MONSTER_SKILL" then return end
+        local users = _UserService:GetUsersByMapName(self.Entity.Name)
+        if users == nil or #users <= 0 then self:ScheduleNextRunFloorHazard(2) return end
+        local skillIds = _GameData:GetRogueFloorHazardSkillIds()
+        if #skillIds <= 0 then
+            log_error("[FloorHazard] 사용할 MonsterTable drop_skill_id가 없다")
+            return
+        end
+        local position = self:FindRunHazardPosition(users)
+        if position == nil then self:ScheduleNextRunFloorHazard(2) return end
+
+        local skillIndex = math.floor(self:NextRunHazardRandom() * #skillIds) + 1
+        self.runHazardSkillId = skillIds[skillIndex]
+        self.runHazardPosition = position
+        local warning = _GameData:GetBalance("run_floor_hazard_warning_seconds")
+        if warning <= 0 then warning = 3 end
+        self:SpawnRunHazardTelegraph(position, warning)
+        log("[FloorHazard] WARN floor=" .. tostring(_GameData:GetMegaFloorIndex(_GameData.RogueAreaId))
+            .. " room=" .. self.roomId .. " skill=" .. self.runHazardSkillId
+            .. " x=" .. string.format("%.3f", position.x)
+            .. " y=" .. string.format("%.3f", position.y)
+            .. " delay=" .. tostring(warning))
+        self.runHazardResolveTimer = _TimerService:SetTimerOnce(function()
+            self.runHazardResolveTimer = 0
+            self:ResolveRunFloorHazard()
+        end, warning)
+    end
+
+    @ExecSpace("ServerOnly")
+    method any FindRunHazardPosition(table users)
+        local tileMap = self.Entity:GetFirstChildComponentByTypeName("RectTileMapComponent", true)
+        if tileMap == nil then return nil end
+        local boundary = self.Entity:GetComponent("script.NautilusWaterBoundary")
+        local anchors = {}
+        for _, child in ipairs(self.Entity.Children:ToTable()) do
+            if child:GetComponent("script.RoomPortal") ~= nil or child.SpawnLocationComponent ~= nil then
+                if child.TransformComponent ~= nil then anchors[#anchors + 1] = child.TransformComponent.WorldPosition end
+            end
+        end
+        local radiusX = math.max(0.5, _GameData:GetBalance("run_floor_hazard_radius_x"))
+        local radiusY = math.max(0.5, _GameData:GetBalance("run_floor_hazard_radius_y"))
+        local clearance = math.max(0, _GameData:GetBalance("run_floor_hazard_entrance_clearance"))
+        for attempt = 1, 96 do
+            local x, y
+            if attempt <= 48 then
+                local target = users[math.floor(self:NextRunHazardRandom() * #users) + 1]
+                if isvalid(target) and target.TransformComponent ~= nil then
+                    local p = target.TransformComponent.WorldPosition
+                    x = p.x + (self:NextRunHazardRandom() * 2 - 1) * 2.0
+                    y = p.y + (self:NextRunHazardRandom() * 2 - 1) * 1.4
+                end
+            end
+            if x == nil then
+                x = self.SpawnMinX + self:NextRunHazardRandom() * (self.SpawnMaxX - self.SpawnMinX)
+                y = self.SpawnMinY + self:NextRunHazardRandom() * (self.SpawnMaxY - self.SpawnMinY)
+            end
+            local valid = true
+            for _, sample in ipairs({{0,0},{radiusX,0},{-radiusX,0},{0,radiusY},{0,-radiusY}}) do
+                local tile = tileMap:GetTile(tileMap:ToCellPosition(Vector3(x + sample[1], y + sample[2], 0)))
+                if tile == nil or tile.IsCollidable
+                    or (boundary ~= nil and tile.Name == boundary.waterTileName) then valid = false end
+            end
+            for _, anchor in ipairs(anchors) do
+                local dx, dy = x - anchor.x, y - anchor.y
+                if dx * dx + dy * dy < clearance * clearance then valid = false end
+            end
+            if valid then return Vector3(x, y, 0) end
+        end
+        log_warning("[FloorHazard] 유효한 타원 위치를 찾지 못함 mode="
+            .. tostring(_GameData.RogueMode) .. " room=" .. self.roomId)
+        return nil
+    end
+
+    @ExecSpace("ServerOnly")
+    method void SpawnRunHazardTelegraph(Vector3 position, number seconds)
+        if isvalid(self.runHazardTelegraph) then self.runHazardTelegraph:Destroy() end
+        -- The warning sprite has an off-centre source pivot. Its world origin must
+        -- be shifted so the *visible ellipse*, not that pivot, encloses the exact
+        -- position later used by ResolveRunFloorHazard's hit test.
+        local scaleX, scaleY = 3.0, 1.8
+        local visualPosition = position
+        local image = _ResourceService:LoadSpriteAndWait(self.RunHazardTelegraphRUID)
+        if image ~= nil and image.IsLoadComplete and image.PixelPerUnit > 0 then
+            local offsetX = (image.Width * 0.5 - image.PivotPixel.x)
+                / image.PixelPerUnit * scaleX
+            local offsetY = (image.Height * 0.5 - image.PivotPixel.y)
+                / image.PixelPerUnit * scaleY
+            visualPosition = Vector3(position.x - offsetX, position.y - offsetY, position.z)
+        else
+            log_warning("[FloorHazard] 경고 타원 Sprite 메타데이터 로드 실패")
+        end
+        local entity = _SpawnService:SpawnByModelId("skillcasteffect", "RunFloorHazardWarning", visualPosition, self.Entity)
+        if not isvalid(entity) then return end
+        local sprite = entity.SpriteRendererComponent
+        if isvalid(sprite) then
+            sprite.SpriteRUID = self.RunHazardTelegraphRUID
+            sprite.SortingLayer = "MapLayer0"
+            sprite.OrderInLayer = 950
+            sprite.Color = Color(1, 0.35, 0.25, 0.78)
+        end
+        entity.TransformComponent.Scale = Vector3(scaleX, scaleY, 1)
+        entity:SetVisible(true)
+        self.runHazardTelegraph = entity
+    end
+
+    @ExecSpace("ServerOnly")
+    method void ResolveRunFloorHazard()
+        if isvalid(self.runHazardTelegraph) then self.runHazardTelegraph:Destroy() end
+        self.runHazardTelegraph = nil
+        if _GameData.RogueRunActive == false or _GameData.RogueRunResult ~= "ACTIVE"
+            or self.runHazardPosition == nil or self.runHazardSkillId == "" then return end
+        -- 피해 중 마지막 생존자가 사망하면 Run 종료 정리가 이 컴포넌트의 현재 값을
+        -- 즉시 비운다. 반복문은 그 뒤에도 안전하게 끝나야 하므로 지역 복사본을 쓴다.
+        local position = self.runHazardPosition
+        local skillId = self.runHazardSkillId
+        local users = _UserService:GetUsersByMapName(self.Entity.Name)
+        if users == nil then users = {} end
+        local caster = nil
+        for i = 1, #users do if isvalid(users[i]) then caster = users[i] break end end
+        if isvalid(caster) then
+            _SkillEffect:PlayAttackAt(skillId, caster, position, false)
+        end
+        local radiusX = math.max(0.5, _GameData:GetBalance("run_floor_hazard_radius_x"))
+        local radiusY = math.max(0.5, _GameData:GetBalance("run_floor_hazard_radius_y"))
+        local damage = _GameData:GetRogueFloorHazardDamage(_GameData.RogueAreaId)
+        local hitCount = 0
+        for i = 1, #users do
+            local user = users[i]
+            if isvalid(user) and user.TransformComponent ~= nil then
+                local p = user.TransformComponent.WorldPosition
+                local nx = (p.x - position.x) / radiusX
+                local ny = (p.y - position.y) / radiusY
+                if nx * nx + ny * ny <= 1 then
+                    ---@type PlayerHit
+                    local hit = user:GetComponent("script.PlayerHit")
+                    if hit ~= nil and hit:ApplyFixedRunHazardDamage(damage, skillId) then
+                        hitCount += 1
+                    end
+                end
+            end
+        end
+        log("[FloorHazard] RESOLVE floor=" .. tostring(_GameData:GetMegaFloorIndex(_GameData.RogueAreaId))
+            .. " room=" .. self.roomId .. " skill=" .. skillId
+            .. " fixed=" .. tostring(damage) .. " hits=" .. tostring(hitCount))
+        self.runHazardPosition = nil
+        self.runHazardSkillId = ""
+        self:ScheduleNextRunFloorHazard(0)
+    end
+
+    @ExecSpace("ServerOnly")
+    method void StopRunFloorHazard()
+        if self.runHazardTimer ~= 0 then _TimerService:ClearTimer(self.runHazardTimer) end
+        if self.runHazardResolveTimer ~= 0 then _TimerService:ClearTimer(self.runHazardResolveTimer) end
+        self.runHazardTimer = 0
+        self.runHazardResolveTimer = 0
+        if isvalid(self.runHazardTelegraph) then self.runHazardTelegraph:Destroy() end
+        self.runHazardTelegraph = nil
+        self.runHazardPosition = nil
+        self.runHazardSkillId = ""
     end
 
     @ExecSpace("ServerOnly")

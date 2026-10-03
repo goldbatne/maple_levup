@@ -1176,11 +1176,13 @@ script MonsterAttack extends AttackComponent
 		local def = 0
 		local companion = defender:GetComponent("script.CompanionCombat")
 		if companion ~= nil then
-			def = math.max(0, _GameData:GetBalance("companion_base_defense"))
+			def = math.max(0, companion.Defense)
 		elseif _GameData.RogueRunActive then
-			-- 신규 Run은 레거시 레벨/장비 방어력을 합산하지 않는다.
-			def = _GameData:GetBalance("run_player_base_defense")
-			if def < 0 then def = 0 end
+			-- 신규 Run은 레거시 레벨/장비 대신 공통 방어력과 편성 몬스터
+			-- 계승 방어력만 합산한다.
+			local stats = defender:GetComponent("script.PlayerStats")
+			def = stats ~= nil and stats:GetTotalDef()
+				or math.max(0, _GameData:GetBalance("run_player_base_defense"))
 		else
 			---@type PlayerStats
 			local stats = defender:GetComponent("script.PlayerStats")

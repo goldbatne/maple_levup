@@ -45,7 +45,9 @@ script SkillBar extends Logic
     -- 그래서 "찬 칸만 순서대로, 오른쪽 끝부터" 채운다.
     -- 값은 `.ui`의 스킬 버튼과 같은 규격이다 (칸 122 + 사이 10 — T24-7에서
     -- MSW 프리셋 "스킬퀵슬롯" 규격으로 맞췄다).
-    property number slotRightX = 242
+    -- 5개 슬롯의 오른쪽 끝을 화면 우측 20px에 고정한다.
+    -- SkillBar.ui도 bottom-right anchor를 사용하므로 두 값이 같아야 한다.
+    property number slotRightX = -20
     property number slotStepX = 98
 
     -- 아이콘을 넣을 상자 (T24-7). 그림은 이 안에 **비율을 지킨 채** 들어간다.

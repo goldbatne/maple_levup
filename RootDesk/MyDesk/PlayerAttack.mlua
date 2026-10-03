@@ -599,7 +599,19 @@ script PlayerAttack extends AttackComponent
 		self.behaviorDamageScale = 1
 		self:ApplySecondaryEffects(skill, hits, point)
 		if behavior ~= "DAMAGE_ZONE" and behavior ~= "DELAYED_BLAST" then
-			_SkillEffect:PlayAttackAt(skillId, self.Entity, point, dir.x < 0)
+			-- The hit query already points a line/cone along dir. Its VFX used to stay
+			-- at the actor's feet, making an aimed attack look like a ground burst.
+			-- Move presentation only; the attack shape and damage remain unchanged.
+			local visualPoint = point
+			if behavior == "LINE_STRIKE" then
+				visualPoint = Vector3(origin.x + dir.x * radius * 0.5,
+					origin.y + dir.y * radius * 0.5, origin.z)
+			elseif behavior == "FRONT_CONE" then
+				local visualReach = math.min(radius * 0.35, 1.5)
+				visualPoint = Vector3(origin.x + dir.x * visualReach,
+					origin.y + dir.y * visualReach, origin.z)
+			end
+			_SkillEffect:PlayAttackAt(skillId, self.Entity, visualPoint, dir.x < 0)
 		end
 		local count = hits ~= nil and #hits or 0
 		log("[SkillBehavior] " .. skillId .. " behavior=" .. behavior .. " hits=" .. tostring(count))

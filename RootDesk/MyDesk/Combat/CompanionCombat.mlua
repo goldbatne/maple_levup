@@ -10,6 +10,11 @@ script CompanionCombat extends AttackComponent
     @Sync property integer SlotIndex = 1
     @Sync property number MaxHp = 1
     @Sync property number Hp = 1
+    @Sync property number BasicAttack = 1
+    @Sync property number Defense = 0
+    @Sync property number SupportHpBonus = 0
+    @Sync property number SupportAttackBonus = 0
+    @Sync property number SupportDefenseBonus = 0
     @Sync property boolean IsDefeated = false
     property string Skill1 = ""
     property boolean HasCombatTarget = false
@@ -31,7 +36,8 @@ script CompanionCombat extends AttackComponent
 
     @ExecSpace("ServerOnly")
     method void Configure(string userId, string monsterId, integer stage,
-        integer enhance, integer slot)
+        integer enhance, integer slot, number effectiveHp, number effectiveAttack,
+        number effectiveDefense, number supportHp, number supportAttack, number supportDefense)
         self.OwnerUserId = userId
         self.MonsterId = monsterId
         self.GrowthStage = math.max(1, stage)
@@ -43,16 +49,19 @@ script CompanionCombat extends AttackComponent
             and skill.skill_kind ~= "passive" then self.Skill1 = skill.id
         else self.Skill1 = "" end
         self.SkillReadyAt = {}
-        local baseHp = _GameData:GetBalance("companion_base_hp")
-        if baseHp <= 0 then baseHp = 250 end
-        self.MaxHp = math.floor(baseHp *
-            (1 + (self.GrowthStage - 1) * _GameData:GetBalance("companion_growth_hp_per_stage")
-                + self.EnhanceStage * _GameData:GetBalance("monster_enhance_hp_per_stage")) + 0.5)
+        self.MaxHp = math.max(1, math.floor(effectiveHp + 0.5))
+        self.BasicAttack = math.max(1, effectiveAttack)
+        self.Defense = math.max(0, effectiveDefense)
+        self.SupportHpBonus = math.max(0, supportHp)
+        self.SupportAttackBonus = math.max(0, supportAttack)
+        self.SupportDefenseBonus = math.max(0, supportDefense)
         self.Hp = self.MaxHp
         self.IsDefeated = false
         log("[CompanionCombat] owner=" .. userId .. " monster=" .. monsterId
             .. " stage=" .. tostring(stage) .. " HP=" .. tostring(self.MaxHp)
-            .. " skill=" .. self.Skill1 .. " enhance=" .. tostring(enhance))
+            .. " attack=" .. tostring(self.BasicAttack) .. " defense=" .. tostring(self.Defense)
+            .. " skill=" .. self.Skill1
+            .. " enhance=" .. tostring(enhance))
     end
 
     @ExecSpace("ServerOnly")
@@ -137,7 +146,12 @@ script CompanionCombat extends AttackComponent
                         if cooldown == nil or cooldown <= 0 then
                             cooldown = _GameData:GetBalance("run_skill_cooldown_fallback")
                         end
-                        self.SkillReadyAt[skillId] = now + math.max(0.5, cooldown)
+                        local minimum = _GameData:GetBalance("main_companion_skill_min_interval")
+                        local interval = math.max(0.5, cooldown, minimum)
+                        self.SkillReadyAt[skillId] = now + interval
+                        log("[CompanionSkillInterval] owner=" .. self.OwnerUserId
+                            .. " skill=" .. skillId .. " original=" .. tostring(cooldown)
+                            .. " minimum=" .. tostring(minimum) .. " applied=" .. tostring(interval))
                         return
                     end
                 end
@@ -341,11 +355,9 @@ script CompanionCombat extends AttackComponent
     end
 
     method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
-        local baseAttack = _GameData:GetBalance("companion_base_attack")
-        if baseAttack <= 0 then baseAttack = 20 end
-        local attack = baseAttack * (1 + (self.GrowthStage - 1) *
-            _GameData:GetBalance("companion_growth_attack_per_stage")
-            + self.EnhanceStage * _GameData:GetBalance("monster_enhance_attack_per_stage"))
+        -- 메인 자신의 성장과 지원 20%는 Configure에서 각각 한 번만 합산했다.
+        -- 고유 Skill도 동일한 offensive base를 사용하므로 지원 공격력을 재곱하지 않는다.
+        local attack = self.BasicAttack
         local monster = defender:GetComponent("script.RoomMonster")
         local defense = monster ~= nil and monster.Def or 0
         local coefficient = _CombatFormula:GetSkillCoefficient(attackInfo)

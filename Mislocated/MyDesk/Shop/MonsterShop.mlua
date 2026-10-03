@@ -4,9 +4,11 @@
 script MonsterShop extends Logic
 
     property table DevCounters = {}
+    property table PaidPromptPending = {}
 
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()
+        self.PaidPromptPending = {}
         _WorldShopService:SetProcessPurchaseCallback(function(info)
             return self:ProcessPlatformPurchase(info)
         end)
@@ -32,7 +34,8 @@ script MonsterShop extends Logic
             enabled = row:GetItem("Enabled") == "1",
         }
         if result.amount <= 0 or result.amount > 100000 or result.limit < 0 then return nil end
-        if result.rewardType ~= "MONSTER_SELECTION_TICKET"
+        if result.rewardType ~= "MONSTER_GROWTH_TICKET"
+            and result.rewardType ~= "MONSTER_SELECTION_TICKET"
             and result.rewardType ~= "GROWTH_ESSENCE"
             and result.rewardType ~= "GROWTH_CORE" then return nil end
         if result.resetType ~= "NONE" and result.resetType ~= "DAILY"
@@ -78,9 +81,14 @@ script MonsterShop extends Logic
     method boolean ProcessReward(string userId, string productId, string purchaseId, boolean platformVerified)
         if type(userId) ~= "string" or userId == "" or type(purchaseId) ~= "string"
             or purchaseId == "" or #purchaseId > 160 then return false end
-        if platformVerified == false and Environment:IsMakerPlay() == false then return false end
         local product = self:GetProduct(productId)
         if product == nil or product.enabled == false then return false end
+        -- 무료 성장권만 서버 발급 영수증으로 청구할 수 있다. 유료 상품은 플랫폼
+        -- 콜백(또는 Maker 개발 테스트)을 거치지 않으면 지급하지 않는다.
+        local freeClaim = product.id == "PRODUCT_A" and product.price == 0
+            and string.sub(purchaseId, 1, 5) == "FREE:"
+        if platformVerified == false and Environment:IsMakerPlay() == false
+            and freeClaim == false then return false end
         if platformVerified and product.platformId == "" then return false end
         local player = _UserService:GetUserEntityByUserId(userId)
         if not isvalid(player) then return false end
@@ -90,58 +98,83 @@ script MonsterShop extends Logic
         local collection = player:GetComponent("script.PlayerCollection")
         if db == nil or collection == nil or db:IsRogueEconomyReady() == false then return false end
         local payload = db.RogueSavedPayload
-        if payload.purchase_receipts[purchaseId] ~= nil then
+        if (payload.purchase_receipts or {})[purchaseId] ~= nil then
             log("[MonsterShop] 중복 지급 거부 id=" .. purchaseId)
             return false
         end
         local limitKey = self:GetLimitKey(product)
-        local oldLimit = limitKey ~= "" and (payload.purchase_limits[limitKey] or 0) or 0
-        if limitKey ~= "" and oldLimit >= product.limit then return false end
+        local oldLimit = limitKey ~= "" and ((payload.purchase_limits or {})[limitKey] or 0) or 0
+        -- A completed platform charge must not become an unpaid entitlement merely
+        -- because two purchase windows raced the server-side limit check.
+        if limitKey ~= "" and oldLimit >= product.limit then
+            if not platformVerified then return false end
+            log_warning("[MonsterShop] 결제 후 한도 경합: 보상은 지급하고 운영 점검 필요 product="
+                .. product.id .. " limit=" .. tostring(product.limit))
+        end
+        local candidate = db:PrepareRogueEconomyPayload()
+        if candidate == nil then return false end
+        candidate.purchase_receipts = candidate.purchase_receipts or {}
+        candidate.purchase_receipt_order = candidate.purchase_receipt_order or {}
+        candidate.purchase_limits = candidate.purchase_limits or {}
         local oldEssence = collection.MonsterGrowthCurrency
         local oldCore = collection.MonsterGrowthCore
         local oldTicket = collection.MonsterSelectionTickets
-        if product.rewardType == "MONSTER_SELECTION_TICKET" then
+        if product.rewardType == "MONSTER_GROWTH_TICKET"
+            or product.rewardType == "MONSTER_SELECTION_TICKET" then
             if oldTicket > 2000000000 - product.amount then return false end
-            collection.MonsterSelectionTickets += product.amount
+            candidate.monster_selection_tickets = oldTicket + product.amount
         elseif product.rewardType == "GROWTH_ESSENCE" then
             if oldEssence > 2000000000 - product.amount then return false end
-            collection.MonsterGrowthCurrency += product.amount
+            candidate.monster_growth_currency = oldEssence + product.amount
         else
             if oldCore > 2000000000 - product.amount then return false end
-            collection.MonsterGrowthCore += product.amount
+            candidate.growth_core = oldCore + product.amount
         end
-        payload.purchase_receipts[purchaseId] = productId
-        local order = payload.purchase_receipt_order
+        candidate.purchase_receipts[purchaseId] = productId
+        local order = candidate.purchase_receipt_order
         order[#order + 1] = purchaseId
         if limitKey ~= "" then
             -- 지난 DAILY/WEEKLY 버킷을 제거해 구매 제한 기록이 무한히 커지지 않게 한다.
-            for key, _ in pairs(payload.purchase_limits) do
+            for key, _ in pairs(candidate.purchase_limits) do
                 if string.sub(key, 1, #productId + 1) == productId .. ":"
-                    and key ~= limitKey then payload.purchase_limits[key] = nil end
+                    and key ~= limitKey then candidate.purchase_limits[key] = nil end
             end
-            payload.purchase_limits[limitKey] = oldLimit + 1
+            candidate.purchase_limits[limitKey] = oldLimit + 1
         end
         if #order > 256 then
-            local expired = table.remove(order, 1)
-            payload.purchase_receipts[expired] = nil
+            -- 표시/순서 원장만 제한한다. 성공 PurchaseId는 재전달 방지를 위해 삭제하지 않는다.
+            table.remove(order, 1)
         end
-        if db:SaveRogueEconomyNow("상품 지급 " .. productId) == false then
-            collection.MonsterGrowthCurrency = oldEssence
-            collection.MonsterGrowthCore = oldCore
-            collection.MonsterSelectionTickets = oldTicket
-            payload.purchase_receipts[purchaseId] = nil
-            table.remove(order, #order)
-            if limitKey ~= "" then payload.purchase_limits[limitKey] = oldLimit end
-            return false
+        if db:CommitRogueEconomyPayload(candidate, "상품 지급 " .. productId) == false then return false end
+        if product.rewardType == "MONSTER_GROWTH_TICKET"
+            or product.rewardType == "MONSTER_SELECTION_TICKET" then
+            collection.MonsterSelectionTickets += product.amount
+        elseif product.rewardType == "GROWTH_ESSENCE" then
+            collection.MonsterGrowthCurrency += product.amount
+        else
+            collection.MonsterGrowthCore += product.amount
         end
         log("[MonsterShop] 지급 완료 user=" .. userId .. " product=" .. productId
             .. " purchase=" .. purchaseId)
+        local rewardMessage = product.name .. " ×" .. tostring(product.amount)
+        if product.rewardType == "GROWTH_ESSENCE" then
+            rewardMessage = "성장 점수 " .. tostring(product.amount) .. "개를 획득했습니다."
+        elseif product.rewardType == "GROWTH_CORE" then
+            rewardMessage = "성장 코어 " .. tostring(product.amount) .. "개를 획득했습니다."
+        end
+        self:NotifyPurchaseMessage("구매 완료", rewardMessage, userId)
         return true
+    end
+
+    @ExecSpace("Client")
+    method void NotifyPurchaseMessage(string title, string message)
+        if _GateNotice ~= nil then _GateNotice:ShowNotice(title, message) end
     end
 
     @ExecSpace("ServerOnly")
     method boolean ProcessPlatformPurchase(WorldShopPurchaseInfo info)
         if info == nil or info.UserId == nil or info.PurchaseId == nil then return false end
+        if self.PaidPromptPending ~= nil then self.PaidPromptPending[info.UserId] = nil end
         local product = self:FindProductByPlatformId(info.ProductId)
         if product == nil then return false end
         local player = _UserService:GetUserEntityByUserId(info.UserId)
@@ -150,8 +183,16 @@ script MonsterShop extends Logic
         if db == nil or db.IsLoadSuccess == false then return false end
         local purchaseId = "MSW:" .. info.PurchaseId
         -- 이미 지급된 콜백은 true로 ACK해 플랫폼 재전달을 끝내되 다시 지급하지 않는다.
-        if db.RogueSavedPayload.purchase_receipts[purchaseId] ~= nil then return true end
-        return self:ProcessReward(info.UserId, product.id, purchaseId, true)
+        local priorProductId = (db.RogueSavedPayload.purchase_receipts or {})[purchaseId]
+        if priorProductId ~= nil then return priorProductId == product.id end
+        local delivered = self:ProcessReward(info.UserId, product.id, purchaseId, true)
+        if delivered and not Environment:IsMakerPlay() then
+            _LogStorageService:LogPurchaseInfo(info, "MonsterShop " .. product.id .. " delivered")
+        end
+        if not delivered then
+            self:NotifyPurchaseMessage("구매 실패", "구매를 완료하지 못했습니다.", info.UserId)
+        end
+        return delivered
     end
 
     @ExecSpace("Server")
@@ -162,22 +203,113 @@ script MonsterShop extends Logic
         self.DevCounters[senderUserId] = n
         local purchaseId = "DEV:" .. senderUserId .. ":" .. tostring(_UtilLogic.ElapsedSeconds)
             .. ":" .. tostring(n)
-        self:ProcessReward(senderUserId, productId, purchaseId, false)
+        if self:ProcessReward(senderUserId, productId, purchaseId, false) == false then
+            self:NotifyPurchaseMessage("구매할 수 없음", "상품 또는 구매 한도를 확인해 주세요.", senderUserId)
+        end
+    end
+
+    @ExecSpace("Server")
+    method void RequestFreeGrowthTicket()
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        -- 다른 참가자의 Run 상태와 무관하게, 청구자 본인이 로비에 있을 때만 허용한다.
+        if not isvalid(player) or player.CurrentMap == nil
+            or player.CurrentMap.Name ~= "maptown" then return end
+        local product = self:GetProduct("PRODUCT_A")
+        if product == nil or not product.enabled or product.price ~= 0
+            or product.platformId ~= "" then return end
+        if self.DevCounters == nil then self.DevCounters = {} end
+        local n = (self.DevCounters[senderUserId] or 0) + 1
+        self.DevCounters[senderUserId] = n
+        local purchaseId = "FREE:" .. senderUserId .. ":"
+            .. tostring(_UtilLogic.ElapsedSeconds) .. ":" .. tostring(n)
+        if self:ProcessReward(senderUserId, product.id, purchaseId, false) == false then
+            self:NotifyPurchaseMessage("받을 수 없음", "오늘의 성장권 횟수 또는 저장 상태를 확인해 주세요.", senderUserId)
+        end
     end
 
     @ExecSpace("ClientOnly")
     method void RequestCatalogPurchase(string productId)
         local product = self:GetProduct(productId)
         if product == nil or product.enabled == false then return end
-        if Environment:IsMakerPlay() then
-            self:RequestDevPurchase(productId)
+        if product.id == "PRODUCT_A" and product.price == 0 and product.platformId == "" then
+            self:RequestFreeGrowthTicket()
         elseif product.platformId ~= "" then
-            _WorldShopService:PromptPurchase(product.platformId)
+            self:RequestPaidPurchaseEligibility(productId)
         end
     end
 
     @ExecSpace("Server")
-    method void RequestUseSelectionTicket(string monsterId)
+    method void RequestPaidPurchaseEligibility(string productId)
+        local userId = senderUserId
+        local product = self:GetProduct(productId)
+        local player = _UserService:GetUserEntityByUserId(userId)
+        if product == nil or not product.enabled or product.price <= 0
+            or product.platformId == "" or not isvalid(player)
+            or player.CurrentMap == nil or player.CurrentMap.Name ~= "maptown" then
+            log("[MonsterShop] 플랫폼 구매 사전검증 거절 product=" .. tostring(productId)
+                .. " reason=UNAVAILABLE")
+            self:NotifyPurchaseMessage("상품 준비 중", "구매 가능한 상품이 아닙니다.", userId)
+            return
+        end
+        local db = player:GetComponent("script.PlayerDBManager")
+        if db == nil or db:IsRogueEconomyReady() == false
+            or db:PrepareRogueEconomyPayload() == nil then
+            self:NotifyPurchaseMessage("구매할 수 없음", "저장 준비 상태를 확인해 주세요.", userId)
+            return
+        end
+        local key = self:GetLimitKey(product)
+        if key ~= "" and ((db.RogueSavedPayload.purchase_limits or {})[key] or 0) >= product.limit then
+            local limitMessage = "이번 기간의 구매 가능 횟수를 모두 사용했습니다."
+            if product.resetType == "DAILY" then
+                limitMessage = "오늘 구매 가능한 횟수를 모두 사용했습니다."
+            elseif product.resetType == "WEEKLY" then
+                limitMessage = "이번 주 구매 가능한 횟수를 모두 사용했습니다."
+            end
+            self:NotifyPurchaseMessage("구매 횟수 도달", limitMessage, userId)
+            return
+        end
+        if self.PaidPromptPending == nil then self.PaidPromptPending = {} end
+        local now = _UtilLogic.ElapsedSeconds
+        local pending = self.PaidPromptPending[userId]
+        if pending ~= nil and now - pending < 120 then
+            self:NotifyPurchaseMessage("구매 진행 중", "진행 중인 구매창을 먼저 확인해 주세요.", userId)
+            return
+        end
+        self.PaidPromptPending[userId] = now
+        local platform = _WorldShopService:GetProductAndWait(product.platformId)
+        if platform == nil or platform.Id ~= product.platformId
+            or platform.Type ~= WorldShopProductType.Item
+            or platform.Status ~= WorldShopProductStatus.Ing
+            or platform.Price <= 0 then
+            self.PaidPromptPending[userId] = nil
+            self:NotifyPurchaseMessage("상품 준비 중", "현재 판매 중인 상품이 아닙니다.", userId)
+            return
+        end
+        log("[MonsterShop] 플랫폼 구매 사전검증 통과 product=" .. product.id
+            .. " price=" .. tostring(platform.Price))
+        self:PromptEligiblePaidPurchase(productId, product.platformId, platform.Price, userId)
+    end
+
+    @ExecSpace("Client")
+    method void PromptEligiblePaidPurchase(string productId, string platformId, integer serverPrice)
+        local product = self:GetProduct(productId)
+        if product == nil or product.platformId ~= platformId then return end
+        local platform = _WorldShopService:GetProductAndWait(platformId)
+        if platform == nil or platform.Id ~= platformId
+            or platform.Status ~= WorldShopProductStatus.Ing
+            or platform.Type ~= WorldShopProductType.Item
+            or platform.Price <= 0
+            or platform.Price ~= serverPrice then
+            if _GateNotice ~= nil then
+                _GateNotice:ShowNotice("상품 준비 중", "플랫폼 상품 정보를 다시 확인해 주세요.")
+            end
+            return
+        end
+        _WorldShopService:PromptPurchase(platformId)
+    end
+
+    @ExecSpace("Server")
+    method void RequestUseGrowthTicket(string monsterId)
         local player = _UserService:GetUserEntityByUserId(senderUserId)
         if not isvalid(player) or player.CurrentMap == nil
             or player.CurrentMap.Name ~= "maptown" or _GameData.RogueRunActive then return end
@@ -187,17 +319,22 @@ script MonsterShop extends Logic
         local db = player:GetComponent("script.PlayerDBManager")
         if collection == nil or db == nil or db:IsRogueEconomyReady() == false
             or collection.MonsterSelectionTickets < 1 then return end
-        local oldCount = collection:GetTamedCount(monsterId)
+        local oldTamed = collection:GetTamedCount(monsterId)
         local oldLevel = collection:GetMonsterLevel(monsterId)
-        if collection:GrantTamingEquivalent(monsterId, false) == false then return end
+        local levelCap = math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
+        -- 클라이언트가 미보유 ID를 보내도 성장권으로 신규 해금할 수 없다.
+        if _GameData:IsTameableMonster(monsterId) == false or oldTamed <= 0
+            or oldLevel <= 0 or oldLevel >= levelCap then return end
+        local candidate = db:PrepareRogueEconomyPayload()
+        if candidate == nil then return end
+        candidate.monster_levels = candidate.monster_levels or {}
+        candidate.monster_selection_tickets = collection.MonsterSelectionTickets - 1
+        candidate.monster_levels[monsterId] = oldLevel + 1
+        if db:CommitRogueEconomyPayload(candidate, "몬스터 성장권 사용") == false then return end
+        collection.MonsterLevels[monsterId] = oldLevel + 1
         collection.MonsterSelectionTickets -= 1
-        if db:SaveRogueEconomyNow("몬스터 선택권 사용") == false then
-            collection:SetTamedCount(monsterId, oldCount)
-            collection.MonsterLevels[monsterId] = oldLevel > 0 and oldLevel or nil
-            collection.MonsterSelectionTickets += 1
-            return
-        end
-        log("[MonsterShop] 선택권 사용 monster=" .. monsterId
+        collection:RefreshPlayerInheritedStats()
+        log("[MonsterShop] 성장권 사용 monster=" .. monsterId
             .. " level=" .. tostring(collection:GetMonsterLevel(monsterId)))
     end
 end

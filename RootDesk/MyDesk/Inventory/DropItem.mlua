@@ -29,10 +29,52 @@ script DropItem extends Component
 
     property any tickTimer = nil
     property any despawnTimer = nil
+    property any touchHandler = nil
+    property any touchEntity = nil
     property boolean taken = false
 
     -- 폴링 주기(초). 0.2면 걸어서 지나갈 때 놓치지 않는다.
     property number tickInterval = 0.2
+
+    @ExecSpace("ClientOnly")
+    method void OnInitialize()
+        -- 모바일/터치 환경에서도 E키와 같은 획득 경로를 제공한다.
+        self.touchEntity = self.Entity
+        self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.HandleTouch)
+    end
+
+    @ExecSpace("ClientOnly")
+    method void OnDestroy()
+        if self.touchHandler ~= nil and isvalid(self.touchEntity) then
+            self.touchEntity:DisconnectEvent(TouchEvent, self.touchHandler)
+            self.touchHandler = nil
+        end
+        self.touchEntity = nil
+    end
+
+    @ExecSpace("ClientOnly")
+    method void HandleTouch(TouchEvent event)
+        if self.taken then return end
+        log("[DropTouch] tap item=" .. tostring(self.ItemId))
+        self:RequestTouchPickup()
+    end
+
+    @ExecSpace("Server")
+    method void RequestTouchPickup()
+        if self.taken then return end
+        local player = _UserService:GetUserEntityByUserId(senderUserId)
+        if isvalid(player) == false or isvalid(player.PlayerComponent) == false then return end
+        if self.OwnerUserId ~= "" and player.PlayerComponent.UserId ~= self.OwnerUserId then return end
+        if player.CurrentMap ~= self.Entity.CurrentMap then return end
+        local p = player.TransformComponent.WorldPosition
+        local d = self.Entity.TransformComponent.WorldPosition
+        local range = _GameData:GetBalance("drop_pickup_range")
+        if range <= 0 then range = 1.25 end
+        local dx = p.x - d.x
+        local dy = p.y - d.y
+        if dx * dx + dy * dy > range * range then return end
+        self:Pickup(player)
+    end
 
     @ExecSpace("ServerOnly")
     method void OnBeginPlay()

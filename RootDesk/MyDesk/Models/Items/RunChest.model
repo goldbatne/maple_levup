@@ -20,7 +20,8 @@
       "Components": [
         "MOD.Core.TransformComponent",
         "MOD.Core.InteractionComponent",
-        "script.RunChest"
+        "script.RunChest",
+        "MOD.Core.TouchReceiveComponent"
       ],
       "Properties": [],
       "Values": [
@@ -82,6 +83,37 @@
             "type": "System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
           },
           "Value": true
+        },
+        {
+          "TargetType": "MOD.Core.TouchReceiveComponent",
+          "Name": "TouchArea",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "MOD.Core.MODVector2, MOD.Core, Version=26.7.0.0, Culture=neutral, PublicKeyToken=null"
+          },
+          "Value": {
+            "$type": "MOD.Core.MODVector2, MOD.Core",
+            "x": 1,
+            "y": 1
+          }
+        },
+        {
+          "TargetType": "MOD.Core.TouchReceiveComponent",
+          "Name": "AutoFitToSize",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Value": false
+        },
+        {
+          "TargetType": "MOD.Core.TouchReceiveComponent",
+          "Name": "RelayEventToBehind",
+          "ValueType": {
+            "$type": "MODNativeType",
+            "type": "System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+          },
+          "Value": false
         }
       ],
       "EventLinks": [],
@@ -97,7 +129,8 @@
             "Id": "460feb8b-4743-42df-97b9-75c7f5390722",
             "Components": [
               "MOD.Core.TransformComponent",
-              "MOD.Core.SpriteRendererComponent"
+              "MOD.Core.SpriteRendererComponent",
+              "MOD.Core.TouchReceiveComponent"
             ],
             "Properties": [],
             "Values": [
@@ -173,6 +206,37 @@
                   "type": "System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
                 },
                 "Value": 105
+              },
+              {
+                "TargetType": "MOD.Core.TouchReceiveComponent",
+                "Name": "TouchArea",
+                "ValueType": {
+                  "$type": "MODNativeType",
+                  "type": "MOD.Core.MODVector2, MOD.Core, Version=26.7.0.0, Culture=neutral, PublicKeyToken=null"
+                },
+                "Value": {
+                  "$type": "MOD.Core.MODVector2, MOD.Core",
+                  "x": 1,
+                  "y": 1
+                }
+              },
+              {
+                "TargetType": "MOD.Core.TouchReceiveComponent",
+                "Name": "AutoFitToSize",
+                "ValueType": {
+                  "$type": "MODNativeType",
+                  "type": "System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+                },
+                "Value": false
+              },
+              {
+                "TargetType": "MOD.Core.TouchReceiveComponent",
+                "Name": "RelayEventToBehind",
+                "ValueType": {
+                  "$type": "MODNativeType",
+                  "type": "System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"
+                },
+                "Value": false
               }
             ],
             "EventLinks": [],

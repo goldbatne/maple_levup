@@ -21,6 +21,7 @@ script PlayerCollection extends Component
     @TargetUserSync property SyncTable<string, integer> MonsterEnhances
     @TargetUserSync property integer MonsterGrowthCurrency = 0
     @TargetUserSync property integer MonsterGrowthCore = 0
+    -- 기존 저장 키 monster_selection_tickets와 호환한다. 현재 상품 의미는 보유 몬스터 성장권이다.
     @TargetUserSync property integer MonsterSelectionTickets = 0
     @TargetUserSync property SyncTable<string, string> EquippedCompanions
 
@@ -187,6 +188,15 @@ script PlayerCollection extends Component
     end
 
     @ExecSpace("ServerOnly")
+    method boolean GrantGrowthCurrency(integer amount, string reason, boolean markSave)
+        if amount <= 0 or amount > 100000 then return false end
+        if self.MonsterGrowthCurrency > 2000000000 - amount then return false end
+        self.MonsterGrowthCurrency += amount
+        if markSave then self:MarkSave(reason) end
+        return true
+    end
+
+    @ExecSpace("ServerOnly")
     method boolean GrantGrowthCore(integer amount, string reason, boolean markSave)
         if amount <= 0 or amount > 100000 then return false end
         if self.MonsterGrowthCore > 2000000000 - amount then return false end
@@ -198,6 +208,9 @@ script PlayerCollection extends Component
     @ExecSpace("ServerOnly")
     method boolean GrantTamingEquivalent(string monsterId, boolean markSave)
         if _GameData:IsTameableMonster(monsterId) == false then return false end
+        -- 신규 해금은 탐험 중 자연 테이밍만 허용한다. 호환용 성장 경로는 보유 종에 한정한다.
+        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5
+            and self:GetTamedCount(monsterId) <= 0 then return false end
         local cap = math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
         local current = self:GetMonsterLevel(monsterId)
         if current >= cap then return false end
@@ -210,6 +223,7 @@ script PlayerCollection extends Component
             local stackMax = math.max(1, math.floor(_GameData:GetBalance("skill_stack_max")))
             if count < stackMax then self:SetTamedCount(monsterId, count + 1) end
         end
+        self:RefreshPlayerInheritedStats()
         if markSave then self:MarkSave("몬스터 성장") end
         return true
     end
@@ -227,20 +241,96 @@ script PlayerCollection extends Component
         ---@type PlayerDBManager
         local db = self.Entity:GetComponent("script.PlayerDBManager")
         if db == nil or db:IsRogueEconomyReady() == false then return end
-        self.MonsterGrowthCore -= cost
-        self.MonsterLevels[monsterId] = level + 1
-        if db:SaveRogueEconomyNow("성장 코어 사용") == false then
-            self.MonsterGrowthCore += cost
-            self.MonsterLevels[monsterId] = level
-            log_error("[MonsterGrowth] 코어 사용 저장 실패, 상태 복원")
+        local candidate = db:PrepareRogueEconomyPayload()
+        if candidate == nil then return end
+        candidate.monster_levels = candidate.monster_levels or {}
+        candidate.growth_core = self.MonsterGrowthCore - cost
+        candidate.monster_levels[monsterId] = level + 1
+        if db:CommitRogueEconomyPayload(candidate, "성장 코어 사용") == false then
+            log_error("[MonsterGrowth] 코어 사용 저장 실패, 상태 변경 없음")
             return
         end
+        self.MonsterGrowthCore -= cost
+        self.MonsterLevels[monsterId] = level + 1
+        self:RefreshPlayerInheritedStats()
         log("[MonsterGrowth] core level monster=" .. monsterId .. " level=" .. tostring(level + 1))
     end
 
     method string GetEquippedCompanion(integer slot)
         if slot < 1 or slot > 3 then return "" end
         return self.EquippedCompanions[tostring(slot)] or ""
+    end
+
+    -- 메인/지원이 동일한 영구 성장식을 한 번만 사용한다.
+    method table GetEffectiveCompanionStats(string monsterId)
+        if monsterId == "" or self:GetMonsterLevel(monsterId) <= 0 then
+            return {maxHp = 0, basicAttack = 0, defense = 0}
+        end
+        local level = self:GetMonsterLevel(monsterId)
+        local enhance = self:GetMonsterEnhance(monsterId)
+        local baseHp = _GameData:GetBalance("companion_base_hp")
+        local baseAttack = _GameData:GetBalance("companion_base_attack")
+        local baseDefense = _GameData:GetBalance("companion_base_defense")
+        if baseHp <= 0 then baseHp = 250 end
+        if baseAttack <= 0 then baseAttack = 20 end
+        if baseDefense < 0 then baseDefense = 0 end
+        return {
+            maxHp = math.floor(baseHp * (1 + (level - 1) *
+                _GameData:GetBalance("companion_growth_hp_per_stage") + enhance *
+                _GameData:GetBalance("monster_enhance_hp_per_stage")) + 0.5),
+            basicAttack = baseAttack * (1 + (level - 1) *
+                _GameData:GetBalance("companion_growth_attack_per_stage") + enhance *
+                _GameData:GetBalance("monster_enhance_attack_per_stage")),
+            defense = baseDefense * (1 + (level - 1) *
+                _GameData:GetBalance("companion_growth_defense_per_stage") + enhance *
+                _GameData:GetBalance("monster_enhance_defense_per_stage"))
+        }
+    end
+
+    -- 슬롯 2/3은 월드 엔티티가 아니라 메인에게만 전달하는 성장 지원이다.
+    method table GetCompanionSupportBonus()
+        local hp, attack, defense = 0, 0, 0
+        local hpRate = math.max(0, _GameData:GetBalance("companion_support_hp_rate"))
+        local attackRate = math.max(0, _GameData:GetBalance("companion_support_attack_rate"))
+        local defenseRate = math.max(0, _GameData:GetBalance("companion_support_defense_rate"))
+        for slot = 2, 3 do
+            local stats = self:GetEffectiveCompanionStats(self:GetEquippedCompanion(slot))
+            hp += stats.maxHp * hpRate
+            attack += stats.basicAttack * attackRate
+            defense += stats.defense * defenseRate
+        end
+        return {maxHp = math.floor(hp + 0.5), basicAttack = attack, defense = defense}
+    end
+
+    -- 현재 편성 3마리의 성장 적용 능력치를 플레이어에게 전달한다. 지원 슬롯이
+    -- 메인에게 주는 20% 보너스와는 별개이며, 각 몬스터 원본을 한 번씩만 합산한다.
+    method table GetPlayerInheritedCompanionStats()
+        local totalHp, totalAttack, totalDefense = 0, 0, 0
+        local seen = {}
+        for slot = 1, 3 do
+            local monsterId = self:GetEquippedCompanion(slot)
+            if monsterId ~= "" and seen[monsterId] == nil then
+                seen[monsterId] = true
+                local stats = self:GetEffectiveCompanionStats(monsterId)
+                totalHp += stats.maxHp
+                totalAttack += stats.basicAttack
+                totalDefense += stats.defense
+            end
+        end
+        local rate = _GameData:GetBalance("player_companion_stat_transfer_rate")
+        if rate < 0 then rate = 0 end
+        if rate > 1 then rate = 1 end
+        return {
+            maxHp = math.floor(totalHp * rate + 0.5),
+            basicAttack = totalAttack * rate,
+            defense = totalDefense * rate
+        }
+    end
+
+    @ExecSpace("ServerOnly")
+    method void RefreshPlayerInheritedStats()
+        local stats = self.Entity:GetComponent("script.PlayerStats")
+        if stats ~= nil then stats:ApplyMaxHp() end
     end
 
     method integer GetAbilityStackCount(string skillId)
@@ -432,10 +522,36 @@ script PlayerCollection extends Component
         -- Skill Drop 상호작용 성공 시 SkillDropManager가 별도로 기록한다.
         self.TotalMonsterKills[monsterId] = self:GetTotalMonsterKills(monsterId) + 1
         local room = self.Entity.CurrentMap ~= nil and _GameData:GetRoomByMapName(self.Entity.CurrentMap.Name) or nil
-        local rewardKey = room ~= nil and room.room_type == "boss"
-            and "monster_essence_per_boss_kill" or "monster_essence_per_kill"
-        local reward = math.max(0, math.floor(_GameData:GetBalance(rewardKey)))
-        self.MonsterGrowthCurrency += reward
+        local bossKill = room ~= nil and room.room_type == "boss"
+        local rewardKey = bossKill and "monster_essence_per_boss_kill" or "monster_essence_per_kill"
+        local scoreRateKey = bossKill and "monster_growth_score_boss_drop_rate"
+            or "monster_growth_score_drop_rate"
+        local scoreRate = math.min(1, math.max(0, _GameData:GetBalance(scoreRateKey)))
+        local scoreReward = math.max(0, math.floor(_GameData:GetBalance(rewardKey)))
+        local awardedScore = 0
+        if scoreReward > 0 and _UtilLogic:RandomDouble() < scoreRate
+            and self:GrantGrowthCurrency(scoreReward, "Run 처치 성장 점수", false) then
+            awardedScore = scoreReward
+        end
+        local floor = _GameData:GetMegaFloorIndex(_GameData.RogueAreaId)
+        local minCoreFloor = math.max(1, math.floor(_GameData:GetBalance("monster_growth_core_min_floor")))
+        local awardedCore = 0
+        if floor >= minCoreFloor then
+            local coreRateKey = bossKill and "monster_growth_core_boss_drop_rate"
+                or "monster_growth_core_drop_rate"
+            local coreRate = math.min(1, math.max(0, _GameData:GetBalance(coreRateKey)))
+            if _UtilLogic:RandomDouble() < coreRate
+                and self:GrantGrowthCore(1, "Run 처치 성장 코어", false) then
+                awardedCore = 1
+            end
+        end
+        if awardedScore > 0 or awardedCore > 0 then
+            log("[GrowthDrop] user=" .. self.Entity.PlayerComponent.UserId
+                .. " monster=" .. monsterId .. " floor=" .. tostring(floor)
+                .. " score=" .. tostring(awardedScore) .. " core=" .. tostring(awardedCore))
+            self:ShowGrowthDropToast(awardedScore, awardedCore,
+                self.Entity.PlayerComponent.UserId)
+        end
         _GameData:StageRogueliteDiscovery(self.Entity.PlayerComponent.UserId, monsterId, "")
         -- 스킬 드롭 판정과 독립적인 몬스터 테이밍. 근처의 각 참가자가
         -- GrantRunKillRewards에서 한 번씩 호출되므로 막타 독점도 없다.
@@ -482,6 +598,17 @@ script PlayerCollection extends Component
         local message = monsterName .. (count == 1 and "을(를) 동료로 획득했습니다. Lv.1"
             or (" 중복 테이밍 · Lv." .. tostring(count)))
         _SkillBar:ShowMetaToast(message)
+    end
+
+    @ExecSpace("Client")
+    method void ShowGrowthDropToast(integer score, integer core)
+        local message = ""
+        if score > 0 then message = "성장 점수 +" .. tostring(score) end
+        if core > 0 then
+            if message ~= "" then message ..= " · " end
+            message ..= "성장 코어 +" .. tostring(core)
+        end
+        if message ~= "" then _SkillBar:ShowMetaToast(message) end
     end
 
     @ExecSpace("ServerOnly")
@@ -656,6 +783,7 @@ script PlayerCollection extends Component
             end
         end
         self.EquippedCompanions[tostring(slot)] = monsterId ~= "" and monsterId or nil
+        self:RefreshPlayerInheritedStats()
         self:MarkSave("동행 편성")
         log("[CompanionTeam] slot=" .. tostring(slot) .. " monster=" .. monsterId)
     end
@@ -672,6 +800,7 @@ script PlayerCollection extends Component
         if self.MonsterGrowthCurrency < cost then return end
         self.MonsterGrowthCurrency -= cost
         self.MonsterEnhances[monsterId] = stage + 1
+        self:RefreshPlayerInheritedStats()
         self:MarkSave("동행 강화")
         log("[CompanionEnhance] monster=" .. monsterId .. " stage=" .. tostring(stage + 1)
             .. " cost=" .. tostring(cost))
@@ -719,7 +848,7 @@ script PlayerCollection extends Component
         if map == nil or map.Name == "maptown" or not isvalid(playerTransform) then return end
         local p = playerTransform.WorldPosition
         local radius = math.max(0.5, _GameData:GetBalance("companion_formation_radius"))
-        for slot = 1, 3 do
+        for slot = 1, 1 do
             local monsterId = self:GetEquippedCompanion(slot)
             if monsterId ~= "" and self:GetMonsterLevel(monsterId) > 0
                 and self.CompanionDefeatedMaps[slot] ~= map.Name then
@@ -737,11 +866,18 @@ script PlayerCollection extends Component
                         entity.TransformComponent.Scale = Vector3(0.75, 0.75, 1)
                         local combat = entity:GetComponent("script.CompanionCombat")
                         if combat ~= nil then
+                            local mainStats = self:GetEffectiveCompanionStats(monsterId)
+                            local support = self:GetCompanionSupportBonus()
                             combat:Configure(self.Entity.PlayerComponent.UserId, monsterId,
-                                self:GetMonsterLevel(monsterId), self:GetMonsterEnhance(monsterId), slot)
+                                self:GetMonsterLevel(monsterId), self:GetMonsterEnhance(monsterId), slot,
+                                mainStats.maxHp + support.maxHp,
+                                mainStats.basicAttack + support.basicAttack,
+                                mainStats.defense + support.defense,
+                                support.maxHp, support.basicAttack, support.defense)
                             self.CompanionEntities[slot] = entity
-                            log("[Companion] slot=" .. tostring(slot) .. " monster=" .. monsterId
-                                .. " map=" .. map.Name)
+                            log("[Companion] MAIN slot=" .. tostring(slot) .. " monster=" .. monsterId
+                                .. " map=" .. map.Name .. " supportHp=" .. tostring(support.maxHp)
+                                .. " supportAttack=" .. tostring(support.basicAttack))
                         else
                             entity:Destroy()
                             log_error("[Companion] CompanionCombat 모델 연결 없음")
@@ -783,7 +919,7 @@ script PlayerCollection extends Component
         if not isvalid(playerTransform) then return end
         local p = playerTransform.WorldPosition
         local radius = math.max(0.5, _GameData:GetBalance("companion_formation_radius"))
-        for slot = 1, 3 do
+        for slot = 1, 1 do
             local entity = self.CompanionEntities[slot]
             if isvalid(entity) then
                 local combat = entity:GetComponent("script.CompanionCombat")

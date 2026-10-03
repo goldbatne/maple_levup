@@ -314,11 +314,16 @@ script RoomMonster extends Component
         -- 세다고 느껴지면 boss_atk_multiplier부터 내린다 — HP·EXP는 그대로 두고.
         local isBoss = self:IsBossRoom()
         if _GameData.RogueRunActive then
-            -- Mega Area는 정렬 순서로 수치를 올리지 않는다. 모든 일반 조우가 공통
-            -- 기준선을 쓰고, 최종 보스만 HP 배율과 시작 인원 배율을 받는다.
-            self.MaxHp = _GameData:GetBalance("run_monster_hp_base")
-            self.Atk = _GameData:GetBalance("run_monster_attack_base")
-            self.Def = _GameData:GetBalance("run_monster_defense_base")
+            -- Mega Area 1~5는 성장 진행 1~5층이다. 매 층 HP·공격·방어가
+            -- 데이터의 run_floor_stat_step만큼 함께 상승한다. 보스 HP와 파티 HP
+            -- 배율은 이 층 기준선 뒤에 적용해 서로 독립적으로 조정할 수 있게 한다.
+            local floorScale = _GameData:GetRogueFloorStatMultiplier(_GameData.RogueAreaId)
+            self.MaxHp = math.max(1, math.floor(
+                _GameData:GetBalance("run_monster_hp_base") * floorScale + 0.5))
+            self.Atk = math.max(1, math.floor(
+                _GameData:GetBalance("run_monster_attack_base") * floorScale + 0.5))
+            self.Def = math.max(0, math.floor(
+                _GameData:GetBalance("run_monster_defense_base") * floorScale + 0.5))
             self.ExpReward = 0
             if isBoss then self.MaxHp *= _GameData:GetBalance("run_boss_hp_multiplier") end
             self.MaxHp *= _GameData:GetRunHpScale()
