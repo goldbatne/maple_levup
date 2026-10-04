@@ -26,6 +26,7 @@ script CompanionCombat extends AttackComponent
     property number ShieldUntil = 0
     property number AttackBoostRatio = 0
     property number AttackBoostUntil = 0
+    property number MemoryMonkFollowupSfxUntil = 0
     property boolean Limited = false
     property integer HitBudget = 0
     property string Behavior = ""
@@ -49,6 +50,7 @@ script CompanionCombat extends AttackComponent
             and skill.skill_kind ~= "passive" then self.Skill1 = skill.id
         else self.Skill1 = "" end
         self.SkillReadyAt = {}
+        self.MemoryMonkFollowupSfxUntil = 0
         self.MaxHp = math.max(1, math.floor(effectiveHp + 0.5))
         self.BasicAttack = math.max(1, effectiveAttack)
         self.Defense = math.max(0, effectiveDefense)
@@ -233,6 +235,9 @@ script CompanionCombat extends AttackComponent
         elseif kind == "buff" or skill.behavior == "BUFF" then
             self.AttackBoostRatio = math.min(1, math.max(0, skill.effect_value * effectGrowth))
             self.AttackBoostUntil = _UtilLogic.ElapsedSeconds + math.max(0.5, skill.duration)
+            if skill.id == "s_mon_memory_monk_trainee" then
+                self.MemoryMonkFollowupSfxUntil = self.AttackBoostUntil
+            end
             _SkillEffect:PlayCast(skill.id, self.Entity, dir.x < 0)
         elseif skill.projectile_ruid ~= "" then
             local endpoints = {to}
@@ -248,7 +253,8 @@ script CompanionCombat extends AttackComponent
             local played = false
             for i = 1, #endpoints do
                 endpoints[i] = _GameData:TraceSkillEndpoint(map, from, endpoints[i])
-                if _SkillEffect:PlayProjectile(skill.id, self.Entity, endpoints[i]) then played = true end
+                if _SkillEffect:PlayProjectile(skill.id, self.Entity, endpoints[i],
+                    played == false) then played = true end
             end
             if played == false then _SkillEffect:PlayCast(skill.id, self.Entity, dir.x < 0) end
             local flight = math.max(0.05, _GameData:GetBalance("projectile_seconds"))
@@ -368,6 +374,12 @@ script CompanionCombat extends AttackComponent
         end
         if _UtilLogic.ElapsedSeconds < self.AttackBoostUntil then
             coefficient *= 1 + self.AttackBoostRatio
+        end
+        if self.MemoryMonkFollowupSfxUntil > 0 then
+            if _UtilLogic.ElapsedSeconds < self.MemoryMonkFollowupSfxUntil then
+                _SkillEffect:PlayMemoryMonkFollowup(self.Entity)
+            end
+            self.MemoryMonkFollowupSfxUntil = 0
         end
         return _CombatFormula:CalcDamage(attack, defense, coefficient)
     end
