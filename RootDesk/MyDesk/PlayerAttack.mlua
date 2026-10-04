@@ -707,7 +707,8 @@ script PlayerAttack extends AttackComponent
 		toPos = targets[math.ceil(#targets * 0.5)]
 		local anyNewVfx = false
 		for i = 1, #targets do
-			if _SkillEffect:PlayProjectile(skillId, self.Entity, targets[i]) then anyNewVfx = true end
+			if _SkillEffect:PlayProjectile(skillId, self.Entity, targets[i],
+				anyNewVfx == false) then anyNewVfx = true end
 		end
 		if anyNewVfx == false then _SkillEffect:PlayCast(skillId, self.Entity, dx < 0) end
 
@@ -1137,6 +1138,7 @@ script PlayerAttack extends AttackComponent
 		if self.NextAttackBoostRatio > 0 then
 			if _UtilLogic.ElapsedSeconds < self.NextAttackBoostUntil then
 				coefficient = coefficient * (1 + self.NextAttackBoostRatio)
+				_SkillEffect:PlayMemoryMonkFollowup(attacker)
 				log("[SkillBuff] Player next_hit_consumed ratio="
 					.. tostring(self.NextAttackBoostRatio))
 			end

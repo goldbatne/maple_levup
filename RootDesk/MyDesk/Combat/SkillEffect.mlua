@@ -24,6 +24,8 @@
 @Logic
 script SkillEffect extends Logic
 
+    property string MemoryMonkFollowupSfxRuid = "879af07877bb4b42b5da9a7a4c51f5ae"
+
     @ExecSpace("ServerOnly")
     method void PlayCast(string skillId, Entity caster, boolean flipX)
         -- 시전 연출을 **그 방에 있는 사람들에게만** 보낸다.
@@ -78,6 +80,25 @@ script SkillEffect extends Logic
                 self:ShowCast(skillId, caster, flipX, pc.UserId)
             end
         end
+    end
+
+    @ExecSpace("ServerOnly")
+    method void PlayMemoryMonkFollowup(Entity caster)
+        -- 기도 강화가 실제 타격에 소비될 때만 두 번째 사운드를 들려준다.
+        if not isvalid(caster) or self.MemoryMonkFollowupSfxRuid == "" then return end
+        local map = caster.CurrentMap
+        if map == nil then return end
+        local users = _UserService:GetUsersByMapName(map.Name)
+        if users == nil then return end
+        for i = 1, #users do
+            local pc = users[i].PlayerComponent
+            if isvalid(pc) then
+                _SoundService:PlaySound(self.MemoryMonkFollowupSfxRuid,
+                    _GameData:GetBalance("skill_sfx_volume"), pc.UserId)
+            end
+        end
+        log("[SkillSFX] memory_monk_followup map=" .. map.Name
+            .. " listeners=" .. tostring(#users))
     end
 
     @ExecSpace("ServerOnly")
@@ -330,6 +351,16 @@ script SkillEffect extends Logic
         local h = _GameData:GetBalance("skill_effect_height") + 0.5
         self:SpawnLayerAt(skill, layer, caster, flipX, caster.CurrentMap, 1,
             Vector3(fromPos.x, fromPos.y + h, fromPos.z), false, "돌진 경로")
+        -- 이 분기는 PlayCast를 건너뛴다. 이동 연출 시작 시 기존 시전음만 전달한다.
+        -- ShowCast는 이 스킬의 다층 VFX를 다시 그리지 않으므로 연출이 중복되지 않는다.
+        local users = _UserService:GetUsersByMapName(caster.CurrentMap.Name)
+        if users ~= nil then
+            for i = 1, #users do
+                local pc = users[i].PlayerComponent
+                if isvalid(pc) then self:ShowCast(skillId, caster, flipX, pc.UserId) end
+            end
+        end
+        log("[SkillSFX] dash_begin " .. skillId .. " listeners=" .. tostring(users ~= nil and #users or 0))
         return true
     end
 
@@ -380,7 +411,8 @@ script SkillEffect extends Logic
     end
 
     @ExecSpace("ServerOnly")
-    method boolean PlayProjectile(string skillId, Entity caster, Vector3 targetPos)
+    method boolean PlayProjectile(string skillId, Entity caster, Vector3 targetPos,
+        boolean emitSound)
         -- 날아가는 그림 (T19-3). `projectile_ruid`가 비어 있으면 아무것도 안 한다.
         --
         -- **그림만 담당한다.** 데미지는 던진 쪽이 같은 비행 시간짜리 타이머로 건다
@@ -449,14 +481,17 @@ script SkillEffect extends Logic
                 (to.y - from.y) / flight,
                 0))
             entity:SetVisible(true)
-            local users = _UserService:GetUsersByMapName(map.Name)
-            if users ~= nil then
-                for i = 1, #users do
-                    local pc = users[i].PlayerComponent
-                    if isvalid(pc) then
-                        self:ShowCast(skillId, caster, to.x < from.x, pc.UserId)
+            if emitSound then
+                local users = _UserService:GetUsersByMapName(map.Name)
+                if users ~= nil then
+                    for i = 1, #users do
+                        local pc = users[i].PlayerComponent
+                        if isvalid(pc) then
+                            self:ShowCast(skillId, caster, to.x < from.x, pc.UserId)
+                        end
                     end
                 end
+                log("[SkillSFX] projectile_launch " .. skillId)
             end
             log("[투사체 VFX] " .. skill.name .. " 신규 프레임 " .. tostring(#frames)
                 .. "장  " .. string.format("%.1f,%.1f", from.x, from.y) .. " → "
