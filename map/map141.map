@@ -16,7 +16,7 @@
       {
         "id": "bcd62af0-241e-4772-baa3-6610b8171e2d",
         "path": "/maps/map141",
-        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner",
+        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner,MOD.Core.SoundComponent",
         "jsonString": {
           "name": "map141",
           "path": "/maps/map141",
@@ -69,6 +69,19 @@
               "runSpawnPlanIndex": 0,
               "runRespawnTimer": 0,
               "runSpawnReason": "INITIAL"
+            },
+            {
+              "AudioClipRUID": "55117072498b4e6bafcfe45da29cd1f8",
+              "Bgm": true,
+              "KeepBGM": true,
+              "Loop": true,
+              "Mute": false,
+              "Pitch": 1,
+              "PlayOnEnable": true,
+              "SetCameraAsListener": false,
+              "Volume": 0.35,
+              "Enable": true,
+              "@type": "MOD.Core.SoundComponent"
             }
           ],
           "@version": 1

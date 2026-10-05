@@ -16,7 +16,7 @@
       {
         "id": "bd8a75f5-dd08-46cd-9639-072eb5f0895c",
         "path": "/maps/map003_p4b",
-        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner",
+        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner,MOD.Core.SoundComponent",
         "jsonString": {
           "name": "map003_p4b",
           "path": "/maps/map003_p4b",
@@ -58,6 +58,19 @@
               "SpawnMaxX": 7,
               "SpawnMinY": -3,
               "SpawnMaxY": 3
+            },
+            {
+              "AudioClipRUID": "bcc73825742745089f771fbb23c881e9",
+              "Bgm": true,
+              "KeepBGM": true,
+              "Loop": true,
+              "Mute": false,
+              "Pitch": 1,
+              "PlayOnEnable": true,
+              "SetCameraAsListener": false,
+              "Volume": 0.35,
+              "Enable": true,
+              "@type": "MOD.Core.SoundComponent"
             }
           ],
           "@version": 1

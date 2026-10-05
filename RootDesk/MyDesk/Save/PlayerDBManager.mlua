@@ -1040,7 +1040,7 @@ script PlayerDBManager extends Component
 		            and type(payload.settings.rank_gate_initialized) ~= "boolean" then return false end
 		        local legacyFloor = payload.settings.legacy_unlocked_floor
 		        if legacyFloor ~= nil and (type(legacyFloor) ~= "number" or legacyFloor ~= math.floor(legacyFloor)
-		            or legacyFloor < 1 or legacyFloor > 5) then return false end
+		            or legacyFloor < 1 or legacyFloor > #_GameData:GetRogueFloorIds()) then return false end
 		        local bestRanks = payload.settings.best_ranks
 		        if bestRanks ~= nil then
 		            if type(bestRanks) ~= "table" then return false end

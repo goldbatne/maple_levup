@@ -16,7 +16,7 @@
       {
         "id": "fba4f7aa-c389-4656-b751-178a8c31bb38",
         "path": "/maps/maptown",
-        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera",
+        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,MOD.Core.SoundComponent",
         "jsonString": {
           "name": "maptown",
           "path": "/maps/maptown",
@@ -49,6 +49,19 @@
             },
             {
               "@type": "script.RoomCamera",
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SoundComponent",
+              "AudioClipRUID": "3926b48759d246dc8464a876ff7fa5ce",
+              "Bgm": true,
+              "KeepBGM": true,
+              "Loop": true,
+              "Mute": false,
+              "Pitch": 1.0,
+              "PlayOnEnable": true,
+              "SetCameraAsListener": false,
+              "Volume": 0.35,
               "Enable": true
             }
           ],
