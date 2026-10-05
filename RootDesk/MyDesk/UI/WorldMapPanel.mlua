@@ -1,718 +1,705 @@
--- @클라이언트 (읽기만 한다. 아무것도 바꾸지 않으므로 서버가 할 일이 없다)
---
--- 지역의 방 구성을 보여 주는 **상시 미니맵** (T23-10, 대표 지시 2026-08-25:
--- *"area로 가면 각 맵의 구성을 표시해주는 해당 월드의 맵 보기ui"* +
--- 정정 *"전체 맵을 열 수 있는 방식이 아니라 우측 상단에 배치해서 볼 수 있도록"*).
---
--- ## 창이 아니라 HUD다
---
--- 처음엔 버튼으로 여는 전체 화면 창이었는데 대표 지시로 **우측 상단 상시 표시**로 바꿨다.
--- 지도는 "지금 어디쯤인가"를 곁눈질하는 것이라, 열고 닫는 동작이 끼면 안 보게 된다.
---
--- 파생: **암막도 버튼도 없다.** 레이캐스트를 먹는 요소가 하나도 없으므로 이 UI가
--- 화면 클릭을 막을 일이 없다 (T23-8에서 겪은 사고의 원천을 아예 없앴다).
---
--- ## 연결로 갈 수 없는 방은 그리지 않는다
---
--- 대표 지시: *"전직 스킬을 얻을 수 있는 시험의 방은 표기 안해주는게 맞을거 같아보이네"*
--- 시험의 방은 숨은 NPC로만 가는 방이다 — 지도에 적으면 숨긴 의미가 없어진다.
--- 규칙을 "시험의 방을 빼라"가 아니라 **"연결로 닿는 방만 그린다"**로 뒀다.
--- 그래야 앞으로 숨은 방을 더 만들어도 여기를 고칠 일이 없다.
---
--- ## 지도는 데이터에서 그린다
---
--- `RoomTable`의 연결을 너비 우선으로 훑어 격자 좌표를 매긴다.
--- 방을 추가하면 CSV 한 줄로 지도에 나타난다.
---
--- ## 잠김은 진짜 게이트에 물어본다
---
--- `_RoomGate:Evaluate`를 그대로 부른다. 여기서 조건을 다시 해석하면 판정이 두 곳에
--- 생겨 "지도엔 열려 보이는데 문은 막힌" 상태가 난다.
-
 @Logic
 script WorldMapPanel extends Logic
 
-    -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다.
-    property Entity panel = "d2b33a13-4706-4eef-80a7-ee34ae9caae0"
-    property Entity board = "3a9ed1e5-8ae3-497c-947c-19d442ae2f14"
-    property TextGUIRendererComponent titleText = "2c8f908e-2b36-4db2-945d-26ea5e1be864"
+	property Entity panel = "d2b33a13-4706-4eef-80a7-ee34ae9caae0"
 
-    -- T54: 상시 획득 현황 HUD를 없애고, 지도 칸을 눌렀을 때만 방 정보를 연다.
-    property Entity popup = "62a291dd-1802-45ca-aa8a-c34039ce2f1f"
-    property ButtonComponent popupClose = "99557ea1-e84a-43ad-835e-a4779ab1366c"
-    property TextGUIRendererComponent popupTitle = "29e6e9b0-17d1-44f2-ac35-3854c38e1fa1"
-    property TextGUIRendererComponent popupMonster = "15a92756-a177-4b56-afec-c2b6e5558d51"
-    property TextGUIRendererComponent popupRewardTitle = "d8dc24b1-003f-48e7-94fc-c5e9d143bc65"
-    property Entity popupRow1 = "f786d2dd-442a-43a4-bd4d-4251fb991023"
-    property Entity popupRow2 = "3ca58ef9-8ae1-4b1b-b88a-25e056209ff6"
-    property Entity popupRow3 = "dabfcced-c251-4a1f-8abf-710b068f0e9b"
-    property Entity popupRow4 = "0492483c-9f70-48be-9146-b4af5bba0071"
-    property TextGUIRendererComponent popupDrop1 = "950d7e82-7e83-4b24-b8e3-63f0d2a31396"
-    property SpriteGUIRendererComponent popupIcon1 = "2d2bd7ca-c9c6-4ef5-adee-704de2df0bf7"
-    property TextGUIRendererComponent popupDrop2 = "ab6c6fe8-3390-4024-aaf3-026ae7d51dad"
-    property SpriteGUIRendererComponent popupIcon2 = "b8f11457-216a-479d-afb9-888992b86032"
-    property TextGUIRendererComponent popupDrop3 = "b57bffe4-f784-4d76-9f2a-a51e16242b81"
-    property SpriteGUIRendererComponent popupIcon3 = "2aa2005a-07b0-4da3-99b2-80016e209b15"
-    property TextGUIRendererComponent popupDrop4 = "53fbad9d-7270-4259-918f-14c114b33af1"
-    property SpriteGUIRendererComponent popupIcon4 = "ee079686-eea3-4db5-84de-c2d3792b2a00"
+	property Entity board = "3a9ed1e5-8ae3-497c-947c-19d442ae2f14"
 
-    -- 칸·연결선 풀 크기. `.ui`에 만들어 둔 개수와 같아야 한다.
-    property integer cellMax = 12
-    property integer linkMax = 16
+	property TextGUIRendererComponent titleText = "2c8f908e-2b36-4db2-945d-26ea5e1be864"
 
-    -- 격자 한 칸의 크기와 간격(픽셀). 미니맵이라 창 시절보다 훨씬 작다.
-    property number cellW = 100
-    property number cellH = 56
-    property number gapX = 10
-    property number gapY = 10
+	property Entity popup = "62a291dd-1802-45ca-aa8a-c34039ce2f1f"
 
-    -- 판이 감당하는 크기. `.ui`의 Board와 같아야 하지만, 런타임에 실제 RectSize를
-    -- 읽어 덮어쓰므로 여기 값은 그것을 못 읽었을 때의 대비책이다.
-    property number boardW = 420
-    property number boardH = 310
+	property ButtonComponent popupClose = "99557ea1-e84a-43ad-835e-a4779ab1366c"
 
-    -- 칸 안의 글자 상자와 글자 크기 기준값 (`.ui`의 Name/Sub와 같아야 한다).
-    -- 자동 축소가 이 값들을 같은 비율로 줄인다 — 칸만 줄이면 글자가 칸 밖으로 넘친다.
-    property number nameW = 96
-    property number nameH = 26
-    property number nameFont = 15
-    property number subW = 96
-    property number subH = 24
-    property number subFont = 13
+	property TextGUIRendererComponent popupTitle = "29e6e9b0-17d1-44f2-ac35-3854c38e1fa1"
 
-    -- 더 줄이지 않는 바닥값. 이 아래로 내려가면 글자를 읽을 수 없어서,
-    -- 차라리 조금 넘치게 두는 편이 낫다 (안 보이는 지도보다 잘린 지도가 낫다).
-    property number minScale = 0.55
-    property number minFont = 9
+	property TextGUIRendererComponent popupMonster = "15a92756-a177-4b56-afec-c2b6e5558d51"
 
-    property any refreshTimer = nil
-    property number refreshInterval = 0.5
-    -- 마지막으로 그린 방. 같은 방이면 다시 그리지 않는다 (0.5초마다 도는 타이머라
-    -- 매번 전부 다시 그리면 방마다 게이트 판정을 계속 돌리게 된다).
-    property string lastRoomId = ""
-    property table cellRoomIds = {}
-    property table cellHandlers = {}
-    property any closeHandler = nil
+	property TextGUIRendererComponent popupRewardTitle = "d8dc24b1-003f-48e7-94fc-c5e9d143bc65"
 
-    @ExecSpace("ClientOnly")
-    method void OnBeginPlay()
-        log("[WorldMap] OnBeginPlay")
-        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
-            -- Mega Run의 연결 그래프는 탐색 대상이며 HUD 디버그 지도가 아니다.
-            -- 패널과 팝업을 모두 끄고 입력 핸들러/갱신 타이머도 만들지 않는다.
-            self.cellRoomIds = {}
-            self.cellHandlers = {}
-            if isvalid(self.panel) then self.panel.Enable = false end
-            if isvalid(self.popup) then self.popup.Enable = false end
-            log("[WorldMap] Mega Run — 레거시 지역 지도 비활성")
-            return
-        end
-        -- Run 도중에도 서버가 보낸 그래프를 표시한다. 초기 Active 값으로
-        -- 구독 자체를 건너뛰면 인스턴스 입장 순서에 따라 지도 갱신이 멈춘다.
-        self.cellRoomIds = {}
-        self.cellHandlers = {}
-        for i = 1, self.cellMax do
-            local index = i
-            local cell = self:GetCell(index)
-            if isvalid(cell) and isvalid(cell.ButtonComponent) then
-                self.cellHandlers[index] = cell:ConnectEvent(ButtonClickEvent, function()
-                    self:OpenRoomInfo(index)
-                end)
-            end
-        end
-        if isvalid(self.popupClose) then
-            self.closeHandler = self.popupClose.Entity:ConnectEvent(ButtonClickEvent, function()
-                self:HidePopup()
-            end)
-        end
-        self:HidePopup()
-        self.refreshTimer = _TimerService:SetTimerRepeat(function()
-            self:Refresh(false)
-        end, self.refreshInterval)
-        self:Refresh(true)
-    end
+	property Entity popupRow1 = "f786d2dd-442a-43a4-bd4d-4251fb991023"
 
-    @ExecSpace("ClientOnly")
-    method void OnEndPlay()
-        if self.cellHandlers ~= nil then
-            for i = 1, self.cellMax do
-                local cell = self:GetCell(i)
-                if isvalid(cell) and self.cellHandlers[i] ~= nil then
-                    cell:DisconnectEvent(ButtonClickEvent, self.cellHandlers[i])
-                end
-            end
-            self.cellHandlers = {}
-        end
-        if isvalid(self.popupClose) and self.closeHandler ~= nil then
-            self.popupClose.Entity:DisconnectEvent(ButtonClickEvent, self.closeHandler)
-            self.closeHandler = nil
-        end
-        if self.refreshTimer ~= nil then
-            _TimerService:ClearTimer(self.refreshTimer)
-            self.refreshTimer = nil
-        end
-    end
+	property Entity popupRow2 = "3ca58ef9-8ae1-4b1b-b88a-25e056209ff6"
 
-    @ExecSpace("ClientOnly")
-    method any CurrentRoom()
-        -- 지금 서 있는 방. 맵 이름으로 역인덱스한다 (RoomProgressHud와 같은 방식).
-        local me = _UserService.LocalPlayer
-        if me == nil then return nil end
-        local map = me.CurrentMap
-        if map == nil then return nil end
-        return _GameData:GetRoomByMapName(map.Name)
-    end
+	property Entity popupRow3 = "dabfcced-c251-4a1f-8abf-710b068f0e9b"
 
-    @ExecSpace("ClientOnly")
-    method void Refresh(boolean force)
-        local me = _UserService.LocalPlayer
-        -- ⚠ `nil` 검사만으로는 부족하다. **맵 전환 중에는 엔티티가 nil이 아니면서 무효**라,
-        -- 그대로 들고 `_RoomGate:Evaluate`까지 가면 그 안의 `GetComponent`가 터진다
-        -- (실측 2026-08-29: 방을 연달아 옮기는 중 `Object reference not set` 1건,
-        --  최상단 프레임이 `GetComponent`였다). 0.5초 타이머가 계속 도는 HUD라
-        -- 전환 한 프레임을 건너뛰어도 다음 틱에 다시 그린다.
-        if not isvalid(me) then return end
+	property Entity popupRow4 = "0492483c-9f70-48be-9146-b4af5bba0071"
 
-        local here = self:CurrentRoom()
-        local roomId = ""
-        local areaId = ""
-        if here ~= nil then
-            roomId = here.id
-            areaId = here.area_id
-        end
+	property TextGUIRendererComponent popupDrop1 = "950d7e82-7e83-4b24-b8e3-63f0d2a31396"
 
-        -- 지역 밖(마을·시험의 방)에서는 숨긴다. 마을은 모든 지역의 출입구라
-        -- 어느 지역 지도를 띄워도 거짓말이 되고, 숨은 방은 지도에 없는 방이다.
-        if areaId == nil or areaId == "" then
-            if isvalid(self.panel) then self.panel.Enable = false end
-            self:HidePopup()
-            self.lastRoomId = ""
-            return
-        end
+	property SpriteGUIRendererComponent popupIcon1 = "2d2bd7ca-c9c6-4ef5-adee-704de2df0bf7"
 
-        if force == false and roomId == self.lastRoomId then return end
-        if roomId ~= self.lastRoomId then self:HidePopup() end
-        self.lastRoomId = roomId
+	property TextGUIRendererComponent popupDrop2 = "ab6c6fe8-3390-4024-aaf3-026ae7d51dad"
 
-        local area = _GameData:GetArea(areaId)
-        local areaName = areaId
-        local entry = ""
-        if area ~= nil then
-            areaName = area.name
-            entry = area.entry_room_id
-        end
-        if entry == nil or entry == "" then
-            log_warning("[WorldMap] " .. areaId .. " 의 entry_room_id가 비어 있다 — 지도를 못 그린다")
-            if isvalid(self.panel) then self.panel.Enable = false end
-            return
-        end
+	property SpriteGUIRendererComponent popupIcon2 = "b8f11457-216a-479d-afb9-888992b86032"
 
-        if isvalid(self.titleText) then self.titleText.Text = areaName end
+	property TextGUIRendererComponent popupDrop3 = "b57bffe4-f784-4d76-9f2a-a51e16242b81"
 
-        local layout = self:LayoutRooms(areaId, entry)
-        self:Draw(me, layout, here)
-        if isvalid(self.panel) then self.panel.Enable = true end
-        log("[WorldMap] 갱신 — " .. areaName .. "  방 " .. tostring(#layout.ids)
-            .. "개  현재 " .. roomId)
-    end
+	property SpriteGUIRendererComponent popupIcon3 = "2aa2005a-07b0-4da3-99b2-80016e209b15"
 
-    @ExecSpace("ClientOnly")
-    method any LayoutRooms(string areaId, string startRoomId)
-        -- 연결을 너비 우선으로 훑어 방마다 격자 좌표를 매긴다.
-        -- 돌려주는 것: { ids = {...}, gx = {id->x}, gy = {id->y} }
-        --
-        -- **연결로 닿는 방만 담는다.** 끊긴 방(시험의 방)은 숨은 방이라 안 그린다
-        -- (이 파일 상단 주석 참고).
-        local gx = {}
-        local gy = {}
-        local ids = {}
-        local queue = { startRoomId }
-        gx[startRoomId] = 0
-        gy[startRoomId] = 0
-        table.insert(ids, startRoomId)
+	property TextGUIRendererComponent popupDrop4 = "53fbad9d-7270-4259-918f-14c114b33af1"
 
-        -- ⚠ 연결은 `conn_*` 컬럼이 아니라 **`room.connections.north/...`**에 접혀 있다
-        --   (GameData.LoadRooms가 4컬럼을 한 테이블로 묶는다). 컬럼 이름으로 읽으면
-        --   전부 nil이 되어 **모든 방이 "연결 없음"으로 떨어진다** (실측).
-        --
-        -- ⚠⚠ **동서를 먼저 훑는다** (2026-08-29 대표 신고: *"파우스트 지역이 왜 나오지 않냐"*).
-        --   지역의 본선은 대개 동서로 뻗고 우회로가 남북으로 돌아 나간다. 남북을 먼저 훑으면
-        --   **우회로 쪽 경로로 좌표가 먼저 매겨져** 본선 방과 칸이 어긋난다.
-        --   실측: 엘리니아에서 r_24가 r_22와, **보스방 r_25가 r_23과 같은 칸**에 떨어져
-        --   파우스트 방이 다른 방 밑에 깔려 안 보였다.
-        local dirs = { "east", "west", "north", "south" }
-        local dx = { 1, -1, 0, 0 }
-        local dy = { 0, 0, 1, -1 }
+	property SpriteGUIRendererComponent popupIcon4 = "ee079686-eea3-4db5-84de-c2d3792b2a00"
 
-        -- 점유한 칸. 순환이 있는 지도에서는 두 경로의 **변위가 다를 수 있어**
-        -- 방향 순서를 고쳐도 겹칠 수 있다 — 그때는 빈 칸으로 밀어낸다.
-        local used = {}
-        used["0,0"] = startRoomId
+	property integer cellMax = 12
 
-        local head = 1
-        while head <= #queue do
-            local id = queue[head]
-            head = head + 1
-            for i = 1, 4 do
-                local nextId = _GameData:GetRunRoomConnection(id, dirs[i])
-                if nextId ~= nil and nextId ~= "" and gx[nextId] == nil then
-                    local nextRoom = _GameData:GetRoom(nextId)
-                    -- 다른 지역·마을로는 뻗지 않는다.
-                    if nextRoom ~= nil and nextRoom.area_id == areaId then
-                        local nx = gx[id] + dx[i]
-                        local ny = gy[id] + dy[i]
-                        if used[nx .. "," .. ny] ~= nil then
-                            -- **조용히 겹쳐 그리면 방이 사라진다.** 밀어내고 시끄럽게 알린다.
-                            local free = self:FindFreeCell(used, nx, ny, dx[i], dy[i])
-                            log_warning("[WorldMap] " .. nextId .. " 가 " .. used[nx .. "," .. ny]
-                                .. " 와 같은 칸(" .. nx .. "," .. ny .. ")에 떨어져 ("
-                                .. free.x .. "," .. free.y .. ")로 밀었다 — 지도 모양이 실제와 달라진다")
-                            nx = free.x
-                            ny = free.y
-                        end
-                        used[nx .. "," .. ny] = nextId
-                        gx[nextId] = nx
-                        gy[nextId] = ny
-                        table.insert(ids, nextId)
-                        table.insert(queue, nextId)
-                    end
-                end
-            end
-        end
+	property integer linkMax = 16
 
-        return { ids = ids, gx = gx, gy = gy }
-    end
+	property number cellW = 100
 
-    @ExecSpace("ClientOnly")
-    method any FindFreeCell(any used, integer x, integer y, integer dx, integer dy)
-        -- 비어 있는 가장 가까운 칸을 찾는다. 먼저 **가던 방향으로 계속 밀어 보고**
-        -- (그래야 지도 모양이 덜 망가진다), 그래도 없으면 반경을 넓혀 훑는다.
-        -- ⚠ 값을 둘 돌려주면 선언(`any` 하나)과 안 맞아 빌드 경고가 난다 — 테이블로 준다.
-        local nx = x
-        local ny = y
-        for _ = 1, 6 do
-            nx = nx + dx
-            ny = ny + dy
-            if used[nx .. "," .. ny] == nil then return { x = nx, y = ny } end
-        end
-        for r = 1, 8 do
-            for ox = -r, r do
-                for oy = -r, r do
-                    local cx = x + ox
-                    local cy = y + oy
-                    if used[cx .. "," .. cy] == nil then return { x = cx, y = cy } end
-                end
-            end
-        end
-        return { x = x, y = y }
-    end
+	property number cellH = 56
 
-    @ExecSpace("ClientOnly")
-    method void Draw(Entity me, any layout, any here)
-        local ids = layout.ids
-        local gx = layout.gx
-        local gy = layout.gy
+	property number gapX = 10
 
-        -- 격자 범위를 재서 가운데로 모은다. 방이 늘어도 판 한가운데 남는다.
-        local minX, maxX, minY, maxY = 0, 0, 0, 0
-        for i = 1, #ids do
-            local x = gx[ids[i]]
-            local y = gy[ids[i]]
-            if i == 1 or x < minX then minX = x end
-            if i == 1 or x > maxX then maxX = x end
-            if i == 1 or y < minY then minY = y end
-            if i == 1 or y > maxY then maxY = y end
-        end
-        local midX = (minX + maxX) / 2
-        local midY = (minY + maxY) / 2
+	property number gapY = 10
 
-        -- 판을 넘으면 줄인다 (T26-5, 대표 지적: "페리온 맵 구조가 커서 좀 삐져 나오는거 같네").
-        -- 방이 늘 때마다 `.ui`를 손보지 않아도 되게, 격자 크기에서 배율을 유도한다.
-        local scale = self:FitScale(maxX - minX + 1, maxY - minY + 1)
-        local stepX = (self.cellW + self.gapX) * scale
-        local stepY = (self.cellH + self.gapY) * scale
-        log("[WorldMap] 격자 " .. tostring(maxX - minX + 1) .. "x" .. tostring(maxY - minY + 1)
-            .. "  배율 " .. string.format("%.2f", scale)
-            .. "  칸 " .. tostring(math.floor(self.cellW * scale)) .. "x" .. tostring(math.floor(self.cellH * scale)))
+	property number boardW = 420
 
-        local shown = 0
-        self.cellRoomIds = {}
-        for i = 1, #ids do
-            if shown >= self.cellMax then
-                log_warning("[WorldMap] 칸이 모자란다 — " .. tostring(#ids)
-                    .. "개 중 " .. tostring(self.cellMax) .. "개만 그린다. `.ui`의 칸을 늘릴 것")
-                break
-            end
-            shown = shown + 1
-            local id = ids[i]
-            self:FillCell(shown, id,
-                (gx[id] - midX) * stepX, (gy[id] - midY) * stepY, me, here, scale)
-        end
+	property number boardH = 310
 
-        for i = shown + 1, self.cellMax do
-            local cell = self:GetCell(i)
-            if cell ~= nil and isvalid(cell) then cell.Enable = false end
-        end
+	property number nameW = 96
 
-        self:DrawLinks(layout, midX, midY, stepX, stepY, scale)
-    end
+	property number nameH = 26
 
-    @ExecSpace("ClientOnly")
-    method number FitScale(number cols, number rows)
-        -- 격자가 판을 넘으면 그만큼 줄인다. 방이 늘어도 미니맵 밖으로 삐져나가지 않는 것이 목적이다.
-        --
-        -- 판 크기는 **런타임에 실제로 재서** 쓴다. `.ui`에서 판을 키웠는데 여기 상수를
-        -- 같이 안 고치면 계산이 조용히 어긋나기 때문이다 — 두 곳이 같은 숫자를 들고 있으면
-        -- 언젠가 갈라진다.
-        local boardW = self.boardW
-        local boardH = self.boardH
-        if isvalid(self.board) then
-            local rt = self.board.UITransformComponent
-            if rt ~= nil and rt.RectSize.x > 0 and rt.RectSize.y > 0 then
-                boardW = rt.RectSize.x
-                boardH = rt.RectSize.y
-            end
-        end
+	property number nameFont = 15
 
-        local needW = (cols - 1) * (self.cellW + self.gapX) + self.cellW
-        local needH = (rows - 1) * (self.cellH + self.gapY) + self.cellH
+	property number subW = 96
 
-        local scale = 1.0
-        if needW > boardW then scale = boardW / needW end
-        if needH > boardH then
-            local sy = boardH / needH
-            if sy < scale then scale = sy end
-        end
+	property number subH = 24
 
-        -- 바닥값을 둔다. 더 줄이면 글자를 못 읽는데, 안 보이는 지도보다 조금 잘린 지도가 낫다.
-        if scale < self.minScale then
-            log_warning("[WorldMap] 방이 많아 판을 넘는다 — " .. tostring(cols) .. "x" .. tostring(rows)
-                .. " 격자가 " .. tostring(math.floor(needW)) .. "x" .. tostring(math.floor(needH))
-                .. " 필요한데 판은 " .. tostring(math.floor(boardW)) .. "x" .. tostring(math.floor(boardH))
-                .. ". `.ui`의 Panel/Board를 키울 것")
-            scale = self.minScale
-        end
-        return scale
-    end
+	property number subFont = 13
 
-    @ExecSpace("ClientOnly")
-    method void ScaleText(any node, number w, number h, number font, number scale)
-        -- 글자 상자와 글자 크기를 칸과 같은 비율로 줄인다.
-        -- 칸만 줄이면 Name/Sub가 고정 크기(96x26 / 96x24)라 칸 밖으로 넘친다.
-        if node == nil or not isvalid(node) then return end
-        local rt = node.UITransformComponent
-        if rt ~= nil then rt.RectSize = Vector2(w * scale, h * scale) end
-        local tx = node.TextGUIRendererComponent
-        if tx ~= nil then
-            local size = math.floor(font * scale + 0.5)
-            if size < self.minFont then size = self.minFont end
-            tx.FontSize = size
-        end
-    end
+	property number minScale = 0.55
 
-    @ExecSpace("ClientOnly")
-    method void FillCell(integer index, string roomId, number px, number py, Entity me, any here, number scale)
-        local cell = self:GetCell(index)
-        if cell == nil or not isvalid(cell) then return end
-        cell.Enable = true
-        local cellRt = cell.UITransformComponent
-        cellRt.anchoredPosition = Vector2(px, py)
-        cellRt.RectSize = Vector2(self.cellW * scale, self.cellH * scale)
+	property number minFont = 9
 
-        local room = _GameData:GetRoom(roomId)
-        if room == nil then return end
-        self.cellRoomIds[index] = roomId
+	property any refreshTimer = nil
 
-        local isHere = (here ~= nil and here.id == roomId)
-        local gate = _RoomGate:Evaluate(me, room)
+	property number refreshInterval = 0.5
 
-        -- 칸 색으로 상태를 가른다. 다만 색에만 기대지 않고 기호도 붙인다 —
-        -- 색만으로 가르면 색약인 사람에게 안 보이고 스크린샷으로도 구분이 안 된다.
-        local sprite = cell.SpriteGUIRendererComponent
-        if sprite ~= nil then
-            if isHere then
-                sprite.Color = Color(0.22, 0.44, 0.78, 1)
-            elseif gate.passed == false then
-                sprite.Color = Color(0.20, 0.18, 0.16, 1)
-            elseif room.room_type == "boss" then
-                sprite.Color = Color(0.38, 0.22, 0.24, 1)
-            else
-                sprite.Color = Color(0.17, 0.20, 0.26, 1)
-            end
-        end
+	property string lastRoomId = ""
 
-        local mark = ""
-        if isHere then mark = "● " end
-        if room.room_type == "boss" then mark = mark .. "◆ " end
+	property table cellRoomIds = {}
 
-        local nameText = cell:GetChildByName("Name", false)
-        if nameText ~= nil and isvalid(nameText) then
-            nameText.TextGUIRendererComponent.Text = mark .. room.name
-        end
-        self:ScaleText(nameText, self.nameW, self.nameH, self.nameFont, scale)
-        self:ScaleText(cell:GetChildByName("Sub", false), self.subW, self.subH, self.subFont, scale)
+	property table cellHandlers = {}
 
-        -- 아랫줄: 잠겼으면 그 사실을, 아니면 몬스터와 마릿수를.
-        -- 미니맵이라 한 줄뿐이므로 **더 급한 것**을 보여 준다 — 못 들어가는 방에서
-        -- 몬스터 이름은 쓸모가 없다.
-        local subText = cell:GetChildByName("Sub", false)
-        if subText ~= nil and isvalid(subText) then
-            -- 지금 서 있는 방에는 "잠김"을 적지 않는다. 이미 안에 들어와 있으니
-            -- 잠금은 지난 이야기고, 그 자리에서 알고 싶은 것은 무엇이 사는지다.
-            if gate.passed == false and isHere == false then
-                subText.TextGUIRendererComponent.Text = "잠김"
-                subText.TextGUIRendererComponent.FontColor = Color(0.89, 0.64, 0.23, 1)
-            else
-                local line = "-"
-                if room.monster_id ~= nil and room.monster_id ~= "" then
-                    local mon = _GameData:GetMonster(room.monster_id)
-                    local monName = room.monster_id
-                    if mon ~= nil then monName = mon.name end
-                    line = monName
-                    if room.monster_count > 0 then
-                        line = line .. " x" .. tostring(math.floor(room.monster_count))
-                    end
-                end
-                subText.TextGUIRendererComponent.Text = line
-                subText.TextGUIRendererComponent.FontColor = Color(0.62, 0.66, 0.72, 1)
-            end
-        end
-    end
+	property any closeHandler = nil
 
-    @ExecSpace("ClientOnly")
-    method void HidePopup()
-        if isvalid(self.popup) then self.popup.Enable = false end
-    end
+	@ExecSpace("ClientOnly")
+	method void OnBeginPlay()
+		        log("[WorldMap] OnBeginPlay")
+		        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+		            -- Mega Run의 연결 그래프는 탐색 대상이며 HUD 디버그 지도가 아니다.
+		            -- 패널과 팝업을 모두 끄고 입력 핸들러/갱신 타이머도 만들지 않는다.
+		            self.cellRoomIds = {}
+		            self.cellHandlers = {}
+		            if isvalid(self.panel) then self.panel.Enable = false end
+		            if isvalid(self.popup) then self.popup.Enable = false end
+		            log("[WorldMap] Mega Run — 레거시 지역 지도 비활성")
+		            return
+		        end
+		        -- Run 도중에도 서버가 보낸 그래프를 표시한다. 초기 Active 값으로
+		        -- 구독 자체를 건너뛰면 인스턴스 입장 순서에 따라 지도 갱신이 멈춘다.
+		        self.cellRoomIds = {}
+		        self.cellHandlers = {}
+		        for i = 1, self.cellMax do
+		            local index = i
+		            local cell = self:GetCell(index)
+		            if isvalid(cell) and isvalid(cell.ButtonComponent) then
+		                self.cellHandlers[index] = cell:ConnectEvent(ButtonClickEvent, function()
+		                    self:OpenRoomInfo(index)
+		                end)
+		            end
+		        end
+		        if isvalid(self.popupClose) then
+		            self.closeHandler = self.popupClose.Entity:ConnectEvent(ButtonClickEvent, function()
+		                self:HidePopup()
+		            end)
+		        end
+		        self:HidePopup()
+		        self.refreshTimer = _TimerService:SetTimerRepeat(function()
+		            self:Refresh(false)
+		        end, self.refreshInterval)
+		        self:Refresh(true)
+	end
 
-    @ExecSpace("ClientOnly")
-    method any PopupDropText(integer index)
-        if index == 1 then return self.popupDrop1 end
-        if index == 2 then return self.popupDrop2 end
-        if index == 3 then return self.popupDrop3 end
-        if index == 4 then return self.popupDrop4 end
-        return nil
-    end
+	@ExecSpace("ClientOnly")
+	method void OnEndPlay()
+		        if self.cellHandlers ~= nil then
+		            for i = 1, self.cellMax do
+		                local cell = self:GetCell(i)
+		                if isvalid(cell) and self.cellHandlers[i] ~= nil then
+		                    cell:DisconnectEvent(ButtonClickEvent, self.cellHandlers[i])
+		                end
+		            end
+		            self.cellHandlers = {}
+		        end
+		        if isvalid(self.popupClose) and self.closeHandler ~= nil then
+		            self.popupClose.Entity:DisconnectEvent(ButtonClickEvent, self.closeHandler)
+		            self.closeHandler = nil
+		        end
+		        if self.refreshTimer ~= nil then
+		            _TimerService:ClearTimer(self.refreshTimer)
+		            self.refreshTimer = nil
+		        end
+	end
 
-    @ExecSpace("ClientOnly")
-    method any PopupDropIcon(integer index)
-        if index == 1 then return self.popupIcon1 end
-        if index == 2 then return self.popupIcon2 end
-        if index == 3 then return self.popupIcon3 end
-        if index == 4 then return self.popupIcon4 end
-        return nil
-    end
+	@ExecSpace("ClientOnly")
+	method any CurrentRoom()
+		        -- 지금 서 있는 방. 맵 이름으로 역인덱스한다 (RoomProgressHud와 같은 방식).
+		        local me = _UserService.LocalPlayer
+		        if me == nil then return nil end
+		        local map = me.CurrentMap
+		        if map == nil then return nil end
+		        return _GameData:GetRoomByMapName(map.Name)
+	end
 
-    @ExecSpace("ClientOnly")
-    method any PopupDropRow(integer index)
-        if index == 1 then return self.popupRow1 end
-        if index == 2 then return self.popupRow2 end
-        if index == 3 then return self.popupRow3 end
-        if index == 4 then return self.popupRow4 end
-        return nil
-    end
+	@ExecSpace("ClientOnly")
+	method void Refresh(boolean force)
+		        local me = _UserService.LocalPlayer
+		        -- ⚠ `nil` 검사만으로는 부족하다. **맵 전환 중에는 엔티티가 nil이 아니면서 무효**라,
+		        -- 그대로 들고 `_RoomGate:Evaluate`까지 가면 그 안의 `GetComponent`가 터진다
+		        -- (실측 2026-08-29: 방을 연달아 옮기는 중 `Object reference not set` 1건,
+		        --  최상단 프레임이 `GetComponent`였다). 0.5초 타이머가 계속 도는 HUD라
+		        -- 전환 한 프레임을 건너뛰어도 다음 틱에 다시 그린다.
+		        if not isvalid(me) then return end
+		
+		        local here = self:CurrentRoom()
+		        local roomId = ""
+		        local areaId = ""
+		        if here ~= nil then
+		            roomId = here.id
+		            areaId = here.area_id
+		        end
+		
+		        -- 지역 밖(마을·시험의 방)에서는 숨긴다. 마을은 모든 지역의 출입구라
+		        -- 어느 지역 지도를 띄워도 거짓말이 되고, 숨은 방은 지도에 없는 방이다.
+		        if areaId == nil or areaId == "" then
+		            if isvalid(self.panel) then self.panel.Enable = false end
+		            self:HidePopup()
+		            self.lastRoomId = ""
+		            return
+		        end
+		
+		        if force == false and roomId == self.lastRoomId then return end
+		        if roomId ~= self.lastRoomId then self:HidePopup() end
+		        self.lastRoomId = roomId
+		
+		        local area = _GameData:GetArea(areaId)
+		        local areaName = areaId
+		        local entry = ""
+		        if area ~= nil then
+		            areaName = area.name
+		            entry = area.entry_room_id
+		        end
+		        if entry == nil or entry == "" then
+		            log_warning("[WorldMap] " .. areaId .. " 의 entry_room_id가 비어 있다 — 지도를 못 그린다")
+		            if isvalid(self.panel) then self.panel.Enable = false end
+		            return
+		        end
+		
+		        if isvalid(self.titleText) then self.titleText.Text = areaName end
+		
+		        local layout = self:LayoutRooms(areaId, entry)
+		        self:Draw(me, layout, here)
+		        if isvalid(self.panel) then self.panel.Enable = true end
+		        log("[WorldMap] 갱신 — " .. areaName .. "  방 " .. tostring(#layout.ids)
+		            .. "개  현재 " .. roomId)
+	end
 
-    @ExecSpace("ClientOnly")
-    method void OpenRoomInfo(integer index)
-        local roomId = self.cellRoomIds[index]
-        if roomId == nil or roomId == "" then return end
-        local room = _GameData:GetRoom(roomId)
-        if room == nil then return end
+	@ExecSpace("ClientOnly")
+	method any LayoutRooms(string areaId, string startRoomId)
+		        -- 연결을 너비 우선으로 훑어 방마다 격자 좌표를 매긴다.
+		        -- 돌려주는 것: { ids = {...}, gx = {id->x}, gy = {id->y} }
+		        --
+		        -- **연결로 닿는 방만 담는다.** 끊긴 방(시험의 방)은 숨은 방이라 안 그린다
+		        -- (이 파일 상단 주석 참고).
+		        local gx = {}
+		        local gy = {}
+		        local ids = {}
+		        local queue = { startRoomId }
+		        gx[startRoomId] = 0
+		        gy[startRoomId] = 0
+		        table.insert(ids, startRoomId)
+		
+		        -- ⚠ 연결은 `conn_*` 컬럼이 아니라 **`room.connections.north/...`**에 접혀 있다
+		        --   (GameData.LoadRooms가 4컬럼을 한 테이블로 묶는다). 컬럼 이름으로 읽으면
+		        --   전부 nil이 되어 **모든 방이 "연결 없음"으로 떨어진다** (실측).
+		        --
+		        -- ⚠⚠ **동서를 먼저 훑는다** (2026-08-29 대표 신고: *"파우스트 지역이 왜 나오지 않냐"*).
+		        --   지역의 본선은 대개 동서로 뻗고 우회로가 남북으로 돌아 나간다. 남북을 먼저 훑으면
+		        --   **우회로 쪽 경로로 좌표가 먼저 매겨져** 본선 방과 칸이 어긋난다.
+		        --   실측: 엘리니아에서 r_24가 r_22와, **보스방 r_25가 r_23과 같은 칸**에 떨어져
+		        --   파우스트 방이 다른 방 밑에 깔려 안 보였다.
+		        local dirs = { "east", "west", "north", "south" }
+		        local dx = { 1, -1, 0, 0 }
+		        local dy = { 0, 0, 1, -1 }
+		
+		        -- 점유한 칸. 순환이 있는 지도에서는 두 경로의 **변위가 다를 수 있어**
+		        -- 방향 순서를 고쳐도 겹칠 수 있다 — 그때는 빈 칸으로 밀어낸다.
+		        local used = {}
+		        used["0,0"] = startRoomId
+		
+		        local head = 1
+		        while head <= #queue do
+		            local id = queue[head]
+		            head = head + 1
+		            for i = 1, 4 do
+		                local nextId = _GameData:GetRunRoomConnection(id, dirs[i])
+		                if nextId ~= nil and nextId ~= "" and gx[nextId] == nil then
+		                    local nextRoom = _GameData:GetRoom(nextId)
+		                    -- 다른 지역·마을로는 뻗지 않는다.
+		                    if nextRoom ~= nil and nextRoom.area_id == areaId then
+		                        local nx = gx[id] + dx[i]
+		                        local ny = gy[id] + dy[i]
+		                        if used[nx .. "," .. ny] ~= nil then
+		                            -- **조용히 겹쳐 그리면 방이 사라진다.** 밀어내고 시끄럽게 알린다.
+		                            local free = self:FindFreeCell(used, nx, ny, dx[i], dy[i])
+		                            log_warning("[WorldMap] " .. nextId .. " 가 " .. used[nx .. "," .. ny]
+		                                .. " 와 같은 칸(" .. nx .. "," .. ny .. ")에 떨어져 ("
+		                                .. free.x .. "," .. free.y .. ")로 밀었다 — 지도 모양이 실제와 달라진다")
+		                            nx = free.x
+		                            ny = free.y
+		                        end
+		                        used[nx .. "," .. ny] = nextId
+		                        gx[nextId] = nx
+		                        gy[nextId] = ny
+		                        table.insert(ids, nextId)
+		                        table.insert(queue, nextId)
+		                    end
+		                end
+		            end
+		        end
+		
+		        return { ids = ids, gx = gx, gy = gy }
+	end
 
-        -- Maker가 기존 UI 텍스트를 캐시에 들고 있어도 스킬을 포함하는 제목으로 고정한다.
-        if isvalid(self.popupRewardTitle) then self.popupRewardTitle.Text = "획득 가능한 보상" end
-        if isvalid(self.popupTitle) then self.popupTitle.Text = room.name end
-        local monster = nil
-        if room.monster_id ~= nil and room.monster_id ~= "" then
-            monster = _GameData:GetMonster(room.monster_id)
-        end
-        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
-            if isvalid(self.popupRewardTitle) then self.popupRewardTitle.Text = "이번 Run의 능력 획득" end
-            if isvalid(self.popupMonster) then
-                self.popupMonster.Text = monster ~= nil and monster.name or "몬스터 없음"
-            end
-            local skill = monster ~= nil and _GameData:GetSkill(monster.drop_skill_id) or nil
-            local usable = skill ~= nil and skill.source == "monster" and skill.slot_type == "monster" and skill.skill_kind ~= "passive"
-            for i = 1, 4 do
-                local row, label, icon = self:PopupDropRow(i), self:PopupDropText(i), self:PopupDropIcon(i)
-                if isvalid(row) then row.Enable = i == 1 end
-                if isvalid(label) then
-                    label.Entity.Enable = i == 1
-                    if i == 1 then label.Text = usable and ("확정 획득 · " .. skill.name) or "사용 가능한 액티브 능력 없음" end
-                end
-                if isvalid(icon) then
-                    icon.Entity.Enable = i == 1 and usable
-                    if usable then icon.ImageRUID = DataRef(skill.icon_ruid) end
-                end
-            end
-            if isvalid(self.popup) then self.popup.Enable = true end
-            return
-        end
-        if isvalid(self.popupMonster) then
-            if monster == nil then
-                self.popupMonster.Text = "몬스터 없음"
-            else
-                local level = room.monster_level
-                if level == nil or level <= 0 then level = monster.level end
-                local bossMark = ""
-                if room.room_type == "boss" then bossMark = "◆ 보스  " end
-                -- 방의 스폰 수는 전투 내부 수치다. 보상 팝업에 `x5`로 쓰면
-                -- 아이템 수량처럼 읽히므로 몬스터 이름만 보여준다.
-                self.popupMonster.Text = bossMark .. "Lv" .. tostring(math.floor(level)) .. "  "
-                    .. monster.name
-            end
-        end
+	@ExecSpace("ClientOnly")
+	method any FindFreeCell(any used, integer x, integer y, integer dx, integer dy)
+		        -- 비어 있는 가장 가까운 칸을 찾는다. 먼저 **가던 방향으로 계속 밀어 보고**
+		        -- (그래야 지도 모양이 덜 망가진다), 그래도 없으면 반경을 넓혀 훑는다.
+		        -- ⚠ 값을 둘 돌려주면 선언(`any` 하나)과 안 맞아 빌드 경고가 난다 — 테이블로 준다.
+		        local nx = x
+		        local ny = y
+		        for _ = 1, 6 do
+		            nx = nx + dx
+		            ny = ny + dy
+		            if used[nx .. "," .. ny] == nil then return { x = nx, y = ny } end
+		        end
+		        for r = 1, 8 do
+		            for ox = -r, r do
+		                for oy = -r, r do
+		                    local cx = x + ox
+		                    local cy = y + oy
+		                    if used[cx .. "," .. cy] == nil then return { x = cx, y = cy } end
+		                end
+		            end
+		        end
+		        return { x = x, y = y }
+	end
 
-        -- 이 목록은 드랍 테이블 전체가 아니라 플레이어가 이 방에서 노릴 **보상**이다.
-        -- 신규 모드의 수집 단위는 스킬이 아니라 몬스터이므로 테이밍 대상을 첫 줄에 둔다.
-        local rewards = {}
-        if monster ~= nil then
-            if monster.drop_skill_id ~= nil and monster.drop_skill_id ~= "" then
-                local skill = _GameData:GetSkill(monster.drop_skill_id)
-                if skill ~= nil then
-                    table.insert(rewards, { kind = "monster", id = monster.id })
-                end
-            end
-            local itemDrops = _GameData:GetItemDropsOf(monster.id)
-            for i = 1, #itemDrops do
-                local item = _GameData:GetItem(itemDrops[i])
-                if item ~= nil and item.item_type ~= "consume" then
-                    table.insert(rewards, { kind = "item", id = item.id })
-                end
-            end
-        end
-        for i = 1, 4 do
-            local row = self:PopupDropRow(i)
-            local label = self:PopupDropText(i)
-            local icon = self:PopupDropIcon(i)
-            local reward = rewards[i]
-            if reward == nil then
-                if isvalid(row) then row.Enable = false end
-                if isvalid(label) then label.Entity.Enable = false end
-                if isvalid(icon) then icon.Entity.Enable = false end
-            else
-                if isvalid(row) then row.Enable = true end
-                if reward.kind == "monster" then
-                    local targetMonster = _GameData:GetMonster(reward.id)
-                    if targetMonster == nil then
-                        if isvalid(label) then label.Entity.Enable = false end
-                        if isvalid(icon) then icon.Entity.Enable = false end
-                    else
-                        local rate = _GameData:GetBalance("first_capture_rate")
-                        local localPlayer = _UserService.LocalPlayer
-                        if isvalid(localPlayer) then
-                            ---@type PlayerCollection
-                            local collection = localPlayer:GetComponent("script.PlayerCollection")
-                            if collection ~= nil and collection:GetTamedCount(targetMonster.id) > 0 then
-                                rate = _GameData:GetBalance("duplicate_capture_rate")
-                            end
-                        end
-                        rate *= _GameData:GetBalance("capture_rate_global_multiplier")
-                        rate *= _GameData:GetBalance("collection_capture_multiplier")
-                        rate *= targetMonster.capture_modifier
-                        local maxRate = _GameData:GetBalance("capture_rate_max")
-                        if maxRate > 0 and rate > maxRate then rate = maxRate end
-                        local capture = string.format("%.0f%%", rate * 100)
-                        if isvalid(label) then
-                            label.Entity.Enable = true
-                            label.Text = "테이밍 · " .. targetMonster.name .. "   " .. capture
-                        end
-                        if isvalid(icon) then
-                            icon.Entity.Enable = true
-                            icon.ImageRUID = DataRef("thumbnail://" .. targetMonster.collection_icon_ruid)
-                            icon.Color = Color(1, 1, 1, 1)
-                        end
-                    end
-                else
-                    local item = _GameData:GetItem(reward.id)
-                    if item == nil then
-                        if isvalid(label) then label.Entity.Enable = false end
-                        if isvalid(icon) then icon.Entity.Enable = false end
-                    else
-                        local chance = string.format("%.0f%%", item.drop_rate * 100)
-                        if room.room_type == "boss" and item.drop_from ~= "*" then chance = "확정" end
-                        if isvalid(label) then
-                            label.Entity.Enable = true
-                            local kind = "장비"
-                            if item.item_type == "passive" then kind = "패시브 · 보유 시 자동 적용" end
-                            label.Text = kind .. " · " .. item.name .. "   " .. chance
-                        end
-                        if isvalid(icon) then
-                            icon.Entity.Enable = true
-                            icon.ImageRUID = DataRef(item.icon_ruid)
-                            icon.Color = Color(1, 1, 1, 1)
-                        end
-                    end
-                end
-            end
-        end
-        if isvalid(self.popup) then self.popup.Enable = true end
-        log("[WorldMap] 방 정보 열림 " .. roomId .. "  보상 " .. tostring(#rewards)
-            .. "종 (공통 소비 아이템 제외)")
-    end
+	@ExecSpace("ClientOnly")
+	method void Draw(Entity me, any layout, any here)
+		        local ids = layout.ids
+		        local gx = layout.gx
+		        local gy = layout.gy
+		
+		        -- 격자 범위를 재서 가운데로 모은다. 방이 늘어도 판 한가운데 남는다.
+		        local minX, maxX, minY, maxY = 0, 0, 0, 0
+		        for i = 1, #ids do
+		            local x = gx[ids[i]]
+		            local y = gy[ids[i]]
+		            if i == 1 or x < minX then minX = x end
+		            if i == 1 or x > maxX then maxX = x end
+		            if i == 1 or y < minY then minY = y end
+		            if i == 1 or y > maxY then maxY = y end
+		        end
+		        local midX = (minX + maxX) / 2
+		        local midY = (minY + maxY) / 2
+		
+		        -- 판을 넘으면 줄인다 (T26-5, 대표 지적: "페리온 맵 구조가 커서 좀 삐져 나오는거 같네").
+		        -- 방이 늘 때마다 `.ui`를 손보지 않아도 되게, 격자 크기에서 배율을 유도한다.
+		        local scale = self:FitScale(maxX - minX + 1, maxY - minY + 1)
+		        local stepX = (self.cellW + self.gapX) * scale
+		        local stepY = (self.cellH + self.gapY) * scale
+		        log("[WorldMap] 격자 " .. tostring(maxX - minX + 1) .. "x" .. tostring(maxY - minY + 1)
+		            .. "  배율 " .. string.format("%.2f", scale)
+		            .. "  칸 " .. tostring(math.floor(self.cellW * scale)) .. "x" .. tostring(math.floor(self.cellH * scale)))
+		
+		        local shown = 0
+		        self.cellRoomIds = {}
+		        for i = 1, #ids do
+		            if shown >= self.cellMax then
+		                log_warning("[WorldMap] 칸이 모자란다 — " .. tostring(#ids)
+		                    .. "개 중 " .. tostring(self.cellMax) .. "개만 그린다. `.ui`의 칸을 늘릴 것")
+		                break
+		            end
+		            shown = shown + 1
+		            local id = ids[i]
+		            self:FillCell(shown, id,
+		                (gx[id] - midX) * stepX, (gy[id] - midY) * stepY, me, here, scale)
+		        end
+		
+		        for i = shown + 1, self.cellMax do
+		            local cell = self:GetCell(i)
+		            if cell ~= nil and isvalid(cell) then cell.Enable = false end
+		        end
+		
+		        self:DrawLinks(layout, midX, midY, stepX, stepY, scale)
+	end
 
-    @ExecSpace("ClientOnly")
-    method void DrawLinks(any layout, number midX, number midY, number stepX, number stepY, number scale)
-        -- 이웃한 방 사이에 짧은 막대를 놓는다. 선이 있어야 "길"로 읽힌다.
-        --
-        -- 같은 쌍을 두 번 긋지 않기 위해 **동쪽·북쪽만** 본다 —
-        -- 서쪽·남쪽은 상대편에서 이미 그린 것이다.
-        local ids = layout.ids
-        local gx = layout.gx
-        local gy = layout.gy
-        local used = 0
+	@ExecSpace("ClientOnly")
+	method number FitScale(number cols, number rows)
+		        -- 격자가 판을 넘으면 그만큼 줄인다. 방이 늘어도 미니맵 밖으로 삐져나가지 않는 것이 목적이다.
+		        --
+		        -- 판 크기는 **런타임에 실제로 재서** 쓴다. `.ui`에서 판을 키웠는데 여기 상수를
+		        -- 같이 안 고치면 계산이 조용히 어긋나기 때문이다 — 두 곳이 같은 숫자를 들고 있으면
+		        -- 언젠가 갈라진다.
+		        local boardW = self.boardW
+		        local boardH = self.boardH
+		        if isvalid(self.board) then
+		            local rt = self.board.UITransformComponent
+		            if rt ~= nil and rt.RectSize.x > 0 and rt.RectSize.y > 0 then
+		                boardW = rt.RectSize.x
+		                boardH = rt.RectSize.y
+		            end
+		        end
+		
+		        local needW = (cols - 1) * (self.cellW + self.gapX) + self.cellW
+		        local needH = (rows - 1) * (self.cellH + self.gapY) + self.cellH
+		
+		        local scale = 1.0
+		        if needW > boardW then scale = boardW / needW end
+		        if needH > boardH then
+		            local sy = boardH / needH
+		            if sy < scale then scale = sy end
+		        end
+		
+		        -- 바닥값을 둔다. 더 줄이면 글자를 못 읽는데, 안 보이는 지도보다 조금 잘린 지도가 낫다.
+		        if scale < self.minScale then
+		            log_warning("[WorldMap] 방이 많아 판을 넘는다 — " .. tostring(cols) .. "x" .. tostring(rows)
+		                .. " 격자가 " .. tostring(math.floor(needW)) .. "x" .. tostring(math.floor(needH))
+		                .. " 필요한데 판은 " .. tostring(math.floor(boardW)) .. "x" .. tostring(math.floor(boardH))
+		                .. ". `.ui`의 Panel/Board를 키울 것")
+		            scale = self.minScale
+		        end
+		        return scale
+	end
 
-        for i = 1, #ids do
-            local id = ids[i]
-            local sides = {
-                { _GameData:GetRunRoomConnection(id, "east"), 1, 0 },
-                { _GameData:GetRunRoomConnection(id, "north"), 0, 1 },
-            }
-            for k = 1, 2 do
-                local other = sides[k][1]
-                if other ~= nil and other ~= "" and gx[other] ~= nil and used < self.linkMax then
-                    -- 격자에서 실제로 붙어 있을 때만 긋는다. 데이터가 어긋나 멀리
-                    -- 떨어진 두 방이 이어져 있으면 선이 허공을 가로지른다.
-                    if gx[other] - gx[id] == sides[k][2] and gy[other] - gy[id] == sides[k][3] then
-                        used = used + 1
-                        local link = self:GetLink(used)
-                        if link ~= nil and isvalid(link) then
-                            link.Enable = true
-                            local ut = link.UITransformComponent
-                            ut.anchoredPosition = Vector2(
-                                ((gx[id] + gx[other]) / 2 - midX) * stepX,
-                                ((gy[id] + gy[other]) / 2 - midY) * stepY)
-                            -- 선도 같은 비율로 줄인다. 칸만 줄이면 선이 칸 사이를 넘어 뻗는다.
-                            if sides[k][2] == 1 then
-                                ut.RectSize = Vector2((self.gapX + 6) * scale, 4 * scale)
-                            else
-                                ut.RectSize = Vector2(4 * scale, (self.gapY + 6) * scale)
-                            end
-                        end
-                    end
-                end
-            end
-        end
+	@ExecSpace("ClientOnly")
+	method void ScaleText(any node, number w, number h, number font, number scale)
+		        -- 글자 상자와 글자 크기를 칸과 같은 비율로 줄인다.
+		        -- 칸만 줄이면 Name/Sub가 고정 크기(96x26 / 96x24)라 칸 밖으로 넘친다.
+		        if node == nil or not isvalid(node) then return end
+		        local rt = node.UITransformComponent
+		        if rt ~= nil then rt.RectSize = Vector2(w * scale, h * scale) end
+		        local tx = node.TextGUIRendererComponent
+		        if tx ~= nil then
+		            local size = math.floor(font * scale + 0.5)
+		            if size < self.minFont then size = self.minFont end
+		            tx.FontSize = size
+		        end
+	end
 
-        for i = used + 1, self.linkMax do
-            local link = self:GetLink(i)
-            if link ~= nil and isvalid(link) then link.Enable = false end
-        end
-    end
+	@ExecSpace("ClientOnly")
+	method void FillCell(integer index, string roomId, number px, number py, Entity me, any here, number scale)
+		        local cell = self:GetCell(index)
+		        if cell == nil or not isvalid(cell) then return end
+		        cell.Enable = true
+		        local cellRt = cell.UITransformComponent
+		        cellRt.anchoredPosition = Vector2(px, py)
+		        cellRt.RectSize = Vector2(self.cellW * scale, self.cellH * scale)
+		
+		        local room = _GameData:GetRoom(roomId)
+		        if room == nil then return end
+		        self.cellRoomIds[index] = roomId
+		
+		        local isHere = (here ~= nil and here.id == roomId)
+		        local gate = _RoomGate:Evaluate(me, room)
+		
+		        -- 칸 색으로 상태를 가른다. 다만 색에만 기대지 않고 기호도 붙인다 —
+		        -- 색만으로 가르면 색약인 사람에게 안 보이고 스크린샷으로도 구분이 안 된다.
+		        local sprite = cell.SpriteGUIRendererComponent
+		        if sprite ~= nil then
+		            if isHere then
+		                sprite.Color = Color(0.22, 0.44, 0.78, 1)
+		            elseif gate.passed == false then
+		                sprite.Color = Color(0.20, 0.18, 0.16, 1)
+		            elseif room.room_type == "boss" then
+		                sprite.Color = Color(0.38, 0.22, 0.24, 1)
+		            else
+		                sprite.Color = Color(0.17, 0.20, 0.26, 1)
+		            end
+		        end
+		
+		        local mark = ""
+		        if isHere then mark = "● " end
+		        if room.room_type == "boss" then mark = mark .. "◆ " end
+		
+		        local nameText = cell:GetChildByName("Name", false)
+		        if nameText ~= nil and isvalid(nameText) then
+		            nameText.TextGUIRendererComponent.Text = mark .. room.name
+		        end
+		        self:ScaleText(nameText, self.nameW, self.nameH, self.nameFont, scale)
+		        self:ScaleText(cell:GetChildByName("Sub", false), self.subW, self.subH, self.subFont, scale)
+		
+		        -- 아랫줄: 잠겼으면 그 사실을, 아니면 몬스터와 마릿수를.
+		        -- 미니맵이라 한 줄뿐이므로 **더 급한 것**을 보여 준다 — 못 들어가는 방에서
+		        -- 몬스터 이름은 쓸모가 없다.
+		        local subText = cell:GetChildByName("Sub", false)
+		        if subText ~= nil and isvalid(subText) then
+		            -- 지금 서 있는 방에는 "잠김"을 적지 않는다. 이미 안에 들어와 있으니
+		            -- 잠금은 지난 이야기고, 그 자리에서 알고 싶은 것은 무엇이 사는지다.
+		            if gate.passed == false and isHere == false then
+		                subText.TextGUIRendererComponent.Text = "잠김"
+		                subText.TextGUIRendererComponent.FontColor = Color(0.89, 0.64, 0.23, 1)
+		            else
+		                local line = "-"
+		                if room.monster_id ~= nil and room.monster_id ~= "" then
+		                    local mon = _GameData:GetMonster(room.monster_id)
+		                    local monName = room.monster_id
+		                    if mon ~= nil then monName = mon.name end
+		                    line = monName
+		                    if room.monster_count > 0 then
+		                        line = line .. " x" .. tostring(math.floor(room.monster_count))
+		                    end
+		                end
+		                subText.TextGUIRendererComponent.Text = line
+		                subText.TextGUIRendererComponent.FontColor = Color(0.62, 0.66, 0.72, 1)
+		            end
+		        end
+	end
 
-    ---------------------------------------------------------------
-    -- 풀 조회 (이름으로 찾는다 — 프로퍼티를 12+16개 두지 않는다)
-    ---------------------------------------------------------------
+	@ExecSpace("ClientOnly")
+	method void HidePopup()
+		        if isvalid(self.popup) then self.popup.Enable = false end
+	end
 
-    @ExecSpace("ClientOnly")
-    method any GetCell(integer index)
-        if not isvalid(self.board) then return nil end
-        return self.board:GetChildByName("Cell" .. tostring(index), false)
-    end
+	@ExecSpace("ClientOnly")
+	method any PopupDropText(integer index)
+		        if index == 1 then return self.popupDrop1 end
+		        if index == 2 then return self.popupDrop2 end
+		        if index == 3 then return self.popupDrop3 end
+		        if index == 4 then return self.popupDrop4 end
+		        return nil
+	end
 
-    @ExecSpace("ClientOnly")
-    method any GetLink(integer index)
-        if not isvalid(self.board) then return nil end
-        return self.board:GetChildByName("Link" .. tostring(index), false)
-    end
+	@ExecSpace("ClientOnly")
+	method any PopupDropIcon(integer index)
+		        if index == 1 then return self.popupIcon1 end
+		        if index == 2 then return self.popupIcon2 end
+		        if index == 3 then return self.popupIcon3 end
+		        if index == 4 then return self.popupIcon4 end
+		        return nil
+	end
+
+	@ExecSpace("ClientOnly")
+	method any PopupDropRow(integer index)
+		        if index == 1 then return self.popupRow1 end
+		        if index == 2 then return self.popupRow2 end
+		        if index == 3 then return self.popupRow3 end
+		        if index == 4 then return self.popupRow4 end
+		        return nil
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OpenRoomInfo(integer index)
+		        local roomId = self.cellRoomIds[index]
+		        if roomId == nil or roomId == "" then return end
+		        local room = _GameData:GetRoom(roomId)
+		        if room == nil then return end
+		
+		        -- Maker가 기존 UI 텍스트를 캐시에 들고 있어도 스킬을 포함하는 제목으로 고정한다.
+		        if isvalid(self.popupRewardTitle) then self.popupRewardTitle.Text = "획득 가능한 보상" end
+		        if isvalid(self.popupTitle) then self.popupTitle.Text = room.name end
+		        local monster = nil
+		        if room.monster_id ~= nil and room.monster_id ~= "" then
+		            monster = _GameData:GetMonster(room.monster_id)
+		        end
+		        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+		            if isvalid(self.popupRewardTitle) then self.popupRewardTitle.Text = "이번 Run의 능력 획득" end
+		            if isvalid(self.popupMonster) then
+		                self.popupMonster.Text = monster ~= nil and monster.name or "몬스터 없음"
+		            end
+		            local skill = monster ~= nil and _GameData:GetSkill(monster.drop_skill_id) or nil
+		            local usable = skill ~= nil and skill.source == "monster" and skill.slot_type == "monster" and skill.skill_kind ~= "passive"
+		            for i = 1, 4 do
+		                local row, label, icon = self:PopupDropRow(i), self:PopupDropText(i), self:PopupDropIcon(i)
+		                if isvalid(row) then row.Enable = i == 1 end
+		                if isvalid(label) then
+		                    label.Entity.Enable = i == 1
+		                    if i == 1 then label.Text = usable and ("확정 획득 · " .. skill.name) or "사용 가능한 액티브 능력 없음" end
+		                end
+		                if isvalid(icon) then
+		                    icon.Entity.Enable = i == 1 and usable
+		                    if usable then icon.ImageRUID = DataRef(skill.icon_ruid) end
+		                end
+		            end
+		            if isvalid(self.popup) then self.popup.Enable = true end
+		            return
+		        end
+		        if isvalid(self.popupMonster) then
+		            if monster == nil then
+		                self.popupMonster.Text = "몬스터 없음"
+		            else
+		                local level = room.monster_level
+		                if level == nil or level <= 0 then level = monster.level end
+		                local bossMark = ""
+		                if room.room_type == "boss" then bossMark = "◆ 보스  " end
+		                -- 방의 스폰 수는 전투 내부 수치다. 보상 팝업에 `x5`로 쓰면
+		                -- 아이템 수량처럼 읽히므로 몬스터 이름만 보여준다.
+		                self.popupMonster.Text = bossMark .. "Lv" .. tostring(math.floor(level)) .. "  "
+		                    .. monster.name
+		            end
+		        end
+		
+		        -- 이 목록은 드랍 테이블 전체가 아니라 플레이어가 이 방에서 노릴 **보상**이다.
+		        -- 신규 모드의 수집 단위는 스킬이 아니라 몬스터이므로 테이밍 대상을 첫 줄에 둔다.
+		        local rewards = {}
+		        if monster ~= nil then
+		            if monster.drop_skill_id ~= nil and monster.drop_skill_id ~= "" then
+		                local skill = _GameData:GetSkill(monster.drop_skill_id)
+		                if skill ~= nil then
+		                    table.insert(rewards, { kind = "monster", id = monster.id })
+		                end
+		            end
+		            local itemDrops = _GameData:GetItemDropsOf(monster.id)
+		            for i = 1, #itemDrops do
+		                local item = _GameData:GetItem(itemDrops[i])
+		                if item ~= nil and item.item_type ~= "consume" then
+		                    table.insert(rewards, { kind = "item", id = item.id })
+		                end
+		            end
+		        end
+		        for i = 1, 4 do
+		            local row = self:PopupDropRow(i)
+		            local label = self:PopupDropText(i)
+		            local icon = self:PopupDropIcon(i)
+		            local reward = rewards[i]
+		            if reward == nil then
+		                if isvalid(row) then row.Enable = false end
+		                if isvalid(label) then label.Entity.Enable = false end
+		                if isvalid(icon) then icon.Entity.Enable = false end
+		            else
+		                if isvalid(row) then row.Enable = true end
+		                if reward.kind == "monster" then
+		                    local targetMonster = _GameData:GetMonster(reward.id)
+		                    if targetMonster == nil then
+		                        if isvalid(label) then label.Entity.Enable = false end
+		                        if isvalid(icon) then icon.Entity.Enable = false end
+		                    else
+		                        local rate = _GameData:GetBalance("first_capture_rate")
+		                        local localPlayer = _UserService.LocalPlayer
+		                        if isvalid(localPlayer) then
+		                            ---@type PlayerCollection
+		                            local collection = localPlayer:GetComponent("script.PlayerCollection")
+		                            if collection ~= nil and collection:GetTamedCount(targetMonster.id) > 0 then
+		                                rate = _GameData:GetBalance("duplicate_capture_rate")
+		                            end
+		                        end
+		                        rate *= _GameData:GetBalance("capture_rate_global_multiplier")
+		                        rate *= _GameData:GetBalance("collection_capture_multiplier")
+		                        rate *= targetMonster.capture_modifier
+		                        local maxRate = _GameData:GetBalance("capture_rate_max")
+		                        if maxRate > 0 and rate > maxRate then rate = maxRate end
+		                        local capture = string.format("%.0f%%", rate * 100)
+		                        if isvalid(label) then
+		                            label.Entity.Enable = true
+		                            label.Text = "테이밍 · " .. targetMonster.name .. "   " .. capture
+		                        end
+		                        if isvalid(icon) then
+		                            icon.Entity.Enable = true
+		                            icon.ImageRUID = DataRef("thumbnail://" .. targetMonster.collection_icon_ruid)
+		                            icon.Color = Color(1, 1, 1, 1)
+		                        end
+		                    end
+		                else
+		                    local item = _GameData:GetItem(reward.id)
+		                    if item == nil then
+		                        if isvalid(label) then label.Entity.Enable = false end
+		                        if isvalid(icon) then icon.Entity.Enable = false end
+		                    else
+		                        local chance = string.format("%.0f%%", item.drop_rate * 100)
+		                        if room.room_type == "boss" and item.drop_from ~= "*" then chance = "확정" end
+		                        if isvalid(label) then
+		                            label.Entity.Enable = true
+		                            local kind = "장비"
+		                            if item.item_type == "passive" then kind = "패시브 · 보유 시 자동 적용" end
+		                            label.Text = kind .. " · " .. item.name .. "   " .. chance
+		                        end
+		                        if isvalid(icon) then
+		                            icon.Entity.Enable = true
+		                            icon.ImageRUID = DataRef(item.icon_ruid)
+		                            icon.Color = Color(1, 1, 1, 1)
+		                        end
+		                    end
+		                end
+		            end
+		        end
+		        if isvalid(self.popup) then self.popup.Enable = true end
+		        log("[WorldMap] 방 정보 열림 " .. roomId .. "  보상 " .. tostring(#rewards)
+		            .. "종 (공통 소비 아이템 제외)")
+	end
+
+	@ExecSpace("ClientOnly")
+	method void DrawLinks(any layout, number midX, number midY, number stepX, number stepY, number scale)
+		        -- 이웃한 방 사이에 짧은 막대를 놓는다. 선이 있어야 "길"로 읽힌다.
+		        --
+		        -- 같은 쌍을 두 번 긋지 않기 위해 **동쪽·북쪽만** 본다 —
+		        -- 서쪽·남쪽은 상대편에서 이미 그린 것이다.
+		        local ids = layout.ids
+		        local gx = layout.gx
+		        local gy = layout.gy
+		        local used = 0
+		
+		        for i = 1, #ids do
+		            local id = ids[i]
+		            local sides = {
+		                { _GameData:GetRunRoomConnection(id, "east"), 1, 0 },
+		                { _GameData:GetRunRoomConnection(id, "north"), 0, 1 },
+		            }
+		            for k = 1, 2 do
+		                local other = sides[k][1]
+		                if other ~= nil and other ~= "" and gx[other] ~= nil and used < self.linkMax then
+		                    -- 격자에서 실제로 붙어 있을 때만 긋는다. 데이터가 어긋나 멀리
+		                    -- 떨어진 두 방이 이어져 있으면 선이 허공을 가로지른다.
+		                    if gx[other] - gx[id] == sides[k][2] and gy[other] - gy[id] == sides[k][3] then
+		                        used = used + 1
+		                        local link = self:GetLink(used)
+		                        if link ~= nil and isvalid(link) then
+		                            link.Enable = true
+		                            local ut = link.UITransformComponent
+		                            ut.anchoredPosition = Vector2(
+		                                ((gx[id] + gx[other]) / 2 - midX) * stepX,
+		                                ((gy[id] + gy[other]) / 2 - midY) * stepY)
+		                            -- 선도 같은 비율로 줄인다. 칸만 줄이면 선이 칸 사이를 넘어 뻗는다.
+		                            if sides[k][2] == 1 then
+		                                ut.RectSize = Vector2((self.gapX + 6) * scale, 4 * scale)
+		                            else
+		                                ut.RectSize = Vector2(4 * scale, (self.gapY + 6) * scale)
+		                            end
+		                        end
+		                    end
+		                end
+		            end
+		        end
+		
+		        for i = used + 1, self.linkMax do
+		            local link = self:GetLink(i)
+		            if link ~= nil and isvalid(link) then link.Enable = false end
+		        end
+	end
+
+	@ExecSpace("ClientOnly")
+	method any GetCell(integer index)
+		        if not isvalid(self.board) then return nil end
+		        return self.board:GetChildByName("Cell" .. tostring(index), false)
+	end
+
+	@ExecSpace("ClientOnly")
+	method any GetLink(integer index)
+		        if not isvalid(self.board) then return nil end
+		        return self.board:GetChildByName("Link" .. tostring(index), false)
+	end
 
 end

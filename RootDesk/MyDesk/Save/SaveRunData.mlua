@@ -1,105 +1,93 @@
--- @서버 (저장/로드는 서버 전용)
---
--- 회차 데이터 = 환생하면 초기화되는 것.
--- 영구 데이터(SavePermanentData)와 저장 키를 물리적으로 분리한다 (개발 규칙 5).
--- T7 환생은 이 구조체만 Init()으로 되돌리면 되고, 영구 쪽은 건드리지 않는다.
-
 @Struct
 script SaveRunData
 
-    property integer schema_version = 2
+	property integer schema_version = 2
 
-    property integer level = 1
-    property number exp = 0
+	property integer level = 1
 
-    -- 스탯 4종. CSV의 stat_points_per_level 만큼 레벨당 지급된다.
-    property integer stat_str = 0
-    property integer stat_int = 0
-    property integer stat_dex = 0
-    property integer stat_luk = 0
-    property integer unspent_points = 0
+	property number exp = 0
 
+	property integer stat_str = 0
 
-    -- 몬스터 슬롯에 장착한 스킬. index -> skillId.
-    -- 회차에 두는 이유: 컬렉션(보유)은 영구지만 "이번 회차에 뭘 끼고 갈지"는
-    -- 회차마다 다시 고르는 선택이다. 영구에 두면 환생해도 같은 빌드로 시작하게 되어
-    -- 회차를 바꿔 노는 맛이 사라진다.
-    property table equipped_monster_skills = {}
+	property integer stat_int = 0
 
-    -- 로그아웃 시점의 방. 재접속하면 여기서 다시 시작한다 (T8: "옛날 메이플처럼").
-    --
-    -- 회차 데이터인 이유: 환생하면 시작방으로 돌아가야 한다. 영구에 두면
-    -- 환생 직후 스탯만 초기화된 채 깊은 방에 서 있게 된다 (기획서 4.5).
-    -- 빈 문자열이면 복원하지 않고 기본 스폰 위치를 쓴다.
-    property string current_room = ""
+	property integer stat_dex = 0
 
-    method void Init()
-        -- 새 회차 시작값. 환생 시에도 이 값으로 되돌린다.
-        self.schema_version = 2
-        self.level = 1
-        self.exp = 0
-        self.stat_str = 0
-        self.stat_int = 0
-        self.stat_dex = 0
-        self.stat_luk = 0
-        self.unspent_points = 0
-        self.equipped_monster_skills = {}
-        self.current_room = ""
-    end
+	property integer stat_luk = 0
 
-    method boolean HasAny(table t)
-        -- 빈 테이블인가.
-        --
-        -- 왜 필요한가 (T8 실측): _HttpService:JSONEncode는 **중첩된 빈 테이블**을
-        -- 만나면 [LEA-3001] NotSupported 'LuaTableToJsonType.UnknownType'으로 죽는다.
-        --   JSONEncode({ Run = { level = 1 } })            -> {"Run":{"level":1}}
-        --   JSONEncode({ Run = { level = 1, eq = {} } })   -> LEA-3001
-        -- 최상위 빈 테이블은 조용히 빈 문자열을 돌려줘서 더 헷갈린다.
-        -- Deserialize가 없는 필드를 기본값으로 채우므로 빼도 잃는 게 없다.
-        if t == nil then return false end
-        return next(t) ~= nil
-    end
+	property integer unspent_points = 0
 
-    method boolean Serialize(table out)
-        -- 저장 페이로드로 직렬화. "Run" 네임스페이스 아래에 넣어 버전 확장 여지를 남긴다.
-        local body = {}
-        out["Run"] = body
-        body["schema_version"] = self.schema_version
-        body["level"] = self.level
-        body["exp"] = self.exp
-        body["stat_str"] = self.stat_str
-        body["stat_int"] = self.stat_int
-        body["stat_dex"] = self.stat_dex
-        body["stat_luk"] = self.stat_luk
-        body["unspent_points"] = self.unspent_points
-        if self:HasAny(self.equipped_monster_skills) then
-            body["equipped_monster_skills"] = self.equipped_monster_skills
-        end
-        body["current_room"] = self.current_room
-        return true
-    end
+	property table equipped_monster_skills = {}
 
-    method boolean Deserialize(table src)
-        -- 역직렬화. 없는 필드는 Init() 기본값을 유지한다 (구버전 세이브 호환).
-        local body = src["Run"]
-        if body == nil then return true end
+	property string current_room = ""
 
-        self.schema_version = body["schema_version"] or 1
-        self.level = body["level"] or 1
-        self.exp = body["exp"] or 0
-        -- ⚠ 옛 키 하위 호환 (T31, 2026-08-27). T31 이전 세이브는 STR을 `stat_atk`,
-        -- DEX를 `stat_def`에 넣어 뒀다 — 그때는 스탯 이름이 ATK/DEF였기 때문이다.
-        -- 새 키를 먼저 보고 없으면 옛 키를 읽는다. 쓸 때는 새 키만 쓰므로
-        -- 한 번 저장되면 옛 키는 사라진다.
-        -- ⚠ 되돌아갈 수는 없다 — 새 빌드로 저장한 뒤 옛 빌드로 로드하면 STR/DEX가 0이 된다.
-        self.stat_str = body["stat_str"] or body["stat_atk"] or 0
-        self.stat_int = body["stat_int"] or 0
-        self.stat_dex = body["stat_dex"] or body["stat_def"] or 0
-        self.stat_luk = body["stat_luk"] or 0
-        self.unspent_points = body["unspent_points"] or 0
-        self.equipped_monster_skills = body["equipped_monster_skills"] or {}
-        self.current_room = body["current_room"] or ""
-        return true
-    end
+	method void Init()
+		        -- 새 회차 시작값. 환생 시에도 이 값으로 되돌린다.
+		        self.schema_version = 2
+		        self.level = 1
+		        self.exp = 0
+		        self.stat_str = 0
+		        self.stat_int = 0
+		        self.stat_dex = 0
+		        self.stat_luk = 0
+		        self.unspent_points = 0
+		        self.equipped_monster_skills = {}
+		        self.current_room = ""
+	end
+
+	method boolean HasAny(table t)
+		        -- 빈 테이블인가.
+		        --
+		        -- 왜 필요한가 (T8 실측): _HttpService:JSONEncode는 **중첩된 빈 테이블**을
+		        -- 만나면 [LEA-3001] NotSupported 'LuaTableToJsonType.UnknownType'으로 죽는다.
+		        --   JSONEncode({ Run = { level = 1 } })            -> {"Run":{"level":1}}
+		        --   JSONEncode({ Run = { level = 1, eq = {} } })   -> LEA-3001
+		        -- 최상위 빈 테이블은 조용히 빈 문자열을 돌려줘서 더 헷갈린다.
+		        -- Deserialize가 없는 필드를 기본값으로 채우므로 빼도 잃는 게 없다.
+		        if t == nil then return false end
+		        return next(t) ~= nil
+	end
+
+	method boolean Serialize(table out)
+		        -- 저장 페이로드로 직렬화. "Run" 네임스페이스 아래에 넣어 버전 확장 여지를 남긴다.
+		        local body = {}
+		        out["Run"] = body
+		        body["schema_version"] = self.schema_version
+		        body["level"] = self.level
+		        body["exp"] = self.exp
+		        body["stat_str"] = self.stat_str
+		        body["stat_int"] = self.stat_int
+		        body["stat_dex"] = self.stat_dex
+		        body["stat_luk"] = self.stat_luk
+		        body["unspent_points"] = self.unspent_points
+		        if self:HasAny(self.equipped_monster_skills) then
+		            body["equipped_monster_skills"] = self.equipped_monster_skills
+		        end
+		        body["current_room"] = self.current_room
+		        return true
+	end
+
+	method boolean Deserialize(table src)
+		        -- 역직렬화. 없는 필드는 Init() 기본값을 유지한다 (구버전 세이브 호환).
+		        local body = src["Run"]
+		        if body == nil then return true end
+		
+		        self.schema_version = body["schema_version"] or 1
+		        self.level = body["level"] or 1
+		        self.exp = body["exp"] or 0
+		        -- ⚠ 옛 키 하위 호환 (T31, 2026-08-27). T31 이전 세이브는 STR을 `stat_atk`,
+		        -- DEX를 `stat_def`에 넣어 뒀다 — 그때는 스탯 이름이 ATK/DEF였기 때문이다.
+		        -- 새 키를 먼저 보고 없으면 옛 키를 읽는다. 쓸 때는 새 키만 쓰므로
+		        -- 한 번 저장되면 옛 키는 사라진다.
+		        -- ⚠ 되돌아갈 수는 없다 — 새 빌드로 저장한 뒤 옛 빌드로 로드하면 STR/DEX가 0이 된다.
+		        self.stat_str = body["stat_str"] or body["stat_atk"] or 0
+		        self.stat_int = body["stat_int"] or 0
+		        self.stat_dex = body["stat_dex"] or body["stat_def"] or 0
+		        self.stat_luk = body["stat_luk"] or 0
+		        self.unspent_points = body["unspent_points"] or 0
+		        self.equipped_monster_skills = body["equipped_monster_skills"] or {}
+		        self.current_room = body["current_room"] or ""
+		        return true
+	end
 
 end

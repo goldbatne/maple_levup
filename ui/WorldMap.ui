@@ -10041,7 +10041,7 @@
       {
         "id": "e58b3c56-4ace-4e8d-8ad9-9fbefb0970fe",
         "path": "/ui/WorldMap/UIMyInfo",
-        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,script.UIMyInfo",
+        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
           "name": "UIMyInfo",
           "path": "/ui/WorldMap/UIMyInfo",
@@ -10179,21 +10179,6 @@
               "RaycastTarget": true,
               "Type": 1,
               "Enable": true
-            },
-            {
-              "@type": "script.UIMyInfo",
-              "Enable": true,
-              "hpBar": {
-                "IsRelative": false,
-                "ComponentId": ":UITransformComponent",
-                "UseNested": false
-              },
-              "maxWidth": 0.0,
-              "hpText": {
-                "IsRelative": false,
-                "ComponentId": ":TextComponent",
-                "UseNested": false
-              }
             }
           ],
           "@version": 1
@@ -15293,7 +15278,7 @@
       {
         "id": "5572211a-e511-4b10-b79c-dce2ebca617f",
         "path": "/ui/WorldMap/Inventory",
-        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,script.UIInventory",
+        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
           "name": "Inventory",
           "path": "/ui/WorldMap/Inventory",
@@ -15431,11 +15416,6 @@
               "RaycastTarget": true,
               "Type": 1,
               "Enable": true
-            },
-            {
-              "@type": "script.UIInventory",
-              "Enable": true,
-              "inventoryBtnPath": ""
             }
           ],
           "@version": 1
@@ -16655,7 +16635,7 @@
       {
         "id": "050fbda3-8ba4-4e9a-a74e-7c11f38eac46",
         "path": "/ui/WorldMap/Inventory/InventoryPanel/Inventory_ScrollView/item_slot",
-        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,script.UIItemSlot,MOD.Core.ButtonComponent",
+        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent,MOD.Core.ButtonComponent",
         "jsonString": {
           "name": "item_slot",
           "path": "/ui/WorldMap/Inventory/InventoryPanel/Inventory_ScrollView/item_slot",
@@ -16793,11 +16773,6 @@
               "RaycastTarget": true,
               "Type": 1,
               "Enable": true
-            },
-            {
-              "@type": "script.UIItemSlot",
-              "Enable": true,
-              "itemGUID": ""
             },
             {
               "@type": "MOD.Core.ButtonComponent",

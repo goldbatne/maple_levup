@@ -1,583 +1,549 @@
--- @클라이언트 (UI는 클라 전용. 모든 메서드에 개별로 @ExecSpace를 붙인다)
---
--- 액티브 스킬 사용 버튼. 기획서: "액티브 스킬은 버튼 탭(2~3개 상한)".
--- 몬스터 스킬과 NPC 스킬을 구분하지 않고 한 줄로 보여준다
--- (작업지시서 T5 요청 3: 사용 인터페이스는 통일).
---
--- StatPanel과 같은 이유로 @Logic이다 — UI 엔티티에 붙은 @Component는
--- Server 메서드를 가질 수 없어 RPC가 조용히 죽는다.
---
--- 판정은 서버가 한다. 버튼은 PlayerAttack의 Server RPC를 부르기만 한다.
-
 @Logic
 script SkillBar extends Logic
 
-    -- 버튼 5개 = **스킬 슬롯 상한 5** (T16-4b). 남는 칸은 숨긴다.
-    -- 몬스터 스킬과 NPC 스킬이 **합쳐서** 이 5칸을 놓고 경쟁하므로 바는 한 줄이다
-    -- (설계 이력 2026-08-20 — 버튼을 둘로 가르자는 안은 철회됐다).
-    -- 예전 주석의 "직업 최대 2 + 몬스터 3"은 직업 선택이 폐기되면서 사라진 셈법이다.
-    property ButtonComponent btn1 = "29dcc056-6437-486f-bb75-0422b52770d4"
-    property ButtonComponent btn2 = "d2b01c50-4d80-4323-b70f-7b34ec9a819e"
-    property ButtonComponent btn3 = "0bbe42ed-0239-45b6-95cb-b519640aa36c"
-    property ButtonComponent btn4 = "fedc284e-e3fd-42f1-8b88-16c2ddb68e1b"
-    property ButtonComponent btn5 = "06da7116-e093-4e94-b92e-5e67c09176ee"
+	property ButtonComponent btn1 = "29dcc056-6437-486f-bb75-0422b52770d4"
 
-    property any handler1 = nil
-    property any handler2 = nil
-    property any handler3 = nil
-    property any handler4 = nil
-    property any handler5 = nil
-    property any refreshTimer = nil
+	property ButtonComponent btn2 = "d2b01c50-4d80-4323-b70f-7b34ec9a819e"
 
-    property number refreshInterval = 0.3
-    property Entity offerPanel = "16fcbf2b-712f-480a-b3f5-96163ce7220d"
-    property Entity abilityToast = "b5e63258-b424-409f-ace9-a93368854385"
-    property table offerHandlers = {}
-    property integer displayedOfferRevision = -1
-    property any abilityToastTimer = nil
+	property ButtonComponent btn3 = "0bbe42ed-0239-45b6-95cb-b519640aa36c"
 
-    -- 보이는 칸을 **오른쪽 구석에 붙여** 늘어놓는다 (T24-3, 대표 지시
-    -- *"스킬 우측으로 빼줄래?"*). 자리를 스크립트가 정하는 이유가 둘 있다:
-    --   1) 슬롯 수가 차수에 따라 1~5로 변한다. `.ui`에 5칸을 고정으로 박아 두면
-    --      1칸일 때 버튼 하나가 화면 가운데쯤에 외따로 떠서 물약과 멀어진다.
-    --   2) `GetActiveSkills`는 **구멍 난 목록**을 줄 수 있다(3번 칸만 찬 경우).
-    --      번호대로 놓으면 그 구멍이 화면에 빈자리로 그대로 남는다.
-    -- 그래서 "찬 칸만 순서대로, 오른쪽 끝부터" 채운다.
-    -- 값은 `.ui`의 스킬 버튼과 같은 규격이다 (칸 122 + 사이 10 — T24-7에서
-    -- MSW 프리셋 "스킬퀵슬롯" 규격으로 맞췄다).
-    -- 5개 슬롯의 오른쪽 끝을 화면 우측 20px에 고정한다.
-    -- SkillBar.ui도 bottom-right anchor를 사용하므로 두 값이 같아야 한다.
-    property number slotRightX = -20
-    property number slotStepX = 98
+	property ButtonComponent btn4 = "fedc284e-e3fd-42f1-8b88-16c2ddb68e1b"
 
-    -- 아이콘을 넣을 상자 (T24-7). 그림은 이 안에 **비율을 지킨 채** 들어간다.
-    -- 칸(122x122)에서 아래 이름표(26)와 여백을 뺀 나머지다.
-    -- EquipPanel과 같은 방식이고 같은 함정을 피한다 — `FitIcon` 주석 참조.
-    property number iconBoxW = 70
-    property number iconBoxH = 70
+	property ButtonComponent btn5 = "06da7116-e093-4e94-b92e-5e67c09176ee"
 
-    ---------------------------------------------------------------
-    -- 키보드 입력 (T14-1)
-    ---------------------------------------------------------------
+	property any handler1 = nil
 
-    -- 맨 왼쪽 슬롯부터 순서대로 붙는 키. 쉼표로 구분한다 (대표 지시 2026-08-13).
-    --
-    -- 왜 문자열 한 줄인가: 나중에 키 재설정(T14-2)이 들어오면 저장된 설정으로
-    -- **이 값만 덮어쓰면** 된다. 분기로 흩어 놓으면 재설정할 자리가 없어진다.
-    -- 슬롯 상한이 5라 Z~B까지 쓰이고, N·M은 상한이 더 늘면 이어 붙는다.
-    property string keyOrder = "Z,X,C,V,B,N,M"
+	property any handler2 = nil
 
-    -- 저장된 배치(PlayerSkillSlots.KeyOrder)가 있으면 그걸 쓴다. 지금 적용돼 있는 값을
-    -- 들고 있다가 달라질 때만 다시 만든다 — 세이브 로드가 비동기라서 OnBeginPlay
-    -- 시점엔 아직 비어 있을 수 있다. 폴링이 이벤트보다 타이밍에 안전하다.
-    @HideFromInspector property string appliedKeyOrder = ""
+	property any handler3 = nil
 
-    -- 인스펙터에 적힌 기본 배치를 시작할 때 따로 보관한다.
-    -- keyOrder는 저장값으로 덮어써지므로, 저장값이 ""로 되돌아왔을 때
-    -- 돌아갈 곳이 필요하다 (T14-2b의 "기본값으로 되돌리기").
-    @HideFromInspector property string defaultKeyOrder = ""
+	property any handler4 = nil
 
-    -- keyOrder를 파싱한 결과. **슬롯 번호로 색인한다** (빈 슬롯은 구멍이다).
-    -- 구멍이 있으므로 #keyCodes를 쓰면 안 된다 — keySlotCount를 본다.
-    @HideFromInspector property table keyCodes = {}
-    @HideFromInspector property table keyNames = {}
-    @HideFromInspector property integer keySlotCount = 0
-    property any keyDownHandler = nil
+	property any handler5 = nil
 
-    -- 스킬에 걸 수 없는 키 (대표 지시 2026-08-13: "모든 키를 설정할 수 있도록").
-    -- 전부 열어 주되 **다른 조작이 이미 쓰는 것**만 막는다:
-    --   방향키·Escape  이동과 취소. 막지 않으면 스킬을 쏘면서 캐릭터가 같이
-    --                  움직이거나, 창을 닫을 방법이 사라진다.
-    --   Alpha1·Alpha2  아이템 퀵슬롯 (T13-5b). 막지 않으면 1을 눌렀을 때
-    --                  스킬과 물약이 **동시에** 나간다.
-    --
-    -- 프로퍼티로 둔 이유: WASD도 이동에 쓰이는지가 아직 확인되지 않았다.
-    -- 그렇다는 게 드러나면 여기에 이름만 더 적으면 된다.
-    -- 퀵슬롯 키를 재설정할 수 있게 되면(T13-5c) 이 목록도 그 값을 따라가야 한다.
-    property string reservedKeys = "UpArrow,DownArrow,LeftArrow,RightArrow,Escape,Alpha1,Alpha2"
+	property any refreshTimer = nil
 
-    -- 설정 창이 키를 받고 있는 동안은 스킬을 쓰지 않는다 (T14-2b-2).
-    -- 안 막으면 키를 고르는 순간 그 키에 걸린 스킬이 같이 나간다.
-    @HideFromInspector property boolean captureMode = false
+	property number refreshInterval = 0.3
 
-    -- 버튼 라벨에 키를 함께 보여줄지. 모바일에는 키보드가 없어 자동으로 숨긴다.
-    property boolean showKeyHint = true
+	property Entity offerPanel = "16fcbf2b-712f-480a-b3f5-96163ce7220d"
 
-    @ExecSpace("ClientOnly")
-    method void OnBeginPlay()
-        log("[SkillBar] OnBeginPlay")
+	property Entity abilityToast = "b5e63258-b424-409f-ace9-a93368854385"
 
-        -- 클로저로 순번을 잡아둔다. 버튼마다 다른 index를 넘겨야 한다.
-        self.handler1 = self.btn1.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(1) end)
-        self.handler2 = self.btn2.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(2) end)
-        self.handler3 = self.btn3.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(3) end)
-        self.handler4 = self.btn4.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(4) end)
-        self.handler5 = self.btn5.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(5) end)
-        if isvalid(self.offerPanel) then
-            self.offerPanel.Enable = false
-            for i = 1, 5 do
-                local index = i
-                local button = self.offerPanel:GetChildByName("Replace" .. tostring(i), false)
-                if isvalid(button) then
-                    self.offerHandlers[i] = button:ConnectEvent(ButtonClickEvent, function()
-                        local slots = self:GetSlots()
-                        if slots ~= nil then slots:RequestReplacePendingAbility(index, self.displayedOfferRevision) end
-                    end)
-                end
-            end
-            local decline = self.offerPanel:GetChildByName("Decline", false)
-            if isvalid(decline) then
-                self.offerHandlers[6] = decline:ConnectEvent(ButtonClickEvent, function()
-                    local slots = self:GetSlots()
-                    if slots ~= nil then slots:RequestDeclinePendingAbility(self.displayedOfferRevision) end
-                end)
-            end
-        end
-        if isvalid(self.abilityToast) then self.abilityToast.Enable = false end
+	property table offerHandlers = {}
 
-        -- 키보드도 같은 Use()로 보낸다. 버튼과 키가 서로 다른 경로를 타면
-        -- 한쪽만 고쳐지는 버그가 난다.
-        self.defaultKeyOrder = self.keyOrder
-        self.appliedKeyOrder = self.keyOrder
-        self:RebuildKeyMap()
-        self.keyDownHandler = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
+	property integer displayedOfferRevision = -1
 
-        self.refreshTimer = _TimerService:SetTimerRepeat(function()
-            self:Refresh()
-        end, self.refreshInterval)
+	property any abilityToastTimer = nil
 
-        self:Refresh()
-    end
+	property number slotRightX = -20
 
-    @ExecSpace("ClientOnly")
-    method void OnEndPlay()
-        if isvalid(self.offerPanel) then
-            for i = 1, 6 do
-                local name = i == 6 and "Decline" or ("Replace" .. tostring(i))
-                local button = self.offerPanel:GetChildByName(name, false)
-                if isvalid(button) and self.offerHandlers[i] ~= nil then
-                    button:DisconnectEvent(ButtonClickEvent, self.offerHandlers[i])
-                end
-            end
-            self.offerPanel.Enable = false
-        end
-        self.offerHandlers = {}
-        -- 연결한 것은 전부 해제한다 (스크립트 리로드 시 누수 방지).
-        if self.handler1 ~= nil then self.btn1.Entity:DisconnectEvent(ButtonClickEvent, self.handler1) end
-        if self.handler2 ~= nil then self.btn2.Entity:DisconnectEvent(ButtonClickEvent, self.handler2) end
-        if self.handler3 ~= nil then self.btn3.Entity:DisconnectEvent(ButtonClickEvent, self.handler3) end
-        if self.handler4 ~= nil then self.btn4.Entity:DisconnectEvent(ButtonClickEvent, self.handler4) end
-        if self.handler5 ~= nil then self.btn5.Entity:DisconnectEvent(ButtonClickEvent, self.handler5) end
-        if self.refreshTimer ~= nil then _TimerService:ClearTimer(self.refreshTimer) end
-        if self.abilityToastTimer ~= nil then
-            _TimerService:ClearTimer(self.abilityToastTimer)
-            self.abilityToastTimer = nil
-        end
-        if self.keyDownHandler ~= nil then
-            _InputService:DisconnectEvent(KeyDownEvent, self.keyDownHandler)
-            self.keyDownHandler = nil
-        end
-    end
+	property number slotStepX = 98
 
-    @ExecSpace("ClientOnly")
-    method void SyncKeyOrderFromSave()
-        -- 저장된 배치를 따라간다 (T14-2). Refresh가 0.3초마다 부른다.
-        --
-        -- 빈 문자열이면 저장된 설정이 없다는 뜻이라 **기본 배치로 돌아간다.**
-        -- 여기서 기본값을 세이브에 써넣지 않는다 — 그러면 기본값을 바꿔도
-        -- 옛 계정이 옛 배치를 영구히 들고 있게 된다.
-        --
-        -- ""도 목표값으로 취급해야 "기본값으로 되돌리기"가 재접속 없이 먹는다.
-        -- 처음엔 ""를 그냥 무시했는데, 그러면 되돌려도 바뀐 배치가 그대로 남았다.
-        ---@type PlayerSkillSlots
-        local slots = self:GetSlots()
-        if slots == nil then return end
+	property number iconBoxW = 70
 
-        local saved = slots.KeyOrder
-        local target = self.defaultKeyOrder
-        if saved ~= nil and saved ~= "" then target = saved end
+	property number iconBoxH = 70
 
-        if target == self.appliedKeyOrder then return end
+	property string keyOrder = "Z,X,C,V,B,N,M"
 
-        if saved == nil or saved == "" then
-            log("[SkillBar] 기본 키 배치로 되돌린다 — '" .. target .. "'")
-        else
-            log("[SkillBar] 저장된 키 배치 적용 — '" .. target .. "'")
-        end
-        self.keyOrder = target
-        self.appliedKeyOrder = target
-        self:RebuildKeyMap()
-    end
+	@HideFromInspector
+	property string appliedKeyOrder = ""
 
-    @ExecSpace("ClientOnly")
-    method void RequestSetKeyOrder(string order)
-        -- 키 배치를 바꿔 달라고 서버에 요청한다. 판정·저장은 서버가 한다.
-        -- 설정 창(T14-2b)이 여기를 부른다.
-        local me = _UserService.LocalPlayer
-        if me == nil then return end
-        ---@type PlayerSkillSlots
-        local slots = me:GetComponent("script.PlayerSkillSlots")
-        if slots == nil then return end
-        slots:RequestSetKeyOrder(order)
-    end
+	@HideFromInspector
+	property string defaultKeyOrder = ""
 
-    @ExecSpace("ClientOnly")
-    method table SplitOrder(string raw)
-        -- 쉼표 분해. **위치를 보존한다** — 빈 칸("Z,,C")은 "키 없는 슬롯"이다.
-        -- gmatch("[^,]+")를 쓰면 빈 칸이 사라져 그 뒤 슬롯 번호가 하나씩 밀린다.
-        -- 밀어내기(대표 지시)로 빈 슬롯이 생길 수 있어서 이게 필요해졌다.
-        -- 끝에 쉼표를 붙이고 "([^,]*)," 로 훑는다. `*`라서 빈 칸도 잡히고,
-        -- 붙인 쉼표 덕에 마지막 칸까지 하나로 처리된다.
-        local out = {}
-        if raw == nil then return out end
-        for field in string.gmatch(raw .. ",", "([^,]*),") do
-            table.insert(out, field)
-        end
-        return out
-    end
+	@HideFromInspector
+	property table keyCodes = {}
 
-    @ExecSpace("ClientOnly")
-    method string Trim(string s)
-        -- 사람이 적은 배치("Z, X")도 받아들인다.
-        if s == nil then return "" end
-        return string.match(s, "^%s*(.-)%s*$")
-    end
+	@HideFromInspector
+	property table keyNames = {}
 
-    @ExecSpace("ClientOnly")
-    method void RebuildKeyMap()
-        -- keyOrder("Z,X,C,V,B,N,M")를 슬롯번호 → KeyboardKey 표로 만든다.
-        -- 키 재설정은 keyOrder를 갈아끼운 뒤 이걸 다시 부르면 된다.
-        self.keyCodes = {}
-        self.keyNames = {}
+	@HideFromInspector
+	property integer keySlotCount = 0
 
-        local tokens = self:SplitOrder(self.keyOrder)
-        self.keySlotCount = math.min(5, #tokens)
+	property any keyDownHandler = nil
 
-        local bound = 0
-        for i = 1, self.keySlotCount do
-            local name = self:Trim(tokens[i])
-            if name ~= "" then
-                local code = self:KeyCodeOf(name)
-                if code == nil then
-                    -- 조용히 건너뛰면 "그 키만 안 먹는다"가 되어 원인을 찾기 어렵다.
-                    log_warning("[SkillBar] 모르는 키 이름은 건너뛴다: '" .. name .. "'")
-                elseif self:IsReserved(name) then
-                    log_warning("[SkillBar] 예약된 키는 걸 수 없다: '" .. name .. "'")
-                else
-                    self.keyCodes[i] = code
-                    self.keyNames[i] = name
-                    bound += 1
-                end
-            end
-        end
-        log("[SkillBar] 키 매핑 " .. tostring(bound) .. "/" .. tostring(self.keySlotCount)
-            .. "칸 — " .. self.keyOrder)
-    end
+	property string reservedKeys = "UpArrow,DownArrow,LeftArrow,RightArrow,Escape,Alpha1,Alpha2"
 
-    @ExecSpace("ClientOnly")
-    method any KeyCodeOf(string name)
-        -- 이름 → KeyboardKey. `KeyboardKey.CastFrom(string)`이 열거형에 문서화돼 있다.
-        --
-        -- 실측 (2026-08-13): **대소문자를 구분하고, 모르는 이름은 [LEA-3021]을 던진다**
-        -- (None을 돌려주지 않는다). 그래서 pcall로 감싸 nil로 바꿔 돌려준다.
-        --   CastFrom("Z")        → Z
-        --   CastFrom("z")        → 던짐
-        --   CastFrom("Alpha1")   → Alpha1
-        --   CastFrom("Nonsense") → 던짐
-        --
-        -- 이 덕에 분기를 늘리지 않고 **키보드 전체**를 지원한다 (대표 지시).
-        -- 이름은 열거형 멤버명 그대로다: A~Z / Alpha0~9 / F1~F15 / Keypad0~9 /
-        -- Space / Tab / Semicolon / LeftShift ...
-        if name == nil or name == "" then return nil end
-        -- pcall의 반환값을 하나만 받는다. 둘을 받으면 LSP가
-        -- "'2' values are assigned to '1' variables"로 경고한다 (동작은 같다).
-        local code = nil
-        local ok = pcall(function() code = KeyboardKey.CastFrom(name) end)
-        if not ok then return nil end
-        return code
-    end
+	@HideFromInspector
+	property boolean captureMode = false
 
-    @ExecSpace("ClientOnly")
-    method boolean IsReserved(string name)
-        -- 이동·취소에 쓰이는 키인가. reservedKeys 프로퍼티가 목록이다.
-        for token in string.gmatch(self.reservedKeys, "([^,]+)") do
-            if self:Trim(token) == name then return true end
-        end
-        return false
-    end
+	property boolean showKeyHint = true
 
-    @ExecSpace("ClientOnly")
-    method string BuildOrderWithKey(integer index, string keyName)
-        -- 슬롯 index에 keyName을 걸었을 때의 새 배치 문자열을 만든다.
-        --
-        -- **밀어내기** (대표 지시 2026-08-13): 그 키를 이미 쓰던 다른 슬롯은 **비운다.**
-        -- 교환이 아니라 비우는 쪽이라, 옮긴 자리는 키 없이 버튼만 남는다.
-        -- 설정 창(T14-2b)이 이 결과를 RequestSetKeyOrder로 보낸다.
-        --
-        -- keyName이 ""이면 그 슬롯만 비운다.
-        local tokens = self:SplitOrder(self.keyOrder)
+	@ExecSpace("ClientOnly")
+	method void OnBeginPlay()
+		        log("[SkillBar] OnBeginPlay")
+		
+		        -- 클로저로 순번을 잡아둔다. 버튼마다 다른 index를 넘겨야 한다.
+		        self.handler1 = self.btn1.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(1) end)
+		        self.handler2 = self.btn2.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(2) end)
+		        self.handler3 = self.btn3.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(3) end)
+		        self.handler4 = self.btn4.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(4) end)
+		        self.handler5 = self.btn5.Entity:ConnectEvent(ButtonClickEvent, function() self:Use(5) end)
+		        if isvalid(self.offerPanel) then
+		            self.offerPanel.Enable = false
+		            for i = 1, 5 do
+		                local index = i
+		                local button = self.offerPanel:GetChildByName("Replace" .. tostring(i), false)
+		                if isvalid(button) then
+		                    self.offerHandlers[i] = button:ConnectEvent(ButtonClickEvent, function()
+		                        local slots = self:GetSlots()
+		                        if slots ~= nil then slots:RequestReplacePendingAbility(index, self.displayedOfferRevision) end
+		                    end)
+		                end
+		            end
+		            local decline = self.offerPanel:GetChildByName("Decline", false)
+		            if isvalid(decline) then
+		                self.offerHandlers[6] = decline:ConnectEvent(ButtonClickEvent, function()
+		                    local slots = self:GetSlots()
+		                    if slots ~= nil then slots:RequestDeclinePendingAbility(self.displayedOfferRevision) end
+		                end)
+		            end
+		        end
+		        if isvalid(self.abilityToast) then self.abilityToast.Enable = false end
+		
+		        -- 키보드도 같은 Use()로 보낸다. 버튼과 키가 서로 다른 경로를 타면
+		        -- 한쪽만 고쳐지는 버그가 난다.
+		        self.defaultKeyOrder = self.keyOrder
+		        self.appliedKeyOrder = self.keyOrder
+		        self:RebuildKeyMap()
+		        self.keyDownHandler = _InputService:ConnectEvent(KeyDownEvent, self.OnKeyDown)
+		
+		        self.refreshTimer = _TimerService:SetTimerRepeat(function()
+		            self:Refresh()
+		        end, self.refreshInterval)
+		
+		        self:Refresh()
+	end
 
-        -- 슬롯이 배치보다 뒤에 있으면 빈 칸으로 늘린다.
-        while #tokens < index do
-            table.insert(tokens, "")
-        end
+	@ExecSpace("ClientOnly")
+	method void OnEndPlay()
+		        if isvalid(self.offerPanel) then
+		            for i = 1, 6 do
+		                local name = i == 6 and "Decline" or ("Replace" .. tostring(i))
+		                local button = self.offerPanel:GetChildByName(name, false)
+		                if isvalid(button) and self.offerHandlers[i] ~= nil then
+		                    button:DisconnectEvent(ButtonClickEvent, self.offerHandlers[i])
+		                end
+		            end
+		            self.offerPanel.Enable = false
+		        end
+		        self.offerHandlers = {}
+		        -- 연결한 것은 전부 해제한다 (스크립트 리로드 시 누수 방지).
+		        if self.handler1 ~= nil then self.btn1.Entity:DisconnectEvent(ButtonClickEvent, self.handler1) end
+		        if self.handler2 ~= nil then self.btn2.Entity:DisconnectEvent(ButtonClickEvent, self.handler2) end
+		        if self.handler3 ~= nil then self.btn3.Entity:DisconnectEvent(ButtonClickEvent, self.handler3) end
+		        if self.handler4 ~= nil then self.btn4.Entity:DisconnectEvent(ButtonClickEvent, self.handler4) end
+		        if self.handler5 ~= nil then self.btn5.Entity:DisconnectEvent(ButtonClickEvent, self.handler5) end
+		        if self.refreshTimer ~= nil then _TimerService:ClearTimer(self.refreshTimer) end
+		        if self.abilityToastTimer ~= nil then
+		            _TimerService:ClearTimer(self.abilityToastTimer)
+		            self.abilityToastTimer = nil
+		        end
+		        if self.keyDownHandler ~= nil then
+		            _InputService:DisconnectEvent(KeyDownEvent, self.keyDownHandler)
+		            self.keyDownHandler = nil
+		        end
+	end
 
-        local wanted = self:Trim(keyName)
-        if wanted ~= "" then
-            for i = 1, #tokens do
-                if i ~= index and self:Trim(tokens[i]) == wanted then
-                    tokens[i] = ""   -- 밀어냈다
-                end
-            end
-        end
-        tokens[index] = wanted
+	@ExecSpace("ClientOnly")
+	method void SyncKeyOrderFromSave()
+		        -- 저장된 배치를 따라간다 (T14-2). Refresh가 0.3초마다 부른다.
+		        --
+		        -- 빈 문자열이면 저장된 설정이 없다는 뜻이라 **기본 배치로 돌아간다.**
+		        -- 여기서 기본값을 세이브에 써넣지 않는다 — 그러면 기본값을 바꿔도
+		        -- 옛 계정이 옛 배치를 영구히 들고 있게 된다.
+		        --
+		        -- ""도 목표값으로 취급해야 "기본값으로 되돌리기"가 재접속 없이 먹는다.
+		        -- 처음엔 ""를 그냥 무시했는데, 그러면 되돌려도 바뀐 배치가 그대로 남았다.
+		        ---@type PlayerSkillSlots
+		        local slots = self:GetSlots()
+		        if slots == nil then return end
+		
+		        local saved = slots.KeyOrder
+		        local target = self.defaultKeyOrder
+		        if saved ~= nil and saved ~= "" then target = saved end
+		
+		        if target == self.appliedKeyOrder then return end
+		
+		        if saved == nil or saved == "" then
+		            log("[SkillBar] 기본 키 배치로 되돌린다 — '" .. target .. "'")
+		        else
+		            log("[SkillBar] 저장된 키 배치 적용 — '" .. target .. "'")
+		        end
+		        self.keyOrder = target
+		        self.appliedKeyOrder = target
+		        self:RebuildKeyMap()
+	end
 
-        -- 끝쪽 빈 칸은 떼어낸다. 안 떼면 "Z,,,,,,"처럼 계속 길어진다.
-        while #tokens > 0 and self:Trim(tokens[#tokens]) == "" do
-            table.remove(tokens)
-        end
+	@ExecSpace("ClientOnly")
+	method void RequestSetKeyOrder(string order)
+		        -- 키 배치를 바꿔 달라고 서버에 요청한다. 판정·저장은 서버가 한다.
+		        -- 설정 창(T14-2b)이 여기를 부른다.
+		        local me = _UserService.LocalPlayer
+		        if me == nil then return end
+		        ---@type PlayerSkillSlots
+		        local slots = me:GetComponent("script.PlayerSkillSlots")
+		        if slots == nil then return end
+		        slots:RequestSetKeyOrder(order)
+	end
 
-        local out = ""
-        for i = 1, #tokens do
-            if i > 1 then out = out .. "," end
-            out = out .. self:Trim(tokens[i])
-        end
-        return out
-    end
+	@ExecSpace("ClientOnly")
+	method table SplitOrder(string raw)
+		        -- 쉼표 분해. **위치를 보존한다** — 빈 칸("Z,,C")은 "키 없는 슬롯"이다.
+		        -- gmatch("[^,]+")를 쓰면 빈 칸이 사라져 그 뒤 슬롯 번호가 하나씩 밀린다.
+		        -- 밀어내기(대표 지시)로 빈 슬롯이 생길 수 있어서 이게 필요해졌다.
+		        -- 끝에 쉼표를 붙이고 "([^,]*)," 로 훑는다. `*`라서 빈 칸도 잡히고,
+		        -- 붙인 쉼표 덕에 마지막 칸까지 하나로 처리된다.
+		        local out = {}
+		        if raw == nil then return out end
+		        for field in string.gmatch(raw .. ",", "([^,]*),") do
+		            table.insert(out, field)
+		        end
+		        return out
+	end
 
-    @ExecSpace("ClientOnly")
-    method void SetCaptureMode(boolean on)
-        -- 설정 창(KeyConfigPanel)이 키를 받는 동안 켠다.
-        self.captureMode = on
-    end
+	@ExecSpace("ClientOnly")
+	method string Trim(string s)
+		        -- 사람이 적은 배치("Z, X")도 받아들인다.
+		        if s == nil then return "" end
+		        return string.match(s, "^%s*(.-)%s*$")
+	end
 
-    @ExecSpace("ClientOnly")
-    method void OnKeyDown(KeyDownEvent event)
-        -- 설정 창이 키를 받고 있으면 스킬을 쓰지 않는다.
-        if self.captureMode then return end
+	@ExecSpace("ClientOnly")
+	method void RebuildKeyMap()
+		        -- keyOrder("Z,X,C,V,B,N,M")를 슬롯번호 → KeyboardKey 표로 만든다.
+		        -- 키 재설정은 keyOrder를 갈아끼운 뒤 이걸 다시 부르면 된다.
+		        self.keyCodes = {}
+		        self.keyNames = {}
+		
+		        local tokens = self:SplitOrder(self.keyOrder)
+		        self.keySlotCount = math.min(5, #tokens)
+		
+		        local bound = 0
+		        for i = 1, self.keySlotCount do
+		            local name = self:Trim(tokens[i])
+		            if name ~= "" then
+		                local code = self:KeyCodeOf(name)
+		                if code == nil then
+		                    -- 조용히 건너뛰면 "그 키만 안 먹는다"가 되어 원인을 찾기 어렵다.
+		                    log_warning("[SkillBar] 모르는 키 이름은 건너뛴다: '" .. name .. "'")
+		                elseif self:IsReserved(name) then
+		                    log_warning("[SkillBar] 예약된 키는 걸 수 없다: '" .. name .. "'")
+		                else
+		                    self.keyCodes[i] = code
+		                    self.keyNames[i] = name
+		                    bound += 1
+		                end
+		            end
+		        end
+		        log("[SkillBar] 키 매핑 " .. tostring(bound) .. "/" .. tostring(self.keySlotCount)
+		            .. "칸 — " .. self.keyOrder)
+	end
 
-        local slots = self:GetSlots()
-        if slots ~= nil and slots:IsRogueliteRunMode()
-            and slots.PendingAbilitySkillId ~= "" and event.key == KeyboardKey.Escape then
-            slots:RequestDeclinePendingAbility(self.displayedOfferRevision)
-            return
-        end
+	@ExecSpace("ClientOnly")
+	method any KeyCodeOf(string name)
+		        -- 이름 → KeyboardKey. `KeyboardKey.CastFrom(string)`이 열거형에 문서화돼 있다.
+		        --
+		        -- 실측 (2026-08-13): **대소문자를 구분하고, 모르는 이름은 [LEA-3021]을 던진다**
+		        -- (None을 돌려주지 않는다). 그래서 pcall로 감싸 nil로 바꿔 돌려준다.
+		        --   CastFrom("Z")        → Z
+		        --   CastFrom("z")        → 던짐
+		        --   CastFrom("Alpha1")   → Alpha1
+		        --   CastFrom("Nonsense") → 던짐
+		        --
+		        -- 이 덕에 분기를 늘리지 않고 **키보드 전체**를 지원한다 (대표 지시).
+		        -- 이름은 열거형 멤버명 그대로다: A~Z / Alpha0~9 / F1~F15 / Keypad0~9 /
+		        -- Space / Tab / Semicolon / LeftShift ...
+		        if name == nil or name == "" then return nil end
+		        -- pcall의 반환값을 하나만 받는다. 둘을 받으면 LSP가
+		        -- "'2' values are assigned to '1' variables"로 경고한다 (동작은 같다).
+		        local code = nil
+		        local ok = pcall(function() code = KeyboardKey.CastFrom(name) end)
+		        if not ok then return nil end
+		        return code
+	end
 
-        -- 눌린 키가 몇 번째 슬롯인지 찾아 버튼과 같은 창구로 보낸다.
-        -- keyCodes에 구멍이 있을 수 있어 #가 아니라 keySlotCount로 돈다.
-        for i = 1, self.keySlotCount do
-            if self.keyCodes[i] == event.key then
-                self:Use(i)
-                return
-            end
-        end
-    end
+	@ExecSpace("ClientOnly")
+	method boolean IsReserved(string name)
+		        -- 이동·취소에 쓰이는 키인가. reservedKeys 프로퍼티가 목록이다.
+		        for token in string.gmatch(self.reservedKeys, "([^,]+)") do
+		            if self:Trim(token) == name then return true end
+		        end
+		        return false
+	end
 
-    @ExecSpace("ClientOnly")
-    method string KeyNameFor(integer index)
-        -- 버튼 라벨에 붙일 키 이름. 걸린 키가 없으면 빈 문자열.
-        local name = self.keyNames[index]
-        if name == nil then return "" end
-        return name
-    end
+	@ExecSpace("ClientOnly")
+	method string BuildOrderWithKey(integer index, string keyName)
+		        -- 슬롯 index에 keyName을 걸었을 때의 새 배치 문자열을 만든다.
+		        --
+		        -- **밀어내기** (대표 지시 2026-08-13): 그 키를 이미 쓰던 다른 슬롯은 **비운다.**
+		        -- 교환이 아니라 비우는 쪽이라, 옮긴 자리는 키 없이 버튼만 남는다.
+		        -- 설정 창(T14-2b)이 이 결과를 RequestSetKeyOrder로 보낸다.
+		        --
+		        -- keyName이 ""이면 그 슬롯만 비운다.
+		        local tokens = self:SplitOrder(self.keyOrder)
+		
+		        -- 슬롯이 배치보다 뒤에 있으면 빈 칸으로 늘린다.
+		        while #tokens < index do
+		            table.insert(tokens, "")
+		        end
+		
+		        local wanted = self:Trim(keyName)
+		        if wanted ~= "" then
+		            for i = 1, #tokens do
+		                if i ~= index and self:Trim(tokens[i]) == wanted then
+		                    tokens[i] = ""   -- 밀어냈다
+		                end
+		            end
+		        end
+		        tokens[index] = wanted
+		
+		        -- 끝쪽 빈 칸은 떼어낸다. 안 떼면 "Z,,,,,,"처럼 계속 길어진다.
+		        while #tokens > 0 and self:Trim(tokens[#tokens]) == "" do
+		            table.remove(tokens)
+		        end
+		
+		        local out = ""
+		        for i = 1, #tokens do
+		            if i > 1 then out = out .. "," end
+		            out = out .. self:Trim(tokens[i])
+		        end
+		        return out
+	end
 
-    @ExecSpace("ClientOnly")
-    method any GetButton(integer index)
-        -- 프로퍼티를 배열처럼 쓰기 위한 창구. 5개뿐이라 분기로 충분하다.
-        if index == 1 then return self.btn1 end
-        if index == 2 then return self.btn2 end
-        if index == 3 then return self.btn3 end
-        if index == 4 then return self.btn4 end
-        if index == 5 then return self.btn5 end
-        return nil
-    end
+	@ExecSpace("ClientOnly")
+	method void SetCaptureMode(boolean on)
+		        -- 설정 창(KeyConfigPanel)이 키를 받는 동안 켠다.
+		        self.captureMode = on
+	end
 
-    @ExecSpace("ClientOnly")
-    method any GetSlots()
-        local me = _UserService.LocalPlayer
-        if me == nil or _EntityService:IsValid(me) == false then return nil end
-        return me:GetComponent("script.PlayerSkillSlots")
-    end
+	@ExecSpace("ClientOnly")
+	method void OnKeyDown(KeyDownEvent event)
+		        -- 설정 창이 키를 받고 있으면 스킬을 쓰지 않는다.
+		        if self.captureMode then return end
+		
+		        local slots = self:GetSlots()
+		        if slots ~= nil and slots:IsRogueliteRunMode()
+		            and slots.PendingAbilitySkillId ~= "" and event.key == KeyboardKey.Escape then
+		            slots:RequestDeclinePendingAbility(self.displayedOfferRevision)
+		            return
+		        end
+		
+		        -- 눌린 키가 몇 번째 슬롯인지 찾아 버튼과 같은 창구로 보낸다.
+		        -- keyCodes에 구멍이 있을 수 있어 #가 아니라 keySlotCount로 돈다.
+		        for i = 1, self.keySlotCount do
+		            if self.keyCodes[i] == event.key then
+		                self:Use(i)
+		                return
+		            end
+		        end
+	end
 
-    @ExecSpace("ClientOnly")
-    method number GetCooldownRemain(string skillId)
-        -- 남은 쿨다운. PlayerAttack이 들고 있는 값을 그대로 읽는다 —
-        -- 여기서 따로 세면 서버 판정과 어긋난다.
-        local me = _UserService.LocalPlayer
-        if me == nil or _EntityService:IsValid(me) == false then return 0 end
-        ---@type PlayerAttack
-        local atk = me:GetComponent("script.PlayerAttack")
-        if atk == nil then return 0 end
-        return atk:GetCooldownRemain(skillId)
-    end
+	@ExecSpace("ClientOnly")
+	method string KeyNameFor(integer index)
+		        -- 버튼 라벨에 붙일 키 이름. 걸린 키가 없으면 빈 문자열.
+		        local name = self.keyNames[index]
+		        if name == nil then return "" end
+		        return name
+	end
 
-    @ExecSpace("ClientOnly")
-    method void Use(integer activeIndex)
-        -- 검증은 서버가 한다. 여기서는 요청만 보낸다 (개발 규칙 2).
-        local me = _UserService.LocalPlayer
-        if me == nil then return end
-        ---@type PlayerAttack
-        local atk = me:GetComponent("script.PlayerAttack")
-        if atk == nil then return end
+	@ExecSpace("ClientOnly")
+	method any GetButton(integer index)
+		        -- 프로퍼티를 배열처럼 쓰기 위한 창구. 5개뿐이라 분기로 충분하다.
+		        if index == 1 then return self.btn1 end
+		        if index == 2 then return self.btn2 end
+		        if index == 3 then return self.btn3 end
+		        if index == 4 then return self.btn4 end
+		        if index == 5 then return self.btn5 end
+		        return nil
+	end
 
-        -- 획득 후보가 있어도 기존 스킬 버튼은 전투 입력이다.
-        -- 교체는 별도 패널의 명시적 버튼만 요청한다.
+	@ExecSpace("ClientOnly")
+	method any GetSlots()
+		        local me = _UserService.LocalPlayer
+		        if me == nil or _EntityService:IsValid(me) == false then return nil end
+		        return me:GetComponent("script.PlayerSkillSlots")
+	end
 
-        -- 조준 방향을 **여기서 재서 같이 보낸다** (T22-1).
-        -- 서버는 입력을 모른다 — 돌진 방향을 서버에서 몸의 속도로 읽으려 했더니
-        -- 항상 0이었다 (실측). 누른 순간의 방향은 누른 쪽만 안다.
-        local aim = _PlayerAimInput:GetAim8()
-        atk:RequestUseSkill(activeIndex, aim.x, aim.y)
-    end
+	@ExecSpace("ClientOnly")
+	method number GetCooldownRemain(string skillId)
+		        -- 남은 쿨다운. PlayerAttack이 들고 있는 값을 그대로 읽는다 —
+		        -- 여기서 따로 세면 서버 판정과 어긋난다.
+		        local me = _UserService.LocalPlayer
+		        if me == nil or _EntityService:IsValid(me) == false then return 0 end
+		        ---@type PlayerAttack
+		        local atk = me:GetComponent("script.PlayerAttack")
+		        if atk == nil then return 0 end
+		        return atk:GetCooldownRemain(skillId)
+	end
 
-    @ExecSpace("ClientOnly")
-    method void FitIcon(any iconTransform, number ratio)
-        -- 그림의 가로/세로 비를 지킨 채 아이콘 상자에 채워 넣는다.
-        -- EquipPanel.FitIcon과 같은 계산이고, 같은 이유로 엔진 기능을 안 쓴다:
-        --   · `PreserveSprite=AspectOnly`는 비율은 지키지만 **위치를 스프라이트
-        --     자신의 pivot으로 잡아** 칸 밖으로 밀어낸다 (T17-4c · T20-4 실측).
-        --   · `SetNativeSize()`는 **다음 프레임에야** RectSize에 들어오고, 자원이
-        --     아직 안 올라온 첫 회에는 엉뚱한 값을 문다 (T20-6 실측).
-        -- 그래서 비율은 데이터(`SkillTable.icon_ratio`)에서 읽는다.
-        if ratio <= 0 then return end
-        local w = self.iconBoxH * ratio
-        local h = self.iconBoxH
-        if w > self.iconBoxW then
-            w = self.iconBoxW
-            h = self.iconBoxW / ratio
-        end
-        iconTransform.RectSize = Vector2(w, h)
-    end
+	@ExecSpace("ClientOnly")
+	method void Use(integer activeIndex)
+		        -- 검증은 서버가 한다. 여기서는 요청만 보낸다 (개발 규칙 2).
+		        local me = _UserService.LocalPlayer
+		        if me == nil then return end
+		        ---@type PlayerAttack
+		        local atk = me:GetComponent("script.PlayerAttack")
+		        if atk == nil then return end
+		
+		        -- 획득 후보가 있어도 기존 스킬 버튼은 전투 입력이다.
+		        -- 교체는 별도 패널의 명시적 버튼만 요청한다.
+		
+		        -- 조준 방향을 **여기서 재서 같이 보낸다** (T22-1).
+		        -- 서버는 입력을 모른다 — 돌진 방향을 서버에서 몸의 속도로 읽으려 했더니
+		        -- 항상 0이었다 (실측). 누른 순간의 방향은 누른 쪽만 안다.
+		        local aim = _PlayerAimInput:GetAim8()
+		        atk:RequestUseSkill(activeIndex, aim.x, aim.y)
+	end
 
-    @ExecSpace("ClientOnly")
-    method void RenderSlot(Entity slot, integer index, string skillId)
-        -- 칸 하나를 그린다 (T24-7). 아이콘 · 이름 · 키 · 남은 쿨다운 넷을
-        -- **자식 엔티티**로 나눠 그린다 — 예전에는 이 넷을 글자 한 줄에 이어
-        -- 붙였는데, 아이콘을 넣을 자리가 없었다.
-        if isvalid(slot.SpriteGUIRendererComponent) then
-            slot.SpriteGUIRendererComponent.Color = Color(0.27, 0.33, 0.37, 1)
-            slot.SpriteGUIRendererComponent.OutlineColor = Color(0.19, 0.61, 0.83, 1)
-            slot.SpriteGUIRendererComponent.OutlineWidth = 1
-        end
-        local skill = _GameData:GetSkill(skillId)
-        local remain = 0
-        local slots = self:GetSlots()
-        if slots == nil or (slots:IsRogueliteRunMode() == false
-            and slots:IsPhase1CombatEnabled() == false) then
-            remain = self:GetCooldownRemain(skillId)
-        end
+	@ExecSpace("ClientOnly")
+	method void FitIcon(any iconTransform, number ratio)
+		        -- 그림의 가로/세로 비를 지킨 채 아이콘 상자에 채워 넣는다.
+		        -- EquipPanel.FitIcon과 같은 계산이고, 같은 이유로 엔진 기능을 안 쓴다:
+		        --   · `PreserveSprite=AspectOnly`는 비율은 지키지만 **위치를 스프라이트
+		        --     자신의 pivot으로 잡아** 칸 밖으로 밀어낸다 (T17-4c · T20-4 실측).
+		        --   · `SetNativeSize()`는 **다음 프레임에야** RectSize에 들어오고, 자원이
+		        --     아직 안 올라온 첫 회에는 엉뚱한 값을 문다 (T20-6 실측).
+		        -- 그래서 비율은 데이터(`SkillTable.icon_ratio`)에서 읽는다.
+		        if ratio <= 0 then return end
+		        local w = self.iconBoxH * ratio
+		        local h = self.iconBoxH
+		        if w > self.iconBoxW then
+		            w = self.iconBoxW
+		            h = self.iconBoxW / ratio
+		        end
+		        iconTransform.RectSize = Vector2(w, h)
+	end
 
-        local iconEntity = slot:GetChildByName("Icon", false)
-        if iconEntity ~= nil and skill ~= nil then
-            iconEntity:SetVisible(true)
-            local icon = iconEntity.SpriteGUIRendererComponent
-            if isvalid(icon) then
-                icon.ImageRUID = skill.icon_ruid
-                -- 쿨 중에는 아이콘을 어둡게 죽인다. 숫자만 띄우면 판이 바쁠 때
-                -- 눈에 안 들어온다 (EquipPanel이 잠긴 스킬을 죽이는 것과 같은 방식).
-                if remain > 0 then
-                    icon.Color = Color(0.42, 0.42, 0.48, 1)
-                else
-                    icon.Color = Color(1, 1, 1, 1)
-                end
-                -- 그림마다 비율이 다르다. 한 크기에 밀어 넣으면 찌그러진다 (T20-6).
-                self:FitIcon(iconEntity.UITransformComponent, skill.icon_ratio)
-            end
-        end
+	@ExecSpace("ClientOnly")
+	method void RenderSlot(Entity slot, integer index, string skillId)
+		        -- 칸 하나를 그린다 (T24-7). 아이콘 · 이름 · 키 · 남은 쿨다운 넷을
+		        -- **자식 엔티티**로 나눠 그린다 — 예전에는 이 넷을 글자 한 줄에 이어
+		        -- 붙였는데, 아이콘을 넣을 자리가 없었다.
+		        if isvalid(slot.SpriteGUIRendererComponent) then
+		            slot.SpriteGUIRendererComponent.Color = Color(0.27, 0.33, 0.37, 1)
+		            slot.SpriteGUIRendererComponent.OutlineColor = Color(0.19, 0.61, 0.83, 1)
+		            slot.SpriteGUIRendererComponent.OutlineWidth = 1
+		        end
+		        local skill = _GameData:GetSkill(skillId)
+		        local remain = 0
+		        local slots = self:GetSlots()
+		        if slots == nil or (slots:IsRogueliteRunMode() == false
+		            and slots:IsPhase1CombatEnabled() == false) then
+		            remain = self:GetCooldownRemain(skillId)
+		        end
+		
+		        local iconEntity = slot:GetChildByName("Icon", false)
+		        if iconEntity ~= nil and skill ~= nil then
+		            iconEntity:SetVisible(true)
+		            local icon = iconEntity.SpriteGUIRendererComponent
+		            if isvalid(icon) then
+		                icon.ImageRUID = skill.icon_ruid
+		                -- 쿨 중에는 아이콘을 어둡게 죽인다. 숫자만 띄우면 판이 바쁠 때
+		                -- 눈에 안 들어온다 (EquipPanel이 잠긴 스킬을 죽이는 것과 같은 방식).
+		                if remain > 0 then
+		                    icon.Color = Color(0.42, 0.42, 0.48, 1)
+		                else
+		                    icon.Color = Color(1, 1, 1, 1)
+		                end
+		                -- 그림마다 비율이 다르다. 한 크기에 밀어 넣으면 찌그러진다 (T20-6).
+		                self:FitIcon(iconEntity.UITransformComponent, skill.icon_ratio)
+		            end
+		        end
+		
+		        local nameEntity = slot:GetChildByName("Name", false)
+		        if nameEntity ~= nil then
+		            -- The icon is the slot label; the full name lives in the Run skill window.
+		            nameEntity.Enable = false
+		            nameEntity:SetVisible(false)
+		        end
+		
+		        local keyEntity = slot:GetChildByName("Key", false)
+		        if keyEntity ~= nil then
+		            keyEntity:SetVisible(true)
+		            -- 어떤 키인지 보여준다. 수동 조작이라 키를 모르면 칸이 있어도
+		            -- 쓸 방법을 알 수 없다. 모바일에는 키보드가 없어 비운다.
+		            local keyText = ""
+		            if self.showKeyHint and Environment:IsPCPlatform() then
+		                keyText = self:KeyNameFor(index)
+		            end
+		            keyEntity.TextGUIRendererComponent.Text = keyText
+		        end
+		
+		        local coolEntity = slot:GetChildByName("Cool", false)
+		        if coolEntity ~= nil then
+		            coolEntity:SetVisible(true)
+		            -- 판정은 서버가 한다. 여기서는 "왜 안 나가는지"만 알린다 (개발 규칙 2).
+		            if remain > 0 then
+		                coolEntity.TextGUIRendererComponent.Text = tostring(math.ceil(remain))
+		            else
+		                coolEntity.TextGUIRendererComponent.Text = ""
+		            end
+		        end
+	end
 
-        local nameEntity = slot:GetChildByName("Name", false)
-        if nameEntity ~= nil then
-            -- The icon is the slot label; the full name lives in the Run skill window.
-            nameEntity.Enable = false
-            nameEntity:SetVisible(false)
-        end
+	@ExecSpace("ClientOnly")
+	method void RenderEmptySlot(Entity slot, integer index)
+		        -- Mega Run의 빈 일회성 재고. 다음 서버 공급 주기를 기다린다.
+		        if isvalid(slot.SpriteGUIRendererComponent) then
+		            slot.SpriteGUIRendererComponent.Color = Color(0.27, 0.33, 0.37, 0.94)
+		            slot.SpriteGUIRendererComponent.OutlineColor = Color(0.53, 0.58, 0.61, 1)
+		            slot.SpriteGUIRendererComponent.OutlineWidth = 1
+		        end
+		        local iconEntity = slot:GetChildByName("Icon", false)
+		        if iconEntity ~= nil then iconEntity:SetVisible(false) end
+		
+		        local nameEntity = slot:GetChildByName("Name", false)
+		        if nameEntity ~= nil then
+		            nameEntity.Enable = false
+		            nameEntity:SetVisible(false)
+		        end
+		
+		        local keyEntity = slot:GetChildByName("Key", false)
+		        if keyEntity ~= nil then
+		            keyEntity:SetVisible(true)
+		            local keyText = ""
+		            if self.showKeyHint and Environment:IsPCPlatform() then
+		                keyText = self:KeyNameFor(index)
+		            end
+		            keyEntity.TextGUIRendererComponent.Text = keyText
+		        end
+		
+		        local coolEntity = slot:GetChildByName("Cool", false)
+		        if coolEntity ~= nil then
+		            coolEntity:SetVisible(true)
+		            coolEntity.TextGUIRendererComponent.Text = ""
+		        end
+	end
 
-        local keyEntity = slot:GetChildByName("Key", false)
-        if keyEntity ~= nil then
-            keyEntity:SetVisible(true)
-            -- 어떤 키인지 보여준다. 수동 조작이라 키를 모르면 칸이 있어도
-            -- 쓸 방법을 알 수 없다. 모바일에는 키보드가 없어 비운다.
-            local keyText = ""
-            if self.showKeyHint and Environment:IsPCPlatform() then
-                keyText = self:KeyNameFor(index)
-            end
-            keyEntity.TextGUIRendererComponent.Text = keyText
-        end
-
-        local coolEntity = slot:GetChildByName("Cool", false)
-        if coolEntity ~= nil then
-            coolEntity:SetVisible(true)
-            -- 판정은 서버가 한다. 여기서는 "왜 안 나가는지"만 알린다 (개발 규칙 2).
-            if remain > 0 then
-                coolEntity.TextGUIRendererComponent.Text = tostring(math.ceil(remain))
-            else
-                coolEntity.TextGUIRendererComponent.Text = ""
-            end
-        end
-    end
-
-    @ExecSpace("ClientOnly")
-    method void RenderEmptySlot(Entity slot, integer index)
-        -- Mega Run의 빈 일회성 재고. 다음 서버 공급 주기를 기다린다.
-        if isvalid(slot.SpriteGUIRendererComponent) then
-            slot.SpriteGUIRendererComponent.Color = Color(0.27, 0.33, 0.37, 0.94)
-            slot.SpriteGUIRendererComponent.OutlineColor = Color(0.53, 0.58, 0.61, 1)
-            slot.SpriteGUIRendererComponent.OutlineWidth = 1
-        end
-        local iconEntity = slot:GetChildByName("Icon", false)
-        if iconEntity ~= nil then iconEntity:SetVisible(false) end
-
-        local nameEntity = slot:GetChildByName("Name", false)
-        if nameEntity ~= nil then
-            nameEntity.Enable = false
-            nameEntity:SetVisible(false)
-        end
-
-        local keyEntity = slot:GetChildByName("Key", false)
-        if keyEntity ~= nil then
-            keyEntity:SetVisible(true)
-            local keyText = ""
-            if self.showKeyHint and Environment:IsPCPlatform() then
-                keyText = self:KeyNameFor(index)
-            end
-            keyEntity.TextGUIRendererComponent.Text = keyText
-        end
-
-        local coolEntity = slot:GetChildByName("Cool", false)
-        if coolEntity ~= nil then
-            coolEntity:SetVisible(true)
-            coolEntity.TextGUIRendererComponent.Text = ""
-        end
-    end
-
-    @ExecSpace("ClientOnly")
-    method void Refresh()
-        -- 서버와 같은 GetActiveSkills를 부른다. 목록 규칙이 한 곳에만 있게 하려는 것이다.
-        ---@type PlayerSkillSlots
-        local slots = self:GetSlots()
-        if slots == nil then return end
-        if slots:IsRogueliteRunMode() and not slots.RogueliteRunActive then
-            -- 로비에서는 일회성 전투 재고가 없다. 빈 다섯 칸과 지난 Run 토스트가
-            -- 남지 않도록 전체 버튼/획득 UI를 비활성화한다.
-            for i = 1, 5 do
-                local btn = self:GetButton(i)
-                if btn ~= nil then btn.Entity.Enable = false end
-            end
-            self:CloseRunOverlays()
-            return
-        end
-        for i = 1, 5 do
-            local btn = self:GetButton(i)
-            if btn ~= nil then btn.Entity.Enable = true end
-        end
-        self:RefreshOffer(slots)
-
-        -- 저장된 키 배치가 도착했는지 본다 (T14-2). 달라졌을 때만 다시 만든다.
-        self:SyncKeyOrderFromSave()
-
-        local active = slots:GetActiveSkills()
+	@ExecSpace("ClientOnly")
+	method void Refresh()
+		        -- 서버와 같은 GetActiveSkills를 부른다. 목록 규칙이 한 곳에만 있게 하려는 것이다.
+		        ---@type PlayerSkillSlots
+		        local slots = self:GetSlots()
+		        if slots == nil then return end
+		        if slots:IsRogueliteRunMode() and not slots.RogueliteRunActive then
+		            -- 로비에서는 일회성 전투 재고가 없다. 빈 다섯 칸과 지난 Run 토스트가
+		            -- 남지 않도록 전체 버튼/획득 UI를 비활성화한다.
+		            for i = 1, 5 do
+		                local btn = self:GetButton(i)
+		                if btn ~= nil then btn.Entity.Enable = false end
+		            end
+		            self:CloseRunOverlays()
+		            return
+		        end
+		        for i = 1, 5 do
+		            local btn = self:GetButton(i)
+		            if btn ~= nil then btn.Entity.Enable = true end
+		        end
+		        self:RefreshOffer(slots)
+		
+		        -- 저장된 키 배치가 도착했는지 본다 (T14-2). 달라졌을 때만 다시 만든다.
+		        self:SyncKeyOrderFromSave()
+		
+		        local active = slots:GetActiveSkills()
 		local randomMode = slots:IsPhase1CombatEnabled()
-
+		
 		if randomMode then
 			-- 랜덤 모드는 빈 자리까지 포함해 다섯 위치를 고정한다. 슬롯을 당기면
 			-- 사용 직후 다른 스킬이 같은 키로 순간 이동해 오조작을 만든다.
@@ -602,125 +568,125 @@ script SkillBar extends Logic
 			end
 			return
 		end
+		
+		        -- 몇 칸이 차 있는지 먼저 센다. 자리를 오른쪽 끝부터 채우려면
+		        -- **전체 개수를 알아야** 첫 칸의 자리가 정해진다.
+		        local filled = 0
+		        for i = 1, 5 do
+		            if active[i] ~= nil then filled = filled + 1 end
+		        end
+		
+		        local placed = 0
+		        for i = 1, 5 do
+		            local btn = self:GetButton(i)
+		            if btn ~= nil then
+		                local skillId = active[i]
+		                if skillId == nil then
+		                    -- 빈 칸은 숨긴다. 회색으로 남겨두면 "왜 안 눌리지"가 된다.
+		                    btn.Entity:SetVisible(false)
+		                else
+		                    btn.Entity:SetVisible(true)
+		
+		                    -- 오른쪽 끝에서 왼쪽으로 채운다. 마지막 칸이 구석(slotRightX)에 온다.
+		                    placed = placed + 1
+		                    local rt = btn.Entity.UITransformComponent
+		                    if rt ~= nil then
+		                        local x = self.slotRightX - (filled - placed) * self.slotStepX
+		                        if rt.anchoredPosition.x ~= x then
+		                            -- 값이 같을 때도 쓰면 매 0.3초마다 레이아웃이 다시 돈다.
+		                            rt.anchoredPosition = Vector2(x, rt.anchoredPosition.y)
+		                        end
+		                    end
+		
+		                    self:RenderSlot(btn.Entity, i, skillId)
+		                end
+		            end
+		        end
+	end
 
-        -- 몇 칸이 차 있는지 먼저 센다. 자리를 오른쪽 끝부터 채우려면
-        -- **전체 개수를 알아야** 첫 칸의 자리가 정해진다.
-        local filled = 0
-        for i = 1, 5 do
-            if active[i] ~= nil then filled = filled + 1 end
-        end
+	@ExecSpace("ClientOnly")
+	method void ShowRunAbilityToast(string monsterId, string skillId)
+		        if isvalid(self.abilityToast) == false then return end
+		        local monster = _GameData:GetMonster(monsterId)
+		        local skill = _GameData:GetSkill(skillId)
+		        local title = self.abilityToast:GetChildByName("Title", false)
+		        local details = self.abilityToast:GetChildByName("Details", false)
+		        local icon = self.abilityToast:GetChildByName("Icon", false)
+		        if isvalid(title) then
+		            title.TextGUIRendererComponent.Text = (monster ~= nil and monster.name or monsterId)
+		                .. " · 능력 획득"
+		        end
+		        if isvalid(details) then details.TextGUIRendererComponent.Text = skill ~= nil and skill.name or skillId end
+		        if isvalid(icon) then
+		            local visible = skill ~= nil and skill.icon_ruid ~= nil and skill.icon_ruid ~= ""
+		            icon:SetVisible(visible)
+		            if visible then icon.SpriteGUIRendererComponent.ImageRUID = skill.icon_ruid end
+		        end
+		        self.abilityToast.Enable = true
+		        if self.abilityToastTimer ~= nil then _TimerService:ClearTimer(self.abilityToastTimer) end
+		        self.abilityToastTimer = _TimerService:SetTimerOnce(function()
+		            if isvalid(self.abilityToast) then self.abilityToast.Enable = false end
+		            self.abilityToastTimer = nil
+		        end, 2.5)
+	end
 
-        local placed = 0
-        for i = 1, 5 do
-            local btn = self:GetButton(i)
-            if btn ~= nil then
-                local skillId = active[i]
-                if skillId == nil then
-                    -- 빈 칸은 숨긴다. 회색으로 남겨두면 "왜 안 눌리지"가 된다.
-                    btn.Entity:SetVisible(false)
-                else
-                    btn.Entity:SetVisible(true)
+	@ExecSpace("ClientOnly")
+	method void ShowMetaToast(string message)
+		        if isvalid(self.abilityToast) == false then return end
+		        local title = self.abilityToast:GetChildByName("Title", false)
+		        local details = self.abilityToast:GetChildByName("Details", false)
+		        local icon = self.abilityToast:GetChildByName("Icon", false)
+		        if isvalid(title) then title.TextGUIRendererComponent.Text = message end
+		        if isvalid(details) then details.TextGUIRendererComponent.Text = "몬스터 컬렉션" end
+		        if isvalid(icon) then icon:SetVisible(false) end
+		        self.abilityToast.Enable = true
+		        if self.abilityToastTimer ~= nil then _TimerService:ClearTimer(self.abilityToastTimer) end
+		        self.abilityToastTimer = _TimerService:SetTimerOnce(function()
+		            if isvalid(self.abilityToast) then self.abilityToast.Enable = false end
+		            self.abilityToastTimer = nil
+		        end, 2.5)
+	end
 
-                    -- 오른쪽 끝에서 왼쪽으로 채운다. 마지막 칸이 구석(slotRightX)에 온다.
-                    placed = placed + 1
-                    local rt = btn.Entity.UITransformComponent
-                    if rt ~= nil then
-                        local x = self.slotRightX - (filled - placed) * self.slotStepX
-                        if rt.anchoredPosition.x ~= x then
-                            -- 값이 같을 때도 쓰면 매 0.3초마다 레이아웃이 다시 돈다.
-                            rt.anchoredPosition = Vector2(x, rt.anchoredPosition.y)
-                        end
-                    end
+	@ExecSpace("ClientOnly")
+	method void CloseRunOverlays()
+		        -- Run 포기/종료 직후에는 이전 획득 후보와 토스트가 로비 위에 남으면 안 된다.
+		        if isvalid(self.offerPanel) then self.offerPanel.Enable = false end
+		        self.displayedOfferRevision = -1
+		        if self.abilityToastTimer ~= nil then
+		            _TimerService:ClearTimer(self.abilityToastTimer)
+		            self.abilityToastTimer = nil
+		        end
+		        if isvalid(self.abilityToast) then self.abilityToast.Enable = false end
+	end
 
-                    self:RenderSlot(btn.Entity, i, skillId)
-                end
-            end
-        end
-    end
-
-    @ExecSpace("ClientOnly")
-    method void ShowRunAbilityToast(string monsterId, string skillId)
-        if isvalid(self.abilityToast) == false then return end
-        local monster = _GameData:GetMonster(monsterId)
-        local skill = _GameData:GetSkill(skillId)
-        local title = self.abilityToast:GetChildByName("Title", false)
-        local details = self.abilityToast:GetChildByName("Details", false)
-        local icon = self.abilityToast:GetChildByName("Icon", false)
-        if isvalid(title) then
-            title.TextGUIRendererComponent.Text = (monster ~= nil and monster.name or monsterId)
-                .. " · 능력 획득"
-        end
-        if isvalid(details) then details.TextGUIRendererComponent.Text = skill ~= nil and skill.name or skillId end
-        if isvalid(icon) then
-            local visible = skill ~= nil and skill.icon_ruid ~= nil and skill.icon_ruid ~= ""
-            icon:SetVisible(visible)
-            if visible then icon.SpriteGUIRendererComponent.ImageRUID = skill.icon_ruid end
-        end
-        self.abilityToast.Enable = true
-        if self.abilityToastTimer ~= nil then _TimerService:ClearTimer(self.abilityToastTimer) end
-        self.abilityToastTimer = _TimerService:SetTimerOnce(function()
-            if isvalid(self.abilityToast) then self.abilityToast.Enable = false end
-            self.abilityToastTimer = nil
-        end, 2.5)
-    end
-
-    @ExecSpace("ClientOnly")
-    method void ShowMetaToast(string message)
-        if isvalid(self.abilityToast) == false then return end
-        local title = self.abilityToast:GetChildByName("Title", false)
-        local details = self.abilityToast:GetChildByName("Details", false)
-        local icon = self.abilityToast:GetChildByName("Icon", false)
-        if isvalid(title) then title.TextGUIRendererComponent.Text = message end
-        if isvalid(details) then details.TextGUIRendererComponent.Text = "몬스터 컬렉션" end
-        if isvalid(icon) then icon:SetVisible(false) end
-        self.abilityToast.Enable = true
-        if self.abilityToastTimer ~= nil then _TimerService:ClearTimer(self.abilityToastTimer) end
-        self.abilityToastTimer = _TimerService:SetTimerOnce(function()
-            if isvalid(self.abilityToast) then self.abilityToast.Enable = false end
-            self.abilityToastTimer = nil
-        end, 2.5)
-    end
-
-    @ExecSpace("ClientOnly")
-    method void CloseRunOverlays()
-        -- Run 포기/종료 직후에는 이전 획득 후보와 토스트가 로비 위에 남으면 안 된다.
-        if isvalid(self.offerPanel) then self.offerPanel.Enable = false end
-        self.displayedOfferRevision = -1
-        if self.abilityToastTimer ~= nil then
-            _TimerService:ClearTimer(self.abilityToastTimer)
-            self.abilityToastTimer = nil
-        end
-        if isvalid(self.abilityToast) then self.abilityToast.Enable = false end
-    end
-
-    @ExecSpace("ClientOnly")
-    method void RefreshOffer(any slots)
-        if isvalid(self.offerPanel) == false then return end
-        if slots:IsRogueliteRunMode() then
-            self.offerPanel.Enable = false
-            self.displayedOfferRevision = -1
-            return
-        end
-        local show = slots.RogueliteRunActive and slots.PendingAbilitySkillId ~= ""
-        self.offerPanel.Enable = show
-        if show == false then self.displayedOfferRevision = -1 return end
-        self.displayedOfferRevision = slots.PendingAbilityRevision
-        local skill = _GameData:GetSkill(slots.PendingAbilitySkillId)
-        local monster = _GameData:GetMonster(slots.PendingAbilityMonsterId)
-        local title = self.offerPanel:GetChildByName("Title", false)
-        local details = self.offerPanel:GetChildByName("Details", false)
-        local icon = self.offerPanel:GetChildByName("Icon", false)
-        if isvalid(title) then
-            title.TextGUIRendererComponent.Text = (monster ~= nil and monster.name or "능력 발견")
-                .. " · 대기 " .. tostring(slots.PendingAbilityCount)
-        end
-        if isvalid(details) and skill ~= nil then
-            local cooldown = skill.cooldown
-            if cooldown == nil or cooldown <= 0 then cooldown = _GameData:GetBalance("run_skill_cooldown_fallback") end
-            details.TextGUIRendererComponent.Text = skill.name .. " · 재사용 " .. tostring(cooldown)
-                .. "초\n교체할 칸 선택 / 포기 · 방을 떠나면 후보 만료\n전투 단축키는 계속 스킬 사용"
-        end
-        if isvalid(icon) and skill ~= nil then icon.SpriteGUIRendererComponent.ImageRUID = skill.icon_ruid end
-    end
+	@ExecSpace("ClientOnly")
+	method void RefreshOffer(any slots)
+		        if isvalid(self.offerPanel) == false then return end
+		        if slots:IsRogueliteRunMode() then
+		            self.offerPanel.Enable = false
+		            self.displayedOfferRevision = -1
+		            return
+		        end
+		        local show = slots.RogueliteRunActive and slots.PendingAbilitySkillId ~= ""
+		        self.offerPanel.Enable = show
+		        if show == false then self.displayedOfferRevision = -1 return end
+		        self.displayedOfferRevision = slots.PendingAbilityRevision
+		        local skill = _GameData:GetSkill(slots.PendingAbilitySkillId)
+		        local monster = _GameData:GetMonster(slots.PendingAbilityMonsterId)
+		        local title = self.offerPanel:GetChildByName("Title", false)
+		        local details = self.offerPanel:GetChildByName("Details", false)
+		        local icon = self.offerPanel:GetChildByName("Icon", false)
+		        if isvalid(title) then
+		            title.TextGUIRendererComponent.Text = (monster ~= nil and monster.name or "능력 발견")
+		                .. " · 대기 " .. tostring(slots.PendingAbilityCount)
+		        end
+		        if isvalid(details) and skill ~= nil then
+		            local cooldown = skill.cooldown
+		            if cooldown == nil or cooldown <= 0 then cooldown = _GameData:GetBalance("run_skill_cooldown_fallback") end
+		            details.TextGUIRendererComponent.Text = skill.name .. " · 재사용 " .. tostring(cooldown)
+		                .. "초\n교체할 칸 선택 / 포기 · 방을 떠나면 후보 만료\n전투 단축키는 계속 스킬 사용"
+		        end
+		        if isvalid(icon) and skill ~= nil then icon.SpriteGUIRendererComponent.ImageRUID = skill.icon_ruid end
+	end
 
 end

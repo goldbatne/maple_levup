@@ -1,0 +1,215 @@
+@Logic
+script MonsterShopUi extends Logic
+
+	property table ButtonEntities = {}
+
+	property table ButtonHandlers = {}
+
+	property any RefreshTimer = nil
+
+	property boolean ShopOpen = false
+
+	property table PlatformProducts = {}
+
+	@ExecSpace("ClientOnly")
+	method void OnBeginPlay()
+		        self.ButtonEntities = {}
+		        self.ButtonHandlers = {}
+		        self.PlatformProducts = {}
+		        _TimerService:SetTimerOnce(function()
+		            self:BindShopUi()
+		        end, 0.7)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnEndPlay()
+		        for i = 1, #self.ButtonEntities do
+		            local entity = self.ButtonEntities[i]
+		            if isvalid(entity) then
+		                entity:DisconnectEvent(ButtonClickEvent, self.ButtonHandlers[i])
+		            end
+		        end
+		        self.ButtonEntities = {}
+		        self.ButtonHandlers = {}
+		        if self.RefreshTimer ~= nil then
+		            _TimerService:ClearTimer(self.RefreshTimer)
+		            self.RefreshTimer = nil
+		        end
+	end
+
+	@ExecSpace("ClientOnly")
+	method Entity GetShopUi(string suffix)
+		        return _EntityService:GetEntityByPath("/ui/PlayerHud/" .. suffix)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void BindShopButton(string suffix, any fn)
+		        local entity = self:GetShopUi(suffix)
+		        if not isvalid(entity) then
+		            log_warning("[MonsterShopUi] 누락 " .. suffix)
+		            return
+		        end
+		        self.ButtonEntities[#self.ButtonEntities + 1] = entity
+		        self.ButtonHandlers[#self.ButtonHandlers + 1] = entity:ConnectEvent(ButtonClickEvent, fn)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void BindShopUi()
+		        self:BindShopButton("ShopOpenButton", function() self:SetShopOpen(not self.ShopOpen) end)
+		        self:BindShopButton("MonsterShopWindow/Dialog/CloseButton", function() self:SetShopOpen(false) end)
+		        for i = 1, 3 do
+		            local index = i
+		            self:BindShopButton("MonsterShopWindow/Dialog/Product" .. tostring(i), function()
+		                local product = _MonsterShop:GetProduct("PRODUCT_" .. string.char(64 + index))
+		                if product == nil or not product.enabled then return end
+		                if product.id ~= "PRODUCT_A" then
+		                    local platform = self.PlatformProducts[product.id]
+		                    if platform == nil or not platform.ready then
+		                        _GateNotice:ShowNotice("상품 준비 중", "판매 중인 플랫폼 상품을 확인할 수 없습니다.")
+		                        return
+		                    end
+		                end
+		                _MonsterShop:RequestCatalogPurchase(product.id)
+		                self:RefreshShopUi()
+		            end)
+		        end
+		        self:BindShopButton("MonsterShopWindow/Dialog/UseTicketButton", function()
+		            local player = _UserService.LocalPlayer
+		            if not isvalid(player) then return end
+		            local collection = player:GetComponent("script.PlayerCollection")
+		            if collection == nil or collection.MonsterSelectionTickets < 1 then return end
+		            self:SetShopOpen(false)
+		            _EquipPanel:OpenGrowthTicketSelection()
+		        end)
+		        self:SetShopOpen(false)
+		        self.RefreshTimer = _TimerService:SetTimerRepeat(function()
+		            self:RefreshShopUi()
+		        end, 0.5)
+		        log("[MonsterShopUi] 로비 상점 UI 준비")
+	end
+
+	@ExecSpace("ClientOnly")
+	method boolean IsLobby()
+		        local player = _UserService.LocalPlayer
+		        return isvalid(player) and isvalid(player.CurrentMap)
+		            and player.CurrentMap.Name == "maptown" and _GameData.RogueRunActive == false
+	end
+
+	@ExecSpace("ClientOnly")
+	method void SetShopOpen(boolean open)
+		        self.ShopOpen = open and self:IsLobby()
+		        if self.ShopOpen then
+		            _EquipPanel:SetOpen(false)
+		            _AreaSelectPanel:Hide()
+		            _GameData:SetPartyWindowOpen(false)
+		        end
+		        local window = self:GetShopUi("MonsterShopWindow")
+		        if isvalid(window) then
+		            window.Enable = self.ShopOpen
+		            window:SetVisible(self.ShopOpen)
+		            if self.ShopOpen then
+		                local dialog = self:GetShopUi("MonsterShopWindow/Dialog")
+		                if isvalid(dialog) and _UILogic.ScreenWidth > 0 and _UILogic.ScreenHeight > 0 then
+		                    local scale = math.min(1, (_UILogic.ScreenWidth - 40) / 900,
+		                        (_UILogic.ScreenHeight - 36) / 700)
+		                    scale = math.max(0.25, scale)
+		                    dialog.UITransformComponent.UIScale = Vector3(scale, scale, 1)
+		                end
+		                self:LoadPlatformProducts()
+		            end
+		        end
+		        self:RefreshShopUi()
+	end
+
+	@ExecSpace("ClientOnly")
+	method void LoadPlatformProducts()
+		        self.PlatformProducts = {}
+		        for i = 2, 3 do
+		            local productId = "PRODUCT_" .. string.char(64 + i)
+		            local product = _MonsterShop:GetProduct(productId)
+		            if product ~= nil and product.platformId ~= "" then
+		                local platform = _WorldShopService:GetProductAndWait(product.platformId)
+		                if platform ~= nil and platform.Id == product.platformId
+		                    and platform.Type == WorldShopProductType.Item then
+		                    self.PlatformProducts[productId] = {
+		                        price = platform.Price,
+		                        ready = platform.Status == WorldShopProductStatus.Ing
+		                            and platform.Price > 0,
+		                    }
+		                end
+		            end
+		        end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnKeyDown(KeyDownEvent event)
+		        if event.key == KeyboardKey.Escape and self.ShopOpen then self:SetShopOpen(false) end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void RefreshShopUi()
+		        local lobby = self:IsLobby()
+		        local opener = self:GetShopUi("ShopOpenButton")
+		        if isvalid(opener) then
+		            -- 상점을 포함해 어느 마을 창을 열어도 네 메뉴 버튼은 남긴다.
+		            local available = lobby
+		            opener.Enable = available
+		            opener:SetVisible(available)
+		        end
+		        if not lobby and self.ShopOpen then self:SetShopOpen(false) end
+		        if not self.ShopOpen then return end
+		        local player = _UserService.LocalPlayer
+		        local collection = isvalid(player) and player:GetComponent("script.PlayerCollection") or nil
+		        for i = 1, 3 do
+		            local product = _MonsterShop:GetProduct("PRODUCT_" .. string.char(64 + i))
+		            local card = self:GetShopUi("MonsterShopWindow/Dialog/Product" .. tostring(i))
+		            if isvalid(card) and isvalid(card.TextGUIRendererComponent) then
+		                if product == nil then
+		                    card.Enable = false
+		                    card.TextGUIRendererComponent.Text = "상품 데이터 미로드"
+		                else
+		                    local platform = self.PlatformProducts[product.id]
+		                    local mode = product.id == "PRODUCT_A" and "무료 받기"
+		                        or (platform ~= nil and platform.ready and "구매하기" or "준비 중")
+		                    local limit = product.resetType == "DAILY" and "하루 " .. tostring(product.limit) .. "회"
+		                        or (product.resetType == "WEEKLY" and "주간 " .. tostring(product.limit) .. "회"
+		                            or (product.resetType == "MONTHLY" and "월간 " .. tostring(product.limit) .. "회"
+		                                or (product.resetType == "ACCOUNT_ONCE" and "계정 1회" or "제한 없음")))
+		                    -- 로컬 기획 Price는 실제 판매가가 아니다. 플랫폼 조회값만 표시한다.
+		                    card.Enable = product.enabled
+		                    card.TextGUIRendererComponent.Text = ""
+		                    local name = card:GetChildByName("Name", false)
+		                    local meta = card:GetChildByName("Meta", false)
+		                    local buy = card:GetChildByName("Buy", false)
+		                    if isvalid(name) then name.TextGUIRendererComponent.Text = product.name end
+		                    if isvalid(meta) then
+		                        local priceText = product.id == "PRODUCT_A" and "무료"
+		                            or (platform ~= nil and tostring(platform.price) .. " 월드코인" or "가격 확인 중")
+		                        meta.TextGUIRendererComponent.Text = "×" .. tostring(product.amount)
+		                            .. "  ·  " .. limit .. "  ·  "
+		                            .. priceText
+		                    end
+		                    if isvalid(buy) then buy.TextGUIRendererComponent.Text = mode end
+		                end
+		            end
+		        end
+		        local useTicket = self:GetShopUi("MonsterShopWindow/Dialog/UseTicketButton")
+		        if isvalid(useTicket) then
+		            local tickets = collection ~= nil and collection.MonsterSelectionTickets or 0
+		            useTicket.Enable = tickets > 0
+		            useTicket.TextGUIRendererComponent.Text = "성장권 사용  ·  " .. tostring(tickets) .. "개"
+		        end
+		        local status = self:GetShopUi("MonsterShopWindow/Dialog/StatusText")
+		        if isvalid(status) and isvalid(status.TextGUIRendererComponent) then
+		            status.TextGUIRendererComponent.Text = "성장 점수 "
+		                .. tostring(collection ~= nil and collection.MonsterGrowthCurrency or 0)
+		                .. " · 성장 코어 "
+		                .. tostring(collection ~= nil and collection.MonsterGrowthCore or 0)
+		        end
+		        local title = self:GetShopUi("MonsterShopWindow/Dialog/Title")
+		        if isvalid(title) and isvalid(title.TextGUIRendererComponent) then
+		            title.TextGUIRendererComponent.Text = "상점"
+		        end
+	end
+
+end

@@ -1,69 +1,51 @@
--- @클라이언트 (안내만 한다. 아무것도 바꾸지 않으므로 서버가 할 일이 없다)
---
--- 마을의 **메이플월드의 여신** — 전직 차수를 안내하는 NPC (T23-9, 대표 지시 2026-08-25:
--- *"전직 npc는 메이플스토리 여신으로 해줘. 그리고 차수 전직을 안내하는 역할이야"*).
---
--- ## 전직을 시키지 않는다. 알려 줄 뿐이다
---
--- 차수는 **레벨로 저절로 오른다**(Lv20·30·60·100·200 — `PlayerSkillSlots.GetTier`).
--- 여신이 하는 일은 "지금 몇 차인지 / 다음은 언제인지"를 말해 주는 것뿐이다.
--- 여기서 전직을 실행하면 판정 규칙이 두 곳에 생겨 언젠가 어긋난다
--- (RebirthNpc가 환생을 직접 실행하지 않는 것과 같은 판단).
---
--- ## 이 스크립트는 문구를 만들지 않는다
---
--- 터치를 받아 **창을 열기만** 한다 (T23-9b, 대표 지시 *"환생 창처럼 나와주면 좋겠네"*).
--- 무엇을 보여 줄지는 `UI/GoddessPanel`이 정한다 — 문구를 두 곳에서 만들면 언젠가
--- 어긋난다. RebirthNpc → RebirthConfirmPanel과 같은 꼴이다.
-
 @Component
 script GoddessNpc extends Component
 
-    property any touchHandler = nil
+	property any touchHandler = nil
 
-    method void OnBeginPlay()
-        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
-            self.Entity:SetVisible(false)
-            self.Entity.Enable = false
-            log("[GoddessNpc] Mega Run — NPC 비표시/비활성")
-            return
-        end
-        -- 터치는 클라에서만 받는다. 서버에는 입력이 오지 않는다.
-        if self:IsClient() then
-            self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.OnTouch)
-            log("[GoddessNpc] 터치 대기")
-        end
-    end
+	method void OnBeginPlay()
+		        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+		            self.Entity:SetVisible(false)
+		            self.Entity.Enable = false
+		            log("[GoddessNpc] Mega Run — NPC 비표시/비활성")
+		            return
+		        end
+		        -- 터치는 클라에서만 받는다. 서버에는 입력이 오지 않는다.
+		        if self:IsClient() then
+		            self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.OnTouch)
+		            log("[GoddessNpc] 터치 대기")
+		        end
+	end
 
-    method void OnEndPlay()
-        if self.touchHandler ~= nil then
-            self.Entity:DisconnectEvent(TouchEvent, self.touchHandler)
-            self.touchHandler = nil
-        end
-    end
+	method void OnEndPlay()
+		        if self.touchHandler ~= nil then
+		            self.Entity:DisconnectEvent(TouchEvent, self.touchHandler)
+		            self.touchHandler = nil
+		        end
+	end
 
-    @ExecSpace("ClientOnly")
-    method void OnTouch(TouchEvent event)
-        -- 누른 사람의 클라에서만 뜨는 이벤트라 LocalPlayer가 곧 그 사람이다
-        -- (RebirthNpc와 같은 이유로 TouchEvent의 주인을 따로 묻지 않는다).
-        --
-        -- 여기서는 창을 열기만 한다. 무엇을 보여 줄지는 창(GoddessPanel)이 정한다 —
-        -- 문구를 두 곳에서 만들면 언젠가 어긋난다 (RebirthNpc → RebirthConfirmPanel과 같은 꼴).
-        local me = _UserService.LocalPlayer
-        if me == nil then return end
-
-        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
-            log("[GoddessNpc] 로그라이트 모드 — 전직 상호작용 거부")
-            return
-        end
-
-        if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then
-            log("[GoddessNpc] Phase 3 — 전직 안내 비활성")
-            _GateNotice:ShowNotice("전직은 사라졌다", "이제 특성이 플레이 스타일을 결정한다")
-            return
-        end
-        log("[GoddessNpc] 전직 안내 창 열기")
-        _GoddessPanel:Open()
-    end
+	@ExecSpace("ClientOnly")
+	method void OnTouch(TouchEvent event)
+		        -- 누른 사람의 클라에서만 뜨는 이벤트라 LocalPlayer가 곧 그 사람이다
+		        -- (RebirthNpc와 같은 이유로 TouchEvent의 주인을 따로 묻지 않는다).
+		        --
+		        -- 여기서는 창을 열기만 한다. 무엇을 보여 줄지는 창(GoddessPanel)이 정한다 —
+		        -- 문구를 두 곳에서 만들면 언젠가 어긋난다 (RebirthNpc → RebirthConfirmPanel과 같은 꼴).
+		        local me = _UserService.LocalPlayer
+		        if me == nil then return end
+		
+		        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+		            log("[GoddessNpc] 로그라이트 모드 — 전직 상호작용 거부")
+		            return
+		        end
+		
+		        if _GameData:GetBalance("phase3_simplified_growth_enabled") >= 0.5 then
+		            log("[GoddessNpc] Phase 3 — 전직 안내 비활성")
+		            _GateNotice:ShowNotice("전직은 사라졌다", "이제 특성이 플레이 스타일을 결정한다")
+		            return
+		        end
+		        log("[GoddessNpc] 전직 안내 창 열기")
+		        _GoddessPanel:Open()
+	end
 
 end

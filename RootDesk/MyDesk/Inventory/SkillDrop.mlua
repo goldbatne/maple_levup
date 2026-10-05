@@ -1,205 +1,208 @@
--- @서버 권한 + @클라이언트 표시
--- Run 몬스터가 남기는 공유 능력 드롭. 접촉 자동 획득이 아니라 InteractionComponent의
--- E/모바일 상호작용으로만 SkillDropManager에 획득을 요청한다.
-
 @Component
 script SkillDrop extends Component
 
-    @Sync
-    property string MonsterId = ""
+	@Sync
+	property string MonsterId = ""
 
-    @Sync
-    property string SkillId = ""
+	@Sync
+	property string SkillId = ""
 
-    @Sync
-    property string ClaimState = "AVAILABLE"
+	@Sync
+	property string ClaimState = "AVAILABLE"
 
-    @Sync
-    property integer RemainingSeconds = 60
+	@Sync
+	property integer RemainingSeconds = 60
 
-    property integer RecordSerial = 0
-    property number ExpireAt = 0
-    property integer lifetimeTimer = 0
-    property string lastFrameStyle = ""
-    property any touchHandler = nil
-    property any touchEntity = nil
-    property any iconTouchHandler = nil
-    property any iconTouchEntity = nil
+	property integer RecordSerial = 0
 
-    @ExecSpace("ClientOnly")
-    method void OnBeginPlay()
-        -- 모바일 화면 탭을 기존 서버 획득 판정으로 전달한다.
-        -- 루트와 아이콘 양쪽에 터치 영역을 둬서 투명 프레임/자식 Sprite의
-        -- 렌더 순서가 달라도 같은 탭이 누락되지 않게 한다.
-        self.touchEntity = self.Entity
-        self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.HandleTouch)
-        local icon = self.Entity:GetChildByName("Icon", false)
-        if isvalid(icon) then
-            self.iconTouchEntity = icon
-            self.iconTouchHandler = icon:ConnectEvent(TouchEvent, self.HandleTouch)
-        end
-        log("[SkillDropVisual] msw_item_slot_frame_v5")
-        self:RefreshVisual()
-    end
+	property number ExpireAt = 0
 
-    @ExecSpace("ClientOnly")
-    method void OnEndPlay()
-        -- 드롭 엔티티가 제거될 때 터치 핸들러를 해제한다.
-        if self.touchHandler ~= nil and isvalid(self.touchEntity) then
-            self.touchEntity:DisconnectEvent(TouchEvent, self.touchHandler)
-            self.touchHandler = nil
-        end
-        if self.iconTouchHandler ~= nil and isvalid(self.iconTouchEntity) then
-            self.iconTouchEntity:DisconnectEvent(TouchEvent, self.iconTouchHandler)
-            self.iconTouchHandler = nil
-        end
-        self.touchEntity = nil
-        self.iconTouchEntity = nil
-    end
+	property integer lifetimeTimer = 0
 
-    @ExecSpace("ClientOnly")
-    method void HandleTouch(TouchEvent event)
-        -- E키와 동일한 서버 거리·소유권·중복 획득 검사를 사용한다.
-        if self.ClaimState ~= "AVAILABLE" then return end
-        log("[SkillDropTouch] tap serial=" .. tostring(self.Serial))
-        self:RequestTouchClaim()
-    end
+	property string lastFrameStyle = ""
 
-    @ExecSpace("Server")
-    method void RequestTouchClaim()
-        -- 탭 요청자는 서버가 부여한 senderUserId로만 확인한다.
-        if self.ClaimState ~= "AVAILABLE" then return end
-        local player = _UserService:GetUserEntityByUserId(senderUserId)
-        if isvalid(player) == false or isvalid(player.PlayerComponent) == false then return end
-        _SkillDropManager:TryClaim(self, player)
-    end
+	property any touchHandler = nil
 
-    @ExecSpace("ClientOnly")
-    method void OnSyncProperty(string name, any value)
-        if name == "MonsterId" or name == "SkillId" or name == "ClaimState"
-            or name == "RemainingSeconds" then
-            self:RefreshVisual()
-        end
-    end
+	property any touchEntity = nil
 
-    @ExecSpace("ServerOnly")
-    method void ActivateServer(number lifetime)
-        if lifetime <= 0 then lifetime = 60 end
-        self.ClaimState = "AVAILABLE"
-        self.RemainingSeconds = math.ceil(lifetime)
-        self.ExpireAt = _UtilLogic.ServerElapsedSeconds + lifetime
+	property any iconTouchHandler = nil
 
-        local interaction = self.Entity.InteractionComponent
-        if isvalid(interaction) then
-            local range = _GameData:GetBalance("skill_drop_interact_range")
-            if range <= 0 then range = 1.25 end
-            interaction.ColliderType = ColliderType.Circle
-            interaction.CircleRadius = range
-            interaction.ShowActionInfo = true
-        end
-        self:RefreshInteractionLabelServer(self.RemainingSeconds)
+	property any iconTouchEntity = nil
 
-        if self.lifetimeTimer ~= 0 then _TimerService:ClearTimer(self.lifetimeTimer) end
-        self.lifetimeTimer = _TimerService:SetTimerRepeat(function()
-            if isvalid(self.Entity) == false or self.ClaimState ~= "AVAILABLE" then return end
-            local remain = math.max(0, math.ceil(self.ExpireAt - _UtilLogic.ServerElapsedSeconds))
-            if remain ~= self.RemainingSeconds then
-                self.RemainingSeconds = remain
-                self:RefreshInteractionLabelServer(remain)
-            end
-            if remain <= 0 then _SkillDropManager:ExpireDrop(self) end
-        end, 0.25)
-        log("[SkillDrop] AVAILABLE monster=" .. self.MonsterId .. " skill=" .. self.SkillId
-            .. " lifetime=" .. tostring(lifetime))
-    end
+	@ExecSpace("ClientOnly")
+	method void OnBeginPlay()
+		        -- 모바일 화면 탭을 기존 서버 획득 판정으로 전달한다.
+		        -- 루트와 아이콘 양쪽에 터치 영역을 둬서 투명 프레임/자식 Sprite의
+		        -- 렌더 순서가 달라도 같은 탭이 누락되지 않게 한다.
+		        self.touchEntity = self.Entity
+		        self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.HandleTouch)
+		        local icon = self.Entity:GetChildByName("Icon", false)
+		        if isvalid(icon) then
+		            self.iconTouchEntity = icon
+		            self.iconTouchHandler = icon:ConnectEvent(TouchEvent, self.HandleTouch)
+		        end
+		        log("[SkillDropVisual] msw_item_slot_frame_v5")
+		        self:RefreshVisual()
+	end
 
-    @ExecSpace("ServerOnly")
-    method void RefreshInteractionLabelServer(integer remain)
-        local interaction = self.Entity.InteractionComponent
-        if isvalid(interaction) == false then return end
-        local startAt = math.floor(_GameData:GetBalance("skill_drop_countdown_start"))
-        local warningAt = math.floor(_GameData:GetBalance("skill_drop_warning_seconds"))
-        if startAt <= 0 then startAt = 30 end
-        if warningAt <= 0 then warningAt = 10 end
-        -- 엔진의 근접 Interaction 안내는 작은 획득 힌트로만 사용한다.
-        local label = "능력 획득"
-        if remain <= startAt then
-            label = label .. " · " .. tostring(math.max(0, remain)) .. "초"
-            if remain <= warningAt then label = "! " .. label end
-        end
-        interaction.ActionName = label
-    end
+	@ExecSpace("ClientOnly")
+	method void OnEndPlay()
+		        -- 드롭 엔티티가 제거될 때 터치 핸들러를 해제한다.
+		        if self.touchHandler ~= nil and isvalid(self.touchEntity) then
+		            self.touchEntity:DisconnectEvent(TouchEvent, self.touchHandler)
+		            self.touchHandler = nil
+		        end
+		        if self.iconTouchHandler ~= nil and isvalid(self.iconTouchEntity) then
+		            self.iconTouchEntity:DisconnectEvent(TouchEvent, self.iconTouchHandler)
+		            self.iconTouchHandler = nil
+		        end
+		        self.touchEntity = nil
+		        self.iconTouchEntity = nil
+	end
 
-    @ExecSpace("ServerOnly")
-    method void PrepareSuspend(string reason)
-        if self.lifetimeTimer ~= 0 then
-            _TimerService:ClearTimer(self.lifetimeTimer)
-            self.lifetimeTimer = 0
-        end
-        self.ClaimState = "SUSPENDED"
-        log("[SkillDrop] SUSPEND serial=" .. tostring(self.RecordSerial)
-            .. " skill=" .. self.SkillId .. " reason=" .. reason)
-    end
+	@ExecSpace("ClientOnly")
+	method void HandleTouch(TouchEvent event)
+		        -- E키와 동일한 서버 거리·소유권·중복 획득 검사를 사용한다.
+		        if self.ClaimState ~= "AVAILABLE" then return end
+		        log("[SkillDropTouch] tap serial=" .. tostring(self.Serial))
+		        self:RequestTouchClaim()
+	end
 
-    @ExecSpace("ServerOnly")
-    method void PrepareRemove(string reason)
-        if self.lifetimeTimer ~= 0 then
-            _TimerService:ClearTimer(self.lifetimeTimer)
-            self.lifetimeTimer = 0
-        end
-        if self.ClaimState == "AVAILABLE" then self.ClaimState = "REMOVED" end
-        log("[SkillDrop] REMOVE skill=" .. self.SkillId .. " reason=" .. reason)
-    end
+	@ExecSpace("Server")
+	method void RequestTouchClaim()
+		        -- 탭 요청자는 서버가 부여한 senderUserId로만 확인한다.
+		        if self.ClaimState ~= "AVAILABLE" then return end
+		        local player = _UserService:GetUserEntityByUserId(senderUserId)
+		        if isvalid(player) == false or isvalid(player.PlayerComponent) == false then return end
+		        _SkillDropManager:TryClaim(self, player)
+	end
 
-    @ExecSpace("ClientOnly")
-    method void RefreshVisual()
-        if isvalid(self.Entity) == false then return end
-        local skill = self.SkillId ~= "" and _GameData:GetSkill(self.SkillId) or nil
+	@ExecSpace("ClientOnly")
+	method void OnSyncProperty(string name, any value)
+		        if name == "MonsterId" or name == "SkillId" or name == "ClaimState"
+		            or name == "RemainingSeconds" then
+		            self:RefreshVisual()
+		        end
+	end
 
-        local icon = self.Entity:GetChildByName("Icon", false)
-        -- 등록된 모델 캐시가 남아 있어도 월드 표시는 스킬 버튼 크기로 고정한다.
-        -- 상호작용 반경은 루트의 InteractionComponent가 별도로 유지한다.
-        if isvalid(icon) and isvalid(icon.TransformComponent) then
-            icon.TransformComponent.Scale = Vector3(0.22, 0.22, 1)
-        end
-        if isvalid(icon) and isvalid(icon.SpriteRendererComponent) and skill ~= nil
-            and skill.icon_ruid ~= nil and skill.icon_ruid ~= "" then
-            icon.SpriteRendererComponent.SpriteRUID = skill.icon_ruid
-        end
+	@ExecSpace("ServerOnly")
+	method void ActivateServer(number lifetime)
+		        if lifetime <= 0 then lifetime = 60 end
+		        self.ClaimState = "AVAILABLE"
+		        self.RemainingSeconds = math.ceil(lifetime)
+		        self.ExpireAt = _UtilLogic.ServerElapsedSeconds + lifetime
+		
+		        local interaction = self.Entity.InteractionComponent
+		        if isvalid(interaction) then
+		            local range = _GameData:GetBalance("skill_drop_interact_range")
+		            if range <= 0 then range = 1.25 end
+		            interaction.ColliderType = ColliderType.Circle
+		            interaction.CircleRadius = range
+		            interaction.ShowActionInfo = true
+		        end
+		        self:RefreshInteractionLabelServer(self.RemainingSeconds)
+		
+		        if self.lifetimeTimer ~= 0 then _TimerService:ClearTimer(self.lifetimeTimer) end
+		        self.lifetimeTimer = _TimerService:SetTimerRepeat(function()
+		            if isvalid(self.Entity) == false or self.ClaimState ~= "AVAILABLE" then return end
+		            local remain = math.max(0, math.ceil(self.ExpireAt - _UtilLogic.ServerElapsedSeconds))
+		            if remain ~= self.RemainingSeconds then
+		                self.RemainingSeconds = remain
+		                self:RefreshInteractionLabelServer(remain)
+		            end
+		            if remain <= 0 then _SkillDropManager:ExpireDrop(self) end
+		        end, 0.25)
+		        log("[SkillDrop] AVAILABLE monster=" .. self.MonsterId .. " skill=" .. self.SkillId
+		            .. " lifetime=" .. tostring(lifetime))
+	end
 
-        local frame = self.Entity:GetChildByName("SkillFrame", false)
-        if isvalid(frame) and isvalid(frame.TransformComponent) then
-            -- The existing frame sprite is 39 x 100 px. Fit its visual bounds to
-            -- a 44 x 44 px square; the drop root and interaction radius stay unchanged.
-            frame.TransformComponent.Scale = Vector3(44 / 39, 0.44, 1)
-        end
+	@ExecSpace("ServerOnly")
+	method void RefreshInteractionLabelServer(integer remain)
+		        local interaction = self.Entity.InteractionComponent
+		        if isvalid(interaction) == false then return end
+		        local startAt = math.floor(_GameData:GetBalance("skill_drop_countdown_start"))
+		        local warningAt = math.floor(_GameData:GetBalance("skill_drop_warning_seconds"))
+		        if startAt <= 0 then startAt = 30 end
+		        if warningAt <= 0 then warningAt = 10 end
+		        -- 엔진의 근접 Interaction 안내는 작은 획득 힌트로만 사용한다.
+		        local label = "능력 획득"
+		        if remain <= startAt then
+		            label = label .. " · " .. tostring(math.max(0, remain)) .. "초"
+		            if remain <= warningAt then label = "! " .. label end
+		        end
+		        interaction.ActionName = label
+	end
 
-        local warningAt = math.floor(_GameData:GetBalance("skill_drop_warning_seconds"))
-        if warningAt <= 0 then warningAt = 10 end
-        self:ApplySkillFrame(self.RemainingSeconds > 0 and self.RemainingSeconds <= warningAt)
+	@ExecSpace("ServerOnly")
+	method void PrepareSuspend(string reason)
+		        if self.lifetimeTimer ~= 0 then
+		            _TimerService:ClearTimer(self.lifetimeTimer)
+		            self.lifetimeTimer = 0
+		        end
+		        self.ClaimState = "SUSPENDED"
+		        log("[SkillDrop] SUSPEND serial=" .. tostring(self.RecordSerial)
+		            .. " skill=" .. self.SkillId .. " reason=" .. reason)
+	end
 
-        self.Entity:SetVisible(self.ClaimState == "AVAILABLE")
-    end
+	@ExecSpace("ServerOnly")
+	method void PrepareRemove(string reason)
+		        if self.lifetimeTimer ~= 0 then
+		            _TimerService:ClearTimer(self.lifetimeTimer)
+		            self.lifetimeTimer = 0
+		        end
+		        if self.ClaimState == "AVAILABLE" then self.ClaimState = "REMOVED" end
+		        log("[SkillDrop] REMOVE skill=" .. self.SkillId .. " reason=" .. reason)
+	end
 
-    @ExecSpace("ClientOnly")
-    method void ApplySkillFrame(boolean urgent)
-        local style = urgent and "URGENT" or "NORMAL"
-        if self.lastFrameStyle == style then return end
-        local frame = self.Entity:GetChildByName("SkillFrame", false)
-        if isvalid(frame) == false or isvalid(frame.SpriteRendererComponent) == false then return end
-        -- 기존 MSW 아이템 슬롯 프레임을 재사용한다. 만료 임박은 색만 바꾼다.
-        frame.SpriteRendererComponent.Color = urgent
-            and Color(1, 0.76, 0.52, 1) or Color(1, 1, 1, 1)
-        self.lastFrameStyle = style
-    end
+	@ExecSpace("ClientOnly")
+	method void RefreshVisual()
+		        if isvalid(self.Entity) == false then return end
+		        local skill = self.SkillId ~= "" and _GameData:GetSkill(self.SkillId) or nil
+		
+		        local icon = self.Entity:GetChildByName("Icon", false)
+		        -- 등록된 모델 캐시가 남아 있어도 월드 표시는 스킬 버튼 크기로 고정한다.
+		        -- 상호작용 반경은 루트의 InteractionComponent가 별도로 유지한다.
+		        if isvalid(icon) and isvalid(icon.TransformComponent) then
+		            icon.TransformComponent.Scale = Vector3(0.22, 0.22, 1)
+		        end
+		        if isvalid(icon) and isvalid(icon.SpriteRendererComponent) and skill ~= nil
+		            and skill.icon_ruid ~= nil and skill.icon_ruid ~= "" then
+		            icon.SpriteRendererComponent.SpriteRUID = skill.icon_ruid
+		        end
+		
+		        local frame = self.Entity:GetChildByName("SkillFrame", false)
+		        if isvalid(frame) and isvalid(frame.TransformComponent) then
+		            -- The existing frame sprite is 39 x 100 px. Fit its visual bounds to
+		            -- a 44 x 44 px square; the drop root and interaction radius stay unchanged.
+		            frame.TransformComponent.Scale = Vector3(44 / 39, 0.44, 1)
+		        end
+		
+		        local warningAt = math.floor(_GameData:GetBalance("skill_drop_warning_seconds"))
+		        if warningAt <= 0 then warningAt = 10 end
+		        self:ApplySkillFrame(self.RemainingSeconds > 0 and self.RemainingSeconds <= warningAt)
+		
+		        self.Entity:SetVisible(self.ClaimState == "AVAILABLE")
+	end
 
-    @ExecSpace("ServerOnly")
-    @EventSender("Self", "InteractionComponent")
-    handler HandleInteraction(InteractionEvent event)
-        if self.ClaimState ~= "AVAILABLE" then return end
-        local player = event.InteractionEntity
-        if isvalid(player) == false or isvalid(player.PlayerComponent) == false then return end
-        _SkillDropManager:TryClaim(self, player)
-    end
+	@ExecSpace("ClientOnly")
+	method void ApplySkillFrame(boolean urgent)
+		        local style = urgent and "URGENT" or "NORMAL"
+		        if self.lastFrameStyle == style then return end
+		        local frame = self.Entity:GetChildByName("SkillFrame", false)
+		        if isvalid(frame) == false or isvalid(frame.SpriteRendererComponent) == false then return end
+		        -- 기존 MSW 아이템 슬롯 프레임을 재사용한다. 만료 임박은 색만 바꾼다.
+		        frame.SpriteRendererComponent.Color = urgent
+		            and Color(1, 0.76, 0.52, 1) or Color(1, 1, 1, 1)
+		        self.lastFrameStyle = style
+	end
+
+	@ExecSpace("ServerOnly")
+	@EventSender("Self")
+	handler HandleInteraction(InteractionEvent event)
+		        if self.ClaimState ~= "AVAILABLE" then return end
+		        local player = event.InteractionEntity
+		        if isvalid(player) == false or isvalid(player.PlayerComponent) == false then return end
+		        _SkillDropManager:TryClaim(self, player)
+	end
 
 end

@@ -1,418 +1,446 @@
--- @클라이언트 (UI는 클라 전용. 모든 메서드에 개별로 @ExecSpace를 붙인다)
---
--- 지금 있는 방에서 **무엇을 얼마나 모아야 하는지**를 상시로 보여 준다 (T17-5).
---
--- 왜 필요한가 (대표 지시 2026-08-16): 방마다 다른 몬스터가 서고(T17-1) 중복을 5개까지
--- 쌓게 되면서(T15), "이 방에서 뭘 더 얻어야 하는가"가 게임 안에서 보이지 않게 됐다.
--- 가방 창과 장착 창을 각각 열어 머릿속으로 맞춰 봐야 알 수 있었다.
---
--- 분모는 전부 데이터에서 나온다 — 방의 몬스터가 떨구는 스킬 1종(RoomTable.monster_id →
--- MonsterTable.drop_skill_id)과 그 몬스터의 드랍 아이템(ItemTable.drop_from 역인덱스).
--- 그래서 몬스터를 바꾸면 이 창도 저절로 따라간다.
---
--- StatPanel / EquipPanel과 같은 이유로 @Logic이다 — UI 엔티티에 붙은 @Component는
--- Server 계열 메서드를 가질 수 없다.
-
 @Logic
 script RoomProgressHud extends Logic
 
-    -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다.
-    property Entity panel = "fde51d55-3d93-46f0-ac89-1f406ce74eb6"
-    property TextGUIRendererComponent lblTitle = "e18727ea-a127-40d3-8030-88b809032e88"
-    property TextGUIRendererComponent lblRow1 = "23ddb549-3302-4b09-a73d-b789c7bd1b49"
-    property TextGUIRendererComponent lblRow2 = "6b16f4a0-0f60-4f8e-a470-4398d32cce86"
-    property TextGUIRendererComponent lblRow3 = "6ef92b95-16dd-4e0a-a49d-d6acd1388af5"
-    property Entity minimapPanel = "57496077-5d35-42d0-bf50-7be3a8cfc683"
-    property TextGUIRendererComponent minimapRoom = "126a0262-97d9-46ee-a8a6-5c586ccbd2e7"
-    property TextGUIRendererComponent minimapBossHint = "237e3981-7268-47f6-a826-4ff697d35419"
-    property string lastMinimapSnapshot = ""
+	property Entity panel = "fde51d55-3d93-46f0-ac89-1f406ce74eb6"
 
-    property Entity resultPanel = nil
-    property boolean resultDismissed = false
-    property any resultCloseHandler = nil
+	property TextGUIRendererComponent lblTitle = "e18727ea-a127-40d3-8030-88b809032e88"
 
-    property any refreshTimer = nil
+	property TextGUIRendererComponent lblRow1 = "23ddb549-3302-4b09-a73d-b789c7bd1b49"
 
-    -- 갱신 주기(초). 값이 바뀌는 계기가 포획·드랍이라 촘촘할 필요가 없다.
-    property number refreshInterval = 0.5
+	property TextGUIRendererComponent lblRow2 = "6b16f4a0-0f60-4f8e-a470-4398d32cce86"
 
-    @ExecSpace("ClientOnly")
-    method void OnBeginPlay()
-        self.resultPanel = _EntityService:GetEntityByPath("/ui/RoomProgress/ResultPanel")
-        if isvalid(self.resultPanel) then
-            self.resultPanel.Enable = false
-            self.resultPanel:SetVisible(false)
-            local closeButton = self.resultPanel:GetChildByName("CloseButton", false)
-            if isvalid(closeButton) then
-                self.resultCloseHandler = closeButton:ConnectEvent(ButtonClickEvent, function()
-                    _GameData:RequestCloseRogueliteResult()
-                    self.resultDismissed = true
-                    self.resultPanel.Enable = false
-                    self.resultPanel:SetVisible(false)
-                end)
-            end
-        end
-        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
-            if isvalid(self.panel) then
-                -- 신규 HUD는 우측 월드맵과 겹치지 않게 배치한다.
-                local rt = self.panel.UITransformComponent
-                rt.AlignmentOption = AlignmentType.TopLeft
-                rt.Pivot = Vector2(0, 1)
-                rt.anchoredPosition = Vector2(20, -175)
-                rt.RectSize = Vector2(430, 92)
-            end
-            if isvalid(self.panel) then self.panel.Enable = false end
-            self.refreshTimer = _TimerService:SetTimerRepeat(function() self:Refresh() end,
-                self.refreshInterval)
-            self:Refresh()
-            log("[Run목표] HUD 활성")
-            return
-        end
-        -- T54: 상시 획득 현황은 월드맵 방 클릭 팝업으로 옮겼다.
-        -- 예전 패널은 기존 월드와 UUID 호환을 위해 남겨 두되 화면과 타이머를 모두 끈다.
-        if isvalid(self.panel) then self.panel.Enable = false end
-        log("[방진척] T54 비활성 — 월드맵 방 클릭 정보로 대체")
-    end
+	property TextGUIRendererComponent lblRow3 = "6ef92b95-16dd-4e0a-a49d-d6acd1388af5"
 
-    @ExecSpace("ClientOnly")
-    method void OnEndPlay()
-        if self.refreshTimer ~= nil then
-            _TimerService:ClearTimer(self.refreshTimer)
-            self.refreshTimer = nil
-        end
-    end
+	property Entity minimapPanel = "57496077-5d35-42d0-bf50-7be3a8cfc683"
 
-    @ExecSpace("ClientOnly")
-    method any GetRoom()
-        -- 지금 서 있는 방의 레코드. 맵 이름으로 역인덱스한다
-        -- (RoomCamera / RoomSpawner와 같은 방식 — 맵 이름과 map_name은 같아야 한다).
-        local me = _UserService.LocalPlayer
-        if me == nil then return nil end
-        local map = me.CurrentMap
-        if not isvalid(map) then return nil end
-        return _GameData:GetRoomByMapName(map.Name)
-    end
+	property TextGUIRendererComponent minimapRoom = "126a0262-97d9-46ee-a8a6-5c586ccbd2e7"
 
-    @ExecSpace("ClientOnly")
-    method string CountText(string label, string name, integer have, integer cap)
-        -- "스킬  뿔 들이받기   1/5" 꼴. 다 모았으면 눈에 띄게 표시한다 —
-        -- 이 창의 목적이 "더 얻을 것이 남았는가"라서 끝난 줄이 구분돼야 한다.
-        local text = label .. "  " .. name .. "   " .. tostring(have) .. "/" .. tostring(cap)
-        if have >= cap then text = text .. "  ✔" end
-        return text
-    end
+	property TextGUIRendererComponent minimapBossHint = "237e3981-7268-47f6-a826-4ff697d35419"
 
-    @ExecSpace("ClientOnly")
-    method void SetRow(TextGUIRendererComponent lbl, string text)
-        if not isvalid(lbl) then return end
-        lbl.Text = text
-    end
+	property string lastMinimapSnapshot = ""
 
-    @ExecSpace("ClientOnly")
-    method void Refresh()
-        self:RefreshRunResult()
-        self:RefreshMinimap()
-        if not isvalid(self.panel) then return end
+	property integer currentMinimapSourceIndex = 0
 
-        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
-            local me = _UserService.LocalPlayer
-            local slots = isvalid(me) and me:GetComponent("script.PlayerSkillSlots") or nil
-            local map = isvalid(me) and me.CurrentMap or nil
-            if not _GameData.RogueRunActive or slots == nil or not slots.RogueliteRunActive
-                or not isvalid(map) or map.Name == "maptown" then
-                self.panel.Enable = false
-                return
-            end
-        end
+	property Entity resultPanel = nil
 
-        if _GameData.RogueRunActive then
-            self.panel.Enable = true
-            self:SetRow(self.lblTitle, "목표")
-            local objective = "보스를 찾아 처치하세요."
-            if _GameData.RogueObjectiveComplete then objective = "목표 달성" end
-            if _GameData.RogueRunComplete then objective = "구역을 클리어했습니다. 메뉴로 돌아갑니다." end
-            if _GameData.RogueRunFailed then objective = "모험에 실패했습니다. 메뉴로 돌아갑니다." end
-            self:SetRow(self.lblRow1, objective)
-            self:SetRow(self.lblRow2, "")
-            self:SetRow(self.lblRow3, "")
-            return
-        end
+	property boolean resultDismissed = false
 
-        local room = self:GetRoom()
-        -- 몬스터가 없는 방(마을·시험장)에서는 보여 줄 것이 없다. 빈 창을 띄우면
-        -- "고장났나"로 보이므로 통째로 숨긴다.
-        if room == nil or room.monster_id == "" then
-            self.panel.Enable = false
-            return
-        end
+	property any resultCloseHandler = nil
 
-        local monster = _GameData:GetMonster(room.monster_id)
-        if monster == nil then
-            self.panel.Enable = false
-            return
-        end
-        self.panel.Enable = true
+	property any refreshTimer = nil
 
-        local me = _UserService.LocalPlayer
-        ---@type PlayerCollection
-        local collection = me:GetComponent("script.PlayerCollection")
-        ---@type PlayerInventory
-        local inventory = me:GetComponent("script.PlayerInventory")
+	property number refreshInterval = 0.5
 
-        self:SetRow(self.lblTitle, room.name .. "  —  " .. monster.name)
+	@ExecSpace("ClientOnly")
+	method void OnBeginPlay()
+		        self.resultPanel = _EntityService:GetEntityByPath("/ui/RoomProgress/ResultPanel")
+		        if isvalid(self.resultPanel) then
+		            self.resultPanel.Enable = false
+		            self.resultPanel:SetVisible(false)
+		            local closeButton = self.resultPanel:GetChildByName("CloseButton", false)
+		            if isvalid(closeButton) then
+		                self.resultCloseHandler = closeButton:ConnectEvent(ButtonClickEvent, function()
+		                    _GameData:RequestCloseRogueliteResult()
+		                    self.resultDismissed = true
+		                    self.resultPanel.Enable = false
+		                    self.resultPanel:SetVisible(false)
+		                end)
+		            end
+		        end
+		        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+		            if isvalid(self.panel) then
+		                -- 신규 HUD는 우측 월드맵과 겹치지 않게 배치한다.
+		                local rt = self.panel.UITransformComponent
+		                rt.AlignmentOption = AlignmentType.TopLeft
+		                rt.Pivot = Vector2(0, 1)
+		                rt.anchoredPosition = Vector2(20, -175)
+		                rt.RectSize = Vector2(430, 92)
+		            end
+		            if isvalid(self.panel) then self.panel.Enable = false end
+		            self.refreshTimer = _TimerService:SetTimerRepeat(function() self:Refresh() end,
+		                self.refreshInterval)
+		            self:Refresh()
+		            log("[Run목표] HUD 활성")
+		            return
+		        end
+		        -- T54: 상시 획득 현황은 월드맵 방 클릭 팝업으로 옮겼다.
+		        -- 예전 패널은 기존 월드와 UUID 호환을 위해 남겨 두되 화면과 타이머를 모두 끈다.
+		        if isvalid(self.panel) then self.panel.Enable = false end
+		        log("[방진척] T54 비활성 — 월드맵 방 클릭 정보로 대체")
+	end
 
-        local rows = {}
+	@ExecSpace("ClientOnly")
+	method void OnEndPlay()
+		        if self.refreshTimer ~= nil then
+		            _TimerService:ClearTimer(self.refreshTimer)
+		            self.refreshTimer = nil
+		        end
+	end
 
-        -- 스킬 한 줄. 방의 몬스터가 떨구는 것은 언제나 하나다 (MonsterTable.drop_skill_id).
-        if monster.drop_skill_id ~= "" and collection ~= nil then
-            local skill = _GameData:GetSkill(monster.drop_skill_id)
-            local name = monster.drop_skill_id
-            if skill ~= nil then name = skill.name end
-            local cap = math.floor(_GameData:GetBalance("skill_stack_max"))
-            rows[#rows + 1] = self:CountText("스킬", name,
-                collection:GetOwnedCount(monster.drop_skill_id), cap)
-        end
+	@ExecSpace("ClientOnly")
+	method any GetRoom()
+		        -- 지금 서 있는 방의 레코드. 맵 이름으로 역인덱스한다
+		        -- (RoomCamera / RoomSpawner와 같은 방식 — 맵 이름과 map_name은 같아야 한다).
+		        local me = _UserService.LocalPlayer
+		        if me == nil then return nil end
+		        local map = me.CurrentMap
+		        if not isvalid(map) then return nil end
+		        return _GameData:GetRoomByMapName(map.Name)
+	end
 
-        -- 장비 줄. 한 몬스터가 여럿을 떨굴 수 있으므로 첫 일치에서 멈추지 않는다.
-        --
-        -- **소비 아이템은 세지 않는다** (대표 지시 2026-08-25: *"드랍 UI에 아직 포션의
-        -- 내역이 출력되고 있네 저거 없애고 기본으로 드랍되게"*).
-        -- 포션은 T23-5에서 `drop_from=*`가 되어 **모든 몬스터가 떨군다** — 방마다 늘 뜨는
-        -- 줄이라 진척도가 아니고, 정작 모아야 할 장비(2~5%)를 3줄 제한 밖으로 밀어낸다.
-        -- 여기는 "이 방에서 뭘 더 모아야 하나"를 적는 자리다. 포션은 모으는 것이 아니라 쓰는 것이다.
-        if inventory ~= nil then
-            local drops = _GameData:GetItemDropsOf(monster.id)
-            for i = 1, #drops do
-                local item = _GameData:GetItem(drops[i])
-                if item ~= nil and item.item_type ~= "consume" then
-                    local kind = "장비"
-                    if item.item_type == "passive" then kind = "패시브" end
-                    rows[#rows + 1] = self:CountText(kind, item.name,
-                        inventory:GetCount(item.id), _GameData:GetItemStackCap(item.id))
-                end
-            end
-        end
+	@ExecSpace("ClientOnly")
+	method string CountText(string label, string name, integer have, integer cap)
+		        -- "스킬  뿔 들이받기   1/5" 꼴. 다 모았으면 눈에 띄게 표시한다 —
+		        -- 이 창의 목적이 "더 얻을 것이 남았는가"라서 끝난 줄이 구분돼야 한다.
+		        local text = label .. "  " .. name .. "   " .. tostring(have) .. "/" .. tostring(cap)
+		        if have >= cap then text = text .. "  ✔" end
+		        return text
+	end
 
-        -- 줄이 3개를 넘으면 마지막 줄에 몇 개가 더 있는지 적는다. 줄 수를 늘리는 대신
-        -- 이렇게 두는 이유: 텍스트 RectSize는 줄 수만큼 자라지 않아서, 넘친 글자가
-        -- 잘리지 않고 아래 UI 위에 그려진다 (함정 L023).
-        local labels = { self.lblRow1, self.lblRow2, self.lblRow3 }
-        for i = 1, 3 do
-            if i > #rows then
-                self:SetRow(labels[i], "")
-            elseif i == 3 and #rows > 3 then
-                self:SetRow(labels[i], "외 " .. tostring(#rows - 2) .. "종 더")
-            else
-                self:SetRow(labels[i], rows[i])
-            end
-        end
-    end
+	@ExecSpace("ClientOnly")
+	method void SetRow(TextGUIRendererComponent lbl, string text)
+		        if not isvalid(lbl) then return end
+		        lbl.Text = text
+	end
 
-    @ExecSpace("ClientOnly")
-    method void RefreshMinimap()
-        if not isvalid(self.minimapPanel) then return end
-        local me = _UserService.LocalPlayer
-        local map = isvalid(me) and me.CurrentMap or nil
-        local slots = isvalid(me) and me:GetComponent("script.PlayerSkillSlots") or nil
-        local snapshot = _GameData.RogueHudMap or ""
-        local showing = _GameData.RogueRunActive and snapshot ~= ""
-            and isvalid(map) and map.Name ~= "maptown"
-            and slots ~= nil and slots.RogueliteRunActive
-        if not showing then
-            self.minimapPanel.Enable = false
-            self.lastMinimapSnapshot = ""
-            return
-        end
-        self.minimapPanel.Enable = true
-        -- Run View 수신/방 전환 시에만 Node/Edge를 갱신한다.
-        if snapshot == self.lastMinimapSnapshot then return end
-        self.lastMinimapSnapshot = snapshot
+	@ExecSpace("ClientOnly")
+	method string FormatRunClock(integer seconds)
+		        local safe = math.max(0, math.floor(seconds))
+		        return string.format("%02d:%02d", math.floor(safe / 60), safe % 60)
+	end
 
-        local nodes = {}
-        local byId = {}
-        local minX, maxX, minY, maxY = 0, 0, 0, 0
-        for row in string.gmatch(snapshot, "([^|]+)") do
-            local fields = {}
-            for field in string.gmatch(row .. "~", "([^~]*)~") do
-                fields[#fields + 1] = field
-            end
-            if #fields >= 6 then
-                local node = {id = fields[1], x = tonumber(fields[2]) or 0,
-                    y = tonumber(fields[3]) or 0, state = fields[4],
-                    marker = fields[5], links = fields[6],
-                    sourceIndex = tonumber(fields[7]) or 0}
-                nodes[#nodes + 1] = node
-                byId[node.id] = node
-                minX = math.min(minX, node.x); maxX = math.max(maxX, node.x)
-                minY = math.min(minY, node.y); maxY = math.max(maxY, node.y)
-            end
-        end
-        local step = math.min(54, 350 / math.max(1, maxX - minX),
-            160 / math.max(1, maxY - minY))
-        local nodeSize = math.max(11, math.min(23, step * 0.7))
-        local cx, cy = (minX + maxX) / 2, (minY + maxY) / 2
-        local sourceColors = {"#a4c88a", "#d2ad72", "#a5acd9", "#c499b9"}
-        local currentSourceIndex = 0
-        local visitedSources = {}
-        for _, node in ipairs(nodes) do
-            if node.sourceIndex >= 1 and node.sourceIndex <= 4 then
-                if node.state == "V" or node.state == "C" then
-                    visitedSources[node.sourceIndex] = true
-                end
-                if node.state == "C" then currentSourceIndex = node.sourceIndex end
-            end
-        end
-        local title = self.minimapPanel:GetChildByName("Title", false)
-        if isvalid(title) then
-            local megaIndex = tonumber(string.sub(_GameData.RogueAreaId or "", -2)) or 0
-            title.TextGUIRendererComponent.Text = tostring(megaIndex) .. "층의 "
-                .. tostring(currentSourceIndex) .. "번째 구역입니다."
-        end
-        for sourceIndex = 1, 4 do
-            local zone = self.minimapPanel:GetChildByName("Zone" .. tostring(sourceIndex), false)
-            if isvalid(zone) then
-                local color = sourceColors[sourceIndex]
-                if sourceIndex == currentSourceIndex then color = "#55c8ed"
-                elseif not visitedSources[sourceIndex] then color = "#536473" end
-                zone.SpriteGUIRendererComponent.Color = Color.FromHexCode(color)
-            end
-        end
-        for i = 1, 16 do
-            local entity = self.minimapPanel:GetChildByName(string.format("Node%02d", i), false)
-            if isvalid(entity) then
-                local node = nodes[i]
-                entity.Enable = node ~= nil
-                if node ~= nil then
-                    entity.UITransformComponent.anchoredPosition =
-                        Vector2((node.x - cx) * step, (node.y - cy) * step - 20)
-                    entity.UITransformComponent.RectSize = Vector2(nodeSize, nodeSize)
-                    entity.SpriteGUIRendererComponent.Color = node.state == "C"
-                        and Color.FromHexCode("#55c8ed")
-                        or (node.state == "V" and Color.FromHexCode(
-                            sourceColors[node.sourceIndex] or "#c0cbd2")
-                            or Color.FromHexCode("#647583"))
-                    local inset = entity:GetChildByName("Inset", false)
-                    if isvalid(inset) then
-                        inset.UITransformComponent.RectSize = Vector2(nodeSize - 5, nodeSize - 5)
-                        inset.SpriteGUIRendererComponent.Color = node.state == "C"
-                            and Color.FromHexCode("#1379a4")
-                            or (node.state == "V" and Color.FromHexCode("#8e9faa")
-                                or Color.FromHexCode("#3a4b58"))
-                    end
-                    local marker = entity:GetChildByName("Marker", false)
-                    if isvalid(marker) then
-                        marker.TextGUIRendererComponent.Text = node.marker == "B" and "!"
-                            or (node.marker == "S" and "·" or "")
-                    end
-                end
-            end
-        end
-        local drawn = {}
-        local edgeIndex = 0
-        for _, node in ipairs(nodes) do
-            for targetId in string.gmatch(node.links or "", "[nesw]:([^,]+)") do
-                local target = byId[targetId]
-                local key = node.id < targetId and (node.id .. ":" .. targetId)
-                    or (targetId .. ":" .. node.id)
-                if target ~= nil and not drawn[key] and edgeIndex < 32 then
-                    drawn[key] = true
-                    edgeIndex += 1
-                    local edge = self.minimapPanel:GetChildByName(
-                        string.format("Edge%02d", edgeIndex), false)
-                    if isvalid(edge) then
-                        local x1, y1 = (node.x - cx) * step, (node.y - cy) * step - 20
-                        local x2, y2 = (target.x - cx) * step, (target.y - cy) * step - 20
-                        local dx, dy = x2 - x1, y2 - y1
-                        edge.UITransformComponent.anchoredPosition =
-                            Vector2((x1 + x2) / 2, (y1 + y2) / 2)
-                        edge.UITransformComponent.RectSize =
-                            Vector2(math.sqrt(dx * dx + dy * dy), 4)
-                        edge.UITransformComponent.UIRotation =
-                            Vector3(0, 0, math.deg(math.atan(dy, dx)))
-                        edge.Enable = true
-                    end
-                end
-            end
-        end
-        for i = edgeIndex + 1, 32 do
-            local edge = self.minimapPanel:GetChildByName(string.format("Edge%02d", i), false)
-            if isvalid(edge) then edge.Enable = false end
-        end
-        if isvalid(self.minimapRoom) then
-            self.minimapRoom.Text = _GameData.RogueHudRoomName or ""
-        end
-        if isvalid(self.minimapBossHint) then
-            local finalKnown = false
-            for _, node in ipairs(nodes) do
-                if node.marker == "B" then finalKnown = true; break end
-            end
-            self.minimapBossHint.Text = finalKnown and "! 최종방"
-                or ((_GameData.RogueHudBossDirection or "") ~= ""
-                    and ("보스 " .. _GameData.RogueHudBossDirection) or "")
-        end
-        log("[RunMinimap] render room=" .. tostring(_GameData.RogueHudRoomName)
-            .. " source=" .. tostring(currentSourceIndex) .. "/4"
-            .. " nodes=" .. tostring(#nodes) .. " edges=" .. tostring(edgeIndex))
-    end
+	@ExecSpace("ClientOnly")
+	method void Refresh()
+		        self:RefreshRunResult()
+		        self:RefreshMinimap()
+		        if not isvalid(self.panel) then return end
+		
+		        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+		            local me = _UserService.LocalPlayer
+		            local slots = isvalid(me) and me:GetComponent("script.PlayerSkillSlots") or nil
+		            local map = isvalid(me) and me.CurrentMap or nil
+		            if not _GameData.RogueRunActive or slots == nil or not slots.RogueliteRunActive
+		                or not isvalid(map) or map.Name == "maptown" then
+		                self.panel.Enable = false
+		                return
+		            end
+		        end
+		
+		        if _GameData.RogueRunActive then
+		            self.panel.Enable = true
+		            self:SetRow(self.lblTitle, "목표")
+		            local objective = "보스를 찾아 처치하세요."
+		            if _GameData.RogueObjectiveComplete then objective = "목표 달성" end
+		            if _GameData.RogueRunComplete then objective = "구역을 클리어했습니다. 메뉴로 돌아갑니다." end
+		            if _GameData.RogueRunFailed then objective = "모험에 실패했습니다. 메뉴로 돌아갑니다." end
+		            self:SetRow(self.lblRow1, objective)
+		            if _GameData.RogueRunComplete then
+		                self:SetRow(self.lblRow2, "이번 도전 랭크: " .. (_GameData.RogueClearRank or ""))
+		                self:SetRow(self.lblRow3, "")
+		            elseif _GameData.RogueRunFailed then
+		                self:SetRow(self.lblRow2, "")
+		                self:SetRow(self.lblRow3, "")
+		            else
+		                self:SetRow(self.lblRow2, "남은 시간 " .. self:FormatRunClock(
+		                    _GameData.RogueTimeRemainingSeconds or 0))
+		                self:SetRow(self.lblRow3, "S랭크 기준 " .. self:FormatRunClock(
+		                    _GameData.RogueSRankSeconds or 0))
+		            end
+		            return
+		        end
+		
+		        local room = self:GetRoom()
+		        -- 몬스터가 없는 방(마을·시험장)에서는 보여 줄 것이 없다. 빈 창을 띄우면
+		        -- "고장났나"로 보이므로 통째로 숨긴다.
+		        if room == nil or room.monster_id == "" then
+		            self.panel.Enable = false
+		            return
+		        end
+		
+		        local monster = _GameData:GetMonster(room.monster_id)
+		        if monster == nil then
+		            self.panel.Enable = false
+		            return
+		        end
+		        self.panel.Enable = true
+		
+		        local me = _UserService.LocalPlayer
+		        ---@type PlayerCollection
+		        local collection = me:GetComponent("script.PlayerCollection")
+		        ---@type PlayerInventory
+		        local inventory = me:GetComponent("script.PlayerInventory")
+		
+		        self:SetRow(self.lblTitle, room.name .. "  —  " .. monster.name)
+		
+		        local rows = {}
+		
+		        -- 스킬 한 줄. 방의 몬스터가 떨구는 것은 언제나 하나다 (MonsterTable.drop_skill_id).
+		        if monster.drop_skill_id ~= "" and collection ~= nil then
+		            local skill = _GameData:GetSkill(monster.drop_skill_id)
+		            local name = monster.drop_skill_id
+		            if skill ~= nil then name = skill.name end
+		            local cap = math.floor(_GameData:GetBalance("skill_stack_max"))
+		            rows[#rows + 1] = self:CountText("스킬", name,
+		                collection:GetOwnedCount(monster.drop_skill_id), cap)
+		        end
+		
+		        -- 장비 줄. 한 몬스터가 여럿을 떨굴 수 있으므로 첫 일치에서 멈추지 않는다.
+		        --
+		        -- **소비 아이템은 세지 않는다** (대표 지시 2026-08-25: *"드랍 UI에 아직 포션의
+		        -- 내역이 출력되고 있네 저거 없애고 기본으로 드랍되게"*).
+		        -- 포션은 T23-5에서 `drop_from=*`가 되어 **모든 몬스터가 떨군다** — 방마다 늘 뜨는
+		        -- 줄이라 진척도가 아니고, 정작 모아야 할 장비(2~5%)를 3줄 제한 밖으로 밀어낸다.
+		        -- 여기는 "이 방에서 뭘 더 모아야 하나"를 적는 자리다. 포션은 모으는 것이 아니라 쓰는 것이다.
+		        if inventory ~= nil then
+		            local drops = _GameData:GetItemDropsOf(monster.id)
+		            for i = 1, #drops do
+		                local item = _GameData:GetItem(drops[i])
+		                if item ~= nil and item.item_type ~= "consume" then
+		                    local kind = "장비"
+		                    if item.item_type == "passive" then kind = "패시브" end
+		                    rows[#rows + 1] = self:CountText(kind, item.name,
+		                        inventory:GetCount(item.id), _GameData:GetItemStackCap(item.id))
+		                end
+		            end
+		        end
+		
+		        -- 줄이 3개를 넘으면 마지막 줄에 몇 개가 더 있는지 적는다. 줄 수를 늘리는 대신
+		        -- 이렇게 두는 이유: 텍스트 RectSize는 줄 수만큼 자라지 않아서, 넘친 글자가
+		        -- 잘리지 않고 아래 UI 위에 그려진다 (함정 L023).
+		        local labels = { self.lblRow1, self.lblRow2, self.lblRow3 }
+		        for i = 1, 3 do
+		            if i > #rows then
+		                self:SetRow(labels[i], "")
+		            elseif i == 3 and #rows > 3 then
+		                self:SetRow(labels[i], "외 " .. tostring(#rows - 2) .. "종 더")
+		            else
+		                self:SetRow(labels[i], rows[i])
+		            end
+		        end
+	end
 
-    @ExecSpace("ClientOnly")
-    method void RefreshRunResult()
-        if not isvalid(self.resultPanel) then
-            self.resultPanel = _EntityService:GetEntityByPath("/ui/RoomProgress/ResultPanel")
-        end
-        if not isvalid(self.resultPanel) then return end
-        if _UILogic.ScreenWidth > 0 and _UILogic.ScreenHeight > 0 then
-            local scale = math.min(1, (_UILogic.ScreenWidth - 40) / 900,
-                (_UILogic.ScreenHeight - 36) / 430)
-            scale = math.max(0.25, scale)
-            self.resultPanel.UITransformComponent.UIScale = Vector3(scale, scale, 1)
-        end
-        local hasResult = _GameData.RogueRunActive
-            and (_GameData.RogueRunComplete or _GameData.RogueRunFailed)
-        if _GameData.RogueRunActive and not hasResult then
-            self.resultDismissed = false
-        end
-        local showing = hasResult and not self.resultDismissed
-        self.resultPanel.Enable = showing
-        self.resultPanel:SetVisible(showing)
-        if not hasResult then return end
-        local title = self.resultPanel:GetChildByName("Title", false)
-        local body = self.resultPanel:GetChildByName("Body", false)
-        local portrait = self.resultPanel:GetChildByName("BossPortrait", false)
-        local boss = _GameData:GetMonster(_GameData.RogueBossMonsterId)
-        if isvalid(portrait) then
-            local visible = _GameData.RogueRunComplete and boss ~= nil
-                and boss.collection_icon_ruid ~= ""
-            portrait.Enable = visible
-            portrait:SetVisible(visible)
-            if visible then
-                portrait.SpriteGUIRendererComponent.ImageRUID =
-                    DataRef("thumbnail://" .. boss.collection_icon_ruid)
-            end
-        end
-        if isvalid(title) and isvalid(title.TextGUIRendererComponent) then
-            title.TextGUIRendererComponent.Text = _GameData.RogueRunComplete
-                and "CLEAR" or "실패"
-        end
-        if isvalid(body) and isvalid(body.TextGUIRendererComponent) then
-            body.UITransformComponent.anchoredPosition =
-                isvalid(portrait) and portrait.Enable and Vector2(90, -10) or Vector2(0, -10)
-            if _GameData.RogueRunComplete then
-                local bossName = boss ~= nil and boss.name or "최종 보스"
-                local floor = _GameData:GetMegaFloorIndex(_GameData.RogueAreaId)
-                local growthReward = _GameData:GetRogueFloorClearGrowthCurrency(_GameData.RogueAreaId)
-                local coreReward = _GameData:GetRogueFloorClearGrowthCore(_GameData.RogueAreaId)
-                local rewardText = "성장 점수 +" .. tostring(growthReward) .. "점을 받았습니다."
-                if coreReward > 0 then
-                    rewardText = "성장 점수 +" .. tostring(growthReward) .. "점과 성장 코어 +"
-                        .. tostring(coreReward) .. "개를 받았습니다."
-                end
-                body.TextGUIRendererComponent.Text = tostring(floor) .. "층에서 보스 "
-                    .. bossName .. " 처치에 성공했습니다.\n" .. rewardText
-            else
-                body.TextGUIRendererComponent.Text = "이번 모험이 끝났습니다."
-            end
-        end
-    end
+	@ExecSpace("ClientOnly")
+	method void RefreshMinimapHeader(integer sourceIndex)
+		        if not isvalid(self.minimapPanel) then return end
+		        local floor = math.max(1, math.floor(_GameData.RogueFloor or 1))
+		        local zone = math.max(1, sourceIndex)
+		        local title = self.minimapPanel:GetChildByName("Title", false)
+		        if isvalid(title) then
+		            title.TextGUIRendererComponent.Text = tostring(floor) .. "층의 "
+		                .. tostring(zone) .. "번째 구역입니다.\n남은 시간 "
+		                .. self:FormatRunClock(_GameData.RogueTimeRemainingSeconds or 0)
+		        end
+		        if isvalid(self.minimapRoom) then
+		            self.minimapRoom.Text = tostring(floor) .. "층 - "
+		                .. (_GameData.RogueHudRoomName or "")
+		        end
+		        if isvalid(self.minimapBossHint) then
+		            self.minimapBossHint.Text = ""
+		            self.minimapBossHint.Enable = false
+		        end
+		        for source = 1, 4 do
+		            local badge = self.minimapPanel:GetChildByName("Zone" .. tostring(source), false)
+		            if isvalid(badge) then badge.Enable = false end
+		        end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void RefreshMinimap()
+		        if not isvalid(self.minimapPanel) then return end
+		        local me = _UserService.LocalPlayer
+		        local map = isvalid(me) and me.CurrentMap or nil
+		        local slots = isvalid(me) and me:GetComponent("script.PlayerSkillSlots") or nil
+		        local snapshot = _GameData.RogueHudMap or ""
+		        local showing = _GameData.RogueRunActive and snapshot ~= ""
+		            and isvalid(map) and map.Name ~= "maptown"
+		            and slots ~= nil and slots.RogueliteRunActive
+		        if not showing then
+		            self.minimapPanel.Enable = false
+		            self.lastMinimapSnapshot = ""
+		            self.currentMinimapSourceIndex = 0
+		            return
+		        end
+		        self.minimapPanel.Enable = true
+		        self:RefreshMinimapHeader(self.currentMinimapSourceIndex)
+		        -- Run View 수신/방 전환 시에만 Node/Edge를 갱신한다.
+		        if snapshot == self.lastMinimapSnapshot then return end
+		        self.lastMinimapSnapshot = snapshot
+		
+		        local nodes = {}
+		        local byId = {}
+		        local minX, maxX, minY, maxY = 0, 0, 0, 0
+		        for row in string.gmatch(snapshot, "([^|]+)") do
+		            local fields = {}
+		            for field in string.gmatch(row .. "~", "([^~]*)~") do
+		                fields[#fields + 1] = field
+		            end
+		            if #fields >= 6 then
+		                local node = {id = fields[1], x = tonumber(fields[2]) or 0,
+		                    y = tonumber(fields[3]) or 0, state = fields[4],
+		                    marker = fields[5], links = fields[6],
+		                    sourceIndex = tonumber(fields[7]) or 0}
+		                nodes[#nodes + 1] = node
+		                byId[node.id] = node
+		                minX = math.min(minX, node.x); maxX = math.max(maxX, node.x)
+		                minY = math.min(minY, node.y); maxY = math.max(maxY, node.y)
+		            end
+		        end
+		        local step = math.min(54, 350 / math.max(1, maxX - minX),
+		            160 / math.max(1, maxY - minY))
+		        local nodeSize = math.max(11, math.min(23, step * 0.7))
+		        local cx, cy = (minX + maxX) / 2, (minY + maxY) / 2
+		        local sourceColors = {"#a4c88a", "#d2ad72", "#a5acd9", "#c499b9"}
+		        local currentSourceIndex = 0
+		        local visitedSources = {}
+		        for _, node in ipairs(nodes) do
+		            if node.sourceIndex >= 1 and node.sourceIndex <= 4 then
+		                if node.state == "V" or node.state == "C" then
+		                    visitedSources[node.sourceIndex] = true
+		                end
+		                if node.state == "C" then currentSourceIndex = node.sourceIndex end
+		            end
+		        end
+		        self.currentMinimapSourceIndex = math.max(1, currentSourceIndex)
+		        self:RefreshMinimapHeader(self.currentMinimapSourceIndex)
+		        for sourceIndex = 1, 4 do
+		            local zone = self.minimapPanel:GetChildByName("Zone" .. tostring(sourceIndex), false)
+		            if isvalid(zone) then
+		                zone.Enable = false
+		            end
+		        end
+		        for i = 1, 16 do
+		            local entity = self.minimapPanel:GetChildByName(string.format("Node%02d", i), false)
+		            if isvalid(entity) then
+		                local node = nodes[i]
+		                entity.Enable = node ~= nil
+		                if node ~= nil then
+		                    entity.UITransformComponent.anchoredPosition =
+		                        Vector2((node.x - cx) * step, (node.y - cy) * step - 20)
+		                    entity.UITransformComponent.RectSize = Vector2(nodeSize, nodeSize)
+		                    entity.SpriteGUIRendererComponent.Color = node.state == "C"
+		                        and Color.FromHexCode("#55c8ed")
+		                        or (node.state == "V" and Color.FromHexCode(
+		                            sourceColors[node.sourceIndex] or "#c0cbd2")
+		                            or Color.FromHexCode("#647583"))
+		                    local inset = entity:GetChildByName("Inset", false)
+		                    if isvalid(inset) then
+		                        inset.UITransformComponent.RectSize = Vector2(nodeSize - 5, nodeSize - 5)
+		                        inset.SpriteGUIRendererComponent.Color = node.state == "C"
+		                            and Color.FromHexCode("#1379a4")
+		                            or (node.state == "V" and Color.FromHexCode("#8e9faa")
+		                                or Color.FromHexCode("#3a4b58"))
+		                    end
+		                    local marker = entity:GetChildByName("Marker", false)
+		                    if isvalid(marker) then
+		                        marker.TextGUIRendererComponent.Text = node.marker == "B" and "!"
+		                            or (node.marker == "S" and "·" or "")
+		                    end
+		                end
+		            end
+		        end
+		        local drawn = {}
+		        local edgeIndex = 0
+		        for _, node in ipairs(nodes) do
+		            for targetId in string.gmatch(node.links or "", "[nesw]:([^,]+)") do
+		                local target = byId[targetId]
+		                local key = node.id < targetId and (node.id .. ":" .. targetId)
+		                    or (targetId .. ":" .. node.id)
+		                if target ~= nil and not drawn[key] and edgeIndex < 32 then
+		                    drawn[key] = true
+		                    edgeIndex += 1
+		                    local edge = self.minimapPanel:GetChildByName(
+		                        string.format("Edge%02d", edgeIndex), false)
+		                    if isvalid(edge) then
+		                        local x1, y1 = (node.x - cx) * step, (node.y - cy) * step - 20
+		                        local x2, y2 = (target.x - cx) * step, (target.y - cy) * step - 20
+		                        local dx, dy = x2 - x1, y2 - y1
+		                        edge.UITransformComponent.anchoredPosition =
+		                            Vector2((x1 + x2) / 2, (y1 + y2) / 2)
+		                        edge.UITransformComponent.RectSize =
+		                            Vector2(math.sqrt(dx * dx + dy * dy), 4)
+		                        edge.UITransformComponent.UIRotation =
+		                            Vector3(0, 0, math.deg(math.atan(dy, dx)))
+		                        edge.Enable = true
+		                    end
+		                end
+		            end
+		        end
+		        for i = edgeIndex + 1, 32 do
+		            local edge = self.minimapPanel:GetChildByName(string.format("Edge%02d", i), false)
+		            if isvalid(edge) then edge.Enable = false end
+		        end
+		        self:RefreshMinimapHeader(self.currentMinimapSourceIndex)
+		        log("[RunMinimap] render room=" .. tostring(_GameData.RogueHudRoomName)
+		            .. " source=" .. tostring(currentSourceIndex) .. "/4"
+		            .. " nodes=" .. tostring(#nodes) .. " edges=" .. tostring(edgeIndex))
+	end
+
+	@ExecSpace("ClientOnly")
+	method void RefreshRunResult()
+		        if not isvalid(self.resultPanel) then
+		            self.resultPanel = _EntityService:GetEntityByPath("/ui/RoomProgress/ResultPanel")
+		        end
+		        if not isvalid(self.resultPanel) then return end
+		        if _UILogic.ScreenWidth > 0 and _UILogic.ScreenHeight > 0 then
+		            local scale = math.min(1, (_UILogic.ScreenWidth - 40) / 900,
+		                (_UILogic.ScreenHeight - 36) / 430)
+		            scale = math.max(0.25, scale)
+		            self.resultPanel.UITransformComponent.UIScale = Vector3(scale, scale, 1)
+		        end
+		        local hasResult = _GameData.RogueRunActive
+		            and (_GameData.RogueRunComplete or _GameData.RogueRunFailed)
+		        if _GameData.RogueRunActive and not hasResult then
+		            self.resultDismissed = false
+		        end
+		        local showing = hasResult and not self.resultDismissed
+		        self.resultPanel.Enable = showing
+		        self.resultPanel:SetVisible(showing)
+		        if not hasResult then return end
+		        local title = self.resultPanel:GetChildByName("Title", false)
+		        local body = self.resultPanel:GetChildByName("Body", false)
+		        local portrait = self.resultPanel:GetChildByName("BossPortrait", false)
+		        local boss = _GameData:GetMonster(_GameData.RogueBossMonsterId)
+		        if isvalid(portrait) then
+		            local visible = _GameData.RogueRunComplete and boss ~= nil
+		                and boss.collection_icon_ruid ~= ""
+		            portrait.Enable = visible
+		            portrait:SetVisible(visible)
+		            if visible then
+		                portrait.SpriteGUIRendererComponent.ImageRUID =
+		                    DataRef("thumbnail://" .. boss.collection_icon_ruid)
+		            end
+		        end
+		        if isvalid(title) and isvalid(title.TextGUIRendererComponent) then
+		            title.TextGUIRendererComponent.Text = _GameData.RogueRunComplete
+		                and "CLEAR" or "실패"
+		        end
+		        if isvalid(body) and isvalid(body.TextGUIRendererComponent) then
+		            body.UITransformComponent.anchoredPosition =
+		                isvalid(portrait) and portrait.Enable and Vector2(90, -10) or Vector2(0, -10)
+		            if _GameData.RogueRunComplete then
+		                local bossName = boss ~= nil and boss.name or "최종 보스"
+		                local floor = _GameData.RogueFloor
+		                local growthReward = _GameData.RogueClearRewardCurrency or 0
+		                local coreReward = _GameData.RogueClearRewardCore or 0
+		                local rewardText = "성장 점수 +" .. tostring(growthReward) .. "점"
+		                if coreReward > 0 then
+		                    rewardText = rewardText .. ", 성장 코어 +" .. tostring(coreReward) .. "개"
+		                end
+		                if _GameData.RogueMode == "MONSTER_SKILL"
+		                    and growthReward == 0 and coreReward == 0 then
+		                    rewardText = "오늘 이 층의 확정 보상 3회를 모두 받았습니다."
+		                else
+		                    rewardText = rewardText .. "을 받았습니다."
+		                end
+		                body.TextGUIRendererComponent.Text = tostring(floor) .. "층에서 보스 "
+		                    .. bossName .. " 처치에 성공했습니다. 랭크 "
+		                    .. (_GameData.RogueClearRank or "") .. " ("
+		                    .. self:FormatRunClock(_GameData.RogueClearElapsedSeconds or 0)
+		                    .. ").\n" .. rewardText
+		            else
+		                body.TextGUIRendererComponent.Text = "이번 모험이 끝났습니다."
+		            end
+		        end
+	end
 
 end

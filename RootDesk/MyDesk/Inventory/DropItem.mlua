@@ -1,220 +1,205 @@
--- @서버 (수거 판정은 서버. 클라는 획득 알림만 받는다 — 개발 규칙 2)
---
--- 바닥에 떨어진 아이템 하나 (T13-6). 밟으면 인벤토리로 들어간다.
---
--- ## 왜 트리거가 아니라 거리 판정인가
---
--- 이 프로젝트의 포탈은 TriggerComponent를 쓴다. 그런데 그건 맵에 미리 놓인
--- 엔티티라 CollisionGroup을 에디터에서 맞춰 둘 수 있다. 드랍은 런타임 스폰이라
--- 그 설정이 모델에 박혀 있어야 하고, 충돌 그룹이 어긋나면 **에러 없이 안 주워진다**.
--- 반경 판정은 설정이 필요 없고 로그로 바로 보인다. 방에 동시에 떠 있는 드랍이
--- 몇 개뿐이라 0.2초 폴링으로 충분하다.
---
--- ## 스프라이트를 따로 찾지 않는 이유
---
--- ItemTable.icon_ruid가 이미 그 아이템의 그림이다. SpriteRUID는 sprite RUID를
--- 그대로 받으므로(msw-sprite-ruid) 인벤토리 아이콘과 바닥 그림이 같아진다 —
--- 무엇이 떨어졌는지 줍기 전에 알 수 있다.
-
 @Component
 script DropItem extends Component
 
-    -- 무엇이 떨어졌는가. 스폰 직후 ItemDrop이 채운다.
-    @Sync property string ItemId = ""
-    @Sync property integer Count = 1
+	@Sync
+	property string ItemId = ""
 
-    -- 이 드랍을 주울 수 있는 유저. 막타를 넣은 사람에게 먼저 준다.
-    -- 빈 문자열이면 누구나 줍는다 (지금은 항상 막타 주체로 채운다).
-    property string OwnerUserId = ""
+	@Sync
+	property integer Count = 1
 
-    property any tickTimer = nil
-    property any despawnTimer = nil
-    property any touchHandler = nil
-    property any touchEntity = nil
-    property boolean taken = false
+	property string OwnerUserId = ""
 
-    -- 폴링 주기(초). 0.2면 걸어서 지나갈 때 놓치지 않는다.
-    property number tickInterval = 0.2
+	property any tickTimer = nil
 
-    @ExecSpace("ClientOnly")
-    method void OnInitialize()
-        -- 모바일/터치 환경에서도 E키와 같은 획득 경로를 제공한다.
-        self.touchEntity = self.Entity
-        self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.HandleTouch)
-    end
+	property any despawnTimer = nil
 
-    @ExecSpace("ClientOnly")
-    method void OnDestroy()
-        if self.touchHandler ~= nil and isvalid(self.touchEntity) then
-            self.touchEntity:DisconnectEvent(TouchEvent, self.touchHandler)
-            self.touchHandler = nil
-        end
-        self.touchEntity = nil
-    end
+	property any touchHandler = nil
 
-    @ExecSpace("ClientOnly")
-    method void HandleTouch(TouchEvent event)
-        if self.taken then return end
-        log("[DropTouch] tap item=" .. tostring(self.ItemId))
-        self:RequestTouchPickup()
-    end
+	property any touchEntity = nil
 
-    @ExecSpace("Server")
-    method void RequestTouchPickup()
-        if self.taken then return end
-        local player = _UserService:GetUserEntityByUserId(senderUserId)
-        if isvalid(player) == false or isvalid(player.PlayerComponent) == false then return end
-        if self.OwnerUserId ~= "" and player.PlayerComponent.UserId ~= self.OwnerUserId then return end
-        if player.CurrentMap ~= self.Entity.CurrentMap then return end
-        local p = player.TransformComponent.WorldPosition
-        local d = self.Entity.TransformComponent.WorldPosition
-        local range = _GameData:GetBalance("drop_pickup_range")
-        if range <= 0 then range = 1.25 end
-        local dx = p.x - d.x
-        local dy = p.y - d.y
-        if dx * dx + dy * dy > range * range then return end
-        self:Pickup(player)
-    end
+	property boolean taken = false
 
-    @ExecSpace("ServerOnly")
-    method void OnBeginPlay()
-        -- 스폰 직후에는 ItemId가 아직 비어 있을 수 있다. 한 박자 늦춰 그림을 입힌다.
-        _TimerService:SetTimerOnce(function()
-            self:ApplyLook()
-        end, 0.05)
+	property number tickInterval = 0.2
 
-        self.tickTimer = _TimerService:SetTimerRepeat(function()
-            self:Tick()
-        end, self.tickInterval)
+	@ExecSpace("ClientOnly")
+	method void OnInitialize()
+		        -- 모바일/터치 환경에서도 E키와 같은 획득 경로를 제공한다.
+		        self.touchEntity = self.Entity
+		        self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.HandleTouch)
+	end
 
-        local ttl = _GameData:GetBalance("drop_despawn_seconds")
-        self.despawnTimer = _TimerService:SetTimerOnce(function()
-            self.despawnTimer = nil
-            if self.taken then return end
-            log("[Drop] 사라짐 " .. tostring(self.ItemId))
-            self:Cleanup()
-            self.Entity:Destroy()
-        end, ttl)
-    end
+	@ExecSpace("ClientOnly")
+	method void OnDestroy()
+		        if self.touchHandler ~= nil and isvalid(self.touchEntity) then
+		            self.touchEntity:DisconnectEvent(TouchEvent, self.touchHandler)
+		            self.touchHandler = nil
+		        end
+		        self.touchEntity = nil
+	end
 
-    @ExecSpace("ServerOnly")
-    method void OnEndPlay()
-        self:Cleanup()
-    end
+	@ExecSpace("ClientOnly")
+	method void HandleTouch(TouchEvent event)
+		        if self.taken then return end
+		        log("[DropTouch] tap item=" .. tostring(self.ItemId))
+		        self:RequestTouchPickup()
+	end
 
-    @ExecSpace("ServerOnly")
-    method void Cleanup()
-        -- 타이머를 남기면 사라진 엔티티를 붙잡고 돈다.
-        if self.tickTimer ~= nil then
-            _TimerService:ClearTimer(self.tickTimer)
-            self.tickTimer = nil
-        end
-        if self.despawnTimer ~= nil then
-            _TimerService:ClearTimer(self.despawnTimer)
-            self.despawnTimer = nil
-        end
-    end
+	@ExecSpace("Server")
+	method void RequestTouchPickup()
+		        if self.taken then return end
+		        local player = _UserService:GetUserEntityByUserId(senderUserId)
+		        if isvalid(player) == false or isvalid(player.PlayerComponent) == false then return end
+		        if self.OwnerUserId ~= "" and player.PlayerComponent.UserId ~= self.OwnerUserId then return end
+		        if player.CurrentMap ~= self.Entity.CurrentMap then return end
+		        local p = player.TransformComponent.WorldPosition
+		        local d = self.Entity.TransformComponent.WorldPosition
+		        local range = _GameData:GetBalance("drop_pickup_range")
+		        if range <= 0 then range = 1.25 end
+		        local dx = p.x - d.x
+		        local dy = p.y - d.y
+		        if dx * dx + dy * dy > range * range then return end
+		        self:Pickup(player)
+	end
 
-    @ExecSpace("ServerOnly")
-    method void ApplyLook()
-        -- 아이템의 아이콘을 바닥 그림으로 쓴다.
-        local item = _GameData:GetItem(self.ItemId)
-        if item == nil then
-            log_warning("[Drop] ItemTable에 없는 아이템이 떨어졌다: " .. tostring(self.ItemId))
-            return
-        end
-        local renderer = self.Entity.SpriteRendererComponent
-        if isvalid(renderer) and item.icon_ruid ~= "" then
-            renderer.SpriteRUID = item.icon_ruid
-        end
-    end
+	@ExecSpace("ServerOnly")
+	method void OnBeginPlay()
+		        -- 스폰 직후에는 ItemId가 아직 비어 있을 수 있다. 한 박자 늦춰 그림을 입힌다.
+		        _TimerService:SetTimerOnce(function()
+		            self:ApplyLook()
+		        end, 0.05)
+		
+		        self.tickTimer = _TimerService:SetTimerRepeat(function()
+		            self:Tick()
+		        end, self.tickInterval)
+		
+		        local ttl = _GameData:GetBalance("drop_despawn_seconds")
+		        self.despawnTimer = _TimerService:SetTimerOnce(function()
+		            self.despawnTimer = nil
+		            if self.taken then return end
+		            log("[Drop] 사라짐 " .. tostring(self.ItemId))
+		            self:Cleanup()
+		            self.Entity:Destroy()
+		        end, ttl)
+	end
 
-    @ExecSpace("ServerOnly")
-    method void Tick()
-        -- 반경 안에 주인이 들어왔는지 본다.
-        if self.taken then return end
+	@ExecSpace("ServerOnly")
+	method void OnEndPlay()
+		        self:Cleanup()
+	end
 
-        local map = self.Entity.CurrentMap
-        if map == nil then return end
+	@ExecSpace("ServerOnly")
+	method void Cleanup()
+		        -- 타이머를 남기면 사라진 엔티티를 붙잡고 돈다.
+		        if self.tickTimer ~= nil then
+		            _TimerService:ClearTimer(self.tickTimer)
+		            self.tickTimer = nil
+		        end
+		        if self.despawnTimer ~= nil then
+		            _TimerService:ClearTimer(self.despawnTimer)
+		            self.despawnTimer = nil
+		        end
+	end
 
-        local users = _UserService:GetUsersByMapComponent(map.MapComponent)
-        if users == nil then return end
+	@ExecSpace("ServerOnly")
+	method void ApplyLook()
+		        -- 아이템의 아이콘을 바닥 그림으로 쓴다.
+		        local item = _GameData:GetItem(self.ItemId)
+		        if item == nil then
+		            log_warning("[Drop] ItemTable에 없는 아이템이 떨어졌다: " .. tostring(self.ItemId))
+		            return
+		        end
+		        local renderer = self.Entity.SpriteRendererComponent
+		        if isvalid(renderer) and item.icon_ruid ~= "" then
+		            renderer.SpriteRUID = item.icon_ruid
+		        end
+	end
 
-        local range = _GameData:GetBalance("drop_pickup_range")
-        local myPos = self.Entity.TransformComponent.WorldPosition
+	@ExecSpace("ServerOnly")
+	method void Tick()
+		        -- 반경 안에 주인이 들어왔는지 본다.
+		        if self.taken then return end
+		
+		        local map = self.Entity.CurrentMap
+		        if map == nil then return end
+		
+		        local users = _UserService:GetUsersByMapComponent(map.MapComponent)
+		        if users == nil then return end
+		
+		        local range = _GameData:GetBalance("drop_pickup_range")
+		        local myPos = self.Entity.TransformComponent.WorldPosition
+		
+		        for i = 1, #users do
+		            local user = users[i]
+		            if isvalid(user) then
+		                if self.OwnerUserId == "" or user.PlayerComponent.UserId == self.OwnerUserId then
+		                    local p = user.TransformComponent.WorldPosition
+		                    local dx = p.x - myPos.x
+		                    local dy = p.y - myPos.y
+		                    -- 제곱으로 비교한다. 루트를 씌울 이유가 없다.
+		                    if dx * dx + dy * dy <= range * range then
+		                        self:Pickup(user)
+		                        return
+		                    end
+		                end
+		            end
+		        end
+	end
 
-        for i = 1, #users do
-            local user = users[i]
-            if isvalid(user) then
-                if self.OwnerUserId == "" or user.PlayerComponent.UserId == self.OwnerUserId then
-                    local p = user.TransformComponent.WorldPosition
-                    local dx = p.x - myPos.x
-                    local dy = p.y - myPos.y
-                    -- 제곱으로 비교한다. 루트를 씌울 이유가 없다.
-                    if dx * dx + dy * dy <= range * range then
-                        self:Pickup(user)
-                        return
-                    end
-                end
-            end
-        end
-    end
+	@ExecSpace("ServerOnly")
+	method void Pickup(Entity player)
+		        -- Mega Area의 빨간 포션은 Run 전용 즉시 회복 픽업이다. 가방/장비 성장과
+		        -- 연결하지 않으며, 서버가 현재 HP를 직접 제한 범위 안에서 갱신한다.
+		        if _GameData.RogueRunActive and self.ItemId == "i_potion_red" then
+		            local pc = player.PlayerComponent
+		            if not isvalid(pc) or pc:IsDead() then return end
+		            local ratio = _GameData:GetBalance("run_potion_heal_ratio")
+		            if ratio <= 0 then ratio = 0.25 end
+		            local before = pc.Hp
+		            pc.Hp = math.min(pc.MaxHp, pc.Hp + math.floor(pc.MaxHp * ratio + 0.5))
+		            self.taken = true
+		            log("[RunPotion] PICKUP user=" .. pc.UserId .. " heal="
+		                .. tostring(math.floor(pc.Hp - before + 0.5)) .. " hp="
+		                .. tostring(math.floor(pc.Hp + 0.5)) .. "/" .. tostring(math.floor(pc.MaxHp + 0.5)))
+		            self:Cleanup()
+		            self.Entity:Destroy()
+		            return
+		        end
+		
+		        ---@type PlayerInventory
+		        local inv = player:GetComponent("script.PlayerInventory")
+		        if inv == nil then return end
+		
+		        local added = inv:AddItem(self.ItemId, self.Count)
+		        if added <= 0 then
+		            -- 가방이 꽉 찼다(종류당 상한). 남겨 두면 계속 시도하므로 잠깐 쉰다 —
+		            -- 매 0.2초마다 "버린다" 로그가 쌓이는 것을 막는다.
+		            self.taken = true
+		            _TimerService:SetTimerOnce(function() self.taken = false end, 3.0)
+		            return
+		        end
+		
+		        self.taken = true
+		        local item = _GameData:GetItem(self.ItemId)
+		        local name = self.ItemId
+		        if item ~= nil then name = item.name end
+		        log("[Drop] 획득 " .. name .. " x" .. tostring(added))
+		
+		        -- 소비 아이템은 알리지 않는다 (T23-5, 대표 지시 "맵에서 포션 드랍되는 내역은
+		        -- 출력되지 않도록"). 포션이 **모든 몬스터**에서 나오게 되면서 배너가 사냥
+		        -- 내내 뜨게 됐다 — 그러면 정작 알려야 할 장비 드랍(2~5%)이 그 사이에 묻힌다.
+		        -- 알림의 값어치는 희소성에서 나온다.
+		        if item == nil or item.item_type ~= "consume" then
+		            self:OnPicked(name, added, player.PlayerComponent.UserId)
+		        end
+		        self:Cleanup()
+		        self.Entity:Destroy()
+	end
 
-    @ExecSpace("ServerOnly")
-    method void Pickup(Entity player)
-        -- Mega Area의 빨간 포션은 Run 전용 즉시 회복 픽업이다. 가방/장비 성장과
-        -- 연결하지 않으며, 서버가 현재 HP를 직접 제한 범위 안에서 갱신한다.
-        if _GameData.RogueRunActive and self.ItemId == "i_potion_red" then
-            local pc = player.PlayerComponent
-            if not isvalid(pc) or pc:IsDead() then return end
-            local ratio = _GameData:GetBalance("run_potion_heal_ratio")
-            if ratio <= 0 then ratio = 0.25 end
-            local before = pc.Hp
-            pc.Hp = math.min(pc.MaxHp, pc.Hp + math.floor(pc.MaxHp * ratio + 0.5))
-            self.taken = true
-            log("[RunPotion] PICKUP user=" .. pc.UserId .. " heal="
-                .. tostring(math.floor(pc.Hp - before + 0.5)) .. " hp="
-                .. tostring(math.floor(pc.Hp + 0.5)) .. "/" .. tostring(math.floor(pc.MaxHp + 0.5)))
-            self:Cleanup()
-            self.Entity:Destroy()
-            return
-        end
-
-        ---@type PlayerInventory
-        local inv = player:GetComponent("script.PlayerInventory")
-        if inv == nil then return end
-
-        local added = inv:AddItem(self.ItemId, self.Count)
-        if added <= 0 then
-            -- 가방이 꽉 찼다(종류당 상한). 남겨 두면 계속 시도하므로 잠깐 쉰다 —
-            -- 매 0.2초마다 "버린다" 로그가 쌓이는 것을 막는다.
-            self.taken = true
-            _TimerService:SetTimerOnce(function() self.taken = false end, 3.0)
-            return
-        end
-
-        self.taken = true
-        local item = _GameData:GetItem(self.ItemId)
-        local name = self.ItemId
-        if item ~= nil then name = item.name end
-        log("[Drop] 획득 " .. name .. " x" .. tostring(added))
-
-        -- 소비 아이템은 알리지 않는다 (T23-5, 대표 지시 "맵에서 포션 드랍되는 내역은
-        -- 출력되지 않도록"). 포션이 **모든 몬스터**에서 나오게 되면서 배너가 사냥
-        -- 내내 뜨게 됐다 — 그러면 정작 알려야 할 장비 드랍(2~5%)이 그 사이에 묻힌다.
-        -- 알림의 값어치는 희소성에서 나온다.
-        if item == nil or item.item_type ~= "consume" then
-            self:OnPicked(name, added, player.PlayerComponent.UserId)
-        end
-        self:Cleanup()
-        self.Entity:Destroy()
-    end
-
-    @ExecSpace("Client")
-    method void OnPicked(string itemName, integer count)
-        -- 획득 알림. 판정은 서버, 알림은 클라 — 여기서 갈라진다.
-        -- 배너를 새로 만들지 않고 GateNotice를 쓴다 (이미 검증된 표시 경로).
-        _GateNotice:ShowNotice("획득", itemName .. " x" .. tostring(count))
-    end
+	@ExecSpace("Client")
+	method void OnPicked(string itemName, integer count)
+		        -- 획득 알림. 판정은 서버, 알림은 클라 — 여기서 갈라진다.
+		        -- 배너를 새로 만들지 않고 GateNotice를 쓴다 (이미 검증된 표시 경로).
+		        _GateNotice:ShowNotice("획득", itemName .. " x" .. tostring(count))
+	end
 
 end
