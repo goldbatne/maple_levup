@@ -16,7 +16,7 @@
       {
         "id": "04334a00-c7dc-4336-ab8d-ab9aa4eff0b0",
         "path": "/maps/map042",
-        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner",
+        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner,MOD.Core.SoundComponent",
         "jsonString": {
           "name": "map042",
           "path": "/maps/map042",
@@ -65,6 +65,19 @@
               "bossStartedAt": 0.0,
               "bossEntryTimer": 0,
               "runEncounterSpawned": false
+            },
+            {
+              "AudioClipRUID": "bbbf2616f2064d658f4d53af5faf9d3e",
+              "Bgm": true,
+              "KeepBGM": true,
+              "Loop": true,
+              "Mute": false,
+              "Pitch": 1,
+              "PlayOnEnable": true,
+              "SetCameraAsListener": false,
+              "Volume": 0.35,
+              "Enable": true,
+              "@type": "MOD.Core.SoundComponent"
             }
           ],
           "@version": 1

@@ -16,7 +16,7 @@
       {
         "id": "fba4f7aa-c389-4656-b751-178a8c31bb38",
         "path": "/maps/maptown",
-        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner",
+        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,MOD.Core.SoundComponent",
         "jsonString": {
           "name": "maptown",
           "path": "/maps/maptown",
@@ -52,28 +52,17 @@
               "Enable": true
             },
             {
-              "@type": "script.RoomSpawner",
-              "Enable": true,
-              "monsterId": "",
-              "modelId": "",
-              "monsterCount": 0,
-              "spawnIndex": 0,
-              "checkTimer": 0,
-              "roomId": "",
-              "isBossRoom": false,
-              "monsterDisplayName": "",
-              "bossStartedAt": 0.0,
-              "bossEntryTimer": 0,
-              "runEncounterSpawned": false,
-              "runSpawnRandomState": 0,
-              "runSpawnPlanIndex": 0,
-              "runRespawnTimer": 0,
-              "runSpawnReason": "INITIAL",
-              "runChestRandomState": 0,
-              "runHazardRandomState": 0,
-              "runHazardTimer": 0,
-              "runHazardResolveTimer": 0,
-              "runHazardSkillId": ""
+              "@type": "MOD.Core.SoundComponent",
+              "AudioClipRUID": "3926b48759d246dc8464a876ff7fa5ce",
+              "Bgm": true,
+              "KeepBGM": true,
+              "Loop": true,
+              "Mute": false,
+              "Pitch": 1.0,
+              "PlayOnEnable": true,
+              "SetCameraAsListener": false,
+              "Volume": 0.35,
+              "Enable": true
             }
           ],
           "@version": 1
@@ -3859,276 +3848,6 @@
                   "tileIndex": 0
                 }
               ]
-            }
-          ],
-          "@version": 1
-        }
-      },
-      {
-        "id": "1aa865ba-498f-4b5a-bf0b-4ddb594470cf",
-        "path": "/maps/maptown/Portal_E",
-        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TagComponent,MOD.Core.TriggerComponent,script.RoomPortal,script.TownGate",
-        "jsonString": {
-          "name": "Portal_E",
-          "path": "/maps/maptown/Portal_E",
-          "nameEditable": true,
-          "enable": true,
-          "visible": true,
-          "localize": false,
-          "displayOrder": 4,
-          "pathConstraints": "///",
-          "revision": 1,
-          "origin": {
-            "type": "Model",
-            "entry_id": "roomportal",
-            "sub_entity_id": null,
-            "root_entity_id": "1aa865ba-498f-4b5a-bf0b-4ddb594470cf",
-            "replaced_model_id": null
-          },
-          "modelId": "roomportal",
-          "@components": [
-            {
-              "@type": "MOD.Core.TransformComponent",
-              "Rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.0
-              },
-              "Position": {
-                "x": 13.0,
-                "y": 1.0,
-                "z": 0.0
-              },
-              "QuaternionRotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.0,
-                "w": 1.0
-              },
-              "Scale": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-              },
-              "ZRotation": 0.0,
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.SpriteRendererComponent",
-              "ActionSheet": {},
-              "DrawMode": 0,
-              "EndFrameIndex": 2147483647,
-              "FlipX": false,
-              "FlipY": false,
-              "OrderInLayer": 2,
-              "PlayRate": 1.0,
-              "RenderSetting": 0,
-              "SpriteRUID": "1507704072384d8ba4dc1d73c02ba92b",
-              "StartFrameIndex": 0,
-              "Color": {
-                "r": 1.0,
-                "g": 1.0,
-                "b": 1.0,
-                "a": 1.0
-              },
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.TagComponent",
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.TriggerComponent",
-              "BoxSize": {
-                "x": 3.0,
-                "y": 3.0
-              },
-              "ColliderOffset": {
-                "x": 0.0,
-                "y": 0.0
-              },
-              "IsLegacy": true,
-              "Enable": true
-            },
-            {
-              "@type": "script.RoomPortal",
-              "Enable": true
-            },
-            {
-              "@type": "script.TownGate",
-              "Enable": true,
-              "AskEvenWhenSingle": false,
-              "arriveInset": 2.5
-            }
-          ],
-          "@version": 1
-        }
-      },
-      {
-        "id": "e79e977e-747f-431d-a572-7c23a6dcfb06",
-        "path": "/maps/maptown/RebirthNpc",
-        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TouchReceiveComponent,script.RebirthNpc",
-        "jsonString": {
-          "name": "RebirthNpc",
-          "path": "/maps/maptown/RebirthNpc",
-          "nameEditable": true,
-          "enable": true,
-          "visible": true,
-          "localize": false,
-          "displayOrder": 5,
-          "pathConstraints": "///",
-          "revision": 1,
-          "origin": {
-            "type": "Model",
-            "entry_id": "rebirthnpc",
-            "sub_entity_id": null,
-            "root_entity_id": "e79e977e-747f-431d-a572-7c23a6dcfb06",
-            "replaced_model_id": null
-          },
-          "modelId": "rebirthnpc",
-          "@components": [
-            {
-              "@type": "MOD.Core.TransformComponent",
-              "Rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.0
-              },
-              "Position": {
-                "x": -12.0,
-                "y": 1.0,
-                "z": 0.0
-              },
-              "QuaternionRotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.0,
-                "w": 1.0
-              },
-              "Scale": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-              },
-              "ZRotation": 0.0,
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.SpriteRendererComponent",
-              "ActionSheet": {},
-              "DrawMode": 0,
-              "EndFrameIndex": 2147483647,
-              "FlipX": false,
-              "FlipY": false,
-              "OrderInLayer": 2,
-              "PlayRate": 1.0,
-              "RenderSetting": 0,
-              "SpriteRUID": "8a4086d22bff4c92b75c83916aaf78fd",
-              "StartFrameIndex": 0,
-              "Color": {
-                "r": 1.0,
-                "g": 1.0,
-                "b": 1.0,
-                "a": 1.0
-              },
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.TouchReceiveComponent",
-              "TouchArea": {
-                "x": 1.4,
-                "y": 1.4
-              },
-              "Enable": true
-            },
-            {
-              "@type": "script.RebirthNpc",
-              "Enable": true
-            }
-          ],
-          "@version": 1
-        }
-      },
-      {
-        "id": "c58fbcc8-796b-45e7-b546-bdedfedff9f5",
-        "path": "/maps/maptown/GoddessNpc",
-        "componentNames": "MOD.Core.TransformComponent,MOD.Core.SpriteRendererComponent,MOD.Core.TouchReceiveComponent,script.GoddessNpc",
-        "jsonString": {
-          "name": "GoddessNpc",
-          "path": "/maps/maptown/GoddessNpc",
-          "nameEditable": true,
-          "enable": true,
-          "visible": true,
-          "localize": false,
-          "displayOrder": 6,
-          "pathConstraints": "///",
-          "revision": 1,
-          "origin": {
-            "type": "Model",
-            "entry_id": "goddessnpc",
-            "sub_entity_id": null,
-            "root_entity_id": "c58fbcc8-796b-45e7-b546-bdedfedff9f5",
-            "replaced_model_id": null
-          },
-          "modelId": "goddessnpc",
-          "@components": [
-            {
-              "@type": "MOD.Core.TransformComponent",
-              "Rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.0
-              },
-              "Position": {
-                "x": 0.0,
-                "y": 7.0,
-                "z": 0.0
-              },
-              "QuaternionRotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.0,
-                "w": 1.0
-              },
-              "Scale": {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 1.0
-              },
-              "ZRotation": 0.0,
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.SpriteRendererComponent",
-              "ActionSheet": {},
-              "DrawMode": 0,
-              "EndFrameIndex": 2147483647,
-              "FlipX": false,
-              "FlipY": false,
-              "OrderInLayer": 2,
-              "PlayRate": 1.0,
-              "RenderSetting": 0,
-              "SpriteRUID": "1fca678a35024ed2a1890b213cc10842",
-              "StartFrameIndex": 0,
-              "Color": {
-                "r": 1.0,
-                "g": 1.0,
-                "b": 1.0,
-                "a": 1.0
-              },
-              "Enable": true
-            },
-            {
-              "@type": "MOD.Core.TouchReceiveComponent",
-              "TouchArea": {
-                "x": 1.8,
-                "y": 2.4
-              },
-              "Enable": true
-            },
-            {
-              "@type": "script.GoddessNpc",
-              "Enable": true
             }
           ],
           "@version": 1

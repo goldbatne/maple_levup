@@ -16,7 +16,7 @@
       {
         "id": "01906b80-eb10-4394-b555-06f04ef54b28",
         "path": "/maps/map007",
-        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner,script.NautilusWaterBoundary",
+        "componentNames": "MOD.Core.MapComponent,MOD.Core.FootholdComponent,script.RoomCamera,script.RoomSpawner,script.NautilusWaterBoundary,MOD.Core.SoundComponent",
         "jsonString": {
           "name": "map007",
           "path": "/maps/map007",
@@ -69,6 +69,19 @@
             {
               "@type": "script.NautilusWaterBoundary",
               "Enable": true
+            },
+            {
+              "AudioClipRUID": "d479098207e2405a8dfdaff121b04ebc",
+              "Bgm": true,
+              "KeepBGM": true,
+              "Loop": true,
+              "Mute": false,
+              "Pitch": 1,
+              "PlayOnEnable": true,
+              "SetCameraAsListener": false,
+              "Volume": 0.35,
+              "Enable": true,
+              "@type": "MOD.Core.SoundComponent"
             }
           ],
           "@version": 1

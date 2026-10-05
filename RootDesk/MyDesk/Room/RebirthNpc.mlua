@@ -1,80 +1,55 @@
--- @클라이언트 + @서버 (터치는 클라, 환생은 서버. 메서드마다 실행공간을 따로 붙인다)
---
--- 시작방의 환생 NPC (기획서 4.5 / 작업지시서 T7).
---
--- 환생을 **확정하는 자리**다. HUD 버튼(T7-3)은 여기까지 데려다줄 뿐이고,
--- 되돌릴 수 없는 선택은 여기서 일어난다.
---
--- ## 조건 미달이면 무엇이 부족한지 말해준다
---
--- 게이트 3종과 같은 어법이다 — 조용히 막지 않고 이유를 준다.
--- 문구는 여기서 만들지 않고 _Rebirth:Evaluate가 준 것을 그대로 보여준다.
--- 여기서 다시 해석하면 판정 규칙이 두 곳에 생겨 언젠가 어긋난다.
---
--- ## TouchEvent는 누가 눌렀는지 알려주지 않는다
---
--- TouchEvent에는 TouchId와 TouchPoint만 있다. 터치한 사람의 클라에서 뜨는
--- 이벤트라 _UserService.LocalPlayer가 곧 그 사람이다.
--- 그래서 판정 표시는 클라에서 하고, 실행만 서버로 넘긴다.
---
--- ## 이 스크립트는 환생시키지 않는다
---
--- 조건을 통과하면 확인 화면(RebirthConfirmPanel)을 열 뿐이다. 잃는 것 / 얻는 것 /
--- 직업 선택을 보여주고 실제 실행을 서버에 요청하는 것은 그 창의 몫이다
--- (작업지시서 T7 요청 2).
-
 @Component
 script RebirthNpc extends Component
 
-    property any touchHandler = nil
+	property any touchHandler = nil
 
-    method void OnBeginPlay()
-        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
-            self.Entity:SetVisible(false)
-            self.Entity.Enable = false
-            log("[RebirthNpc] Mega Run — NPC 비표시/비활성")
-            return
-        end
-        -- 터치는 클라에서만 받는다. 서버에는 입력이 오지 않는다.
-        if self:IsClient() then
-            self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.OnTouch)
-            log("[RebirthNpc] 터치 대기")
-        end
-    end
+	method void OnBeginPlay()
+		        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+		            self.Entity:SetVisible(false)
+		            self.Entity.Enable = false
+		            log("[RebirthNpc] Mega Run — NPC 비표시/비활성")
+		            return
+		        end
+		        -- 터치는 클라에서만 받는다. 서버에는 입력이 오지 않는다.
+		        if self:IsClient() then
+		            self.touchHandler = self.Entity:ConnectEvent(TouchEvent, self.OnTouch)
+		            log("[RebirthNpc] 터치 대기")
+		        end
+	end
 
-    method void OnEndPlay()
-        if self.touchHandler ~= nil then
-            self.Entity:DisconnectEvent(TouchEvent, self.touchHandler)
-            self.touchHandler = nil
-        end
-    end
+	method void OnEndPlay()
+		        if self.touchHandler ~= nil then
+		            self.Entity:DisconnectEvent(TouchEvent, self.touchHandler)
+		            self.touchHandler = nil
+		        end
+	end
 
-    @ExecSpace("ClientOnly")
-    method void OnTouch(TouchEvent event)
-        -- 내 플레이어 기준으로 판정해 바로 보여준다. 서버를 왕복하지 않는 이유:
-        -- 읽는 값이 전부 @TargetUserSync라 클라에서 같은 결과가 나오고,
-        -- 왕복하면 눌렀는데 한 박자 뒤에 답이 오는 느낌이 된다.
-        local me = _UserService.LocalPlayer
-        if me == nil then return end
-
-        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
-            log("[RebirthNpc] 로그라이트 모드 — 환생 상호작용 거부")
-            return
-        end
-
-        local gate = _Rebirth:Evaluate(me)
-        if gate.passed == false then
-            log("[RebirthNpc] 환생 거절 — " .. gate.reason)
-            _GateNotice:ShowNotice("아직 이르다", gate.reason)
-            return
-        end
-
-        log("[RebirthNpc] 확인 화면 열기")
-
-        -- 여기서 바로 환생시키지 않는다. 되돌릴 수 없는 선택이라
-        -- 잃는 것 / 얻는 것을 보여주는 창을 한 단계 세운다 (기획서 4.5).
-        -- 실행은 그 창(RebirthConfirmPanel)이 서버에 요청한다.
-        _RebirthConfirmPanel:Open()
-    end
+	@ExecSpace("ClientOnly")
+	method void OnTouch(TouchEvent event)
+		        -- 내 플레이어 기준으로 판정해 바로 보여준다. 서버를 왕복하지 않는 이유:
+		        -- 읽는 값이 전부 @TargetUserSync라 클라에서 같은 결과가 나오고,
+		        -- 왕복하면 눌렀는데 한 박자 뒤에 답이 오는 느낌이 된다.
+		        local me = _UserService.LocalPlayer
+		        if me == nil then return end
+		
+		        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+		            log("[RebirthNpc] 로그라이트 모드 — 환생 상호작용 거부")
+		            return
+		        end
+		
+		        local gate = _Rebirth:Evaluate(me)
+		        if gate.passed == false then
+		            log("[RebirthNpc] 환생 거절 — " .. gate.reason)
+		            _GateNotice:ShowNotice("아직 이르다", gate.reason)
+		            return
+		        end
+		
+		        log("[RebirthNpc] 확인 화면 열기")
+		
+		        -- 여기서 바로 환생시키지 않는다. 되돌릴 수 없는 선택이라
+		        -- 잃는 것 / 얻는 것을 보여주는 창을 한 단계 세운다 (기획서 4.5).
+		        -- 실행은 그 창(RebirthConfirmPanel)이 서버에 요청한다.
+		        _RebirthConfirmPanel:Open()
+	end
 
 end

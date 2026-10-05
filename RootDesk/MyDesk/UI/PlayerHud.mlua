@@ -1,332 +1,362 @@
--- @클라이언트 (표시 전용. 값은 전부 서버가 만든 것을 동기화로 읽기만 한다)
---
--- 로그라이트 상시 HUD — 플레이어 이름 / HP.
---
--- HP는 Run 생존 판단에 필요한 값이라 상시 표시한다. 레벨·EXP는 신규 로그라이트의
--- 전투력과 진행에 사용하지 않으므로 공용 HUD에서 렌더링하지 않는다.
---
--- @Logic인 이유: UI 엔티티에 붙은 @Component는 Server 계열 메서드를 가질 수 없다.
--- 이 프로젝트의 UI 컨트롤러는 전부 @Logic으로 통일돼 있다 (StatPanel/SkillBar/EquipPanel).
-
 @Logic
 script PlayerHud extends Logic
 
-    -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다. 손으로 드래그 연결하지 않는다.
-    property UITransformComponent hpFill = "b2d6bc99-b524-464b-924a-e247cbed2c27"
-    property TextGUIRendererComponent hpText = "37cdbcad-6051-4b46-ae25-ba5527ad597d"
-    property UITransformComponent expFill = "236e885b-49f5-4738-a5d4-bc71890ba54c"
-    property TextGUIRendererComponent expText = "b8297891-094a-42c9-afff-e727080b389c"
-    property TextGUIRendererComponent levelText = "b8696b33-55c8-4af6-a336-b9bf54a0f2ea"
-    -- 닉네임. 한 번만 채우면 되므로 Refresh가 아니라 OnBeginPlay에서 넣는다
-    -- (MSW 프리셋 상태창 `UIMyInfo`도 같은 방식이다).
-    property TextGUIRendererComponent nameText = "d96c227c-e616-48fb-b562-257c348d2c43"
+	property UITransformComponent hpFill = "b2d6bc99-b524-464b-924a-e247cbed2c27"
 
-    -- 보스 HUD. UIBuilder가 /ui/PlayerHud/BossHud 아래를 만들고 UUID를 주입한다 (T53).
-    property Entity bossRoot = "ddcd6877-6923-47dc-9dab-2b83795a25e2"
-    property Entity bossBarRoot = "7f5dc6f9-0e85-43f8-83a8-d90b02eb9702"
-    property UITransformComponent bossFill = "65e412d2-d402-4d3f-aaa6-ab7c2e3c7f2b"
-    property TextGUIRendererComponent bossNameText = "e63f3748-8d68-4b00-91a1-2f6b045093e6"
-    property TextGUIRendererComponent bossHpText = "7f84ada4-b9a7-4f3d-94f9-57942799a648"
-    property TextGUIRendererComponent bossTimeText = "4c129f53-3a6b-421b-a488-77e735f6cc23"
+	property TextGUIRendererComponent hpText = "37cdbcad-6051-4b46-ae25-ba5527ad597d"
 
-    -- 게이지 원래 폭. RectSize를 줄여서 채움을 표현하므로 최대 폭을 기억해야 한다.
-    @HideFromInspector property number hpFullWidth = 0
-    @HideFromInspector property number expFullWidth = 0
-    @HideFromInspector property number bossFullWidth = 0
+	property UITransformComponent expFill = "236e885b-49f5-4738-a5d4-bc71890ba54c"
 
-    @HideFromInspector property integer tickTimer = 0
-    @HideFromInspector property string lobbyMenuVisualState = ""
+	property TextGUIRendererComponent expText = "b8297891-094a-42c9-afff-e727080b389c"
 
-    @ExecSpace("ClientOnly")
-    method void OnBeginPlay()
-        self:ResolveBossHud()
-        self:ApplyRogueliteHudVisibility()
-        -- 최대 폭을 처음 한 번만 저장해 둔다.
-        if isvalid(self.hpFill) then self.hpFullWidth = self.hpFill.RectSize.x end
-        if isvalid(self.expFill) then self.expFullWidth = self.expFill.RectSize.x end
-        if isvalid(self.bossFill) then self.bossFullWidth = self.bossFill.RectSize.x end
-        -- 자식 UI는 첫 프레임 뒤에 준비될 수 있다. 여기서 부모를 바로 끄면
-        -- 아직 생성되지 않은 자식이 계속 nil로 남으므로, 첫 RefreshBoss가 숨긴다.
-        -- 닉네임은 바뀌지 않으므로 여기서 한 번만 채운다.
-        local me = _UserService.LocalPlayer
-        if isvalid(self.nameText) and isvalid(me) and isvalid(me.PlayerComponent) then
-            self.nameText.Text = me.PlayerComponent.Nickname
-        end
+	property TextGUIRendererComponent levelText = "b8696b33-55c8-4af6-a336-b9bf54a0f2ea"
 
-        log("[PlayerHud] OnBeginPlay  HP폭=" .. tostring(self.hpFullWidth)
-            .. " EXP폭=" .. tostring(self.expFullWidth)
-            .. " 보스폭=" .. tostring(self.bossFullWidth))
+	property TextGUIRendererComponent nameText = "d96c227c-e616-48fb-b562-257c348d2c43"
 
-        -- 매 프레임 갱신할 이유가 없다. 0.2초면 게이지가 끊겨 보이지 않는다.
-        self.tickTimer = _TimerService:SetTimerRepeat(function()
-            self:Refresh()
-        end, 0.2)
-    end
+	property Entity bossRoot = "ddcd6877-6923-47dc-9dab-2b83795a25e2"
 
-    @ExecSpace("ClientOnly")
-    method void OnEndPlay()
-        -- 타이머를 남기면 리로드할 때마다 갱신 루프가 중첩된다.
-        if self.tickTimer ~= 0 then
-            _TimerService:ClearTimer(self.tickTimer)
-            self.tickTimer = 0
-        end
-    end
+	property Entity bossBarRoot = "7f5dc6f9-0e85-43f8-83a8-d90b02eb9702"
 
-    @ExecSpace("ClientOnly")
-    method void Refresh()
-        -- 로컬 플레이어의 현재 값을 읽어 세 표시를 갱신한다.
-        local player = _UserService.LocalPlayer
-        if not isvalid(player) then return end
+	property UITransformComponent bossFill = "65e412d2-d402-4d3f-aaa6-ab7c2e3c7f2b"
 
-        local info = _EntityService:GetEntityByPath("/ui/PlayerHud/Info")
-        local runActive = _GameData.RogueRunActive
-            and not _GameData.RogueRunComplete and not _GameData.RogueRunFailed
-        if isvalid(info) then
-            info.Enable = runActive
-            info:SetVisible(runActive)
-        end
-        self:RefreshCompanionStatus(player, runActive)
-        self:RefreshLobbyMenuVisuals(player)
+	property TextGUIRendererComponent bossNameText = "e63f3748-8d68-4b00-91a1-2f6b045093e6"
 
-        -- PlayerStats가 아직 붙기 전에도 보스바는 맵 상태만으로 그릴 수 있다.
-        self:RefreshBoss(player)
+	property TextGUIRendererComponent bossHpText = "7f84ada4-b9a7-4f3d-94f9-57942799a648"
 
-        local pc = player.PlayerComponent
-        if isvalid(pc) and isvalid(self.hpFill) then
-            -- HP는 엔진이 PlayerComponent에 들고 있다 (커스텀 Hp를 만들지 않았다).
-            local maxHp = pc.MaxHp
-            if maxHp <= 0 then maxHp = 1 end
-            local hp = pc.Hp
-            if hp < 0 then hp = 0 end
-            self:SetFill(self.hpFill, self.hpFullWidth, hp / maxHp)
-            if isvalid(self.hpText) then
-                self.hpText.Text = tostring(math.floor(hp)) .. " / " .. tostring(math.floor(maxHp))
-            end
-        end
+	property TextGUIRendererComponent bossTimeText = "4c129f53-3a6b-421b-a488-77e735f6cc23"
 
-        ---@type PlayerStats
-        local stats = player:GetComponent("script.PlayerStats")
-        if stats == nil then return end
+	@HideFromInspector
+	property number hpFullWidth = 0
 
-        -- 신규 로그라이트 HUD에서는 Level/EXP를 표시하지 않는다.
-        -- 레거시 저장과 기능 플래그용 데이터는 그대로 보존한다.
-    end
+	@HideFromInspector
+	property number expFullWidth = 0
 
-    @ExecSpace("ClientOnly")
-    method void RefreshLobbyMenuVisuals(Entity player)
-        -- Only the open lobby window receives the existing cyan highlight.
-        local map = player.CurrentMap
-        if not isvalid(map) or map.Name ~= "maptown" or _GameData.RogueRunActive then return end
-        local areaWindow = _EntityService:GetEntityByPath("/ui/AreaSelect/Window")
-        local state = "NONE"
-        if _EquipPanel.isOpen then state = "MONSTER"
-        elseif isvalid(areaWindow) and areaWindow.Enable then state = "ADVENTURE"
-        elseif _GameData.RoguePartyWindowOpen then state = "PARTY"
-        elseif _MonsterShopUi.ShopOpen then state = "SHOP" end
-        if state ~= self.lobbyMenuVisualState then
-            self.lobbyMenuVisualState = state
-            log("[PilotLobbyMenu] selected=" .. state)
-        end
-        local names = {"MONSTER", "ADVENTURE", "PARTY", "SHOP"}
-        local paths = {"/ui/EquipWindow/OpenBtn", "/ui/AreaSelect/LobbyDungeonButton",
-            "/ui/PlayerHud/PartyMenuButton", "/ui/PlayerHud/ShopOpenButton"}
-        for i = 1, 4 do
-            local button = _EntityService:GetEntityByPath(paths[i])
-            if isvalid(button) and isvalid(button.SpriteGUIRendererComponent) then
-                local selected = state == names[i]
-                button.SpriteGUIRendererComponent.Color = selected
-                    and Color(0.86, 0.95, 0.98, 1) or Color(0.98, 0.99, 0.99, 1)
-                button.SpriteGUIRendererComponent.OutlineColor = selected
-                    and Color(0.19, 0.61, 0.83, 1) or Color(0.77, 0.82, 0.85, 1)
-                button.SpriteGUIRendererComponent.OutlineWidth = 1
-                if isvalid(button.TextGUIRendererComponent) then
-                    button.TextGUIRendererComponent.FontColor = Color(0.19, 0.24, 0.28, 1)
-                end
-            end
-        end
-    end
+	@HideFromInspector
+	property number bossFullWidth = 0
 
-    @ExecSpace("ClientOnly")
-    method void RefreshCompanionStatus(Entity player, boolean runActive)
-        local root = _EntityService:GetEntityByPath("/ui/PlayerHud/CompanionStatus")
-        if not isvalid(root) then return end
-        root.Enable = runActive
-        root:SetVisible(runActive)
-        if not runActive then return end
-        local collection = player:GetComponent("script.PlayerCollection")
-        local pc = player.PlayerComponent
-        if collection == nil or not isvalid(pc) then return end
-        for slot = 2, 3 do
-            for _, prefix in ipairs({"Member", "Portrait", "SlotBg"}) do
-                local unused = root:GetChildByName(prefix .. tostring(slot), false)
-                if isvalid(unused) then
-                    unused.Enable = false
-                    unused:SetVisible(false)
-                end
-            end
-        end
-        local label = root:GetChildByName("Member1", false)
-        local portrait = root:GetChildByName("Portrait1", false)
-        local monsterId = collection:GetEquippedCompanion(1)
-        local monster = monsterId ~= "" and _GameData:GetMonster(monsterId) or nil
-        local map = player.CurrentMap
-        local companion = isvalid(map) and map:GetChildByName("Companion_" .. pc.UserId .. "_1", true)
-            or nil
-        local combat = isvalid(companion) and companion:GetComponent("script.CompanionCombat")
-            or nil
-        if isvalid(portrait) then
-            local hasPortrait = monster ~= nil and monster.collection_icon_ruid ~= ""
-            portrait.Enable = hasPortrait
-            portrait:SetVisible(hasPortrait)
-            if hasPortrait and isvalid(portrait.SpriteGUIRendererComponent) then
-                portrait.SpriteGUIRendererComponent.ImageRUID =
-                    DataRef("thumbnail://" .. monster.collection_icon_ruid)
-            end
-        end
-        if isvalid(label) and isvalid(label.TextGUIRendererComponent) then
-            if monster == nil then label.TextGUIRendererComponent.Text = "메인 없음"
-            elseif combat == nil then label.TextGUIRendererComponent.Text = "전투불능"
-            else label.TextGUIRendererComponent.Text = "HP " .. tostring(math.floor(combat.Hp))
-                .. "/" .. tostring(math.floor(combat.MaxHp)) end
-            label.Enable = true
-            label:SetVisible(true)
-        end
-    end
+	@HideFromInspector
+	property integer tickTimer = 0
 
-    @ExecSpace("ClientOnly")
-    method void ApplyRogueliteHudVisibility()
-        local levelEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/Info/info_top/text_level")
-        if isvalid(levelEntity) then levelEntity.Enable = false end
-        -- 월드 캐릭터의 이름표는 그대로 두고, 하단 HUD에는 HP만 남긴다.
-        local hudNameRow = _EntityService:GetEntityByPath("/ui/PlayerHud/Info/info_top")
-        if isvalid(hudNameRow) then hudNameRow.Enable = false end
-        local expEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/Info/info_bottom/Exp")
-        if isvalid(expEntity) then expEntity.Enable = false end
-        log("[PlayerHud] 로그라이트 공용 HUD 적용 — 이름/HP만 표시")
-    end
+	@HideFromInspector
+	property string lobbyMenuVisualState = ""
 
-    @ExecSpace("ClientOnly")
-    method void RefreshBoss(Entity player)
-        self:ResolveBossHud()
-        if not isvalid(self.bossRoot) then return end
+	@ExecSpace("ClientOnly")
+	method void OnBeginPlay()
+		        self:ResolveBossHud()
+		        self:ApplyRogueliteHudVisibility()
+		        -- 최대 폭을 처음 한 번만 저장해 둔다.
+		        if isvalid(self.hpFill) then self.hpFullWidth = self.hpFill.RectSize.x end
+		        if isvalid(self.expFill) then self.expFullWidth = self.expFill.RectSize.x end
+		        if isvalid(self.bossFill) then self.bossFullWidth = self.bossFill.RectSize.x end
+		        -- 자식 UI는 첫 프레임 뒤에 준비될 수 있다. 여기서 부모를 바로 끄면
+		        -- 아직 생성되지 않은 자식이 계속 nil로 남으므로, 첫 RefreshBoss가 숨긴다.
+		        -- 닉네임은 바뀌지 않으므로 여기서 한 번만 채운다.
+		        local me = _UserService.LocalPlayer
+		        if isvalid(self.nameText) and isvalid(me) and isvalid(me.PlayerComponent) then
+		            self.nameText.Text = me.PlayerComponent.Nickname
+		        end
+		
+		        log("[PlayerHud] OnBeginPlay  HP폭=" .. tostring(self.hpFullWidth)
+		            .. " EXP폭=" .. tostring(self.expFullWidth)
+		            .. " 보스폭=" .. tostring(self.bossFullWidth))
+		
+		        -- 매 프레임 갱신할 이유가 없다. 0.2초면 게이지가 끊겨 보이지 않는다.
+		        self.tickTimer = _TimerService:SetTimerRepeat(function()
+		            self:Refresh()
+		        end, 0.2)
+	end
 
-        -- 결과 모달이 확정된 순간부터는 전투용 보스 HP를 뒤에 남기지 않는다.
-        if _GameData.RogueRunActive
-            and (_GameData.RogueRunComplete or _GameData.RogueRunFailed
-                or _GameData.RogueRunResult ~= "ACTIVE") then
-            self:SetBossHudVisible(false)
-            return
-        end
+	@ExecSpace("ClientOnly")
+	method void OnEndPlay()
+		        -- 타이머를 남기면 리로드할 때마다 갱신 루프가 중첩된다.
+		        if self.tickTimer ~= 0 then
+		            _TimerService:ClearTimer(self.tickTimer)
+		            self.tickTimer = 0
+		        end
+	end
 
-        local map = player.CurrentMap
-        if map == nil then
-            self:SetBossHudVisible(false)
-            return
-        end
+	@ExecSpace("ClientOnly")
+	method void Refresh()
+		        -- 로컬 플레이어의 현재 값을 읽어 세 표시를 갱신한다.
+		        local player = _UserService.LocalPlayer
+		        if not isvalid(player) then return end
+		
+		        local info = _EntityService:GetEntityByPath("/ui/PlayerHud/Info")
+		        local runActive = _GameData.RogueRunActive
+		            and not _GameData.RogueRunComplete and not _GameData.RogueRunFailed
+		        if isvalid(info) then
+		            info.Enable = runActive
+		            info:SetVisible(runActive)
+		        end
+		        self:RefreshCompanionStatus(player, runActive)
+		        self:RefreshLobbyMenuVisuals(player)
+		
+		        -- PlayerStats가 아직 붙기 전에도 보스바는 맵 상태만으로 그릴 수 있다.
+		        self:RefreshBoss(player)
+		
+		        local pc = player.PlayerComponent
+		        if isvalid(pc) and isvalid(self.hpFill) then
+		            -- HP는 엔진이 PlayerComponent에 들고 있다 (커스텀 Hp를 만들지 않았다).
+		            local maxHp = pc.MaxHp
+		            if maxHp <= 0 then maxHp = 1 end
+		            local hp = pc.Hp
+		            if hp < 0 then hp = 0 end
+		            self:SetFill(self.hpFill, self.hpFullWidth, hp / maxHp)
+		            if isvalid(self.hpText) then
+		                self.hpText.Text = tostring(math.floor(hp)) .. " / " .. tostring(math.floor(maxHp))
+		            end
+		        end
+		
+		        ---@type PlayerStats
+		        local stats = player:GetComponent("script.PlayerStats")
+		        if stats == nil then return end
+		
+		        -- 신규 로그라이트 HUD에서는 Level/EXP를 표시하지 않는다.
+		        -- 레거시 저장과 기능 플래그용 데이터는 그대로 보존한다.
+	end
 
-        ---@type RoomSpawner
-        local spawner = map:GetComponent("script.RoomSpawner")
-        if spawner == nil or spawner.BossActive == false then
-            self:SetBossHudVisible(false)
-            return
-        end
-        self:SetBossHudVisible(true)
+	@ExecSpace("ClientOnly")
+	method void RefreshLobbyMenuVisuals(Entity player)
+		        local map = player.CurrentMap
+		        local lobbyVisible = isvalid(map) and map.Name == "maptown"
+		            and not _GameData.RogueRunActive
+		        if not lobbyVisible then return end
+		        -- 열린 창 상태는 추적하되, 메뉴 버튼 색은 고정해 재도색 깜빡임을 막는다.
+		        local areaWindow = _EntityService:GetEntityByPath("/ui/AreaSelect/Window")
+		        local state = "NONE"
+		        if _EquipPanel.isOpen then state = "MONSTER"
+		        elseif isvalid(areaWindow) and areaWindow.Enable then state = "ADVENTURE"
+		        elseif _GameData.RoguePartyWindowOpen then state = "PARTY"
+		        elseif _MonsterShopUi.ShopOpen then state = "SHOP" end
+		        if state ~= self.lobbyMenuVisualState then
+		            self.lobbyMenuVisualState = state
+		            log("[PilotLobbyMenu] selected=" .. state)
+		        end
+		        local names = {"MONSTER", "ADVENTURE", "PARTY", "SHOP"}
+		        local paths = {"/ui/EquipWindow/OpenBtn", "/ui/AreaSelect/LobbyDungeonButton",
+		            "/ui/PlayerHud/PartyMenuButton", "/ui/PlayerHud/ShopOpenButton"}
+		        -- 마을 메뉴: 윗줄은 보조 기능, 아랫줄은 파티와 모험 입장이다.
+		        local positions = {Vector2(-142, -146), Vector2(-18, -210),
+		            Vector2(-248, -210), Vector2(-18, -146)}
+		        for i = 1, 4 do
+		            local button = _EntityService:GetEntityByPath(paths[i])
+		            if isvalid(button) and isvalid(button.SpriteGUIRendererComponent) then
+		                local primary = names[i] == "PARTY" or names[i] == "ADVENTURE"
+		                local transform = button.UITransformComponent
+		                if isvalid(transform) then
+		                    transform.anchoredPosition = positions[i]
+		                    if names[i] == "PARTY" or names[i] == "ADVENTURE" then
+		                        transform.RectSize = Vector2(220, 76)
+		                    else
+		                        transform.RectSize = Vector2(114, 50)
+		                    end
+		                end
+		                local sprite = button.SpriteGUIRendererComponent
+		                local label = button.TextGUIRendererComponent
+		                if primary then
+	                    sprite.Color = Color(1, 1, 1, 0)
+	                    sprite.OutlineWidth = 0
+	                    if isvalid(label) then label.FontColor = Color(1, 1, 1, 0) end
+	                    local art = button:GetChildByName("ButtonArt", false)
+		                    if isvalid(art) and isvalid(art.SpriteGUIRendererComponent) then
+		                        art.SpriteGUIRendererComponent.Color = Color(1, 1, 1, 1)
+		                    end
+		                end
+		                if not primary then
+		                    sprite.Color = Color(0.98, 0.99, 0.99, 1)
+		                    sprite.OutlineColor = Color(0.77, 0.82, 0.85, 1)
+		                    sprite.OutlineWidth = 1
+		                    if isvalid(label) then label.FontColor = Color(0.19, 0.24, 0.28, 1) end
+		                end
+		            end
+		        end
+	end
 
-        if isvalid(self.bossNameText) then
-            self.bossNameText.Text = "BOSS · " .. spawner.BossDisplayName
-        end
+	@ExecSpace("ClientOnly")
+	method void RefreshCompanionStatus(Entity player, boolean runActive)
+		        local root = _EntityService:GetEntityByPath("/ui/PlayerHud/CompanionStatus")
+		        if not isvalid(root) then return end
+		        root.Enable = runActive
+		        root:SetVisible(runActive)
+		        if not runActive then return end
+		        local collection = player:GetComponent("script.PlayerCollection")
+		        local pc = player.PlayerComponent
+		        if collection == nil or not isvalid(pc) then return end
+		        for slot = 2, 3 do
+		            for _, prefix in ipairs({"Member", "Portrait", "SlotBg"}) do
+		                local unused = root:GetChildByName(prefix .. tostring(slot), false)
+		                if isvalid(unused) then
+		                    unused.Enable = false
+		                    unused:SetVisible(false)
+		                end
+		            end
+		        end
+		        local label = root:GetChildByName("Member1", false)
+		        local portrait = root:GetChildByName("Portrait1", false)
+		        local monsterId = collection:GetEquippedCompanion(1)
+		        local monster = monsterId ~= "" and _GameData:GetMonster(monsterId) or nil
+		        local map = player.CurrentMap
+		        local companion = isvalid(map) and map:GetChildByName("Companion_" .. pc.UserId .. "_1", true)
+		            or nil
+		        local combat = isvalid(companion) and companion:GetComponent("script.CompanionCombat")
+		            or nil
+		        if isvalid(portrait) then
+		            local hasPortrait = monster ~= nil and monster.collection_icon_ruid ~= ""
+		            portrait.Enable = hasPortrait
+		            portrait:SetVisible(hasPortrait)
+		            if hasPortrait and isvalid(portrait.SpriteGUIRendererComponent) then
+		                portrait.SpriteGUIRendererComponent.ImageRUID =
+		                    DataRef("thumbnail://" .. monster.collection_icon_ruid)
+		            end
+		        end
+		        if isvalid(label) and isvalid(label.TextGUIRendererComponent) then
+		            local lives = math.max(0, math.min(3, collection.CompanionLivesRemaining))
+		            if monster == nil then label.TextGUIRendererComponent.Text = "메인 없음"
+		            elseif combat == nil then
+		                label.TextGUIRendererComponent.Text = (lives > 0 and "소환 대기" or "전투불능")
+		                    .. "\n목숨 " .. tostring(lives) .. "/3"
+		            else label.TextGUIRendererComponent.Text = "HP " .. tostring(math.floor(combat.Hp))
+		                .. "/" .. tostring(math.floor(combat.MaxHp))
+		                .. "\n목숨 " .. tostring(lives) .. "/3" end
+		            label.Enable = true
+		            label:SetVisible(true)
+		        end
+	end
 
-        local maxHp = spawner.BossMaxHp
-        local hp = spawner.BossHp
-        if hp < 0 then hp = 0 end
-        local ratio = 1
-        if maxHp > 0 then ratio = hp / maxHp end
-        if isvalid(self.bossFill) then
-            self:SetFill(self.bossFill, self.bossFullWidth, ratio)
-        end
-        if isvalid(self.bossHpText) then
-            if maxHp > 0 then
-                self.bossHpText.Text = tostring(math.floor(hp))
-                    .. " / " .. tostring(math.floor(maxHp))
-            else
-                self.bossHpText.Text = "전투 준비"
-            end
-        end
+	@ExecSpace("ClientOnly")
+	method void ApplyRogueliteHudVisibility()
+		        local levelEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/Info/info_top/text_level")
+		        if isvalid(levelEntity) then levelEntity.Enable = false end
+		        -- 월드 캐릭터의 이름표는 그대로 두고, 하단 HUD에는 HP만 남긴다.
+		        local hudNameRow = _EntityService:GetEntityByPath("/ui/PlayerHud/Info/info_top")
+		        if isvalid(hudNameRow) then hudNameRow.Enable = false end
+		        local expEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/Info/info_bottom/Exp")
+		        if isvalid(expEntity) then expEntity.Enable = false end
+		        log("[PlayerHud] 로그라이트 공용 HUD 적용 — 이름/HP만 표시")
+	end
 
-        if isvalid(self.bossTimeText) then
-            -- 제한시간이 없는 Run 보스전에 레거시 00:00을 표시하지 않는다.
-            local hasTimeLimit = spawner.BossTimeLimitSeconds > 0
-            if isvalid(self.bossNameText) then
-                local nameRect = self.bossNameText.Entity.UITransformComponent
-                nameRect.Pivot = Vector2(0.5, 1)
-                nameRect.anchoredPosition = Vector2(hasTimeLimit and -105 or 0, -28)
-                nameRect.RectSize = Vector2(hasTimeLimit and 350 or 560, 30)
-                self.bossNameText.HorizontalAlignment = hasTimeLimit
-                    and TextHorizontalAlignmentOption.Left or TextHorizontalAlignmentOption.Center
-            end
-            self.bossTimeText.Enable = hasTimeLimit
-            if hasTimeLimit then
-                local total = math.ceil(spawner.BossRemainingSeconds)
-                if total < 0 then total = 0 end
-                local minutes = math.floor(total / 60)
-                local seconds = total - minutes * 60
-                self.bossTimeText.Text = "남은 시간  "
-                    .. string.format("%02d:%02d", minutes, seconds)
-            else
-                self.bossTimeText.Text = ""
-            end
-        end
-    end
+	@ExecSpace("ClientOnly")
+	method void RefreshBoss(Entity player)
+		        self:ResolveBossHud()
+		        if not isvalid(self.bossRoot) then return end
+		
+		        -- 결과 모달이 확정된 순간부터는 전투용 보스 HP를 뒤에 남기지 않는다.
+		        if _GameData.RogueRunActive
+		            and (_GameData.RogueRunComplete or _GameData.RogueRunFailed
+		                or _GameData.RogueRunResult ~= "ACTIVE") then
+		            self:SetBossHudVisible(false)
+		            return
+		        end
+		
+		        local map = player.CurrentMap
+		        if map == nil then
+		            self:SetBossHudVisible(false)
+		            return
+		        end
+		
+		        ---@type RoomSpawner
+		        local spawner = map:GetComponent("script.RoomSpawner")
+		        if spawner == nil or spawner.BossActive == false then
+		            self:SetBossHudVisible(false)
+		            return
+		        end
+		        self:SetBossHudVisible(true)
+		
+		        if isvalid(self.bossNameText) then
+		            self.bossNameText.Text = "BOSS · " .. spawner.BossDisplayName
+		        end
+		
+		        local maxHp = spawner.BossMaxHp
+		        local hp = spawner.BossHp
+		        if hp < 0 then hp = 0 end
+		        local ratio = 1
+		        if maxHp > 0 then ratio = hp / maxHp end
+		        if isvalid(self.bossFill) then
+		            self:SetFill(self.bossFill, self.bossFullWidth, ratio)
+		        end
+		        if isvalid(self.bossHpText) then
+		            if maxHp > 0 then
+		                self.bossHpText.Text = tostring(math.floor(hp))
+		                    .. " / " .. tostring(math.floor(maxHp))
+		            else
+		                self.bossHpText.Text = "전투 준비"
+		            end
+		        end
+		
+		        if isvalid(self.bossTimeText) then
+		            -- 제한시간이 없는 Run 보스전에 레거시 00:00을 표시하지 않는다.
+		            local hasTimeLimit = spawner.BossTimeLimitSeconds > 0
+		            if isvalid(self.bossNameText) then
+		                local nameRect = self.bossNameText.Entity.UITransformComponent
+		                nameRect.Pivot = Vector2(0.5, 1)
+		                nameRect.anchoredPosition = Vector2(hasTimeLimit and -105 or 0, -28)
+		                nameRect.RectSize = Vector2(hasTimeLimit and 350 or 560, 30)
+		                self.bossNameText.HorizontalAlignment = hasTimeLimit
+		                    and TextHorizontalAlignmentOption.Left or TextHorizontalAlignmentOption.Center
+		            end
+		            self.bossTimeText.Enable = hasTimeLimit
+		            if hasTimeLimit then
+		                local total = math.ceil(spawner.BossRemainingSeconds)
+		                if total < 0 then total = 0 end
+		                local minutes = math.floor(total / 60)
+		                local seconds = total - minutes * 60
+		                self.bossTimeText.Text = "남은 시간  "
+		                    .. string.format("%02d:%02d", minutes, seconds)
+		            else
+		                self.bossTimeText.Text = ""
+		            end
+		        end
+	end
 
-    @ExecSpace("ClientOnly")
-    method void ResolveBossHud()
-        -- UIBuilder로 보스 HUD의 크기나 구성을 다시 만들면 자식 UUID가 바뀔 수 있다.
-        -- 저장된 바인딩이 아직 갱신되지 않은 경우에도 고정 경로로 즉시 복구한다.
-        if not isvalid(self.bossRoot) then
-            self.bossRoot = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHud")
-        end
-        if not isvalid(self.bossBarRoot) then
-            self.bossBarRoot = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudBar")
-        end
-        if not isvalid(self.bossFill) then
-            local fillEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudFill")
-            if isvalid(fillEntity) then self.bossFill = fillEntity.UITransformComponent end
-        end
-        if not isvalid(self.bossNameText) then
-            local nameEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudName")
-            if isvalid(nameEntity) then self.bossNameText = nameEntity.TextGUIRendererComponent end
-        end
-        if not isvalid(self.bossHpText) then
-            local hpEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudHpText")
-            if isvalid(hpEntity) then self.bossHpText = hpEntity.TextGUIRendererComponent end
-        end
-        if not isvalid(self.bossTimeText) then
-            local timeEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudTime")
-            if isvalid(timeEntity) then self.bossTimeText = timeEntity.TextGUIRendererComponent end
-        end
-        if self.bossFullWidth <= 0 and isvalid(self.bossFill) then
-            self.bossFullWidth = self.bossFill.RectSize.x
-        end
-    end
+	@ExecSpace("ClientOnly")
+	method void ResolveBossHud()
+		        -- UIBuilder로 보스 HUD의 크기나 구성을 다시 만들면 자식 UUID가 바뀔 수 있다.
+		        -- 저장된 바인딩이 아직 갱신되지 않은 경우에도 고정 경로로 즉시 복구한다.
+		        if not isvalid(self.bossRoot) then
+		            self.bossRoot = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHud")
+		        end
+		        if not isvalid(self.bossBarRoot) then
+		            self.bossBarRoot = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudBar")
+		        end
+		        if not isvalid(self.bossFill) then
+		            local fillEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudFill")
+		            if isvalid(fillEntity) then self.bossFill = fillEntity.UITransformComponent end
+		        end
+		        if not isvalid(self.bossNameText) then
+		            local nameEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudName")
+		            if isvalid(nameEntity) then self.bossNameText = nameEntity.TextGUIRendererComponent end
+		        end
+		        if not isvalid(self.bossHpText) then
+		            local hpEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudHpText")
+		            if isvalid(hpEntity) then self.bossHpText = hpEntity.TextGUIRendererComponent end
+		        end
+		        if not isvalid(self.bossTimeText) then
+		            local timeEntity = _EntityService:GetEntityByPath("/ui/PlayerHud/BossHudTime")
+		            if isvalid(timeEntity) then self.bossTimeText = timeEntity.TextGUIRendererComponent end
+		        end
+		        if self.bossFullWidth <= 0 and isvalid(self.bossFill) then
+		            self.bossFullWidth = self.bossFill.RectSize.x
+		        end
+	end
 
-    @ExecSpace("ClientOnly")
-    method void SetBossHudVisible(boolean visible)
-        if isvalid(self.bossRoot) then self.bossRoot.Enable = visible end
-        if isvalid(self.bossBarRoot) then self.bossBarRoot.Enable = visible end
-        if isvalid(self.bossFill) then self.bossFill.Enable = visible end
-        if isvalid(self.bossNameText) then self.bossNameText.Enable = visible end
-        if isvalid(self.bossHpText) then self.bossHpText.Enable = visible end
-        if isvalid(self.bossTimeText) then self.bossTimeText.Enable = visible end
-    end
+	@ExecSpace("ClientOnly")
+	method void SetBossHudVisible(boolean visible)
+		        if isvalid(self.bossRoot) then self.bossRoot.Enable = visible end
+		        if isvalid(self.bossBarRoot) then self.bossBarRoot.Enable = visible end
+		        if isvalid(self.bossFill) then self.bossFill.Enable = visible end
+		        if isvalid(self.bossNameText) then self.bossNameText.Enable = visible end
+		        if isvalid(self.bossHpText) then self.bossHpText.Enable = visible end
+		        if isvalid(self.bossTimeText) then self.bossTimeText.Enable = visible end
+	end
 
-    @ExecSpace("ClientOnly")
-    method void SetFill(UITransformComponent fill, number fullWidth, number ratio)
-        -- 게이지 채움. FillAmount나 Slider가 아니라 **폭을 줄인다** —
-        -- 9-slice 게이지 스프라이트의 테두리가 뭉개지지 않는 쪽이다 (layout-recipes 1).
-        if ratio < 0 then ratio = 0 end
-        if ratio > 1 then ratio = 1 end
-        local size = fill.RectSize
-        fill.RectSize = Vector2(fullWidth * ratio, size.y)
-    end
+	@ExecSpace("ClientOnly")
+	method void SetFill(UITransformComponent fill, number fullWidth, number ratio)
+		        -- 게이지 채움. FillAmount나 Slider가 아니라 **폭을 줄인다** —
+		        -- 9-slice 게이지 스프라이트의 테두리가 뭉개지지 않는 쪽이다 (layout-recipes 1).
+		        if ratio < 0 then ratio = 0 end
+		        if ratio > 1 then ratio = 1 end
+		        local size = fill.RectSize
+		        fill.RectSize = Vector2(fullWidth * ratio, size.y)
+	end
 
 end

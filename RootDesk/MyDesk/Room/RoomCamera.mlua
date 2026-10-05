@@ -1,312 +1,289 @@
--- @서버 + @클라이언트 (아래 각 메서드 주석에 실행공간 명시)
---
--- 방(맵)의 경계를 책임진다. 두 가지를 한다:
---   1) 플레이어가 타일 영역 밖으로 못 나가게 가둔다  (서버 = 권한)
---   2) 카메라가 타일 영역 밖을 비추지 않게 가둔다    (클라이언트 = 카메라는 로컬 소유)
---
--- 두 값 모두 맵의 RectTileMapComponent 타일 경계에서 런타임에 계산한다.
--- 맵 크기를 바꿔도 코드를 고칠 필요가 없다 (수치 하드코딩 금지 규칙).
--- 이 컴포넌트는 각 맵 루트 엔티티에 붙는다.
-
 @Component
 script RoomCamera extends Component
 
-    -- 카메라가 한 번에 보는 월드 크기 (PC 기준 12.8 x 7.2).
-    -- LeftBottom/RightTop은 '보이는 영역'이 아니라 카메라 중심점의 이동 범위이므로
-    -- 타일 외곽선에서 이 값의 절반만큼 안쪽으로 좁혀야 방 밖이 안 보인다.
-    -- 모바일(9.6 x 5.4)은 더 좁게 보므로 PC 기준으로 좁혀두면 양쪽 다 안전하다.
-    property number viewWidth = 12.8
-    property number viewHeight = 7.2
+	property number viewWidth = 12.8
 
-    -- 플레이어를 가둘 때 타일 외곽선에서 얼마나 안쪽으로 둘지.
-    -- MSW 스프라이트 원점은 **발밑**이라 위쪽만 여백이 크게 필요하다.
-    -- 위 여백이 캐릭터 키보다 작으면 머리와 이름표가 화면 위로 잘려 사라진다.
-    -- 여백이 스프라이트 크기보다 크면 그만큼 맵 끝에 빈 공간이 남는다.
-    -- 스프라이트가 화면에서 잘리지 않는 최소값으로 맞춘다 (실측 기준 키 약 0.7).
-    property number marginSide = 0.35    -- 좌/우 (몸 폭 절반)
-    property number marginBottom = 0.25  -- 아래 (이름표가 발밑에 붙는다)
-    property number marginTop = 0.8      -- 위 (머리 끝이 화면 위에 딱 걸리게)
+	property number viewHeight = 7.2
 
-    -- 계산된 방 외곽선 (월드 좌표)
-    property number roomLeft = 0
-    property number roomRight = 0
-    property number roomBottom = 0
-    property number roomTop = 0
-    property boolean roomReady = false
+	property number marginSide = 0.35
 
-    property any userEnterHandler = nil
+	property number marginBottom = 0.25
 
-    -- 카메라 적용 재시도용. 맵 진입 시점엔 타일맵/LocalPlayer가 아직 없을 수 있다.
-    property any cameraRetryTimer = nil
-    property integer cameraRetryLeft = 0
-    property number cameraRetryInterval = 0.1
-    property integer cameraRetryMax = 40   -- 0.1초 x 40 = 4초까지 기다린다
+	property number marginTop = 0.8
 
-    method void OnBeginPlay()
-        -- 서버/클라 양쪽에서 방 외곽선을 먼저 계산해 둔다.
-        self:ComputeRoomRect()
+	property number roomLeft = 0
 
-        if self:IsServer() then
-            self.userEnterHandler = _UserService:ConnectEvent(UserEnterEvent, self.OnUserEnter)
-        end
+	property number roomRight = 0
 
-        if self:IsClient() then
-            self:RequestCameraApply()
-        end
-    end
+	property number roomBottom = 0
 
-    method void OnEndPlay()
-        -- OnBeginPlay에서 연결한 것은 반드시 해제한다.
-        if self.userEnterHandler ~= nil then
-            _UserService:DisconnectEvent(UserEnterEvent, self.userEnterHandler)
-            self.userEnterHandler = nil
-        end
-        if self.cameraRetryTimer ~= nil then
-            _TimerService:ClearTimer(self.cameraRetryTimer)
-            self.cameraRetryTimer = nil
-        end
-    end
+	property number roomTop = 0
 
-    method void OnMapEnter(Entity enterEntity)
-        -- 다른 맵에서 넘어왔을 때 클라이언트 카메라를 다시 맞춘다.
-        if self:IsClient() then
-            self:RequestCameraApply()
-        end
-    end
+	property boolean roomReady = false
 
-    @ExecSpace("ClientOnly")
-    method void RequestCameraApply()
-        -- 성공할 때까지 짧게 재시도한다.
-        --
-        -- 왜 재시도가 필요한가 (실측): 맵 전환 시 OnMapEnter가 타일맵이 준비되기
-        -- 전에 불려 ComputeRoomRect가 "RectTileMapComponent를 찾지 못함"으로 실패한다.
-        -- 예전에는 OnBeginPlay의 1회성 1초 타이머에만 기대고 있어서
-        --   - 진입 후 약 1초 동안 카메라가 새 방에 갇히지 않았고
-        --   - 이미 로드된 맵으로 되돌아갈 때는 OnBeginPlay가 다시 돌지 않아
-        --     카메라가 **이전 방의 경계를 그대로** 들고 있었다.
-        -- 방 크기가 전부 같은 지금은 티가 덜 나지만, 크기가 달라지면 바로 드러난다.
-        if self.cameraRetryTimer ~= nil then
-            _TimerService:ClearTimer(self.cameraRetryTimer)
-            self.cameraRetryTimer = nil
-        end
+	property any userEnterHandler = nil
 
-        if self:ApplyCameraToLocalPlayer() then return end
+	property any cameraRetryTimer = nil
 
-        self.cameraRetryLeft = self.cameraRetryMax
-        self.cameraRetryTimer = _TimerService:SetTimerRepeat(function()
-            self.cameraRetryLeft = self.cameraRetryLeft - 1
-            local applied = self:ApplyCameraToLocalPlayer()
-            if applied or self.cameraRetryLeft <= 0 then
-                if not applied and self.cameraRetryLeft <= 0 then
-                    log_warning("[RoomBounds] 카메라 적용 재시도 실패: " .. self.Entity.Name)
-                end
-                _TimerService:ClearTimer(self.cameraRetryTimer)
-                self.cameraRetryTimer = nil
-            end
-        end, self.cameraRetryInterval)
-    end
+	property integer cameraRetryLeft = 0
 
-    @ExecSpace("ServerOnly")
-    method void OnUserEnter(UserEnterEvent event)
-        -- 서버는 가두기만 담당한다. 카메라는 클라가 스스로 건다.
-        log("[RoomBounds] " .. self.Entity.Name .. " 유저 입장: " .. event.UserId)
-    end
+	property number cameraRetryInterval = 0.1
 
-    ---------------------------------------------------------------
-    -- 방 외곽선 계산
-    ---------------------------------------------------------------
+	property integer cameraRetryMax = 40
 
-    method any FindTileMap()
-        -- 이 맵의 RectTileMapComponent를 찾는다.
-        local byType = self.Entity:GetFirstChildComponentByTypeName("RectTileMapComponent", true)
-        if byType ~= nil then return byType end
+	method void OnBeginPlay()
+		        -- 서버/클라 양쪽에서 방 외곽선을 먼저 계산해 둔다.
+		        self:ComputeRoomRect()
+		
+		        if self:IsServer() then
+		            self.userEnterHandler = _UserService:ConnectEvent(UserEnterEvent, self.OnUserEnter)
+		        end
+		
+		        if self:IsClient() then
+		            self:RequestCameraApply()
+		        end
+	end
 
-        local child = self.Entity:GetChildByName("RectTileMap", true)
-        if child ~= nil then return child.RectTileMapComponent end
-        return nil
-    end
+	method void OnEndPlay()
+		        -- OnBeginPlay에서 연결한 것은 반드시 해제한다.
+		        if self.userEnterHandler ~= nil then
+		            _UserService:DisconnectEvent(UserEnterEvent, self.userEnterHandler)
+		            self.userEnterHandler = nil
+		        end
+		        if self.cameraRetryTimer ~= nil then
+		            _TimerService:ClearTimer(self.cameraRetryTimer)
+		            self.cameraRetryTimer = nil
+		        end
+	end
 
-    method void ComputeRoomRect()
-        -- 타일 셀 경계를 월드 좌표 외곽선으로 환산해 저장한다.
-        local tileMap = self:FindTileMap()
-        if tileMap == nil then
-            if not self._T.boundsPendingReported then
-                self._T.boundsPendingReported = true
-                if self:IsClient() then
-                    log("[RoomBounds] 타일 자식 준비 대기, 기존 카메라 유지 후 재시도: " .. self.Entity.Name)
-                else
-                    log_warning("[RoomBounds] RectTileMapComponent를 찾지 못함: " .. self.Entity.Name)
-                end
-            end
-            return
-        end
+	method void OnMapEnter(Entity enterEntity)
+		        -- 다른 맵에서 넘어왔을 때 클라이언트 카메라를 다시 맞춘다.
+		        if self:IsClient() then
+		            self:RequestCameraApply()
+		        end
+	end
 
-        local positions = tileMap:GetAllTilePositions():ToTable()
-        if #positions == 0 then
-            log_warning("[RoomBounds] 타일이 없다: " .. self.Entity.Name)
-            return
-        end
+	@ExecSpace("ClientOnly")
+	method void RequestCameraApply()
+		        -- 성공할 때까지 짧게 재시도한다.
+		        --
+		        -- 왜 재시도가 필요한가 (실측): 맵 전환 시 OnMapEnter가 타일맵이 준비되기
+		        -- 전에 불려 ComputeRoomRect가 "RectTileMapComponent를 찾지 못함"으로 실패한다.
+		        -- 예전에는 OnBeginPlay의 1회성 1초 타이머에만 기대고 있어서
+		        --   - 진입 후 약 1초 동안 카메라가 새 방에 갇히지 않았고
+		        --   - 이미 로드된 맵으로 되돌아갈 때는 OnBeginPlay가 다시 돌지 않아
+		        --     카메라가 **이전 방의 경계를 그대로** 들고 있었다.
+		        -- 방 크기가 전부 같은 지금은 티가 덜 나지만, 크기가 달라지면 바로 드러난다.
+		        if self.cameraRetryTimer ~= nil then
+		            _TimerService:ClearTimer(self.cameraRetryTimer)
+		            self.cameraRetryTimer = nil
+		        end
+		
+		        if self:ApplyCameraToLocalPlayer() then return end
+		
+		        self.cameraRetryLeft = self.cameraRetryMax
+		        self.cameraRetryTimer = _TimerService:SetTimerRepeat(function()
+		            self.cameraRetryLeft = self.cameraRetryLeft - 1
+		            local applied = self:ApplyCameraToLocalPlayer()
+		            if applied or self.cameraRetryLeft <= 0 then
+		                if not applied and self.cameraRetryLeft <= 0 then
+		                    log_warning("[RoomBounds] 카메라 적용 재시도 실패: " .. self.Entity.Name)
+		                end
+		                _TimerService:ClearTimer(self.cameraRetryTimer)
+		                self.cameraRetryTimer = nil
+		            end
+		        end, self.cameraRetryInterval)
+	end
 
-        local minX = positions[1].x
-        local maxX = positions[1].x
-        local minY = positions[1].y
-        local maxY = positions[1].y
-        for i = 2, #positions do
-            local cell = positions[i]
-            if cell.x < minX then minX = cell.x end
-            if cell.x > maxX then maxX = cell.x end
-            if cell.y < minY then minY = cell.y end
-            if cell.y > maxY then maxY = cell.y end
-        end
+	@ExecSpace("ServerOnly")
+	method void OnUserEnter(UserEnterEvent event)
+		        -- 서버는 가두기만 담당한다. 카메라는 클라가 스스로 건다.
+		        log("[RoomBounds] " .. self.Entity.Name .. " 유저 입장: " .. event.UserId)
+	end
 
-        -- ToWorldPosition은 셀 중심을 돌려주므로 그리드 절반만큼 넓혀 외곽선을 만든다.
-        local minWorld = tileMap:ToWorldPosition(minX, minY)
-        local maxWorld = tileMap:ToWorldPosition(maxX, maxY)
-        local halfX = tileMap.GridSize.x * 0.5
-        local halfY = tileMap.GridSize.y * 0.5
+	method any FindTileMap()
+		        -- 이 맵의 RectTileMapComponent를 찾는다.
+		        local byType = self.Entity:GetFirstChildComponentByTypeName("RectTileMapComponent", true)
+		        if byType ~= nil then return byType end
+		
+		        local child = self.Entity:GetChildByName("RectTileMap", true)
+		        if child ~= nil then return child.RectTileMapComponent end
+		        return nil
+	end
 
-        self.roomLeft = minWorld.x - halfX
-        self.roomBottom = minWorld.y - halfY
-        self.roomRight = maxWorld.x + halfX
-        self.roomTop = maxWorld.y + halfY
-        self.roomReady = true
-        self._T.boundsPendingReported = false
+	method void ComputeRoomRect()
+		        -- 타일 셀 경계를 월드 좌표 외곽선으로 환산해 저장한다.
+		        local tileMap = self:FindTileMap()
+		        if tileMap == nil then
+		            if not self._T.boundsPendingReported then
+		                self._T.boundsPendingReported = true
+		                if self:IsClient() then
+		                    log("[RoomBounds] 타일 자식 준비 대기, 기존 카메라 유지 후 재시도: " .. self.Entity.Name)
+		                else
+		                    log_warning("[RoomBounds] RectTileMapComponent를 찾지 못함: " .. self.Entity.Name)
+		                end
+		            end
+		            return
+		        end
+		
+		        local positions = tileMap:GetAllTilePositions():ToTable()
+		        if #positions == 0 then
+		            log_warning("[RoomBounds] 타일이 없다: " .. self.Entity.Name)
+		            return
+		        end
+		
+		        local minX = positions[1].x
+		        local maxX = positions[1].x
+		        local minY = positions[1].y
+		        local maxY = positions[1].y
+		        for i = 2, #positions do
+		            local cell = positions[i]
+		            if cell.x < minX then minX = cell.x end
+		            if cell.x > maxX then maxX = cell.x end
+		            if cell.y < minY then minY = cell.y end
+		            if cell.y > maxY then maxY = cell.y end
+		        end
+		
+		        -- ToWorldPosition은 셀 중심을 돌려주므로 그리드 절반만큼 넓혀 외곽선을 만든다.
+		        local minWorld = tileMap:ToWorldPosition(minX, minY)
+		        local maxWorld = tileMap:ToWorldPosition(maxX, maxY)
+		        local halfX = tileMap.GridSize.x * 0.5
+		        local halfY = tileMap.GridSize.y * 0.5
+		
+		        self.roomLeft = minWorld.x - halfX
+		        self.roomBottom = minWorld.y - halfY
+		        self.roomRight = maxWorld.x + halfX
+		        self.roomTop = maxWorld.y + halfY
+		        self.roomReady = true
+		        self._T.boundsPendingReported = false
+		
+		        log("[RoomBounds] " .. self.Entity.Name .. " 외곽=("
+		            .. string.format("%.1f", self.roomLeft) .. "," .. string.format("%.1f", self.roomBottom)
+		            .. ")~(" .. string.format("%.1f", self.roomRight) .. "," .. string.format("%.1f", self.roomTop)
+		            .. ")  타일 " .. tostring(#positions) .. "칸  서버=" .. tostring(self:IsServer()))
+	end
 
-        log("[RoomBounds] " .. self.Entity.Name .. " 외곽=("
-            .. string.format("%.1f", self.roomLeft) .. "," .. string.format("%.1f", self.roomBottom)
-            .. ")~(" .. string.format("%.1f", self.roomRight) .. "," .. string.format("%.1f", self.roomTop)
-            .. ")  타일 " .. tostring(#positions) .. "칸  서버=" .. tostring(self:IsServer()))
-    end
+	method void OnUpdate(number delta)
+		        -- 타일 밖은 충돌 대상이 없어서 그냥 걸어 나가진다. 그래서 위치를 직접 가둔다.
+		        --
+		        -- 가두기는 **클라이언트**가 한다. 서버에서 매 프레임 되돌리면 클라의 예측 이동과
+		        -- 싸워서 캐릭터가 튀어 보인다(버퍼링처럼 끊김). 클라가 자기 예측을 직접 잡으면
+		        -- 왕복 지연이 없어 매끄럽다.
+		        -- 서버는 타일 외곽선 기준의 느슨한 안전망만 둔다 — 정상 플레이에선 발동하지 않는다.
+		        if not self.roomReady then return end
+		
+		        if self:IsClient() then
+		            local me = _UserService.LocalPlayer
+		            -- 이 방에 있는 플레이어만 가둔다. 전환 중에는 두 맵의 컴포넌트가 함께
+		            -- 살아 있어서, 확인이 없으면 떠난 방이 남의 방 좌표로 끌어당긴다.
+		            -- 지금은 방 크기가 전부 같아 증상이 안 보이지만 크기가 달라지면 드러난다.
+		            if me ~= nil and self:IsMyRoom(me) then
+		                self:ClampInside(me, self.marginSide, self.marginBottom, self.marginTop)
+		            end
+		        end
+		
+		        if self:IsServer() then
+		            local users = _UserService:GetUsersByMapName(self.Entity.Name)
+		            if users ~= nil then
+		                for i = 1, #users do
+		                    self:ClampInside(users[i], 0, 0, 0)
+		                end
+		            end
+		        end
+	end
 
-    ---------------------------------------------------------------
-    -- 1) 플레이어 가두기 (서버 권한)
-    ---------------------------------------------------------------
+	method boolean IsMyRoom(Entity player)
+		        -- 이 플레이어가 지금 이 방에 있는가.
+		        -- 이름으로 비교하는 이유는 ApplyCameraToLocalPlayer 주석 참고.
+		        if not isvalid(player) then return false end
+		        local map = player.CurrentMap
+		        if map == nil then return false end
+		        return map.Name == self.Entity.Name
+	end
 
-    method void OnUpdate(number delta)
-        -- 타일 밖은 충돌 대상이 없어서 그냥 걸어 나가진다. 그래서 위치를 직접 가둔다.
-        --
-        -- 가두기는 **클라이언트**가 한다. 서버에서 매 프레임 되돌리면 클라의 예측 이동과
-        -- 싸워서 캐릭터가 튀어 보인다(버퍼링처럼 끊김). 클라가 자기 예측을 직접 잡으면
-        -- 왕복 지연이 없어 매끄럽다.
-        -- 서버는 타일 외곽선 기준의 느슨한 안전망만 둔다 — 정상 플레이에선 발동하지 않는다.
-        if not self.roomReady then return end
+	method void ClampInside(Entity player, number side, number below, number above)
+		        -- 방 외곽선 안으로 위치를 강제한다. Kinematicbody는 Transform 직접 대입이
+		        -- 다음 프레임에 덮이므로 SetWorldPosition을 쓴다.
+		        if not isvalid(player) then return end
+		
+		        local body = player.KinematicbodyComponent
+		        if body == nil then return end
+		
+		        local pos = player.TransformComponent.WorldPosition
+		        local left = self.roomLeft + side
+		        local right = self.roomRight - side
+		        local bottom = self.roomBottom + below
+		        local top = self.roomTop - above
+		
+		        local x = pos.x
+		        local y = pos.y
+		        if x < left then x = left end
+		        if x > right then x = right end
+		        if y < bottom then y = bottom end
+		        if y > top then y = top end
+		
+		        if x ~= pos.x or y ~= pos.y then
+		            body:SetWorldPosition(Vector2(x, y))
+		        end
+	end
 
-        if self:IsClient() then
-            local me = _UserService.LocalPlayer
-            -- 이 방에 있는 플레이어만 가둔다. 전환 중에는 두 맵의 컴포넌트가 함께
-            -- 살아 있어서, 확인이 없으면 떠난 방이 남의 방 좌표로 끌어당긴다.
-            -- 지금은 방 크기가 전부 같아 증상이 안 보이지만 크기가 달라지면 드러난다.
-            if me ~= nil and self:IsMyRoom(me) then
-                self:ClampInside(me, self.marginSide, self.marginBottom, self.marginTop)
-            end
-        end
-
-        if self:IsServer() then
-            local users = _UserService:GetUsersByMapName(self.Entity.Name)
-            if users ~= nil then
-                for i = 1, #users do
-                    self:ClampInside(users[i], 0, 0, 0)
-                end
-            end
-        end
-    end
-
-    method boolean IsMyRoom(Entity player)
-        -- 이 플레이어가 지금 이 방에 있는가.
-        -- 이름으로 비교하는 이유는 ApplyCameraToLocalPlayer 주석 참고.
-        if not isvalid(player) then return false end
-        local map = player.CurrentMap
-        if map == nil then return false end
-        return map.Name == self.Entity.Name
-    end
-
-    method void ClampInside(Entity player, number side, number below, number above)
-        -- 방 외곽선 안으로 위치를 강제한다. Kinematicbody는 Transform 직접 대입이
-        -- 다음 프레임에 덮이므로 SetWorldPosition을 쓴다.
-        if not isvalid(player) then return end
-
-        local body = player.KinematicbodyComponent
-        if body == nil then return end
-
-        local pos = player.TransformComponent.WorldPosition
-        local left = self.roomLeft + side
-        local right = self.roomRight - side
-        local bottom = self.roomBottom + below
-        local top = self.roomTop - above
-
-        local x = pos.x
-        local y = pos.y
-        if x < left then x = left end
-        if x > right then x = right end
-        if y < bottom then y = bottom end
-        if y > top then y = top end
-
-        if x ~= pos.x or y ~= pos.y then
-            body:SetWorldPosition(Vector2(x, y))
-        end
-    end
-
-    ---------------------------------------------------------------
-    -- 2) 카메라 가두기 (클라이언트 = 카메라 소유자)
-    ---------------------------------------------------------------
-
-    @ExecSpace("ClientOnly")
-    method boolean ApplyCameraToLocalPlayer()
-        -- 내 플레이어의 카메라를 이 방 안으로 가둔다.
-        -- 적용했으면 true, 아직 준비가 안 됐으면 false (호출자가 재시도한다).
-        if not self.roomReady then
-            self:ComputeRoomRect()
-            if not self.roomReady then return false end
-        end
-
-        local player = _UserService.LocalPlayer
-        if player == nil then return false end
-
-        -- 내 플레이어가 이 방에 있을 때만 건드린다.
-        -- 전환 중에는 이전 맵과 새 맵의 컴포넌트가 잠깐 함께 살아 있어서,
-        -- 이 확인이 없으면 떠난 방이 카메라를 자기 경계로 되돌려 놓는다.
-        --
-        -- 엔티티 동일성(==)이 아니라 **이름**으로 비교한다. 클라는 재방문 시
-        -- 맵 엔티티를 새로 만들어서, 같은 map02라도 인스턴스가 달라 == 가 한동안
-        -- 거짓이었다 — 실측으로 카메라 적용이 4초까지 밀렸다.
-        if not self:IsMyRoom(player) then return false end
-
-        local camera = player.CameraComponent
-        if camera == nil then return false end
-
-        -- LeftBottom/RightTop은 **보이는 영역의 한계**다 (카메라 중심 범위가 아니다 — 실측).
-        -- 따라서 타일 외곽선을 그대로 넣으면 엔진이 알아서 화면을 그 안에 가둔다.
-        -- 여기서 화면 절반만큼 좁히면 카메라가 너무 일찍 멈춰 캐릭터가 화면 밖으로 나간다.
-        local left = self.roomLeft
-        local right = self.roomRight
-        local bottom = self.roomBottom
-        local top = self.roomTop
-
-        -- 방이 화면보다 작으면 화면을 다 못 채운다. 최소한 화면 크기는 확보해 준다.
-        local minWidth = self.viewWidth
-        local minHeight = self.viewHeight
-        if (right - left) < minWidth then
-            local centerX = (left + right) * 0.5
-            left = centerX - minWidth * 0.5
-            right = centerX + minWidth * 0.5
-        end
-        if (top - bottom) < minHeight then
-            local centerY = (bottom + top) * 0.5
-            bottom = centerY - minHeight * 0.5
-            top = centerY + minHeight * 0.5
-        end
-
-        camera.ConfineCameraArea = true
-        camera.UseCustomBound = true
-        camera.LeftBottom = Vector2(left, bottom)
-        camera.RightTop = Vector2(right, top)
-
-        log("[RoomBounds] " .. self.Entity.Name .. " 카메라 가시영역 한계=("
-            .. string.format("%.2f", left) .. "," .. string.format("%.2f", bottom)
-            .. ")~(" .. string.format("%.2f", right) .. "," .. string.format("%.2f", top)
-            .. ")  UseCustomBound=" .. tostring(camera.UseCustomBound)
-            .. "  Confine=" .. tostring(camera.ConfineCameraArea))
-        return true
-    end
+	@ExecSpace("ClientOnly")
+	method boolean ApplyCameraToLocalPlayer()
+		        -- 내 플레이어의 카메라를 이 방 안으로 가둔다.
+		        -- 적용했으면 true, 아직 준비가 안 됐으면 false (호출자가 재시도한다).
+		        if not self.roomReady then
+		            self:ComputeRoomRect()
+		            if not self.roomReady then return false end
+		        end
+		
+		        local player = _UserService.LocalPlayer
+		        if player == nil then return false end
+		
+		        -- 내 플레이어가 이 방에 있을 때만 건드린다.
+		        -- 전환 중에는 이전 맵과 새 맵의 컴포넌트가 잠깐 함께 살아 있어서,
+		        -- 이 확인이 없으면 떠난 방이 카메라를 자기 경계로 되돌려 놓는다.
+		        --
+		        -- 엔티티 동일성(==)이 아니라 **이름**으로 비교한다. 클라는 재방문 시
+		        -- 맵 엔티티를 새로 만들어서, 같은 map02라도 인스턴스가 달라 == 가 한동안
+		        -- 거짓이었다 — 실측으로 카메라 적용이 4초까지 밀렸다.
+		        if not self:IsMyRoom(player) then return false end
+		
+		        local camera = player.CameraComponent
+		        if camera == nil then return false end
+		
+		        -- LeftBottom/RightTop은 **보이는 영역의 한계**다 (카메라 중심 범위가 아니다 — 실측).
+		        -- 따라서 타일 외곽선을 그대로 넣으면 엔진이 알아서 화면을 그 안에 가둔다.
+		        -- 여기서 화면 절반만큼 좁히면 카메라가 너무 일찍 멈춰 캐릭터가 화면 밖으로 나간다.
+		        local left = self.roomLeft
+		        local right = self.roomRight
+		        local bottom = self.roomBottom
+		        local top = self.roomTop
+		
+		        -- 방이 화면보다 작으면 화면을 다 못 채운다. 최소한 화면 크기는 확보해 준다.
+		        local minWidth = self.viewWidth
+		        local minHeight = self.viewHeight
+		        if (right - left) < minWidth then
+		            local centerX = (left + right) * 0.5
+		            left = centerX - minWidth * 0.5
+		            right = centerX + minWidth * 0.5
+		        end
+		        if (top - bottom) < minHeight then
+		            local centerY = (bottom + top) * 0.5
+		            bottom = centerY - minHeight * 0.5
+		            top = centerY + minHeight * 0.5
+		        end
+		
+		        camera.ConfineCameraArea = true
+		        camera.UseCustomBound = true
+		        camera.LeftBottom = Vector2(left, bottom)
+		        camera.RightTop = Vector2(right, top)
+		
+		        log("[RoomBounds] " .. self.Entity.Name .. " 카메라 가시영역 한계=("
+		            .. string.format("%.2f", left) .. "," .. string.format("%.2f", bottom)
+		            .. ")~(" .. string.format("%.2f", right) .. "," .. string.format("%.2f", top)
+		            .. ")  UseCustomBound=" .. tostring(camera.UseCustomBound)
+		            .. "  Confine=" .. tostring(camera.ConfineCameraArea))
+		        return true
+	end
 
 end

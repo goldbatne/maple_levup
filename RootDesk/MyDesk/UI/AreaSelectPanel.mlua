@@ -9,8 +9,10 @@ script AreaSelectPanel extends Logic
 
 	property integer slotCount = 20
 
-	property integer megaCardCount = 5
+	property integer megaCardCount = 10
+
 	property Entity lobbyDungeonButton = nil
+
 	property any lobbyButtonTimer = nil
 
 	property table slotIds = {}
@@ -56,7 +58,7 @@ script AreaSelectPanel extends Logic
 		        self.slotIds = {}
 		        self.slotNames = {}
 		        self:ResolveOptionUi()
-
+		
 		        for i = 1, self.megaCardCount do
 		            local index = i
 		            local slot = self:GetSlot(index)
@@ -67,7 +69,7 @@ script AreaSelectPanel extends Logic
 		                self:Remember(slot, h)
 		            end
 		        end
-
+		
 		        if isvalid(self.btnClose) then
 		            local closeEntity = self.btnClose.Entity
 		            local h = closeEntity:ConnectEvent(ButtonClickEvent, function() self:Hide() end)
@@ -95,9 +97,9 @@ script AreaSelectPanel extends Logic
 		            self:RefreshLobbyButton()
 		        end, 0.4)
 		        self:RefreshLobbyButton()
-
-
-		        log("[AreaSelect] Mega Area 5장 + Run 옵션 분리 UI 준비")
+		
+		
+		        log("[AreaSelect] 도전 층 10개 + Run 옵션 UI 준비")
 	end
 
 	@ExecSpace("ClientOnly")
@@ -120,9 +122,8 @@ script AreaSelectPanel extends Logic
 		local player = _UserService.LocalPlayer
 		local lobby = isvalid(player) and isvalid(player.CurrentMap)
 			and player.CurrentMap.Name == "maptown" and not _GameData.RogueRunActive
-		local show = lobby and (not isvalid(self.panel) or not self.panel.Enable)
-			and not _EquipPanel.isOpen and not _MonsterShopUi.ShopOpen
-			and not _GameData.RoguePartyWindowOpen
+		-- 마을 메뉴는 창이 열려 있어도 모두 유지한다 (Run 메뉴와 같은 규칙).
+		local show = lobby
 		self.lobbyDungeonButton.Enable = show
 		self.lobbyDungeonButton:SetVisible(show)
 	end
@@ -132,7 +133,10 @@ script AreaSelectPanel extends Logic
 		local player = _UserService.LocalPlayer
 		if not isvalid(player) or not isvalid(player.CurrentMap)
 			or player.CurrentMap.Name ~= "maptown" or _GameData.RogueRunActive then return end
-		local ids = _GameData:GetMegaAreaIds()
+		_EquipPanel:SetOpen(false)
+		_GameData:SetPartyWindowOpen(false)
+		_MonsterShopUi:SetShopOpen(false)
+		local ids = _GameData:GetRogueFloorIds()
 		local idText = ""
 		local names = ""
 		for i = 1, #ids do
@@ -208,13 +212,33 @@ script AreaSelectPanel extends Logic
 	end
 
 	@ExecSpace("ClientOnly")
+	method integer GetDisplayedMonsterSkillDailyCount(string areaId)
+		-- 서버 원장이 동기화한 오늘의 층별 횟수만 화면에 읽는다.
+		local player = _UserService.LocalPlayer
+		if not isvalid(player) then return 0 end
+		local db = player:GetComponent("script.PlayerDBManager")
+		if db == nil then return 0 end
+		local day, counts = string.match(db.RogueMonsterSkillDailyView or "", "^(%d+);(.+)$")
+		local now = DateTime.UtcNow
+		local today = string.format("%04d%02d%02d", now.Year, now.Month, now.Day)
+		if day ~= today then return 0 end
+		local floor = _GameData:GetRogueFloorIndex(areaId)
+		local index = 0
+		for count in string.gmatch(counts, "([^,]+)") do
+			index += 1
+			if index == floor then return math.max(0, math.min(3, tonumber(count) or 0)) end
+		end
+		return 0
+	end
+
+	@ExecSpace("ClientOnly")
 	method void Show(string idsJoined, string namesJoined)
 		        local ids = self:Split(idsJoined)
 		        local names = self:Split(namesJoined)
 		        self.slotIds = {}
 		        self.slotNames = {}
 		        for i = 1, self.slotCount do self:FillSlot(i, ids, names) end
-
+		
 		        local challengeFloor = self:GetDisplayedChallengeFloor()
 		        if #ids > 0 then
 		            self.selectedAreaId = ids[challengeFloor] or ids[1]
@@ -225,10 +249,12 @@ script AreaSelectPanel extends Logic
 		            self.selectedMode = _GameData.RoguePartyViewMode
 		            self:ResolveSelectedAreaName()
 		        end
-
+		
 		        if isvalid(self.panel) then self.panel.Enable = true end
 		        local box = _EntityService:GetEntityByPath("/ui/AreaSelect/Window/Box")
 		        if isvalid(box) and _UILogic.ScreenWidth > 0 and _UILogic.ScreenHeight > 0 then
+		            -- 모험 창은 원래 중앙 위치를 유지한다.
+		            box.UITransformComponent.anchoredPosition = Vector2(0, 0)
 		            local scale = math.min(1, (_UILogic.ScreenWidth - 40) / 1160,
 		                (_UILogic.ScreenHeight - 36) / 720)
 		            box.UITransformComponent.UIScale = Vector3(math.max(0.25, scale), math.max(0.25, scale), 1)
@@ -236,7 +262,7 @@ script AreaSelectPanel extends Logic
 		        self:ResetScroll()
 		        self:RefreshOptions()
 		        _GameData:RequestRoguePartyView()
-		        log("[AreaSelect] 열림 — Mega Area " .. tostring(math.min(#ids, self.megaCardCount)) .. "곳")
+		        log("[AreaSelect] 열림 — 도전 층 " .. tostring(math.min(#ids, self.megaCardCount)) .. "개")
 	end
 
 	@ExecSpace("ClientOnly")
@@ -265,7 +291,7 @@ script AreaSelectPanel extends Logic
 		        local slot = self:GetSlot(index)
 		        if slot == nil then return end
 		        local challengeFloor = self:GetDisplayedChallengeFloor()
-		        local selectedFloor = _GameData:GetMegaFloorIndex(self.selectedAreaId)
+		        local selectedFloor = _GameData:GetRogueFloorIndex(self.selectedAreaId)
 		        local active = index == selectedFloor
 		        local status = index <= challengeFloor and "도전" or "잠김"
 		        if isvalid(slot.TextGUIRendererComponent) then
@@ -307,7 +333,7 @@ script AreaSelectPanel extends Logic
 		        if areaId == nil or areaId == "" then return end
 		        local challengeFloor = self:GetDisplayedChallengeFloor()
 		        if index > challengeFloor then
-		            _GateNotice:ShowNotice("층 진행", "앞 층을 먼저 클리어해야 합니다.")
+		            _GateNotice:ShowNotice("층 진행", "앞 층에서 S랭크를 받으면 다음 층이 열립니다.")
 		            return
 		        end
 		        self.selectedAreaId = areaId
@@ -337,9 +363,9 @@ script AreaSelectPanel extends Logic
 	@ExecSpace("ClientOnly")
 	method void StartSelectedRun()
 		        local challengeFloor = self:GetDisplayedChallengeFloor()
-		        local selectedFloor = _GameData:GetMegaFloorIndex(self.selectedAreaId)
+		        local selectedFloor = _GameData:GetRogueFloorIndex(self.selectedAreaId)
 		        if selectedFloor < 1 or selectedFloor > challengeFloor then
-		            self.selectedAreaId = _GameData:GetMegaAreaIdForFloor(challengeFloor)
+		            self.selectedAreaId = _GameData:GetRogueFloorId(challengeFloor)
 		            self:ResolveSelectedAreaName()
 		        end
 		        if self.selectedAreaId == "" then return end
@@ -379,52 +405,43 @@ script AreaSelectPanel extends Logic
 	method void RefreshOptions()
 		        self:ResolveOptionUi()
 		        local challengeFloor = self:GetDisplayedChallengeFloor()
-		        local selectedFloor = _GameData:GetMegaFloorIndex(self.selectedAreaId)
+		        local selectedFloor = _GameData:GetRogueFloorIndex(self.selectedAreaId)
 		        if selectedFloor < 1 or selectedFloor > challengeFloor then
-		            self.selectedAreaId = _GameData:GetMegaAreaIdForFloor(challengeFloor)
+		            self.selectedAreaId = _GameData:GetRogueFloorId(challengeFloor)
 		            self:ResolveSelectedAreaName()
 		        end
 		        for i = 1, self.megaCardCount do self:PaintAreaSlot(i) end
 		        if isvalid(self.selectedAreaText) and isvalid(self.selectedAreaText.TextGUIRendererComponent) then
-		            local scale = _GameData:GetRogueFloorStatMultiplier(self.selectedAreaId)
-		            local growth = _GameData:GetRogueFloorClearGrowthCurrency(self.selectedAreaId)
-		            local core = _GameData:GetRogueFloorClearGrowthCore(self.selectedAreaId)
-		            local coreStartFloor = math.floor(_GameData:GetBalance("monster_growth_core_min_floor"))
-		            local floor = _GameData:GetMegaFloorIndex(self.selectedAreaId)
-		            local extraText = ""
-		            if core > 0 then
-		                extraText = "성장 코어는 +" .. tostring(core) .. "개이며, 특수 기믹도 등장합니다."
-		            elseif coreStartFloor == 3 then
-		                extraText = "성장 코어와 특수 기믹은 3층부터 등장합니다."
-		            else
-		                extraText = "성장 코어는 " .. tostring(coreStartFloor)
-		                    .. "층부터 얻고, 특수 기믹은 3층부터 등장합니다."
+		            if isvalid(self.selectedAreaText.UITransformComponent) then
+		                self.selectedAreaText.UITransformComponent.anchoredPosition = Vector2(0, -50)
 		            end
-		            if floor >= 3 and core <= 0 then
-		                extraText = "이 층에는 특수 기믹이 등장합니다."
+		            local sMinutes = math.floor(_GameData:GetRogueSRankSeconds(self.selectedAreaId) / 60)
+		            local limitMinutes = math.floor(_GameData:GetRogueRunTimeLimitSeconds(self.selectedAreaId) / 60)
+		            local detail = tostring(limitMinutes) .. "분 제한, "
+		                .. tostring(sMinutes) .. "분 이내 S랭크"
+		            if self.selectedMode == "MONSTER_SKILL" then
+		                local remain = 3 - self:GetDisplayedMonsterSkillDailyCount(self.selectedAreaId)
+		                detail = "오늘 확정 보상 " .. tostring(math.max(0, remain)) .. "회 남음"
 		            end
-		            self.selectedAreaText.TextGUIRendererComponent.Text = "선택한 도전은 \""
-		                .. self.selectedAreaName .. "\"입니다.\n"
-		                .. "적 능력치는 x" .. string.format("%.2f", scale)
-		                .. "이고, 보상 점수는 +" .. tostring(growth) .. "점입니다.\n"
-		                .. extraText
+		            self.selectedAreaText.TextGUIRendererComponent.Text = self.selectedAreaName
+		                .. "\n" .. detail
 		        end
-
+		
 		        if isvalid(self.normalButton) and isvalid(self.normalButton.SpriteGUIRendererComponent) then
-            self.normalButton.SpriteGUIRendererComponent.Color = self.selectedMode == "NORMAL"
-                and Color(0.86, 0.95, 0.98, 1) or Color(0.98, 0.99, 0.99, 1)
-            self.normalButton.SpriteGUIRendererComponent.OutlineColor = self.selectedMode == "NORMAL"
-                and Color(0.19, 0.61, 0.83, 1) or Color(0.77, 0.82, 0.85, 1)
-            self.normalButton.SpriteGUIRendererComponent.OutlineWidth = 1
+		            self.normalButton.SpriteGUIRendererComponent.Color = self.selectedMode == "NORMAL"
+		                and Color(0.86, 0.95, 0.98, 1) or Color(0.98, 0.99, 0.99, 1)
+		            self.normalButton.SpriteGUIRendererComponent.OutlineColor = self.selectedMode == "NORMAL"
+		                and Color(0.19, 0.61, 0.83, 1) or Color(0.77, 0.82, 0.85, 1)
+		            self.normalButton.SpriteGUIRendererComponent.OutlineWidth = 1
 		        end
 		        if isvalid(self.monsterSkillButton) and isvalid(self.monsterSkillButton.SpriteGUIRendererComponent) then
-            self.monsterSkillButton.SpriteGUIRendererComponent.Color = self.selectedMode == "MONSTER_SKILL"
-                and Color(0.86, 0.95, 0.98, 1) or Color(0.98, 0.99, 0.99, 1)
-            self.monsterSkillButton.SpriteGUIRendererComponent.OutlineColor = self.selectedMode == "MONSTER_SKILL"
-                and Color(0.19, 0.61, 0.83, 1) or Color(0.77, 0.82, 0.85, 1)
-            self.monsterSkillButton.SpriteGUIRendererComponent.OutlineWidth = 1
+		            self.monsterSkillButton.SpriteGUIRendererComponent.Color = self.selectedMode == "MONSTER_SKILL"
+		                and Color(0.86, 0.95, 0.98, 1) or Color(0.98, 0.99, 0.99, 1)
+		            self.monsterSkillButton.SpriteGUIRendererComponent.OutlineColor = self.selectedMode == "MONSTER_SKILL"
+		                and Color(0.19, 0.61, 0.83, 1) or Color(0.77, 0.82, 0.85, 1)
+		            self.monsterSkillButton.SpriteGUIRendererComponent.OutlineWidth = 1
 		        end
-
+		
 		        local party = _GameData.RoguePartyViewId ~= ""
 		        if isvalid(self.partySummaryText) and isvalid(self.partySummaryText.TextGUIRendererComponent) then
 		            if party then
@@ -436,7 +453,7 @@ script AreaSelectPanel extends Logic
 		                self.partySummaryText.TextGUIRendererComponent.Text = "혼자 모험을 시작할 수 있습니다."
 		            end
 		        end
-
+		
 		        if isvalid(self.readyButton) then
 		            self.readyButton.Enable = party
 		            self.readyButton:SetVisible(party)
@@ -445,7 +462,7 @@ script AreaSelectPanel extends Logic
 		                    and "준비 해제" or "준비"
 		            end
 		        end
-
+		
 		        local canStart = true
 		        local hint = "Solo는 별도 준비 없이 바로 시작합니다."
 		        local startLabel = "모험 시작"
@@ -470,8 +487,8 @@ script AreaSelectPanel extends Logic
 		            end
 		            if isvalid(self.startButton.ButtonComponent) then self.startButton.ButtonComponent.Enable = canStart end
 		            if isvalid(self.startButton.SpriteGUIRendererComponent) then
-                self.startButton.SpriteGUIRendererComponent.Color = canStart
-                    and Color(0.24, 0.55, 0.76, 1) or Color(0.72, 0.75, 0.78, 1)
+		                self.startButton.SpriteGUIRendererComponent.Color = canStart
+		                    and Color(0.24, 0.55, 0.76, 1) or Color(0.72, 0.75, 0.78, 1)
 		            end
 		        end
 	end
