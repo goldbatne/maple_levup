@@ -1,25 +1,73 @@
--- @서버 (공격 판정·상태 전환 전부 서버. 클라는 동기화된 상태로 애니메이션만 재생한다)
---
--- 몬스터가 플레이어를 때리는 쪽. 데미지는 T10-3에서, 공격 **모션**은 T11-1에서 붙였다.
-
 @Component
 script MonsterAttack extends AttackComponent
 
-	-- 공격 주기(초). **0이면 `GameBalance.monster_attack_interval`을 쓴다** (T33-3).
-	-- 종별로 다르게 하고 싶을 때만 여기(또는 `.model`)에 값을 넣는다 — 넣으면 CSV를 이긴다.
 	@MinValue(0)
 	property number AttackInterval = 0
 
-	-- 추격 감지 범위(월드 유닛). **0이면 `GameBalance.monster_detect_range`를 쓴다** (T33-3).
-	-- ⚠ 이건 우리 프로퍼티가 아니라 **네이티브 `AIChaseComponent.DetectionRange`에 써 넣는 값**이다.
-	--   엔진 컴포넌트라 "CSV를 읽어라"라고 시킬 수 없어서, OnBeginPlay에서 우리가 밀어 넣는다.
 	@MinValue(0)
 	property number DetectRange = 0
 
-	-- 실제 평타 공격 반경(월드 유닛). 0이면 플레이어 기본 공격 반경에
-	-- GameBalance.monster_attack_range_ratio를 곱한다. 인지 범위와 별도다.
 	@MinValue(0)
 	property number AttackRange = 0
+
+	@MinValue(0)
+	property number AttackPoseSeconds = 0.4
+
+	property string AvatarAttackAction = "swingO1"
+
+	property string AvatarWalkAction = "walk1"
+
+	property string AvatarIdleAction = "stand1"
+
+	@MinValue(0)
+	property number AvatarAttackPlayRate = 1.33
+
+	@HideFromInspector
+	property any Shape = nil
+
+	@HideFromInspector
+	property integer attackTimerId = 0
+
+	@HideFromInspector
+	property integer poseLogLeft = 4
+
+	@HideFromInspector
+	property integer poseUntil = 0
+
+	property string AttackSfxRuid = "8f98d393b90e4fa99ad44984ea372489"
+
+	@MinValue(0)
+	property number AttackSfxVolume = 0.6
+
+	@HideFromInspector
+	property Vector2 SpriteSize = Vector2(0,0)
+
+	@HideFromInspector
+	property Vector2 PositionOffset = Vector2(0,0)
+
+	@HideFromInspector
+	property boolean hitLimited = false
+
+	@HideFromInspector
+	property integer hitBudget = 0
+
+	@HideFromInspector
+	property string behaviorContext = ""
+
+	@HideFromInspector
+	property Vector3 behaviorOrigin = Vector3(0, 0, 0)
+
+	@HideFromInspector
+	property Vector2 behaviorDirection = Vector2(1, 0)
+
+	@HideFromInspector
+	property number behaviorConeDegrees = 0
+
+	@HideFromInspector
+	property boolean projectileTerrainCheck = false
+
+	@HideFromInspector
+	property Vector3 projectileTerrainOrigin = Vector3(0, 0, 0)
 
 	method number ResolvedAttackInterval()
 		-- 종별 값이 있으면 그것, 없으면 CSV.
@@ -52,79 +100,6 @@ script MonsterAttack extends AttackComponent
 		return playerRange * ratio
 	end
 
-	-- 공격 자세를 유지하는 시간(초). 이 시간이 지나면 IDLE로 돌려보내
-	-- AIChase가 다시 IDLE↔MOVE를 굴리게 둔다.
-	@MinValue(0)
-	property number AttackPoseSeconds = 0.4
-
-	-- 아바타 몬스터가 때릴 때 쓸 **그림 이름** (T25-4). 스프라이트 몬스터의
-	-- ActionSheet "ATTACK" 자리에 해당한다 — 종별로 `.model`에서 갈아 끼운다.
-	--
-	-- 무기에 따라 이름이 다르다: 한손검 `swingO1/O2/O3`·`stabO1/O2`,
-	-- 두손검 `swingT1/T2/T3`, 활 `shoot1`. 히어로는 **모험가 히어로 소드(한손)**라 swingO1이다.
-	-- 무기 없는 몸에는 공격 클립 자체가 없어 `alert` 말고는 나올 것이 없다.
-	property string AvatarAttackAction = "swingO1"
-
-	-- 공격이 끝나면 되돌아갈 동작. `Onetime`은 마지막 프레임에서 멈추므로
-	-- 안 되돌리면 검을 뻗은 채로 굳는다.
-	property string AvatarWalkAction = "walk1"
-	property string AvatarIdleAction = "stand1"
-
-	@MinValue(0)
-	property number AvatarAttackPlayRate = 1.33
-
-	@HideFromInspector
-	property any Shape = nil
-
-	@HideFromInspector
-	property integer attackTimerId = 0
-
-	-- 상태 전환이 실제로 먹는지 확인하려고 처음 몇 번만 로그를 남긴다.
-	-- AIChase가 매 프레임 IDLE↔MOVE를 덮어쓰므로 ATTACK이 살아남는지가 관건이었다.
-	@HideFromInspector
-	property integer poseLogLeft = 4
-
-	-- 공격 자세가 도는 중인지. 0.5초 주기 공격이 자세 시간(0.4초)과 겹쳐
-	-- 되돌리기 타이머가 중첩되는 걸 막는다.
-	@HideFromInspector
-	property integer poseUntil = 0
-
-	-- 때렸을 때 나는 소리. 종별로 .model에서 지정한다 (스프라이트와 같은 취급 —
-	-- 자산 id는 CSV가 아니라 모델이 소유한다).
-	--
-	-- 기본값은 스켈레톤 팩의 CharDam1이다. 이건 "몬스터가 내는 소리"가 아니라
-	-- **캐릭터가 맞는 소리**라 종을 안 가린다. 슬라임·버섯·골렘 팩에는 공격 사운드가
-	-- 아예 없고 Damage(자기가 맞는 소리)뿐이라 그걸 쓰면 의미가 반대가 된다.
-	property string AttackSfxRuid = "8f98d393b90e4fa99ad44984ea372489"
-
-	@MinValue(0)
-	property number AttackSfxVolume = 0.6
-
-	@HideFromInspector
-	property Vector2 SpriteSize = Vector2(0,0)
-
-	@HideFromInspector
-	property Vector2 PositionOffset = Vector2(0,0)
-
-	-- 보스 스킬 (T19-1, 대표 지시 2026-08-23: "보스 몬스터들은 얻는 스킬을 사용하는게
-	-- 좋을거 같아"). 이기면 뺏는 스킬을 상대가 먼저 보여 준다 — 무엇을 얻는지가
-	-- 설명이 아니라 맞아 보는 것으로 전해진다.
-	--
-	-- 상태는 전부 `self._T`에 둔다(bossSkills / skillReadyAt / skillInterval /
-	-- nextSkillAt / monster). 서버만 쓰고 클라가 볼 이유가 없어서다 —
-	-- 플레이어 쪽 SkillReadyAt이 @TargetUserSync인 것은 HUD가 쿨다운을 그려야 하기 때문이다.
-
-	-- 이번 한 방이 때릴 수 있는 대상 수. PlayerAttack과 같은 방식이다 —
-	-- 엔진에 "최대 타격 수"가 없어 IsAttackTarget 훅에서 예산을 깎는 수밖에 없다.
-	@HideFromInspector property boolean hitLimited = false
-	@HideFromInspector property integer hitBudget = 0
-	@HideFromInspector property string behaviorContext = ""
-	@HideFromInspector property Vector3 behaviorOrigin = Vector3(0, 0, 0)
-	@HideFromInspector property Vector2 behaviorDirection = Vector2(1, 0)
-	@HideFromInspector property number behaviorConeDegrees = 0
-	@HideFromInspector property boolean projectileTerrainCheck = false
-	@HideFromInspector property Vector3 projectileTerrainOrigin = Vector3(0, 0, 0)
-
 	@ExecSpace("ServerOnly")
 	method void OnBeginPlay()
 		-- Sprite size drives the attack box; load async, then start the repeat.
@@ -141,14 +116,14 @@ script MonsterAttack extends AttackComponent
 				.. tostring(self.Entity.Name))
 			return
 		end
-
+		
 		self.Shape = BoxShape(Vector2.zero, Vector2.one, 0)
-
+		
 		-- 보스 스킬은 스프라이트 갈래보다 **앞에서** 건다. 아래 아바타 분기가 return으로
 		-- 빠져나가기 때문에 뒤에 두면 히어로(아바타)만 스킬을 안 쓴다 — 정작 스킬을
 		-- 가장 많이 가진 상대다.
 		self:StartBossSkills(monster)
-
+		
 		-- 추격 감지 범위를 CSV에서 밀어 넣는다 (T33-3).
 		--
 		-- ⚠ `AIChaseComponent`는 **네이티브 컴포넌트**라 "CSV를 읽어라"라고 시킬 수 없다.
@@ -164,11 +139,11 @@ script MonsterAttack extends AttackComponent
 				.. " / 공격=" .. tostring(self:ResolvedAttackRange())
 				.. "  (" .. tostring(self.Entity.Name) .. ")")
 		end
-
+		
 		-- ATTACK 상태는 등록하지 않는다. 등록해서 ChangeState로 가는 길을 먼저 만들었는데
 		-- AIChase가 0.1초 만에 되돌려서 못 쓴다 (PlayAttackPose 주석 참고).
 		-- 공격 모션은 SpriteRUID를 직접 갈아끼우는 쪽으로 처리한다.
-
+		
 		-- 아바타 몬스터(히어로 — T16-3b)는 SpriteRendererComponent가 없다.
 		-- 여기서 갈라 두지 않으면 아래 PreloadAsync가 nil을 읽고 **콜백이 아예 안 돌아서
 		-- 공격 타이머가 시작되지 않는다** — 붙어 있어도 데미지가 0인 상태가 된다.
@@ -189,7 +164,7 @@ script MonsterAttack extends AttackComponent
 				.. tostring(self.Entity.Name) .. ")")
 			return
 		end
-
+		
 		_ResourceService:PreloadAsync({self.Entity.SpriteRendererComponent.SpriteRUID}, function()
 			local clip = _ResourceService:LoadAnimationClipAndWait(self.Entity.SpriteRendererComponent.SpriteRUID)
 			local firstFrameSprite = clip.Frames[1].FrameSprite
@@ -219,17 +194,13 @@ script MonsterAttack extends AttackComponent
 		-- 위의 attackTimerId 하나를 지우면 같이 멎는다 (StartBossSkills 주석).
 	end
 
-	---------------------------------------------------------------
-	-- 보스 스킬 (T19-1)
-	---------------------------------------------------------------
-
 	method table UsableSkillIds()
 		-- 적 전용 패턴이 있으면 그것을 우선 사용한다 (T56).
 		-- 직업 캐릭터의 기술은 전투 패턴일 뿐 플레이어가 훔치는 보상이 아니므로,
 		-- 포획 보상(drop_skill_id)과 별도 컬럼에서 읽는다.
 		local combatSkills = _GameData:GetCombatSkillIds(self:MonsterIdOf())
 		if #combatSkills > 0 then return combatSkills end
-
+		
 		local record = _GameData:GetMonster(self:MonsterIdOf())
 		if record == nil then return {} end
 		if record.drop_skill_id == "" then return {} end
@@ -252,19 +223,19 @@ script MonsterAttack extends AttackComponent
 		local skills = self._T.bossSkills
 		if skills == nil then return {} end
 		if self:MonsterIdOf() ~= "m_adv_bowmaster" then return skills end
-
+		
 		local ratio = 1
 		if monster.MaxHp > 0 then ratio = monster.Hp / monster.MaxHp end
 		local phase = 1
 		if ratio <= 0.35 then phase = 3
 		elseif ratio <= 0.70 then phase = 2 end
-
+		
 		if self._T.bowPhase ~= phase then
 			self._T.bowPhase = phase
 			log("[보우마스터] " .. tostring(phase) .. "단계 진입  HP="
 				.. string.format("%.1f", ratio * 100) .. "%")
 		end
-
+		
 		local out = {}
 		for i = 1, #skills do
 			local skill = _GameData:GetSkill(skills[i])
@@ -282,32 +253,26 @@ script MonsterAttack extends AttackComponent
 
 	@ExecSpace("ServerOnly")
 	method void StartBossSkills(RoomMonster monster)
-		-- Run NORMAL에서는 보스도 평타만 사용한다. 보스방 여부로 먼저 허용하면
-		-- NORMAL의 보스가 MONSTER_SKILL 모드처럼 고유 스킬을 시전한다.
-		-- Run 밖의 레거시 보스방 규칙은 그대로 보존한다.
+		-- NORMAL에서는 보스방만 고유 스킬을 쓰고, MONSTER_SKILL에서는
+		-- 일반 조우도 자기 스킬을 쓴다. Run 밖의 레거시 보스방 규칙은 보존한다.
 		--
 		-- 왜 종이 아니라 **방**으로 가르나: 스톤골렘처럼 한 종을 일반 사냥방에도 세울 수 있다.
 		-- 종에 플래그를 달면 그때 초반 방이 조용히 어려워진다. 보스 배율(T16-1)이
 		-- 방으로 갈리는 것과 같은 기준이다.
 		local monsterSkillMode = _GameData.RogueRunActive and _GameData.RogueMode == "MONSTER_SKILL"
 		if _GameData.RogueRunActive then
-			if monsterSkillMode == false then
-				if monster:IsBossRoom() then
-					log("[MonsterAttack] NORMAL boss skill disabled monster=" .. monster.MonsterId)
-				end
-				return
-			end
+			if monsterSkillMode == false and monster:IsBossRoom() == false then return end
 		elseif monster:IsBossRoom() == false then
 			return
 		end
-
+		
 		local skillIds = self:UsableSkillIds()
 		if #skillIds == 0 then return end
-
+		
 		local interval = _GameData:GetBalance("boss_skill_interval")
 		if monsterSkillMode then interval = math.max(0.25, self:ResolvedAttackInterval()) end
 		if interval <= 0 then return end
-
+		
 		-- ## 스킬은 별도 타이머가 아니라 **평타 타이머 위**에서 돈다
 		--
 		-- 처음에는 스킬 전용 타이머를 따로 돌렸다. 그랬더니 **6번 중 3번이 아무 데미지도
@@ -323,7 +288,7 @@ script MonsterAttack extends AttackComponent
 		self._T.skillInterval = interval
 		self._T.nextSkillAt = 0
 		self._T.monster = monster
-
+		
 		local names = ""
 		for i = 1, #skillIds do
 			local s = _GameData:GetSkill(skillIds[i])
@@ -336,13 +301,14 @@ script MonsterAttack extends AttackComponent
 	@ExecSpace("ServerOnly")
 	method boolean TryUseSkill()
 		-- 이번 평타 틱을 스킬로 바꿔 쓸지. 실제로 나갔으면 true(= 평타를 건너뛴다).
-		if _GameData.RogueRunActive and _GameData.RogueMode ~= "MONSTER_SKILL" then return false end
+		if _GameData.RogueRunActive and _GameData.RogueMode ~= "MONSTER_SKILL"
+			and (self._T.monster == nil or self._T.monster:IsBossRoom() == false) then return false end
 		if self._T.bossSkills == nil then return false end
 		if _UtilLogic.ElapsedSeconds < self._T.nextSkillAt then return false end
-
+		
 		local monster = self._T.monster
 		if monster == nil or monster.IsDead then return false end
-
+		
 		-- 방이 비어 있으면 시도하지 않는다.
 		--
 		-- ⚠ 이 가드가 없으면 **아무도 없는 방에서 보스가 혼자 실드를 두른다** (실측:
@@ -354,7 +320,7 @@ script MonsterAttack extends AttackComponent
 		if map == nil then return false end
 		local users = _UserService:GetUsersByMapName(map.Name)
 		if users == nil or #users == 0 then return false end
-
+		
 		-- 쿨다운이 돌지 않은 것 중 하나를 무작위로 쓴다.
 		--
 		-- 순서대로 돌리지 않는 이유: 5종을 순환하면 패턴이 외워져 두 번째 판부터
@@ -368,14 +334,14 @@ script MonsterAttack extends AttackComponent
 			end
 		end
 		if #ready == 0 then return false end
-
+		
 		local skillId = ready[_UtilLogic:RandomIntegerRange(1, #ready)]
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then
 			log_warning("[보스스킬] SkillTable에 없는 스킬: " .. tostring(skillId))
 			return false
 		end
-
+		
 		local holdSeconds = 0.6
 		if skill.projectile_ruid ~= "" then holdSeconds = _GameData:GetBalance("projectile_seconds") + 0.1 end
 		if skill.dash_distance > 0 then holdSeconds = _GameData:GetBalance("skill_dash_seconds") + 0.1 end
@@ -387,7 +353,7 @@ script MonsterAttack extends AttackComponent
 		end
 		if _GameData:TryReserveMonsterSpecial(holdSeconds) == false then return false end
 		if self:CastSkill(monster, skill) == false then return false end
-
+		
 		-- **뭔가 일어났을 때만** 대가를 치른다. 사거리 밖이면 쿨다운도 주기도 걸지 않고
 		-- 다음 틱에 다시 시도한다 — 안 그러면 플레이어가 멀리 서 있는 동안 5종이
 		-- 전부 헛돌아 붙었을 때 쓸 스킬이 없어진다.
@@ -410,7 +376,7 @@ script MonsterAttack extends AttackComponent
 		if monster.MonsterId == "m_adv_bowmaster" then
 			return self:CastBowmasterSkill(monster, skill)
 		end
-
+		
 		if skill.skill_kind == "defense" then
 			if skill.effect_type ~= "shield" then
 				-- 회복(heal)은 아직 몬스터 쪽에 없다. 조용히 넘기면 "쿨다운은 도는데
@@ -440,16 +406,16 @@ script MonsterAttack extends AttackComponent
 			log("[SkillBuff] Monster " .. monster.MonsterId .. " " .. skill.id)
 			return true
 		end
-
+		
 		local transform = self.Entity.TransformComponent
 		if not isvalid(transform) then return false end
 		local worldPosition = transform.WorldPosition
-
+		
 		-- range가 0이면 몸 크기 상자 대신 플레이어 기본 반경을 쓴다. 스킬은 평타보다
 		-- 멀리 닿아야 "스킬을 맞았다"가 되고, 안 그러면 붙어 있을 때만 나가는 두 번째 평타다.
 		local radius = skill.range
 		if radius <= 0 then radius = _GameData:GetBalance("player_attack_range") end
-
+		
 		-- 보스가 쓸 때는 반경을 깎는다 (T25-3, 대표 지시 "범위 3분의 2").
 		--
 		-- **왜 여기서만 깎나**: `SkillTable`의 `range`는 플레이어와 보스가 **같이 쓴다.**
@@ -459,7 +425,7 @@ script MonsterAttack extends AttackComponent
 		-- 왜 필요한가: 사냥방은 28x16 = 448칸인데 시험의 방(mapjob)은 **16x9 = 144칸**이다.
 		-- 사냥방 기준으로 잡은 반경 6.0을 그대로 쓰면 판정이 방의 78%를 덮어 못 피한다.
 		radius = radius * _GameData:GetBalance("boss_skill_range_multiplier")
-
+		
 		-- 던지는 스킬은 여기서 갈라진다 (T19-4, 대표 지시 2026-08-23:
 		-- "돌만 던져서 캐릭터에 갈때 데미지 들어가는거로").
 		-- **판정 시점이 다르다** — 바위가 닿을 때 아프다.
@@ -469,13 +435,12 @@ script MonsterAttack extends AttackComponent
 		if skill.dash_distance > 0 then
 			return self:DashTowardTarget(monster, skill, worldPosition, radius)
 		end
-
+		
 		return self:UseSpatialMonsterSkill(monster, skill, worldPosition, radius)
 	end
 
 	@ExecSpace("ServerOnly")
-	method boolean UseSpatialMonsterSkill(RoomMonster monster, table skill,
-		Vector3 fromPos, number radius)
+	method boolean UseSpatialMonsterSkill(RoomMonster monster, table skill, Vector3 fromPos, number radius)
 		local target = self:FindBowTarget(fromPos, radius)
 		if target == nil then return false end
 		local targetPos = target.TransformComponent.WorldPosition
@@ -502,8 +467,7 @@ script MonsterAttack extends AttackComponent
 	end
 
 	@ExecSpace("ServerOnly")
-	method boolean ResolveMonsterSpatialHit(string skillId, string behavior,
-		Vector3 origin, Vector3 point, Vector2 dir)
+	method boolean ResolveMonsterSpatialHit(string skillId, string behavior, Vector3 origin, Vector3 point, Vector2 dir)
 		if not isvalid(self.Entity) then return false end
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then return false end
@@ -575,10 +539,6 @@ script MonsterAttack extends AttackComponent
 		end
 	end
 
-	---------------------------------------------------------------
-	-- 던지는 스킬 (T19-4)
-	---------------------------------------------------------------
-
 	@ExecSpace("ServerOnly")
 	method boolean ThrowSkill(RoomMonster monster, table skill, Vector3 fromPos, number radius)
 		-- 던져서 **닿을 때** 아프게 한다 (대표 지시 2026-08-23).
@@ -597,7 +557,7 @@ script MonsterAttack extends AttackComponent
 		if map == nil then return false end
 		local users = _UserService:GetUsersByMapName(map.Name)
 		if users == nil then return false end
-
+		
 		-- 사거리 안에서 가장 가까운 사람. 허공에 던지면 쿨다운만 헛돈다.
 		local target = nil
 		local best = radius
@@ -615,7 +575,7 @@ script MonsterAttack extends AttackComponent
 			end
 		end
 		if target == nil then return false end
-
+		
 		local toPos = target.TransformComponent.WorldPosition
 		local behavior = skill.behavior
 		if behavior == "" then behavior = "PROJECTILE" end
@@ -644,7 +604,7 @@ script MonsterAttack extends AttackComponent
 				anyNewVfx == false) then anyNewVfx = true end
 		end
 		if anyNewVfx == false then _SkillEffect:PlayCast(skill.id, self.Entity, toPos.x < fromPos.x) end
-
+		
 		-- 바위와 **같은 시간**을 쓴다. 두 값이 갈라지면 숫자와 그림이 어긋난다.
 		local flight = _GameData:GetBalance("projectile_seconds")
 		local skillId = skill.id
@@ -659,7 +619,7 @@ script MonsterAttack extends AttackComponent
 				for i = 1, #targets do self:ResolveThrowHit(skillId, targets[i], maxTargets, hitRadius) end
 			end
 		end, flight)
-
+		
 		log("[보스스킬] " .. monster.DisplayName .. " [" .. skill.name
 			.. "] 던짐 → " .. string.format("%.1f,%.1f", toPos.x, toPos.y)
 			.. "  " .. string.format("%.2f", flight) .. "초 뒤 착탄")
@@ -673,23 +633,23 @@ script MonsterAttack extends AttackComponent
 		-- 날아가는 동안 몬스터가 죽거나 방이 내려갔을 수 있다. 그래도 바위는
 		-- 떨어지는 게 맞지만, 판정 주체(self)가 사라졌으면 아무것도 못 한다.
 		if not isvalid(self.Entity) then return end
-
+		
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then return end
-
+		
 		self.hitLimited = (maxTargets > 0)
 		self.hitBudget = math.floor(maxTargets)
-
+		
 		local r = hitRadius
 		if r <= 0 then r = _GameData:GetBalance("projectile_hit_radius") end
 		self.projectileTerrainOrigin = pos
 		self.projectileTerrainCheck = true
 		local hits = self:Attack(
 			CircleShape(Vector2(pos.x, pos.y + 0.5), r), skillId, CollisionGroups.Player)
-
+		
 		self.projectileTerrainCheck = false
 		self.hitLimited = false
-
+		
 		local n = 0
 		if hits ~= nil then n = #hits end
 		log("[착탄] " .. skill.name .. "  " .. string.format("%.1f,%.1f", pos.x, pos.y)
@@ -697,17 +657,13 @@ script MonsterAttack extends AttackComponent
 			.. " → " .. tostring(n) .. "명" .. (n == 0 and "  (비켜섰다)" or ""))
 	end
 
-	---------------------------------------------------------------
-	-- 보우마스터 투사체 패턴 (T57)
-	---------------------------------------------------------------
-
 	@ExecSpace("ServerOnly")
 	method any FindBowTarget(Vector3 fromPos, number radius)
 		local map = self.Entity.CurrentMap
 		if map == nil then return nil end
 		local users = _UserService:GetUsersByMapName(map.Name)
 		if users == nil then return nil end
-
+		
 		local target = nil
 		local best = radius
 		for i = 1, #users do
@@ -731,13 +687,13 @@ script MonsterAttack extends AttackComponent
 		if not isvalid(self.Entity) then return end
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then return end
-
+		
 		if showCast then
 			local from = self.Entity.TransformComponent.WorldPosition
 			_SkillEffect:PlayCast(skillId, self.Entity, targetPos.x < from.x)
 		end
 		_SkillEffect:PlayProjectile(skillId, self.Entity, targetPos, true)
-
+		
 		local flight = _GameData:GetBalance("projectile_seconds")
 		local maxTargets = skill.max_targets
 		_TimerService:SetTimerOnce(function()
@@ -750,7 +706,7 @@ script MonsterAttack extends AttackComponent
 		if not isvalid(self.Entity) then return end
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then return end
-
+		
 		self.hitLimited = (maxTargets > 0)
 		self.hitBudget = math.floor(maxTargets)
 		local hits = self:Attack(
@@ -758,7 +714,7 @@ script MonsterAttack extends AttackComponent
 			skillId, CollisionGroups.Player)
 		self.hitLimited = false
 		self:ApplyPlayerSecondaryEffects(skill, hits, pos)
-
+		
 		local n = 0
 		if hits ~= nil then n = #hits end
 		log("[보우마스터 착탄] " .. skill.name .. "  "
@@ -768,8 +724,7 @@ script MonsterAttack extends AttackComponent
 	end
 
 	@ExecSpace("ServerOnly")
-	method void ResolveMonsterProjectileLine(string skillId, Vector3 fromPos,
-		Vector3 toPos, integer maxTargets, number width)
+	method void ResolveMonsterProjectileLine(string skillId, Vector3 fromPos, Vector3 toPos, integer maxTargets, number width)
 		if not isvalid(self.Entity) then return end
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then return end
@@ -795,7 +750,7 @@ script MonsterAttack extends AttackComponent
 		---@type RoomMonster
 		local monster = self.Entity:GetComponent("script.RoomMonster")
 		if monster == nil or monster.IsDead then return end
-
+		
 		local from = self.Entity.TransformComponent.WorldPosition
 		local target = self:FindBowTarget(from, targetRadius)
 		if target == nil then return end
@@ -810,17 +765,17 @@ script MonsterAttack extends AttackComponent
 		local from = transform.WorldPosition
 		local radius = skill.range * _GameData:GetBalance("boss_skill_range_multiplier")
 		if radius <= 0 then radius = 5 end
-
+		
 		local target = self:FindBowTarget(from, radius)
 		if target == nil then return false end
 		local targetPos = target.TransformComponent.WorldPosition
 		local hitRadius = _GameData:GetBalance("projectile_hit_radius")
 		if hitRadius <= 0 then hitRadius = 0.8 end
-
+		
 		self:PlayAttackPose()
 		local flip = targetPos.x < from.x
 		_SkillEffect:PlayCast(skill.id, self.Entity, flip)
-
+		
 		if skill.id == "s_bow_02" then
 			-- 바람의 시: 같은 조준점을 세로로 벌린 세 발. 한 발만 맞아도 i-frame이
 			-- 나머지를 막으므로 그림은 넓지만 순간 피해가 세 배가 되지는 않는다.
@@ -855,7 +810,7 @@ script MonsterAttack extends AttackComponent
 			-- 애로우 블로우: 기본 조준 한 발.
 			self:LaunchBowProjectile(skill.id, targetPos, hitRadius, false)
 		end
-
+		
 		log("[보우마스터 스킬] " .. monster.DisplayName .. " [" .. skill.name
 			.. "] 단계=" .. tostring(self._T.bowPhase or 1)
 			.. " 사거리=" .. string.format("%.2f", radius))
@@ -886,7 +841,7 @@ script MonsterAttack extends AttackComponent
 			end
 		end
 		if target == nil then return false end
-
+		
 		local targetPos = target.TransformComponent.WorldPosition
 		local dx = targetPos.x - fromPos.x
 		local dy = targetPos.y - fromPos.y
@@ -940,13 +895,13 @@ script MonsterAttack extends AttackComponent
 		-- 매핑은 엔진의 StateStringToAnimationKey 기본값과 같다 (animation-state.md 6a).
 		local anim = self.Entity.StateAnimationComponent
 		if not isvalid(anim) then return "" end
-
+		
 		local key = "stand"
 		if stateName == "MOVE" then key = "move"
 		elseif stateName == "HIT" then key = "hit"
 		elseif stateName == "DEAD" then key = "die"
 		elseif stateName == "ATTACK" then key = "attack" end
-
+		
 		local ruid = anim.ActionSheet[key]
 		if ruid == nil then return "" end
 		return ruid
@@ -965,7 +920,7 @@ script MonsterAttack extends AttackComponent
 		--   우회한다. 상태를 안 건드리므로 AIChase와 싸우지 않는다.
 		local sc = self.Entity.StateComponent
 		if isvalid(sc) and sc.CurrentStateName == "DEAD" then return end
-
+		
 		-- 아바타 몬스터(히어로 — T16-3b)는 여기서 갈라진다. SpriteRendererComponent가
 		-- 아예 없어서 위의 "그림을 갈아끼운다"가 성립하지 않는다 (T25-4).
 		local sprite = self.Entity.SpriteRendererComponent
@@ -975,20 +930,20 @@ script MonsterAttack extends AttackComponent
 			end
 			return
 		end
-
+		
 		local attackRuid = self:ClipForState("ATTACK")
 		if attackRuid == "" then return end
 		if self.poseUntil > 0 then return end   -- 이미 공격 자세 중이면 겹쳐 걸지 않는다
-
+		
 		self.poseUntil = 1
 		sprite.SpriteRUID = attackRuid
-
+		
 		if self.poseLogLeft > 0 then
 			self.poseLogLeft = self.poseLogLeft - 1
 			log("[MonsterAttack] 공격 모션 재생 (" .. tostring(self.Entity.Name)
 				.. ")  상태=" .. tostring(isvalid(sc) and sc.CurrentStateName or "?"))
 		end
-
+		
 		_TimerService:SetTimerOnce(function()
 			self.poseUntil = 0
 			if not isvalid(self.Entity) then return end
@@ -1016,10 +971,10 @@ script MonsterAttack extends AttackComponent
 		if self.poseUntil > 0 then return end   -- 이미 자세 중이면 겹쳐 걸지 않는다
 		local sc = self.Entity.StateComponent
 		if isvalid(sc) and sc.CurrentStateName == "DEAD" then return end
-
+		
 		self.poseUntil = 1
 		self:SendAvatarAction(self.AvatarAttackAction, false)
-
+		
 		-- 끝나면 지금 상태에 맞는 동작으로 **되돌린다.**
 		--
 		-- ⚠ 안 되돌리면 마지막 프레임에서 굳는다. `Onetime`은 한 번 재생하고 **멈추기**
@@ -1050,14 +1005,14 @@ script MonsterAttack extends AttackComponent
 		if map == nil then return end
 		local users = _UserService:GetUsersByMapName(map.Name)
 		if users == nil then return end
-
+		
 		if self.poseLogLeft > 0 then
 			self.poseLogLeft = self.poseLogLeft - 1
 			log("[MonsterAttack] 아바타 동작 [" .. actionName .. "] "
 				.. (loop and "반복" or "1회") .. " (" .. tostring(self.Entity.Name)
 				.. ")  받는 사람 " .. tostring(#users) .. "명")
 		end
-
+		
 		for i = 1, #users do
 			local pc = users[i].PlayerComponent
 			if isvalid(pc) then
@@ -1077,7 +1032,7 @@ script MonsterAttack extends AttackComponent
 		if not isvalid(renderer) then return end
 		local body = renderer:GetBodyEntity()
 		if not isvalid(body) then return end
-
+		
 		local event = ActionStateChangedEvent()
 		event.CoreActionName = actionName
 		event.PartsActionName = actionName
@@ -1099,7 +1054,7 @@ script MonsterAttack extends AttackComponent
 		-- 보스는 이번 틱을 스킬로 바꿔 쓸 수 있다 (T19-1). 스킬이 나갔으면 평타는 쉰다 —
 		-- 한 틱에 두 방이 나가면 스킬이 자기 평타의 i-frame에 씹힌다 (StartBossSkills 주석).
 		if self:TryUseSkill() then return end
-
+		
 		-- Recompute the rotated/scaled attack box each tick before AttackFast.
 		local transformComponent = self.Entity.TransformComponent
 		
@@ -1113,7 +1068,7 @@ script MonsterAttack extends AttackComponent
 			self.Shape.Size = Vector2(self.SpriteSize.x * math.abs(scaleX), self.SpriteSize.y * math.abs(scaleY))
 			self.Shape.Position = Vector2(worldPosition.x + offsetX, worldPosition.y + offsetY)
 			self.Shape.Angle = transformComponent.ZRotation
-
+		
 			if _GameData:GetBalance("phase1_random_combat_enabled") >= 0.5 then
 				-- 신규 전투는 스프라이트 크기가 아니라 데이터 반경으로 실제 공격 거리를 정한다.
 				-- AIChase.DetectionRange는 위 OnBeginPlay에서 별도로 설정되어 추적 범위와 섞이지 않는다.
@@ -1124,7 +1079,7 @@ script MonsterAttack extends AttackComponent
 				return
 			end
 		end
-
+		
 		-- 기능 플래그를 끄면 기존 스프라이트 접촉 상자를 그대로 사용한다.
 		self:AttackFast(self.Shape, nil, CollisionGroups.Player)
 	end
@@ -1152,10 +1107,10 @@ script MonsterAttack extends AttackComponent
 		-- (다른 방 사람에게까지 들리면 안 된다.)
 		if self.AttackSfxRuid == "" then return end
 		if not isvalid(defender) then return end
-
+		
 		local pc = defender.PlayerComponent
 		if not isvalid(pc) then return end
-
+		
 		_SoundService:PlaySound(self.AttackSfxRuid, self.AttackSfxVolume, pc.UserId)
 	end
 
@@ -1173,7 +1128,7 @@ script MonsterAttack extends AttackComponent
 		---@type RoomMonster
 		local mon = attacker:GetComponent("script.RoomMonster")
 		if mon ~= nil then atk = mon.Atk end
-
+		
 		local def = 0
 		local companion = defender:GetComponent("script.CompanionCombat")
 		if companion ~= nil then
@@ -1189,7 +1144,7 @@ script MonsterAttack extends AttackComponent
 			local stats = defender:GetComponent("script.PlayerStats")
 			if stats ~= nil then def = stats:GetTotalDef() end
 		end
-
+		
 		-- attackInfo에 스킬 id가 실려 오면 그 계수를, 평타(nil)면 기준 계수를 쓴다 (T19-1).
 		--
 		-- ⚠ 몬스터에는 스탯이 Atk 하나뿐이라 **스킬의 scaling_stat은 무시된다.**
@@ -1198,7 +1153,7 @@ script MonsterAttack extends AttackComponent
 		--   그때는 몬스터에도 계수 스탯을 만들어야 한다 — CSV만 고치면 안 된다.
 		local damage = _CombatFormula:CalcSkillDamage(atk, def, attackInfo)
 		if mon ~= nil then damage = math.max(1, math.floor(damage * mon:GetOutgoingDamageMultiplier() + 0.5)) end
-
+		
 		-- 스킬로 때린 것이면 보스 배율을 깎는다. **지금 값은 1이라 안 깎는다** (T29).
 		--
 		-- 평타는 안 깎는다 — 여기서 줄일 수 있는 것은 **스킬이 평타보다 훨씬 아픈 것**이지
@@ -1223,7 +1178,7 @@ script MonsterAttack extends AttackComponent
 				if damage < 1 then damage = 1 end
 			end
 		end
-
+		
 		-- 실드 감쇄 (T17-3b). **여기서** 깎는 이유: CalcDamage가 돌려주는 값이 곧
 		-- 화면에 뜨는 데미지 숫자다. OnHit에서 깎으면 숫자는 그대로인데 HP만 덜 닳아
 		-- "실드가 먹었는지"가 화면에서 안 읽힌다.
@@ -1242,13 +1197,13 @@ script MonsterAttack extends AttackComponent
 					.. tostring(before) .. " → " .. tostring(damage) .. "]"
 			end
 		end
-
+		
 		local skillText = "평타"
 		if attackInfo ~= nil and attackInfo ~= "" then
 			local sk = _GameData:GetSkill(attackInfo)
 			skillText = "[" .. (sk ~= nil and sk.name or attackInfo) .. "]"
 		end
-
+		
 		log("[MonsterAttack] " .. tostring(mon ~= nil and mon.DisplayName or "?")
 			.. " " .. skillText
 			.. " ATK=" .. tostring(atk) .. " vs 플레이어 DEF=" .. tostring(def)
@@ -1265,7 +1220,7 @@ script MonsterAttack extends AttackComponent
 			return false
 		end
 		if companion ~= nil and (companion.IsDefeated or companion.OwnerUserId == "") then return false end
-
+		
 		if __base:IsAttackTarget(defender, attackInfo) == false then return false end
 		if self.projectileTerrainCheck then
 			local targetPos = defender.TransformComponent.WorldPosition
@@ -1281,11 +1236,11 @@ script MonsterAttack extends AttackComponent
 				if dot < math.cos(math.rad(self.behaviorConeDegrees * 0.5)) then return false end
 			end
 		end
-
+		
 		-- 대상 수 제한 (T19-1). 평타는 hitLimited=false라 그대로 통과한다.
 		if self.hitLimited == false then return true end
 		if self.hitBudget <= 0 then return false end
-
+		
 		self.hitBudget = self.hitBudget - 1
 		return true
 	end

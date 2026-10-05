@@ -1,490 +1,517 @@
--- @서버 (HP 차감·사망 판정은 전부 서버. 클라는 동기화된 값을 읽기만 한다)
---
--- 방에 배치되는 몬스터의 데이터 소유자.
--- 수치는 MonsterTable에서 읽는다 — .model에 HP를 박아두면 시트와 어긋난다 (개발 규칙 3).
---
--- 샘플 Monster.mlua를 쓰지 않고 따로 만든 이유:
---   샘플은 HP를 인스펙터 값으로 받고, 사망 전이를 .model의 StateSet(ConditionIsDead)에
---   맡긴다. 우리는 HP를 데이터 테이블에서 가져와야 하고 StateSet도 두지 않아서
---   ChangeState("DEAD")를 직접 호출한다 (monster.md §7a 정본과 같은 방식).
---
--- 슬라이스 범위(작업지시서 T3): 몬스터 AI는 '제자리 + 피격 반응'까지만.
--- 그래서 이동·추격 로직이 없고 AIChase/AIWander도 붙이지 않는다.
-
 @Component
 script RoomMonster extends Component
 
-    -- MonsterTable의 id. 같은 모델로 여러 몬스터를 만들 때 이 값만 바꾼다.
-    -- 기본값은 비워 둔다 (T33-4). 예전 기본값 "m_slime"은 헤네시스 재테마(2026-08-16)
-    -- 때 MonsterTable에서 빠져 **없는 종을 가리키고 있었다** — 아래 OnBeginPlay가
-    -- 어차피 거절하지만, 그때 로그가 실재하지 않는 이름을 대며 사람을 헷갈리게 했다.
-    property string MonsterId = ""
+	property string MonsterId = ""
 
-    -- 죽은 뒤 다시 살아날지. 방 단위 리스폰은 T3-2b에서 스포너가 관리한다.
-    property boolean RespawnOn = false
-    property number RespawnDelay = 5
-    -- 사망 연출(die 클립)이 보일 시간. 이 뒤에 숨기거나 파괴한다.
-    property number DestroyDelay = 0.8
+	property boolean RespawnOn = false
 
-    -- 테이블에서 읽어온 확정 수치. 클라 표시(HP바 등)를 위해 동기화한다.
-    @Sync property number MaxHp = 0
-    @Sync property number Hp = 0
-    @Sync property number Def = 0
-    -- 플레이어를 때릴 때 쓰는 공격력. MonsterTable에 atk 컬럼이 없어 곡선에서 유도한다
-    -- (LevelCurve.MonsterAtkAtLevel — 2026-08-13 실플레이로 확정, T10-3c).
-    @Sync property number Atk = 0
-    @Sync property number ExpReward = 0
-    @Sync property string DisplayName = ""
-    @Sync @HideFromInspector property boolean IsDead = false
+	property number RespawnDelay = 5
 
-    -- 실드 (T19-1). 보스가 자기 방어 스킬(히어로의 아이언 바디)을 쓰면 걸린다.
-    -- 플레이어 쪽 PlayerHit.ShieldRatio/ShieldUntil과 **같은 모양**으로 맞춰 뒀다 —
-    -- 받는 피해를 깎는 규칙이 양쪽에서 다르면 읽는 사람이 매번 두 번 확인해야 한다.
-    --
-    -- @TargetUserSync가 아니라 @Sync인 이유: 몬스터는 주인이 없다.
-    @Sync @HideFromInspector property number ShieldRatio = 0
-    @Sync @HideFromInspector property number ShieldUntil = 0
+	property number DestroyDelay = 0.8
 
-    -- 스킬 다양성 개편의 공통 제어 상태. 개별 SkillID 분기 대신 SkillTable의
-    -- secondary_effect를 이 네 API로 모은다. 죽음/리스폰 때 모두 초기화된다.
-    @Sync @HideFromInspector property number SlowRatio = 0
-    @Sync @HideFromInspector property number SlowUntil = 0
-    @Sync @HideFromInspector property number StunUntil = 0
-    @Sync @HideFromInspector property number WeakenRatio = 0
-    @Sync @HideFromInspector property number WeakenUntil = 0
-    @Sync @HideFromInspector property number AttackBoostRatio = 0
-    @Sync @HideFromInspector property number AttackBoostUntil = 0
-    @Sync @HideFromInspector property number NextAttackBoostRatio = 0
-    @Sync @HideFromInspector property number NextAttackBoostUntil = 0
-    @HideFromInspector property number BaseMoveSpeed = 0
-    @HideFromInspector property integer SlowSerial = 0
-    @HideFromInspector property integer StunSerial = 0
-    @HideFromInspector property integer ImpulseSerial = 0
-    @HideFromInspector property number ImpulseUntil = 0
-    @HideFromInspector property string LastControlEffect = ""
+	@Sync
+	property number MaxHp = 0
 
-    @ExecSpace("ServerOnly")
-    method string MapName()
-        -- 이 몬스터가 서 있는 맵 이름. 방 레코드를 역인덱스할 때 쓴다
-        -- (RoomCamera / RoomSpawner와 같은 방식).
-        -- 스포너가 맵 엔티티를 parent로 넘겨 스폰하므로 CurrentMap이 그 맵이다.
-        local map = self.Entity.CurrentMap
-        if map == nil then return "" end
-        return map.Name
-    end
+	@Sync
+	property number Hp = 0
 
-    method boolean IsBossRoom()
-        -- 지금 서 있는 방이 보스방인가. **방이 정한다** — 몬스터에 보스 플래그를 두면
-        -- 같은 종을 다른 방에 배치할 때 데이터가 두 곳으로 갈라진다 (GrantBossReward와 같은 판단).
-        --
-        -- 캐시하지 않고 부를 때마다 조회하는 이유: OnBeginPlay에서 계산해 두면
-        -- **컴포넌트 실행 순서에 의존**하게 된다. MonsterAttack이 이 값을 읽는데
-        -- 둘 중 누가 먼저 OnBeginPlay를 도는지는 보장되지 않는다.
-        --
-        -- 실행공간을 비워둔다 — 서버는 배율·스킬 판정에, 클라는 표시에 쓸 수 있다.
-        local map = self.Entity.CurrentMap
-        if map == nil then return false end
+	@Sync
+	property number Def = 0
 
-        local room = _GameData:GetRoomByMapName(map.Name)
-        if room == nil then return false end
-        return room.room_type == "boss"
-    end
+	@Sync
+	property number Atk = 0
 
-    @ExecSpace("ServerOnly")
-    method void ApplyShield(number ratio, number seconds)
-        -- 보스가 자기 방어 스킬을 썼을 때 걸린다 (T19-1).
-        -- 겹쳐 쌓지 않고 덮어쓴다 — PlayerHit.ApplyShield와 같은 규칙이다.
-        if ratio <= 0 or seconds <= 0 then return end
+	@Sync
+	property number ExpReward = 0
 
-        -- 상한 0.9. 1.0이 들어오면 **보스가 무적**이 되어 잡을 수 없는 방이 된다.
-        -- 데이터 오타 한 번으로 게임이 막히는 자리라 코드에서 자른다.
-        if ratio > 0.9 then
-            log_warning("[RoomMonster] 실드 감쇄율이 너무 크다(" .. tostring(ratio) .. ") — 0.9로 자른다")
-            ratio = 0.9
-        end
+	@Sync
+	property string DisplayName = ""
 
-        self.ShieldRatio = ratio
-        self.ShieldUntil = _UtilLogic.ElapsedSeconds + seconds
-    end
+	@Sync
+	@HideFromInspector
+	property boolean IsDead = false
 
-    -- 실행공간을 비워둔다. 서버는 데미지 감쇄에 쓰고, 읽는 값이 @Sync라 클라도 같다.
-    method number GetDamageReduction()
-        -- 이 몬스터가 지금 받는 피해를 얼마나 깎는가. 실드가 없거나 만료면 0.
-        if self.ShieldRatio <= 0 then return 0 end
-        if _UtilLogic.ElapsedSeconds >= self.ShieldUntil then return 0 end
-        return self.ShieldRatio
-    end
+	@Sync
+	@HideFromInspector
+	property number ShieldRatio = 0
 
-    @ExecSpace("ServerOnly")
-    method void ResetSkillControls()
-        self.SlowSerial = self.SlowSerial + 1
-        self.StunSerial = self.StunSerial + 1
-        self.ImpulseSerial = self.ImpulseSerial + 1
-        self.SlowRatio = 0
-        self.SlowUntil = 0
-        self.StunUntil = 0
-        self.ImpulseUntil = 0
-        self.WeakenRatio = 0
-        self.WeakenUntil = 0
-        self.AttackBoostRatio = 0
-        self.AttackBoostUntil = 0
-        self.NextAttackBoostRatio = 0
-        self.NextAttackBoostUntil = 0
-        self.LastControlEffect = ""
-        local movement = self.Entity.MovementComponent
-        if isvalid(movement) and self.BaseMoveSpeed > 0 then movement.InputSpeed = self.BaseMoveSpeed end
-        local chase = self.Entity.AIChaseComponent
-        if isvalid(chase) and self.IsDead == false then chase.Enable = true end
-    end
+	@Sync
+	@HideFromInspector
+	property number ShieldUntil = 0
 
-    @ExecSpace("ServerOnly")
-    method void ApplySlow(number ratio, number seconds)
-        if self.IsDead or ratio <= 0 or seconds <= 0 then return end
-        if ratio > 0.75 then ratio = 0.75 end
-        local movement = self.Entity.MovementComponent
-        if not isvalid(movement) then return end
-        if self.BaseMoveSpeed <= 0 then self.BaseMoveSpeed = movement.InputSpeed end
-        if _UtilLogic.ElapsedSeconds >= self.SlowUntil then self.SlowRatio = 0 end
-        self.SlowSerial = self.SlowSerial + 1
-        local serial = self.SlowSerial
-        self.SlowRatio = math.max(self.SlowRatio, ratio)
-        self.SlowUntil = math.max(self.SlowUntil, _UtilLogic.ElapsedSeconds + seconds)
-        local remaining = self.SlowUntil - _UtilLogic.ElapsedSeconds
-        self.LastControlEffect = "SLOW"
-        log("[SkillControl] " .. self.DisplayName .. " SLOW ratio=" .. tostring(ratio)
-            .. " seconds=" .. tostring(remaining))
-        if _UtilLogic.ElapsedSeconds >= self.ImpulseUntil then
-            movement.InputSpeed = self.BaseMoveSpeed * (1 - self.SlowRatio)
-        end
-        _TimerService:SetTimerOnce(function()
-            if not isvalid(self.Entity) or self.SlowSerial ~= serial then return end
-            self.SlowRatio = 0
-            self.SlowUntil = 0
-            if isvalid(movement) and _UtilLogic.ElapsedSeconds >= self.ImpulseUntil then
-                movement.InputSpeed = self.BaseMoveSpeed
-            end
-        end, remaining)
-    end
+	@Sync
+	@HideFromInspector
+	property number SlowRatio = 0
 
-    @ExecSpace("ServerOnly")
-    method void ApplyStun(number seconds)
-        if self.IsDead or seconds <= 0 then return end
-        local movement = self.Entity.MovementComponent
-        local chase = self.Entity.AIChaseComponent
-        self.StunSerial = self.StunSerial + 1
-        local serial = self.StunSerial
-        self.StunUntil = math.max(self.StunUntil, _UtilLogic.ElapsedSeconds + seconds)
-        local remaining = self.StunUntil - _UtilLogic.ElapsedSeconds
-        self.LastControlEffect = "STUN"
-        log("[SkillControl] " .. self.DisplayName .. " STUN seconds=" .. tostring(remaining))
-        if isvalid(chase) then chase.Enable = false end
-        if isvalid(movement) then movement:Stop() end
-        _TimerService:SetTimerOnce(function()
-            if not isvalid(self.Entity) or self.StunSerial ~= serial then return end
-            self.StunUntil = 0
-            if isvalid(chase) and self.IsDead == false
-                and _UtilLogic.ElapsedSeconds >= self.ImpulseUntil then chase.Enable = true end
-        end, remaining)
-    end
+	@Sync
+	@HideFromInspector
+	property number SlowUntil = 0
 
-    @ExecSpace("ServerOnly")
-    method void ApplyWeaken(number ratio, number seconds)
-        if self.IsDead or ratio <= 0 or seconds <= 0 then return end
-        if ratio > 0.75 then ratio = 0.75 end
-        if _UtilLogic.ElapsedSeconds >= self.WeakenUntil then self.WeakenRatio = 0 end
-        self.WeakenRatio = math.max(self.WeakenRatio, ratio)
-        self.WeakenUntil = math.max(self.WeakenUntil, _UtilLogic.ElapsedSeconds + seconds)
-        self.LastControlEffect = "WEAKEN"
-        log("[SkillControl] " .. self.DisplayName .. " WEAKEN ratio=" .. tostring(ratio)
-            .. " seconds=" .. tostring(seconds))
-    end
+	@Sync
+	@HideFromInspector
+	property number StunUntil = 0
 
-    @ExecSpace("ServerOnly")
-    method void ApplyAttackBoost(number ratio, number seconds)
-        -- 지속 고무는 강한 값 하나만 적용한다.
-        if self.IsDead or ratio <= 0 or seconds <= 0 then return end
-        if _UtilLogic.ElapsedSeconds >= self.AttackBoostUntil then self.AttackBoostRatio = 0 end
-        self.AttackBoostRatio = math.max(self.AttackBoostRatio, math.min(0.75, ratio))
-        self.AttackBoostUntil = math.max(self.AttackBoostUntil,
-            _UtilLogic.ElapsedSeconds + seconds)
-    end
+	@Sync
+	@HideFromInspector
+	property number WeakenRatio = 0
 
-    @ExecSpace("ServerOnly")
-    method void ApplyNextAttackBoost(number ratio, number seconds)
-        -- 다음 유효 타격 한 번에만 기도 강화를 적용한다.
-        if self.IsDead or ratio <= 0 or seconds <= 0 then return end
-        self.NextAttackBoostRatio = math.max(self.NextAttackBoostRatio,
-            math.min(0.75, ratio))
-        self.NextAttackBoostUntil = math.max(self.NextAttackBoostUntil,
-            _UtilLogic.ElapsedSeconds + seconds)
-    end
+	@Sync
+	@HideFromInspector
+	property number WeakenUntil = 0
 
-    method number GetOutgoingDamageMultiplier()
-        -- 피해 산출은 서버 공격 판정에서 호출된다. 빗나간 시전은 이 값을 소비하지 않는다.
-        local multiplier = 1
-        if self.WeakenRatio > 0 and _UtilLogic.ElapsedSeconds < self.WeakenUntil then
-            multiplier = multiplier * math.max(0.25, 1 - self.WeakenRatio)
-        end
-        if self.AttackBoostRatio > 0 and _UtilLogic.ElapsedSeconds < self.AttackBoostUntil then
-            multiplier = multiplier * (1 + self.AttackBoostRatio)
-        end
-        if self.NextAttackBoostRatio > 0 then
-            if _UtilLogic.ElapsedSeconds < self.NextAttackBoostUntil then
-                multiplier = multiplier * (1 + self.NextAttackBoostRatio)
-                log("[SkillBuff] Monster next_hit_consumed ratio="
-                    .. tostring(self.NextAttackBoostRatio))
-            end
-            self.NextAttackBoostRatio = 0
-            self.NextAttackBoostUntil = 0
-        end
-        return multiplier
-    end
+	@Sync
+	@HideFromInspector
+	property number AttackBoostRatio = 0
 
-    @ExecSpace("ServerOnly")
-    method void ApplyImpulse(Vector3 effectCenter, number distance, boolean pull)
-        if self.IsDead or distance <= 0 or self:IsBossRoom() then return end
-        local movement = self.Entity.MovementComponent
-        if not isvalid(movement) then return end
-        local p = self.Entity.TransformComponent.WorldPosition
-        local dx, dy = p.x - effectCenter.x, p.y - effectCenter.y
-        if pull then dx, dy = -dx, -dy end
-        local length = math.sqrt(dx * dx + dy * dy)
-        if length <= 0.01 then return end
-        local seconds = 0.14
-        self.LastControlEffect = pull and "PULL" or "KNOCKBACK"
-        log("[SkillControl] " .. self.DisplayName .. " " .. self.LastControlEffect
-            .. " distance=" .. tostring(distance))
-        if self.BaseMoveSpeed <= 0 then self.BaseMoveSpeed = movement.InputSpeed end
-        local chase = self.Entity.AIChaseComponent
-        self.ImpulseSerial = self.ImpulseSerial + 1
-        local serial = self.ImpulseSerial
-        self.ImpulseUntil = _UtilLogic.ElapsedSeconds + seconds
-        if isvalid(chase) then chase.Enable = false end
-        movement.InputSpeed = distance / seconds * 1.2
-        movement:MoveToDirection(Vector2(dx / length, dy / length), seconds)
-        _TimerService:SetTimerOnce(function()
-            if not isvalid(self.Entity) or self.ImpulseSerial ~= serial then return end
-            self.ImpulseUntil = 0
-            movement:Stop()
-            movement.InputSpeed = self.BaseMoveSpeed * (1 - self.SlowRatio)
-            if isvalid(chase) and self.IsDead == false
-                and _UtilLogic.ElapsedSeconds >= self.StunUntil then chase.Enable = true end
-        end, seconds)
-    end
+	@Sync
+	@HideFromInspector
+	property number AttackBoostUntil = 0
 
-    @ExecSpace("ServerOnly")
-    method void OnBeginPlay()
-        local record = _GameData:GetMonster(self.MonsterId)
-        if record == nil then
-            -- 조용히 HP 0으로 두면 스폰하자마자 죽는 유령이 된다. 크게 남긴다.
-            log_error("[RoomMonster] MonsterTable에 없는 id: " .. tostring(self.MonsterId))
-            return
-        end
+	@Sync
+	@HideFromInspector
+	property number NextAttackBoostRatio = 0
 
-        self.DisplayName = record.name
-        self.MaxHp = record.hp
-        self.Def = record.def
-        self.ExpReward = record.exp
-        local level = record.level
-        self.Atk = _LevelCurve:MonsterAtkAtLevel(level)
+	@Sync
+	@HideFromInspector
+	property number NextAttackBoostUntil = 0
 
-        -- 방이 레벨을 덮어쓰면(RoomTable.monster_level) 수치를 곡선에서 다시 계산한다.
-        -- MonsterTable의 확정값은 그 몬스터의 기본 레벨에서만 맞기 때문이다.
-        --
-        -- 왜 방이 레벨을 정하는가 (T9-2 실측 → T10-2): 상시 몬스터가 Lv5에서 멈춰
-        -- ATK 45(Lv8)면 모든 방이 1타가 됐고, 그 위 22레벨이 사냥 속도에 아무 영향이
-        -- 없었다. 방마다 계단을 두면 1타 상한이 뒤로 밀리고 후반 킬 수도 줄어든다.
-        local room = _GameData:GetRoomByMapName(self:MapName())
-        if room ~= nil and room.monster_level > 0 then
-            level = math.floor(room.monster_level)
-            self.MaxHp = _LevelCurve:MonsterHpAtLevel(level)
-            self.Def = _LevelCurve:MonsterDefAtLevel(level)
-            self.ExpReward = _LevelCurve:MonsterExpAtLevel(level)
-            self.Atk = _LevelCurve:MonsterAtkAtLevel(level)
-        end
+	@HideFromInspector
+	property number BaseMoveSpeed = 0
 
-        -- 보스는 같은 레벨의 일반 몬스터보다 훨씬 세다 (T16-1, 대표 지시 2026-08-14).
-        --
-        -- 왜 필요했나: 보스가 곡선값 그대로라 "레벨 높은 잡몹"이었다. 재입장마다
-        -- 다시 서게 만들면서(RoomSpawner) 반복할 수 있게 됐으니, 반복할 값어치가
-        -- 있으려면 한 판이 사건이어야 한다.
-        --
-        -- 배율을 스탯별로 나눠 둔 이유: **ATK만 따로 낮출 일이 온다.** ATK 3배는
-        -- 플레이어 DEF 10 기준 피격 242 = 4대에 죽는 수치다(i-frame 1초라 약 4초).
-        -- 세다고 느껴지면 boss_atk_multiplier부터 내린다 — HP·EXP는 그대로 두고.
-        local isBoss = self:IsBossRoom()
-        if _GameData.RogueRunActive then
-            -- Mega Area 1~5는 성장 진행 1~5층이다. 매 층 HP·공격·방어가
-            -- 데이터의 run_floor_stat_step만큼 함께 상승한다. 보스 HP와 파티 HP
-            -- 배율은 이 층 기준선 뒤에 적용해 서로 독립적으로 조정할 수 있게 한다.
-            local floorScale = _GameData:GetRogueFloorStatMultiplier(_GameData.RogueAreaId)
-            self.MaxHp = math.max(1, math.floor(
-                _GameData:GetBalance("run_monster_hp_base") * floorScale + 0.5))
-            self.Atk = math.max(1, math.floor(
-                _GameData:GetBalance("run_monster_attack_base") * floorScale + 0.5))
-            self.Def = math.max(0, math.floor(
-                _GameData:GetBalance("run_monster_defense_base") * floorScale + 0.5))
-            self.ExpReward = 0
-            if isBoss then self.MaxHp *= _GameData:GetBalance("run_boss_hp_multiplier") end
-            self.MaxHp *= _GameData:GetRunHpScale()
-        elseif isBoss then
-            self.MaxHp = self.MaxHp * _GameData:GetBalance("boss_hp_multiplier")
-            self.Def = self.Def * _GameData:GetBalance("boss_def_multiplier")
-            self.Atk = self.Atk * _GameData:GetBalance("boss_atk_multiplier")
-            self.ExpReward = self.ExpReward * _GameData:GetBalance("boss_exp_multiplier")
-        end
+	@HideFromInspector
+	property integer SlowSerial = 0
 
-        self.Hp = self.MaxHp
-        self.IsDead = false
-        self.ShieldRatio = 0
-        self.ShieldUntil = 0
-        local movement = self.Entity.MovementComponent
-        if isvalid(movement) then self.BaseMoveSpeed = movement.InputSpeed end
-        self:ResetSkillControls()
+	@HideFromInspector
+	property integer StunSerial = 0
 
-        log("[RoomMonster] 스폰 " .. record.name .. "(" .. self.MonsterId .. ")"
-            .. " Lv" .. tostring(level)
-            .. (level ~= record.level and " (방 지정)" or "")
-            .. (isBoss and " [보스 배율]" or "")
-            .. " HP=" .. tostring(self.MaxHp)
-            .. " DEF=" .. tostring(self.Def)
-            .. " ATK=" .. tostring(self.Atk)
-            .. " EXP=" .. tostring(self.ExpReward))
-    end
+	@HideFromInspector
+	property integer ImpulseSerial = 0
 
-    ---------------------------------------------------------------
-    -- 피격 → 사망
-    ---------------------------------------------------------------
+	@HideFromInspector
+	property number ImpulseUntil = 0
 
-    @ExecSpace("ServerOnly")
-    @EventSender("Self")
-    handler HandleHitEvent(HitEvent event)
-        -- 데미지는 공격자(PlayerAttack)가 서버에서 이미 계산해 넣은 값이다.
-        -- 여기서 다시 계산하지 않는다 — 계산 지점이 둘이면 반드시 어긋난다.
-        local originalHp = self.Hp
-        self.Hp = self.Hp - event.TotalDamage
-        if _GameData.RogueRunActive and originalHp > 0 and isvalid(event.AttackerEntity) then
-            local effective = math.min(originalHp, math.max(0, event.TotalDamage))
-            _GameData:RecordRunDamage(event.AttackerEntity, effective)
-        end
+	@HideFromInspector
+	property string LastControlEffect = ""
 
-        log("[RoomMonster] 피격 " .. self.DisplayName
-            .. "  -" .. tostring(event.TotalDamage)
-            .. "  HP " .. tostring(originalHp) .. " → " .. tostring(math.max(self.Hp, 0)))
+	@ExecSpace("ServerOnly")
+	method string MapName()
+		        -- 이 몬스터가 서 있는 맵 이름. 방 레코드를 역인덱스할 때 쓴다
+		        -- (RoomCamera / RoomSpawner와 같은 방식).
+		        -- 스포너가 맵 엔티티를 parent로 넘겨 스폰하므로 CurrentMap이 그 맵이다.
+		        local map = self.Entity.CurrentMap
+		        if map == nil then return "" end
+		        return map.Name
+	end
 
-        -- 이미 죽은 몬스터에 늦게 도착한 타격으로 Dead가 두 번 돌지 않게 막는다.
-        if self.Hp > 0 or originalHp <= 0 then return end
-        self:Dead(event.AttackerEntity)
-    end
+	method boolean IsBossRoom()
+		        -- 지금 서 있는 방이 보스방인가. **방이 정한다** — 몬스터에 보스 플래그를 두면
+		        -- 같은 종을 다른 방에 배치할 때 데이터가 두 곳으로 갈라진다 (GrantBossReward와 같은 판단).
+		        --
+		        -- 캐시하지 않고 부를 때마다 조회하는 이유: OnBeginPlay에서 계산해 두면
+		        -- **컴포넌트 실행 순서에 의존**하게 된다. MonsterAttack이 이 값을 읽는데
+		        -- 둘 중 누가 먼저 OnBeginPlay를 도는지는 보장되지 않는다.
+		        --
+		        -- 실행공간을 비워둔다 — 서버는 배율·스킬 판정에, 클라는 표시에 쓸 수 있다.
+		        local map = self.Entity.CurrentMap
+		        if map == nil then return false end
+		
+		        local room = _GameData:GetRoomByMapName(map.Name)
+		        if room == nil then return false end
+		        return room.room_type == "boss"
+	end
 
-    @ExecSpace("ServerOnly")
-    method void GrantBossReward(Entity killer)
-        -- 보스방에서 죽었으면 막타 주체의 몬스터 슬롯을 늘린다 (기획서 T6).
-        --
-        -- 어느 몬스터가 보스인지는 몬스터가 아니라 **방**이 정한다
-        -- (RoomTable.room_type == "boss"). 보스 전용 플래그를 몬스터에 두면
-        -- 같은 종을 다른 방에 배치할 때 데이터가 두 곳으로 갈라진다.
-        local map = self.Entity.CurrentMap
-        if map == nil then return end
+	@ExecSpace("ServerOnly")
+	method void ApplyShield(number ratio, number seconds)
+		        -- 보스가 자기 방어 스킬을 썼을 때 걸린다 (T19-1).
+		        -- 겹쳐 쌓지 않고 덮어쓴다 — PlayerHit.ApplyShield와 같은 규칙이다.
+		        if ratio <= 0 or seconds <= 0 then return end
+		
+		        -- 상한 0.9. 1.0이 들어오면 **보스가 무적**이 되어 잡을 수 없는 방이 된다.
+		        -- 데이터 오타 한 번으로 게임이 막히는 자리라 코드에서 자른다.
+		        if ratio > 0.9 then
+		            log_warning("[RoomMonster] 실드 감쇄율이 너무 크다(" .. tostring(ratio) .. ") — 0.9로 자른다")
+		            ratio = 0.9
+		        end
+		
+		        self.ShieldRatio = ratio
+		        self.ShieldUntil = _UtilLogic.ElapsedSeconds + seconds
+	end
 
-        local room = _GameData:GetRoomByMapName(map.Name)
-        if room == nil then return end
-        if room.room_type ~= "boss" then return end
+	method number GetDamageReduction()
+		        -- 이 몬스터가 지금 받는 피해를 얼마나 깎는가. 실드가 없거나 만료면 0.
+		        if self.ShieldRatio <= 0 then return 0 end
+		        if _UtilLogic.ElapsedSeconds >= self.ShieldUntil then return 0 end
+		        return self.ShieldRatio
+	end
 
-        ---@type PlayerSkillSlots
-        local slots = killer:GetComponent("script.PlayerSkillSlots")
-        if slots == nil then return end
-        slots:ClearBoss(room.id)
-    end
+	@ExecSpace("ServerOnly")
+	method void ResetSkillControls()
+		        self.SlowSerial = self.SlowSerial + 1
+		        self.StunSerial = self.StunSerial + 1
+		        self.ImpulseSerial = self.ImpulseSerial + 1
+		        self.SlowRatio = 0
+		        self.SlowUntil = 0
+		        self.StunUntil = 0
+		        self.ImpulseUntil = 0
+		        self.WeakenRatio = 0
+		        self.WeakenUntil = 0
+		        self.AttackBoostRatio = 0
+		        self.AttackBoostUntil = 0
+		        self.NextAttackBoostRatio = 0
+		        self.NextAttackBoostUntil = 0
+		        self.LastControlEffect = ""
+		        local movement = self.Entity.MovementComponent
+		        if isvalid(movement) and self.BaseMoveSpeed > 0 then movement.InputSpeed = self.BaseMoveSpeed end
+		        local chase = self.Entity.AIChaseComponent
+		        if isvalid(chase) and self.IsDead == false then chase.Enable = true end
+	end
 
-    @ExecSpace("ServerOnly")
-    method void Dead(Entity killer)
-        self.IsDead = true
-        self.Hp = 0
-        self:ResetSkillControls()
+	@ExecSpace("ServerOnly")
+	method void ApplySlow(number ratio, number seconds)
+		        if self.IsDead or ratio <= 0 or seconds <= 0 then return end
+		        if ratio > 0.75 then ratio = 0.75 end
+		        local movement = self.Entity.MovementComponent
+		        if not isvalid(movement) then return end
+		        if self.BaseMoveSpeed <= 0 then self.BaseMoveSpeed = movement.InputSpeed end
+		        if _UtilLogic.ElapsedSeconds >= self.SlowUntil then self.SlowRatio = 0 end
+		        self.SlowSerial = self.SlowSerial + 1
+		        local serial = self.SlowSerial
+		        self.SlowRatio = math.max(self.SlowRatio, ratio)
+		        self.SlowUntil = math.max(self.SlowUntil, _UtilLogic.ElapsedSeconds + seconds)
+		        local remaining = self.SlowUntil - _UtilLogic.ElapsedSeconds
+		        self.LastControlEffect = "SLOW"
+		        log("[SkillControl] " .. self.DisplayName .. " SLOW ratio=" .. tostring(ratio)
+		            .. " seconds=" .. tostring(remaining))
+		        if _UtilLogic.ElapsedSeconds >= self.ImpulseUntil then
+		            movement.InputSpeed = self.BaseMoveSpeed * (1 - self.SlowRatio)
+		        end
+		        _TimerService:SetTimerOnce(function()
+		            if not isvalid(self.Entity) or self.SlowSerial ~= serial then return end
+		            self.SlowRatio = 0
+		            self.SlowUntil = 0
+		            if isvalid(movement) and _UtilLogic.ElapsedSeconds >= self.ImpulseUntil then
+		                movement.InputSpeed = self.BaseMoveSpeed
+		            end
+		        end, remaining)
+	end
 
-        local stateComp = self.Entity.StateComponent
-        if isvalid(stateComp) then stateComp:ChangeState("DEAD") end
+	@ExecSpace("ServerOnly")
+	method void ApplyStun(number seconds)
+		        if self.IsDead or seconds <= 0 then return end
+		        local movement = self.Entity.MovementComponent
+		        local chase = self.Entity.AIChaseComponent
+		        self.StunSerial = self.StunSerial + 1
+		        local serial = self.StunSerial
+		        self.StunUntil = math.max(self.StunUntil, _UtilLogic.ElapsedSeconds + seconds)
+		        local remaining = self.StunUntil - _UtilLogic.ElapsedSeconds
+		        self.LastControlEffect = "STUN"
+		        log("[SkillControl] " .. self.DisplayName .. " STUN seconds=" .. tostring(remaining))
+		        if isvalid(chase) then chase.Enable = false end
+		        if isvalid(movement) then movement:Stop() end
+		        _TimerService:SetTimerOnce(function()
+		            if not isvalid(self.Entity) or self.StunSerial ~= serial then return end
+		            self.StunUntil = 0
+		            if isvalid(chase) and self.IsDead == false
+		                and _UtilLogic.ElapsedSeconds >= self.ImpulseUntil then chase.Enable = true end
+		        end, remaining)
+	end
 
-        if _GameData.RogueRunActive then
-            local map = self.Entity.CurrentMap
-            if map ~= nil then
-                _GameData:GrantRunKillRewards(self.MonsterId, map.Name,
-                    self.Entity.TransformComponent.WorldPosition)
-            end
-        -- EXP는 막타를 넣은 쪽에 준다. killer는 HitEvent.AttackerEntity라 nil일 수 있고
-        -- (환경 피해 등) 이미 파괴된 엔티티일 수도 있어 isvalid로 먼저 거른다.
-        elseif isvalid(killer) then
-            ---@type PlayerStats
-            local stats = killer:GetComponent("script.PlayerStats")
-            if stats ~= nil then
-                stats:AddExp(self.ExpReward)
-                log("[RoomMonster] 사망 " .. self.DisplayName .. "  EXP " .. tostring(self.ExpReward) .. " 지급")
+	@ExecSpace("ServerOnly")
+	method void ApplyWeaken(number ratio, number seconds)
+		        if self.IsDead or ratio <= 0 or seconds <= 0 then return end
+		        if ratio > 0.75 then ratio = 0.75 end
+		        if _UtilLogic.ElapsedSeconds >= self.WeakenUntil then self.WeakenRatio = 0 end
+		        self.WeakenRatio = math.max(self.WeakenRatio, ratio)
+		        self.WeakenUntil = math.max(self.WeakenUntil, _UtilLogic.ElapsedSeconds + seconds)
+		        self.LastControlEffect = "WEAKEN"
+		        log("[SkillControl] " .. self.DisplayName .. " WEAKEN ratio=" .. tostring(ratio)
+		            .. " seconds=" .. tostring(seconds))
+	end
 
-                -- 포획은 처치 시 자동 판정이다 (기획서 4.8). EXP와 같은 막타 주체에게 준다.
-                ---@type PlayerCollection
-                local collection = killer:GetComponent("script.PlayerCollection")
-                if collection ~= nil then
-                    collection:TryCapture(self.MonsterId)
-                end
+	@ExecSpace("ServerOnly")
+	method void ApplyAttackBoost(number ratio, number seconds)
+		        -- 지속 고무는 강한 값 하나만 적용한다.
+		        if self.IsDead or ratio <= 0 or seconds <= 0 then return end
+		        if _UtilLogic.ElapsedSeconds >= self.AttackBoostUntil then self.AttackBoostRatio = 0 end
+		        self.AttackBoostRatio = math.max(self.AttackBoostRatio, math.min(0.75, ratio))
+		        self.AttackBoostUntil = math.max(self.AttackBoostUntil,
+		            _UtilLogic.ElapsedSeconds + seconds)
+	end
 
-                -- 아이템 드랍 (T13-6). 판정과 스폰은 ItemDrop이 한다 —
-                -- 몬스터 스크립트가 아이템 시스템을 알 필요는 없다.
-                _ItemDrop:TrySpawnDrops(self.MonsterId,
-                    self.Entity.TransformComponent.WorldPosition,
-                    self.Entity.CurrentMap, killer)
+	@ExecSpace("ServerOnly")
+	method void ApplyNextAttackBoost(number ratio, number seconds)
+		        -- 다음 유효 타격 한 번에만 기도 강화를 적용한다.
+		        if self.IsDead or ratio <= 0 or seconds <= 0 then return end
+		        self.NextAttackBoostRatio = math.max(self.NextAttackBoostRatio,
+		            math.min(0.75, ratio))
+		        self.NextAttackBoostUntil = math.max(self.NextAttackBoostUntil,
+		            _UtilLogic.ElapsedSeconds + seconds)
+	end
 
-                self:GrantBossReward(killer)
-            else
-                log_warning("[RoomMonster] 막타 엔티티에 PlayerStats가 없어 EXP 미지급: " .. tostring(killer.Name))
-            end
-        else
-            log_warning("[RoomMonster] 막타 주체가 없어 EXP 미지급: " .. self.DisplayName)
-        end
+	method number GetOutgoingDamageMultiplier()
+		        -- 피해 산출은 서버 공격 판정에서 호출된다. 빗나간 시전은 이 값을 소비하지 않는다.
+		        local multiplier = 1
+		        if self.WeakenRatio > 0 and _UtilLogic.ElapsedSeconds < self.WeakenUntil then
+		            multiplier = multiplier * math.max(0.25, 1 - self.WeakenRatio)
+		        end
+		        if self.AttackBoostRatio > 0 and _UtilLogic.ElapsedSeconds < self.AttackBoostUntil then
+		            multiplier = multiplier * (1 + self.AttackBoostRatio)
+		        end
+		        if self.NextAttackBoostRatio > 0 then
+		            if _UtilLogic.ElapsedSeconds < self.NextAttackBoostUntil then
+		                multiplier = multiplier * (1 + self.NextAttackBoostRatio)
+		                _SkillEffect:PlayMemoryMonkFollowup(self.Entity)
+		                log("[SkillBuff] Monster next_hit_consumed ratio="
+		                    .. tostring(self.NextAttackBoostRatio))
+		            end
+		            self.NextAttackBoostRatio = 0
+		            self.NextAttackBoostUntil = 0
+		        end
+		        return multiplier
+	end
 
-        local delayHide = function()
-            self.Entity:SetVisible(false)
-            self.Entity:SetEnable(false)
-            if self.RespawnOn == false then self.Entity:Destroy() end
-        end
-        _TimerService:SetTimerOnce(delayHide, self.DestroyDelay)
+	@ExecSpace("ServerOnly")
+	method void ApplyImpulse(Vector3 effectCenter, number distance, boolean pull)
+		        if self.IsDead or distance <= 0 or self:IsBossRoom() then return end
+		        local movement = self.Entity.MovementComponent
+		        if not isvalid(movement) then return end
+		        local p = self.Entity.TransformComponent.WorldPosition
+		        local dx, dy = p.x - effectCenter.x, p.y - effectCenter.y
+		        if pull then dx, dy = -dx, -dy end
+		        local length = math.sqrt(dx * dx + dy * dy)
+		        if length <= 0.01 then return end
+		        local seconds = 0.14
+		        self.LastControlEffect = pull and "PULL" or "KNOCKBACK"
+		        log("[SkillControl] " .. self.DisplayName .. " " .. self.LastControlEffect
+		            .. " distance=" .. tostring(distance))
+		        if self.BaseMoveSpeed <= 0 then self.BaseMoveSpeed = movement.InputSpeed end
+		        local chase = self.Entity.AIChaseComponent
+		        self.ImpulseSerial = self.ImpulseSerial + 1
+		        local serial = self.ImpulseSerial
+		        self.ImpulseUntil = _UtilLogic.ElapsedSeconds + seconds
+		        if isvalid(chase) then chase.Enable = false end
+		        movement.InputSpeed = distance / seconds * 1.2
+		        movement:MoveToDirection(Vector2(dx / length, dy / length), seconds)
+		        _TimerService:SetTimerOnce(function()
+		            if not isvalid(self.Entity) or self.ImpulseSerial ~= serial then return end
+		            self.ImpulseUntil = 0
+		            movement:Stop()
+		            movement.InputSpeed = self.BaseMoveSpeed * (1 - self.SlowRatio)
+		            if isvalid(chase) and self.IsDead == false
+		                and _UtilLogic.ElapsedSeconds >= self.StunUntil then chase.Enable = true end
+		        end, seconds)
+	end
 
-        if self.RespawnOn then
-            _TimerService:SetTimerOnce(function() self:Respawn() end, self.RespawnDelay)
-        end
-    end
+	@ExecSpace("ServerOnly")
+	method void OnBeginPlay()
+		        local record = _GameData:GetMonster(self.MonsterId)
+		        if record == nil then
+		            -- 조용히 HP 0으로 두면 스폰하자마자 죽는 유령이 된다. 크게 남긴다.
+		            log_error("[RoomMonster] MonsterTable에 없는 id: " .. tostring(self.MonsterId))
+		            return
+		        end
+		
+		        self.DisplayName = record.name
+		        self.MaxHp = record.hp
+		        self.Def = record.def
+		        self.ExpReward = record.exp
+		        local level = record.level
+		        self.Atk = _LevelCurve:MonsterAtkAtLevel(level)
+		
+		        -- 방이 레벨을 덮어쓰면(RoomTable.monster_level) 수치를 곡선에서 다시 계산한다.
+		        -- MonsterTable의 확정값은 그 몬스터의 기본 레벨에서만 맞기 때문이다.
+		        --
+		        -- 왜 방이 레벨을 정하는가 (T9-2 실측 → T10-2): 상시 몬스터가 Lv5에서 멈춰
+		        -- ATK 45(Lv8)면 모든 방이 1타가 됐고, 그 위 22레벨이 사냥 속도에 아무 영향이
+		        -- 없었다. 방마다 계단을 두면 1타 상한이 뒤로 밀리고 후반 킬 수도 줄어든다.
+		        local room = _GameData:GetRoomByMapName(self:MapName())
+		        if room ~= nil and room.monster_level > 0 then
+		            level = math.floor(room.monster_level)
+		            self.MaxHp = _LevelCurve:MonsterHpAtLevel(level)
+		            self.Def = _LevelCurve:MonsterDefAtLevel(level)
+		            self.ExpReward = _LevelCurve:MonsterExpAtLevel(level)
+		            self.Atk = _LevelCurve:MonsterAtkAtLevel(level)
+		        end
+		
+		        -- 보스는 같은 레벨의 일반 몬스터보다 훨씬 세다 (T16-1, 대표 지시 2026-08-14).
+		        --
+		        -- 왜 필요했나: 보스가 곡선값 그대로라 "레벨 높은 잡몹"이었다. 재입장마다
+		        -- 다시 서게 만들면서(RoomSpawner) 반복할 수 있게 됐으니, 반복할 값어치가
+		        -- 있으려면 한 판이 사건이어야 한다.
+		        --
+		        -- 배율을 스탯별로 나눠 둔 이유: **ATK만 따로 낮출 일이 온다.** ATK 3배는
+		        -- 플레이어 DEF 10 기준 피격 242 = 4대에 죽는 수치다(i-frame 1초라 약 4초).
+		        -- 세다고 느껴지면 boss_atk_multiplier부터 내린다 — HP·EXP는 그대로 두고.
+		        local isBoss = self:IsBossRoom()
+		        if _GameData.RogueRunActive then
+		            -- 5개 Mega Area는 두 층씩 공유한다. 도전 층 기준으로 HP·공격·방어가
+		            -- 데이터의 run_floor_stat_step만큼 함께 상승한다. 보스 HP와 파티 HP
+		            -- 배율은 이 층 기준선 뒤에 적용해 서로 독립적으로 조정할 수 있게 한다.
+		            local floorScale = _GameData:GetRogueFloorStatMultiplier(_GameData.RogueFloor)
+		            local difficultyScale = math.max(1, _GameData:GetBalance("run_enemy_difficulty_multiplier"))
+		            self.MaxHp = math.max(1, math.floor(
+		                _GameData:GetBalance("run_monster_hp_base") * floorScale * difficultyScale + 0.5))
+		            self.Atk = math.max(1, math.floor(
+		                _GameData:GetBalance("run_monster_attack_base") * floorScale * difficultyScale + 0.5))
+		            self.Def = math.max(0, math.floor(
+		                _GameData:GetBalance("run_monster_defense_base") * floorScale * difficultyScale + 0.5))
+		            self.ExpReward = 0
+		            if isBoss then self.MaxHp *= _GameData:GetBalance("run_boss_hp_multiplier") end
+		            self.MaxHp *= _GameData:GetRunHpScale()
+		        elseif isBoss then
+		            self.MaxHp = self.MaxHp * _GameData:GetBalance("boss_hp_multiplier")
+		            self.Def = self.Def * _GameData:GetBalance("boss_def_multiplier")
+		            self.Atk = self.Atk * _GameData:GetBalance("boss_atk_multiplier")
+		            self.ExpReward = self.ExpReward * _GameData:GetBalance("boss_exp_multiplier")
+		        end
+		
+		        self.Hp = self.MaxHp
+		        self.IsDead = false
+		        self.ShieldRatio = 0
+		        self.ShieldUntil = 0
+		        local movement = self.Entity.MovementComponent
+		        if isvalid(movement) then self.BaseMoveSpeed = movement.InputSpeed end
+		        self:ResetSkillControls()
+		
+		        log("[RoomMonster] 스폰 " .. record.name .. "(" .. self.MonsterId .. ")"
+		            .. " Lv" .. tostring(level)
+		            .. (level ~= record.level and " (방 지정)" or "")
+		            .. (isBoss and " [보스 배율]" or "")
+		            .. " HP=" .. tostring(self.MaxHp)
+		            .. " DEF=" .. tostring(self.Def)
+		            .. " ATK=" .. tostring(self.Atk)
+		            .. " EXP=" .. tostring(self.ExpReward))
+	end
 
-    @ExecSpace("ServerOnly")
-    method void ExpireBoss()
-        -- 보스 제한시간이 끝났을 때 RoomSpawner가 부르는 실패 전용 종료 경로.
-        -- Dead를 호출하면 EXP·포획·아이템·클리어 보상이 전부 지급되므로 여기서는
-        -- 전투 대상에서 내리고 제거만 한다.
-        if self.IsDead then return end
-        self.IsDead = true
-        self.Hp = 0
-        self.Entity:SetVisible(false)
-        self.Entity:SetEnable(false)
-        log("[RoomMonster] 시간초과 제거 " .. self.DisplayName .. " — 보상 없음")
-        self.Entity:Destroy()
-    end
+	@ExecSpace("ServerOnly")
+	method void GrantBossReward(Entity killer)
+		        -- 보스방에서 죽었으면 막타 주체의 몬스터 슬롯을 늘린다 (기획서 T6).
+		        --
+		        -- 어느 몬스터가 보스인지는 몬스터가 아니라 **방**이 정한다
+		        -- (RoomTable.room_type == "boss"). 보스 전용 플래그를 몬스터에 두면
+		        -- 같은 종을 다른 방에 배치할 때 데이터가 두 곳으로 갈라진다.
+		        local map = self.Entity.CurrentMap
+		        if map == nil then return end
+		
+		        local room = _GameData:GetRoomByMapName(map.Name)
+		        if room == nil then return end
+		        if room.room_type ~= "boss" then return end
+		
+		        ---@type PlayerSkillSlots
+		        local slots = killer:GetComponent("script.PlayerSkillSlots")
+		        if slots == nil then return end
+		        slots:ClearBoss(room.id)
+	end
 
-    @ExecSpace("ServerOnly")
-    method void Respawn()
-        self.IsDead = false
-        self.Entity:SetVisible(true)
-        self.Entity:SetEnable(true)
-        self.Hp = self.MaxHp
-        -- 실드를 지운다. 죽는 순간 걸려 있던 감쇄가 살아난 몸에 남으면
-        -- 리스폰 직후 한동안 안 아픈 몬스터가 된다.
-        self.ShieldRatio = 0
-        self.ShieldUntil = 0
-        self:ResetSkillControls()
+	@ExecSpace("ServerOnly")
+	method void Dead(Entity killer)
+		        self.IsDead = true
+		        self.Hp = 0
+		        self:ResetSkillControls()
+		
+		        local stateComp = self.Entity.StateComponent
+		        if isvalid(stateComp) then stateComp:ChangeState("DEAD") end
+		
+		        if _GameData.RogueRunActive then
+		            local map = self.Entity.CurrentMap
+		            if map ~= nil then
+		                _GameData:GrantRunKillRewards(self.MonsterId, map.Name,
+		                    self.Entity.TransformComponent.WorldPosition)
+		            end
+		        -- EXP는 막타를 넣은 쪽에 준다. killer는 HitEvent.AttackerEntity라 nil일 수 있고
+		        -- (환경 피해 등) 이미 파괴된 엔티티일 수도 있어 isvalid로 먼저 거른다.
+		        elseif isvalid(killer) then
+		            ---@type PlayerStats
+		            local stats = killer:GetComponent("script.PlayerStats")
+		            if stats ~= nil then
+		                stats:AddExp(self.ExpReward)
+		                log("[RoomMonster] 사망 " .. self.DisplayName .. "  EXP " .. tostring(self.ExpReward) .. " 지급")
+		
+		                -- 포획은 처치 시 자동 판정이다 (기획서 4.8). EXP와 같은 막타 주체에게 준다.
+		                ---@type PlayerCollection
+		                local collection = killer:GetComponent("script.PlayerCollection")
+		                if collection ~= nil then
+		                    collection:TryCapture(self.MonsterId)
+		                end
+		
+		                -- 아이템 드랍 (T13-6). 판정과 스폰은 ItemDrop이 한다 —
+		                -- 몬스터 스크립트가 아이템 시스템을 알 필요는 없다.
+		                _ItemDrop:TrySpawnDrops(self.MonsterId,
+		                    self.Entity.TransformComponent.WorldPosition,
+		                    self.Entity.CurrentMap, killer)
+		
+		                self:GrantBossReward(killer)
+		            else
+		                log_warning("[RoomMonster] 막타 엔티티에 PlayerStats가 없어 EXP 미지급: " .. tostring(killer.Name))
+		            end
+		        else
+		            log_warning("[RoomMonster] 막타 주체가 없어 EXP 미지급: " .. self.DisplayName)
+		        end
+		
+		        local delayHide = function()
+		            self.Entity:SetVisible(false)
+		            self.Entity:SetEnable(false)
+		            if self.RespawnOn == false then self.Entity:Destroy() end
+		        end
+		        _TimerService:SetTimerOnce(delayHide, self.DestroyDelay)
+		
+		        if self.RespawnOn then
+		            _TimerService:SetTimerOnce(function() self:Respawn() end, self.RespawnDelay)
+		        end
+	end
 
-        local stateComp = self.Entity.StateComponent
-        -- DEAD에서는 IDLE로만 나올 수 있다 (DEAD 락 — animation-state.md §4.5).
-        if isvalid(stateComp) then stateComp:ChangeState("IDLE") end
+	@ExecSpace("ServerOnly")
+	method void ExpireBoss()
+		        -- 보스 제한시간이 끝났을 때 RoomSpawner가 부르는 실패 전용 종료 경로.
+		        -- Dead를 호출하면 EXP·포획·아이템·클리어 보상이 전부 지급되므로 여기서는
+		        -- 전투 대상에서 내리고 제거만 한다.
+		        if self.IsDead then return end
+		        self.IsDead = true
+		        self.Hp = 0
+		        self.Entity:SetVisible(false)
+		        self.Entity:SetEnable(false)
+		        log("[RoomMonster] 시간초과 제거 " .. self.DisplayName .. " — 보상 없음")
+		        self.Entity:Destroy()
+	end
 
-        log("[RoomMonster] 리스폰 " .. self.DisplayName .. "  HP=" .. tostring(self.Hp))
-    end
+	@ExecSpace("ServerOnly")
+	method void Respawn()
+		        self.IsDead = false
+		        self.Entity:SetVisible(true)
+		        self.Entity:SetEnable(true)
+		        self.Hp = self.MaxHp
+		        -- 실드를 지운다. 죽는 순간 걸려 있던 감쇄가 살아난 몸에 남으면
+		        -- 리스폰 직후 한동안 안 아픈 몬스터가 된다.
+		        self.ShieldRatio = 0
+		        self.ShieldUntil = 0
+		        self:ResetSkillControls()
+		
+		        local stateComp = self.Entity.StateComponent
+		        -- DEAD에서는 IDLE로만 나올 수 있다 (DEAD 락 — animation-state.md §4.5).
+		        if isvalid(stateComp) then stateComp:ChangeState("IDLE") end
+		
+		        log("[RoomMonster] 리스폰 " .. self.DisplayName .. "  HP=" .. tostring(self.Hp))
+	end
+
+	@ExecSpace("ServerOnly")
+	@EventSender("Self")
+	handler HandleHitEvent(HitEvent event)
+		        -- 데미지는 공격자(PlayerAttack)가 서버에서 이미 계산해 넣은 값이다.
+		        -- 여기서 다시 계산하지 않는다 — 계산 지점이 둘이면 반드시 어긋난다.
+		        local originalHp = self.Hp
+		        self.Hp = self.Hp - event.TotalDamage
+		        if _GameData.RogueRunActive and originalHp > 0 and isvalid(event.AttackerEntity) then
+		            local effective = math.min(originalHp, math.max(0, event.TotalDamage))
+		            _GameData:RecordRunDamage(event.AttackerEntity, effective)
+		        end
+		
+		        log("[RoomMonster] 피격 " .. self.DisplayName
+		            .. "  -" .. tostring(event.TotalDamage)
+		            .. "  HP " .. tostring(originalHp) .. " → " .. tostring(math.max(self.Hp, 0)))
+		
+		        -- 이미 죽은 몬스터에 늦게 도착한 타격으로 Dead가 두 번 돌지 않게 막는다.
+		        if self.Hp > 0 or originalHp <= 0 then return end
+		        self:Dead(event.AttackerEntity)
+	end
 
 end

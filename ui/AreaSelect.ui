@@ -952,13 +952,13 @@
                 "DataId": ""
               },
               "ScrollBarThickness": 12.0,
-              "ScrollBarVisible": 0,
+              "ScrollBarVisible": 1,
               "SortingLayer": "UI",
               "Spacing": 0.0,
               "StartAxis": 0,
               "StartCorner": 0,
               "Type": 2,
-              "UseScroll": false,
+              "UseScroll": true,
               "VerticalScrollBarDirection": 3,
               "Enable": true
             },
@@ -5998,7 +5998,7 @@
               },
               "SizeFit": false,
               "SortingLayer": "UI",
-              "Text": "지역 선택",
+              "Text": "층 선택",
               "Underlay": false,
               "UseConstraintX": false,
               "UseConstraintY": false,
@@ -6456,7 +6456,7 @@
               },
               "OffsetMin": {
                 "x": -225.0,
-                "y": -82.0
+                "y": -84.0
               },
               "Pivot": {
                 "x": 0.5,
@@ -6464,7 +6464,7 @@
               },
               "RectSize": {
                 "x": 450.0,
-                "y": 68.0
+                "y": 70.0
               },
               "UIMode": 1,
               "UIScale": {
@@ -6513,7 +6513,7 @@
                 "b": 0.25,
                 "a": 1.0
               },
-              "FontSize": 23.0,
+              "FontSize": 20.0,
               "FontStyle": 0,
               "HorizontalAlignment": 2,
               "IgnoreMapLayerCheck": false,
@@ -9411,20 +9411,20 @@
               },
               "MobileOnly": false,
               "OffsetMax": {
-                "x": -262.0,
-                "y": -146.0
+                "x": -18.0,
+                "y": -210.0
               },
               "OffsetMin": {
-                "x": -376.0,
-                "y": -196.0
+                "x": -238.0,
+                "y": -286.0
               },
               "Pivot": {
                 "x": 1.0,
                 "y": 1.0
               },
               "RectSize": {
-                "x": 114.0,
-                "y": 50.0
+                "x": 220.0,
+                "y": 76.0
               },
               "UIMode": 1,
               "UIScale": {
@@ -9434,8 +9434,8 @@
               },
               "UIVersion": 2,
               "anchoredPosition": {
-                "x": -262.0,
-                "y": -146.0
+                "x": -18.0,
+                "y": -210.0
               },
               "Rotation": {
                 "x": 0.0,
@@ -9443,8 +9443,8 @@
                 "z": 0.0
               },
               "Position": {
-                "x": 698.0,
-                "y": 394.0,
+                "x": 942.0,
+                "y": 330.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -9485,10 +9485,10 @@
               "SortingLayer": "UI",
               "StartFrameIndex": 0,
               "Color": {
-                "r": 0.972549,
-                "g": 0.980392158,
-                "b": 0.9843137,
-                "a": 1.0
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 0.0
               },
               "DropShadow": false,
               "DropShadowAngle": 120.0,
@@ -9516,7 +9516,7 @@
                 "b": 0.847058833,
                 "a": 1.0
               },
-              "OutlineWidth": 1.0,
+              "OutlineWidth": 0.0,
               "RaycastTarget": true,
               "Type": 1,
               "Enable": true
@@ -9567,6 +9567,7 @@
               "KeyCode": 0,
               "OrderInLayer": 0,
               "OverrideSorting": false,
+              "Selectable": false,
               "SortingLayer": "UI",
               "Transition": 1,
               "Enable": true
@@ -9578,10 +9579,10 @@
               "ConstraintY": 100.0,
               "Font": "Maple",
               "FontColor": {
-                "r": 0.1882353,
-                "g": 0.239215687,
-                "b": 0.2784314,
-                "a": 1.0
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 0.0
               },
               "FontSize": 22.0,
               "FontStyle": 1,
@@ -9619,12 +9620,12 @@
         }
       },
       {
-        "id": "d3b82545-462d-42a1-85ea-740a022491ca",
-        "path": "/ui/AreaSelect/LobbyDungeonButton/MasterUpperEdge",
+        "id": "cca323e1-297f-4016-be7b-9c61bad5ee0d",
+        "path": "/ui/AreaSelect/LobbyDungeonButton/ButtonArt",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
-          "name": "MasterUpperEdge",
-          "path": "/ui/AreaSelect/LobbyDungeonButton/MasterUpperEdge",
+          "name": "ButtonArt",
+          "path": "/ui/AreaSelect/LobbyDungeonButton/ButtonArt",
           "nameEditable": true,
           "enable": true,
           "visible": true,
@@ -9655,20 +9656,20 @@
               },
               "MobileOnly": false,
               "OffsetMax": {
-                "x": 54.0,
-                "y": 23.5
+                "x": 110.0,
+                "y": 38.0
               },
               "OffsetMin": {
-                "x": -54.0,
-                "y": 20.5
+                "x": -110.0,
+                "y": -38.0
               },
               "Pivot": {
                 "x": 0.5,
                 "y": 0.5
               },
               "RectSize": {
-                "x": 108.0,
-                "y": 3.0
+                "x": 220.0,
+                "y": 76.0
               },
               "UIMode": 1,
               "UIScale": {
@@ -9679,7 +9680,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": 0.0,
-                "y": 22.0
+                "y": 0.0
               },
               "Rotation": {
                 "x": 0.0,
@@ -9687,8 +9688,8 @@
                 "z": 0.0
               },
               "Position": {
-                "x": -57.0,
-                "y": -3.0,
+                "x": -110.0,
+                "y": -38.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -9711,7 +9712,7 @@
               "EndFrameIndex": 2147483647,
               "IgnoreMapLayerCheck": false,
               "ImageRUID": {
-                "DataId": "2860136c06ab075439721c027de365af"
+                "DataId": "0e1e7ac74cc04d5ea0b8918985718577"
               },
               "LocalPosition": {
                 "x": 0.0,
@@ -9762,7 +9763,7 @@
               },
               "OutlineWidth": 3.0,
               "RaycastTarget": false,
-              "Type": 1,
+              "Type": 0,
               "Enable": true
             }
           ],
@@ -9770,12 +9771,12 @@
         }
       },
       {
-        "id": "26c0c4fa-b050-406e-86ad-3348f7a8513c",
-        "path": "/ui/AreaSelect/LobbyDungeonButton/MasterLowerEdge",
-        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
+        "id": "73cd4a82-6f89-430a-a342-8d0064e4916f",
+        "path": "/ui/AreaSelect/LobbyDungeonButton/LobbyLabel",
+        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.TextGUIRendererComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
-          "name": "MasterLowerEdge",
-          "path": "/ui/AreaSelect/LobbyDungeonButton/MasterLowerEdge",
+          "name": "LobbyLabel",
+          "path": "/ui/AreaSelect/LobbyDungeonButton/LobbyLabel",
           "nameEditable": true,
           "enable": true,
           "visible": true,
@@ -9785,12 +9786,12 @@
           "revision": 0,
           "origin": {
             "type": "Model",
-            "entry_id": "UISprite",
+            "entry_id": "UITextGUIRenderer",
             "sub_entity_id": null,
             "root_entity_id": null,
             "replaced_model_id": null
           },
-          "modelId": "uisprite",
+          "modelId": "uitextguirenderer",
           "@components": [
             {
               "@type": "MOD.Core.UITransformComponent",
@@ -9806,20 +9807,20 @@
               },
               "MobileOnly": false,
               "OffsetMax": {
-                "x": 54.0,
-                "y": -20.5
+                "x": 71.0,
+                "y": 27.0
               },
               "OffsetMin": {
-                "x": -54.0,
-                "y": -23.5
+                "x": -71.0,
+                "y": -27.0
               },
               "Pivot": {
                 "x": 0.5,
                 "y": 0.5
               },
               "RectSize": {
-                "x": 108.0,
-                "y": 3.0
+                "x": 142.0,
+                "y": 54.0
               },
               "UIMode": 1,
               "UIScale": {
@@ -9830,7 +9831,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": 0.0,
-                "y": -22.0
+                "y": 0.0
               },
               "Rotation": {
                 "x": 0.0,
@@ -9838,8 +9839,8 @@
                 "z": 0.0
               },
               "Position": {
-                "x": -57.0,
-                "y": -47.0,
+                "x": -110.0,
+                "y": -38.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -9857,12 +9858,55 @@
               "Enable": true
             },
             {
+              "@type": "MOD.Core.TextGUIRendererComponent",
+              "BestFit": false,
+              "ConstraintX": 100.0,
+              "ConstraintY": 100.0,
+              "Font": "Default",
+              "FontColor": {
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
+                "a": 1.0
+              },
+              "FontSize": 24.0,
+              "FontStyle": 1,
+              "HorizontalAlignment": 2,
+              "IgnoreMapLayerCheck": false,
+              "MaxSize": 40.0,
+              "MinSize": 10.0,
+              "OrderInLayer": 0,
+              "OutlineColor": {
+                "r": 0.0,
+                "g": 0.0,
+                "b": 0.0,
+                "a": 1.0
+              },
+              "OutlineWidth": 0.0,
+              "Overflow": 0,
+              "OverrideSorting": false,
+              "Padding": {
+                "left": 0,
+                "right": 0,
+                "top": 0,
+                "bottom": 0
+              },
+              "SizeFit": false,
+              "SortingLayer": "UI",
+              "Text": "모험 시작",
+              "Underlay": false,
+              "UseConstraintX": false,
+              "UseConstraintY": false,
+              "VerticalAlignment": 512,
+              "Enable": true
+            },
+            {
               "@type": "MOD.Core.SpriteGUIRendererComponent",
               "AnimClipPlayType": 0,
               "EndFrameIndex": 2147483647,
               "IgnoreMapLayerCheck": false,
               "ImageRUID": {
-                "DataId": "2860136c06ab075439721c027de365af"
+                "DataId": ""
               },
               "LocalPosition": {
                 "x": 0.0,
@@ -9880,10 +9924,10 @@
               "SortingLayer": "UI",
               "StartFrameIndex": 0,
               "Color": {
-                "r": 0.6666667,
-                "g": 0.7294118,
-                "b": 0.7647059,
-                "a": 1.0
+                "r": 0.101960786,
+                "g": 0.101960786,
+                "b": 0.101960786,
+                "a": 0.0
               },
               "DropShadow": false,
               "DropShadowAngle": 120.0,
@@ -9913,7 +9957,7 @@
               },
               "OutlineWidth": 3.0,
               "RaycastTarget": false,
-              "Type": 1,
+              "Type": 0,
               "Enable": true
             }
           ],

@@ -1,20 +1,20 @@
--- @서버 (HP 차감·사망 판정은 서버 권한. 클라는 동기화된 HP를 표시만 한다)
---
--- 샘플은 i-frame만 있었고 **HP를 깎는 코드가 없었다.**
--- 그래서 T10-3 실측에서 4초간 맞아도 HP가 1000 → 1000이었다 — 플레이어는 사실상 불사였다.
--- 맞는 것에 대가가 없으면 DEF도, "방어가 필요한 방"도 의미가 없다.
---
--- HP는 PlayerComponent가 네이티브로 갖고 있다. 커스텀 Hp 프로퍼티를 만들지 않는다
--- (msw-combat-system 9: "Do not create custom Hp/MaxHp properties").
-
 @Component
 script PlayerHit extends HitComponent
 
-	-- i-frame. **정본은 `GameBalance.player_iframe_seconds`다** (T33-1, 규칙 3).
-	-- 이 프로퍼티는 CSV를 못 읽었을 때의 대비값으로만 남는다 —
-	-- 실제로 쓰는 값은 `GetImmuneCooldown()`이 돌려준다.
 	@MinValue(0)
 	property number ImmuneCooldown = 1
+
+	@HideFromInspector
+	property number LastHitTime = 0
+
+	@HideFromInspector
+	property number LastRunHazardHitTime = -9999
+
+	@TargetUserSync
+	property number ShieldRatio = 0
+
+	@TargetUserSync
+	property number ShieldUntil = 0
 
 	method number GetImmuneCooldown()
 		-- 한 대 맞고 다음 대까지의 무적 시간(초).
@@ -27,25 +27,6 @@ script PlayerHit extends HitComponent
 		return seconds
 	end
 
-	@HideFromInspector
-	property number LastHitTime = 0
-
-	-- 층 환경 기믹은 일반 몬스터 피격과 별도 원장으로 중복 RPC만 차단한다.
-	-- DEF/실드/Run 피해 감소를 타지 않는 이유: 3층 10, 4층 20, 5층 40은
-	-- 플레이어가 예고 타원을 보고 피해야 하는 최종 고정 피해값이다.
-	@HideFromInspector property number LastRunHazardHitTime = -9999
-
-	-- 실드 (T17-3b). 받는 피해를 ShieldRatio만큼 깎는 상태를 ShieldUntil까지 유지한다.
-	--
-	-- @TargetUserSync인 이유: 판정은 서버가 하지만 HUD도 "지금 실드 중"을 그려야 한다.
-	-- 남의 실드까지 새어 나가면 안 되므로 @Sync가 아니다 (SkillReadyAt과 같은 판단).
-	--
-	-- 왜 PlayerHit에 있는가: 받는 피해를 만지는 것은 이 파일의 일이다. 새 컴포넌트를
-	-- 만들면 DefaultPlayer.model도 건드려야 하고 피해 규칙이 두 곳으로 갈라진다
-	-- (OnMapEnter·Heal 주석과 같은 이유).
-	@TargetUserSync property number ShieldRatio = 0
-	@TargetUserSync property number ShieldUntil = 0
-
 	method void OnHit(Entity attacker, integer damage, boolean isCritical, string attackInfo, int32 hitCount)
 		-- 실제 HP 차감. 데미지 자체는 공격자(MonsterAttack.CalcDamage)가 계산했고
 		-- 거기서 플레이어 DEF가 이미 반영됐다.
@@ -54,12 +35,15 @@ script PlayerHit extends HitComponent
 		--   히트 파이프라인이 서버에서 도므로 실제 실행은 서버다.
 		local pc = self.Entity.PlayerComponent
 		if not isvalid(pc) then return end
-		if pc:IsDead() then return end
-
-		pc.Hp = pc.Hp - damage
-		log("[PlayerHit] 피격 -" .. tostring(damage) .. "  HP " .. tostring(pc.Hp + damage)
+		-- Run death may leave PlayerComponent in a spectator state without setting
+		-- IsDead(). Never apply more hits or repeat the failure transition at 0 HP.
+		if pc:IsDead() or pc.Hp <= 0 then return end
+		
+		local before = pc.Hp
+		pc.Hp = math.max(0, before - damage)
+		log("[PlayerHit] 피격 -" .. tostring(damage) .. "  HP " .. tostring(before)
 			.. " → " .. tostring(pc.Hp) .. " / " .. tostring(pc.MaxHp))
-
+		
 		if pc.Hp <= 0 then
 			self:HandleDeath()
 		end
@@ -81,18 +65,18 @@ script PlayerHit extends HitComponent
 		-- 둘째 마을을 만들 때 조용히 깨진다. RoomTable이 town을 알고 있으므로 그걸 읽는다.
 		local map = self.Entity.CurrentMap
 		if not isvalid(map) then return end
-
+		
 		local room = _GameData:GetRoomByMapName(map.Name)
 		if room == nil or room.room_type ~= "town" then return end
-
+		
 		local pc = self.Entity.PlayerComponent
 		if not isvalid(pc) then return end
 		if pc:IsDead() then return end
-
+		
 		-- 이미 만피면 조용히 물러난다. 사망 직후에는 Respawn()이 먼저 채우고
 		-- 마을로 옮기므로 여기서 또 알리면 배너가 두 번 뜬다.
 		if pc.Hp >= pc.MaxHp then return end
-
+		
 		local before = pc.Hp
 		pc.Hp = pc.MaxHp
 		log("[PlayerHit] 마을 회복  HP " .. tostring(before)
@@ -111,17 +95,17 @@ script PlayerHit extends HitComponent
 		-- 왜 여기 있는가: HP를 만지는 코드를 이 파일에 모아 둔다 (OnMapEnter 주석과 같은 이유).
 		-- 인벤토리가 pc.Hp를 직접 만지면 HP 규칙이 두 곳으로 갈라진다.
 		if amount <= 0 then return 0 end
-
+		
 		local pc = self.Entity.PlayerComponent
 		if not isvalid(pc) then return 0 end
 		if pc:IsDead() then return 0 end
 		if pc.Hp >= pc.MaxHp then return 0 end
-
+		
 		local before = pc.Hp
 		local after = before + amount
 		if after > pc.MaxHp then after = pc.MaxHp end
 		pc.Hp = after
-
+		
 		local healed = after - before
 		log("[PlayerHit] 회복 +" .. tostring(healed)
 			.. "  HP " .. tostring(before) .. " → " .. tostring(after) .. " / " .. tostring(pc.MaxHp))
@@ -135,27 +119,25 @@ script PlayerHit extends HitComponent
 		-- 겹치기를 막는 이유: 같은 스킬을 연타해 감쇄가 누적되면 쿨다운만 버티면
 		-- 사실상 무적이 된다. 지속 시간만 새로 고치는 편이 규칙이 단순하다.
 		if ratio <= 0 or seconds <= 0 then return end
-
+		
 		-- 상한을 둔다. CSV에 1.0이 들어가면 **피해가 0이 되어 무적**이 되는데,
 		-- 그건 데이터 오타 한 번으로 게임이 무너지는 자리다. 최소 한 대는 아파야 한다.
 		if ratio > 0.9 then
 			log_warning("[PlayerHit] 실드 감쇄율이 너무 크다(" .. tostring(ratio) .. ") — 0.9로 자른다")
 			ratio = 0.9
 		end
-
+		
 		self.ShieldRatio = ratio
 		self.ShieldUntil = _UtilLogic.ElapsedSeconds + seconds
 		log("[PlayerHit] 실드 " .. tostring(math.floor(ratio * 100)) .. "% 감쇄  "
 			.. tostring(seconds) .. "초")
-
+		
 		local pc = self.Entity.PlayerComponent
 		if isvalid(pc) then
 			self:OnShielded(math.floor(ratio * 100), seconds, pc.UserId)
 		end
 	end
 
-	-- 실행공간을 비워둔다. 서버는 데미지 감쇄에, 클라는 표시에 쓴다.
-	-- 읽는 값이 @TargetUserSync라 주인 클라에도 같은 값이 있다.
 	method number GetDamageReduction()
 		-- Skill 실드와 Run 영구(판 한정) 피해 감소를 한 곳에서 합친다.
 		-- 각 효과는 원래 값을 유지하고 합계만 90% 상한을 둬 무적화를 막는다.
@@ -178,18 +160,18 @@ script PlayerHit extends HitComponent
 		if damage <= 0 or _GameData.RogueRunActive == false
 			or _GameData.RogueRunResult ~= "ACTIVE" then return false end
 		local pc = self.Entity.PlayerComponent
-		if not isvalid(pc) or pc:IsDead() then return false end
+		if not isvalid(pc) or pc:IsDead() or pc.Hp <= 0 then return false end
 		if _GameData:IsRunParticipant(pc.UserId) == false
 			or _GameData.RogueAliveParticipants[pc.UserId] ~= true then return false end
-
+		
 		local now = _UtilLogic.ElapsedSeconds
 		local guard = _GameData:GetBalance("run_floor_hazard_duplicate_guard_seconds")
 		if guard <= 0 then guard = 0.5 end
 		if now < self.LastRunHazardHitTime + guard then return false end
 		self.LastRunHazardHitTime = now
-
+		
 		local before = pc.Hp
-		pc.Hp = pc.Hp - damage
+		pc.Hp = math.max(0, before - damage)
 		log("[FloorHazard] HIT user=" .. tostring(pc.UserId)
 			.. " skill=" .. tostring(skillId) .. " fixed=" .. tostring(damage)
 			.. " hp=" .. tostring(before) .. "->" .. tostring(pc.Hp))
@@ -211,14 +193,14 @@ script PlayerHit extends HitComponent
 	end
 
 	@ExecSpace("ServerOnly")
-    method void HandleDeath()
+	method void HandleDeath()
 		-- 죽음의 대가 = **시작방으로 돌려보낸다** (T10-3 결정).
 		-- 잃는 것이 "탐험 진행"이라 방 단위 탐험 코어와 맞고, 레벨·스탯은 건드리지 않아
 		-- 환생의 비용 구조(기획서 4.5)와 충돌하지 않는다.
 		--
 		-- Respawn()이 HP를 채우고 ReviveEvent를 자동으로 띄운다. 그 뒤에 시작방으로 옮긴다 —
 		-- 순서를 바꾸면 죽은 상태로 이동해 조작이 막힌 채 서 있게 된다.
-        local pc = self.Entity.PlayerComponent
+		        local pc = self.Entity.PlayerComponent
 		if _GameData.RogueRunActive then
 			-- Run에서는 즉시 마을 부활하지 않는다. 서버 Run 상태가 관전/전원 실패를
 			-- 판정하고, 재합류는 다음 안전 전환 지점에서만 별도로 수행한다.
@@ -226,18 +208,18 @@ script PlayerHit extends HitComponent
 			self:OnDied(pc.UserId)
 			return
 		end
-        log("[PlayerHit] 사망 — 시작방으로 돌려보낸다")
+		        log("[PlayerHit] 사망 — 시작방으로 돌려보낸다")
 		pc:Respawn()
 		-- db를 함께 넘긴다. 안 넘기면 저장된 방이 그대로라 재접속했을 때
 		-- 죽은 그 깊은 방에서 다시 시작한다 (환생과 같은 이유).
 		---@type PlayerDBManager
 		local db = self.Entity:GetComponent("script.PlayerDBManager")
-        _PlayerTravel:ReturnToStart(self.Entity, db)
+		        _PlayerTravel:ReturnToStart(self.Entity, db)
 		self:OnDied(pc.UserId)
 	end
 
 	@ExecSpace("Client")
-    method void OnDied()
+	method void OnDied()
 		-- 당사자에게만 알린다. 대상 userId는 선언부가 아니라 호출부 마지막 인자다
 		-- (첫 인자로 넘겼다가 [LEA-3032]로 실패한 적이 있다 — RoomPortal 주석 참고).
 		if _GameData.RogueRunActive then
@@ -255,7 +237,7 @@ script PlayerHit extends HitComponent
 		--   ExecSpace=All이라 자식이 다르면 [LEA-3014] SignatureMismatch가 난다.
 		--   붙이지 않아도 호출 경로가 서버 히트 파이프라인이라 판정은 서버에서 돈다.
 		local currentTime = _UtilLogic.ElapsedSeconds
-
+		
 		-- i-frame 안이면 안 맞는다. 그 밖에는 무조건 맞는다.
 		--
 		-- ## 회피는 없다 (2026-08-27 대표 지시로 폐기)
@@ -272,7 +254,7 @@ script PlayerHit extends HitComponent
 		if self.LastHitTime + self:GetImmuneCooldown() >= currentTime then
 			return false
 		end
-
+		
 		self.LastHitTime = currentTime
 		return true
 	end

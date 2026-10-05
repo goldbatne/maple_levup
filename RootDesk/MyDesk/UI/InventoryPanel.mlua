@@ -1,641 +1,673 @@
--- @클라이언트 (창은 보여주고 고르는 것까지만. 장착 판정은 서버가 다시 한다)
---
--- 가방 창 (T13-5a). 가진 것을 보여주고, 장비를 눌러 장착·해제한다.
---
--- @Logic인 이유: UI 엔티티에 붙은 @Component는 Server 계열 메서드를 가질 수 없다.
--- 이 프로젝트의 UI 컨트롤러는 전부 @Logic으로 통일돼 있다.
---
--- 판정을 여기서 하지 않는다. 줄을 누르면 PlayerInventory.RequestSetEquip을 부르고,
--- 장비인가·슬롯이 맞는가·가지고 있는가는 전부 서버가 다시 본다 —
--- 창이 보내는 값은 클라가 조작할 수 있으므로 여기의 검사는 표시용일 뿐이다.
---
-    -- 고유 아이템은 6x8 슬롯 48칸에 그린다. T67까지 한 분류의 장비가
-    -- 36종을 넘으므로 창 높이는 유지하고 슬롯을 촘촘하게 재배치한다.
-
 @Logic
 script InventoryPanel extends Logic
 
-    -- .ui 엔티티 UUID는 UIBuilder가 write 시점에 주입한다.
-    property Entity panel = "d6a4ea42-d70f-4746-84e0-6aa4eb914e0b"
-    property ButtonComponent openBtn = "f21aca9a-6277-48a9-89f9-f6342d2570a9"
-    property ButtonComponent closeBtn = "4219e969-e664-4b1e-821f-f136c65c939f"
-    property TextGUIRendererComponent hintText = "5b833216-1485-4747-82c1-31cd62b9a1b8"
-    property TextGUIRendererComponent detailTitle = "688bd506-9ce9-4828-980b-db4faf24811f"
-    property TextGUIRendererComponent detailBody = "f0109592-7a1f-4f2b-b6e1-30052c53947b"
-    property ButtonComponent filterWeapon = "b98485d3-8f1b-4ae0-8b69-bfb2503b7abd"
-    property ButtonComponent filterArmor = "3705dcd7-a485-478c-8328-b110140ad32e"
-    property ButtonComponent filterAccessory = "4bf6a469-f182-4419-8d6a-dca7a896f1fd"
-    property ButtonComponent filterPassive = "921b6de9-8bb5-4dd4-9588-59cee123345c"
-    property ButtonComponent filterConsume = "2edd56ca-0456-4d2e-a48f-71c3d40901d9"
-    property ButtonComponent equipRow0 = "85cb4aaa-f735-4510-a4b9-a1c3e7487f1d"
-    property ButtonComponent equipRow1 = "919ea6ea-150d-41d0-90d9-6c2644d7243d"
-    property ButtonComponent equipRow2 = "e99a2da9-e57a-4a6e-8b83-0f471ef082e0"
-    property ButtonComponent itemRow0 = "eef446f2-c318-4897-b664-80f7f0a87cc1"
-    property ButtonComponent itemRow1 = "bb715c79-7f26-4460-812b-af0bb38800b2"
-    property ButtonComponent itemRow2 = "3f22ba67-86b7-44d6-843a-50d4caf6f910"
-    property ButtonComponent itemRow3 = "f574d1f9-7929-428b-ad06-7711820497b5"
-    property ButtonComponent itemRow4 = "446372d5-114f-4b1c-a68f-9af6fa147806"
-    property ButtonComponent itemRow5 = "1f625391-aa5f-4e2e-b127-8a105a15cfb4"
-    property ButtonComponent itemRow6 = "c49b346b-6a7a-4927-985f-51c0700cdb7d"
-    property ButtonComponent itemRow7 = "106d103e-a1d8-4a45-9f8b-90eb760cef55"
-    property ButtonComponent itemRow8 = "b1b2f0c7-0bb2-4e84-ae5a-9941bec1061a"
-    property ButtonComponent itemRow9 = "18b9ce0e-8ba9-4561-9fd3-3b6af7ba878c"
-    property ButtonComponent itemRow10 = "0002480b-0655-4047-b848-21ea2ecca786"
-    property ButtonComponent itemRow11 = "d6e619b0-467c-4c8c-8c68-5f17bf8e1c4b"
-    property ButtonComponent itemRow12 = "7ed9b876-e586-47c9-81f3-1c97086ca51a"
-    property ButtonComponent itemRow13 = "a14b555c-2171-4117-897e-96f838d4667b"
-    property ButtonComponent itemRow14 = "d836d011-4b65-41ae-9332-6c0dd1aa23ca"
-    property ButtonComponent itemRow15 = "91b4a172-2e73-452c-87c6-498a9c67f402"
-    property ButtonComponent itemRow16 = "b10bbe8d-a3f8-41d7-97c2-0d0e7a7d0c23"
-    property ButtonComponent itemRow17 = "71003d99-4d90-49a6-ac87-97964a89dc89"
-    property ButtonComponent itemRow18 = "2a18ef88-ceba-4793-bf36-65b3ecebf862"
-    property ButtonComponent itemRow19 = "8b18caa7-2698-47fc-b90e-1a45acbce68f"
-    property ButtonComponent itemRow20 = "71840906-6e48-43c2-a39a-a71565aad9d4"
-    property ButtonComponent itemRow21 = "a0548e56-8e75-4f98-82c6-ed720940ce80"
-    property ButtonComponent itemRow22 = "28c3de11-ffc1-4039-9836-cd19091e51b8"
-    property ButtonComponent itemRow23 = "cd9b6ccf-809f-4e66-a558-42b41f1ffdb4"
-    property ButtonComponent itemRow24 = "209f3f65-160c-483d-b480-7bf80da30ca2"
-    property ButtonComponent itemRow25 = "bb67f078-702e-42b1-88ba-b71cd3ced34a"
-    property ButtonComponent itemRow26 = "e2eb832d-5a18-4eb5-8214-2a1ee0c8fe76"
-    property ButtonComponent itemRow27 = "b23a3cff-4879-4ef3-8297-87867f4b5fbd"
-    property ButtonComponent itemRow28 = "44465311-b826-4e9f-92b4-96138ea186e3"
-    property ButtonComponent itemRow29 = "38edbc40-015e-4612-be45-59eafbafa7bf"
-    property ButtonComponent itemRow30 = "34313428-fd8b-4ec1-a677-fe56293032e0"
-    property ButtonComponent itemRow31 = "af7f197f-a4a6-46d2-8698-90343f1f4a9c"
-    property ButtonComponent itemRow32 = "807b5c5d-b128-4510-b950-023db6df31c9"
-    property ButtonComponent itemRow33 = "f1246396-1a96-4002-baa4-76a35b5cf4f6"
-    property ButtonComponent itemRow34 = "19763b04-bb29-4404-850c-b9e112844d39"
-    property ButtonComponent itemRow35 = "1052d676-8657-4499-862e-56cb951145d1"
-    property ButtonComponent itemRow36 = "265695c9-111f-45d8-84ed-7cbe6ca0d473"
-    property ButtonComponent itemRow37 = "c9ebcc65-6ab4-437f-afcc-e119ab5580f7"
-    property ButtonComponent itemRow38 = "db1f4bd2-d956-41e5-9e82-5cdeea9d532a"
-    property ButtonComponent itemRow39 = "ba95ec55-8890-4019-b3c9-7134f4411d11"
-    property ButtonComponent itemRow40 = "53b4996f-8c03-4d09-af31-317851334552"
-    property ButtonComponent itemRow41 = "ef863c95-d44b-42c1-bfee-d1a9bddd3353"
-    property ButtonComponent itemRow42 = "54243a55-a276-434e-9396-0c00f178438b"
-    property ButtonComponent itemRow43 = "92d1c430-3937-4add-b1c5-9bf38f2cab53"
-    property ButtonComponent itemRow44 = "e229bff1-d977-4f91-a81a-652906ae03a9"
-    property ButtonComponent itemRow45 = "2ac5144b-acea-47f1-8c89-80c537a8e21d"
-    property ButtonComponent itemRow46 = "56134336-6cd3-48cb-a645-9e79d32ca347"
-    property ButtonComponent itemRow47 = "15c84349-7fef-4d17-97a1-61ab1a1c9001"
+	property Entity panel = "d6a4ea42-d70f-4746-84e0-6aa4eb914e0b"
 
-    -- (엔티티, 핸들러) 병렬 배열. `handler`는 mlua 예약어라 키로 쓸 수 없다.
-    property table handlerEntities = {}
-    property table handlerIds = {}
-    property any refreshTimer = nil
-    property number refreshInterval = 0.3
+	property ButtonComponent openBtn = "f21aca9a-6277-48a9-89f9-f6342d2570a9"
 
-    -- 지금 각 줄이 무엇을 들고 있는가. 줄을 눌렀을 때 무엇을 장착할지 여기서 찾는다.
-    -- 클릭 핸들러에 아이템 id를 캡처하지 않는 이유: 목록이 갱신되면 줄의 내용이
-    -- 바뀌는데 핸들러는 그대로라, 캡처했다면 옛 아이템을 장착하게 된다.
-    property table rowItemIds = {}
-    -- 행별로 마지막에 지정한 아이콘 RUID. 같은 thumbnail://을 0.3초마다 다시 넣으면
-    -- 로딩이 끝나기 전에 재요청되어 기본 아이콘이 계속 남을 수 있으므로 변경 시에만 갱신한다.
-    property table rowIconRuids = {}
-    property string selectedItemId = ""
-    property string currentCategory = "weapon"
+	property ButtonComponent closeBtn = "4219e969-e664-4b1e-821f-f136c65c939f"
 
-    property integer equipRowCount = 3
-    property integer itemRowCount = 48
-    property boolean newModeHidden = false
+	property TextGUIRendererComponent hintText = "5b833216-1485-4747-82c1-31cd62b9a1b8"
 
-    @ExecSpace("ClientOnly")
-    method void OnUpdate(number delta)
-        if self.newModeHidden or _GameData:GetBalance("roguelite_run_mode_enabled") < 0.5 then return end
-        self:Hide()
-        if isvalid(self.panel) then
-            self.panel.Enable = false
-            self.panel:SetVisible(false)
-        end
-        if isvalid(self.openBtn) then
-            self.openBtn.Entity.Enable = false
-            self.openBtn.Entity:SetVisible(false)
-        end
-        self.newModeHidden = true
-    end
+	property TextGUIRendererComponent detailTitle = "688bd506-9ce9-4828-980b-db4faf24811f"
 
-    @ExecSpace("ClientOnly")
-    method void OnBeginPlay()
-        self:Hide()
-        log("[Inventory창] OnBeginPlay — 닫힌 채로 시작")
+	property TextGUIRendererComponent detailBody = "f0109592-7a1f-4f2b-b6e1-30052c53947b"
 
-        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
-            -- 장비 성장은 신규 Run 시작 능력치에 합산하지 않는다. 패널과 열기
-            -- 버튼을 Enable=false로 끄면 보이지 않는 입력 차단도 함께 사라진다.
-            if isvalid(self.panel) then self.panel.Enable = false end
-            if isvalid(self.openBtn) then self.openBtn.Entity.Enable = false end
-            if isvalid(self.panel) then self.panel:SetVisible(false) end
-            if isvalid(self.openBtn) then self.openBtn.Entity:SetVisible(false) end
-            self.newModeHidden = true
-            return
-        end
+	property ButtonComponent filterWeapon = "b98485d3-8f1b-4ae0-8b69-bfb2503b7abd"
 
-        self:Bind(self.openBtn, function() self:Open() end)
-        self:Bind(self.closeBtn, function() self:Hide() end)
-        self:Bind(self.filterWeapon, function() self:SelectCategory("weapon") end)
-        self:Bind(self.filterArmor, function() self:SelectCategory("armor") end)
-        self:Bind(self.filterAccessory, function() self:SelectCategory("accessory") end)
-        self:Bind(self.filterPassive, function() self:SelectCategory("passive") end)
-        self:Bind(self.filterConsume, function() self:SelectCategory("consume") end)
+	property ButtonComponent filterArmor = "3705dcd7-a485-478c-8328-b110140ad32e"
 
-        for i = 1, self.equipRowCount do
-            local captured = i
-            self:Bind(self:GetEquipRow(i), function() self:OnEquipRowClick(captured) end)
-        end
-        for i = 1, self.itemRowCount do
-            local captured = i
-            self:Bind(self:GetItemRow(i), function() self:OnItemRowClick(captured) end)
-        end
+	property ButtonComponent filterAccessory = "4bf6a469-f182-4419-8d6a-dca7a896f1fd"
 
-        self.refreshTimer = _TimerService:SetTimerRepeat(function()
-            self:Refresh()
-        end, self.refreshInterval)
-    end
+	property ButtonComponent filterPassive = "921b6de9-8bb5-4dd4-9588-59cee123345c"
 
-    @ExecSpace("ClientOnly")
-    method void OnEndPlay()
-        -- 붙인 것은 전부 뗀다. 남기면 스크립트를 다시 읽을 때 중복으로 붙는다.
-        for i = 1, #self.handlerEntities do
-            local ent = self.handlerEntities[i]
-            if isvalid(ent) then
-                ent:DisconnectEvent(ButtonClickEvent, self.handlerIds[i])
-            end
-        end
-        self.handlerEntities = {}
-        self.handlerIds = {}
+	property ButtonComponent filterConsume = "2edd56ca-0456-4d2e-a48f-71c3d40901d9"
 
-        if self.refreshTimer ~= nil then
-            _TimerService:ClearTimer(self.refreshTimer)
-            self.refreshTimer = nil
-        end
-    end
+	property ButtonComponent equipRow0 = "85cb4aaa-f735-4510-a4b9-a1c3e7487f1d"
 
-    @ExecSpace("ClientOnly")
-    method void Bind(ButtonComponent btn, any fn)
-        -- 버튼 하나에 클릭 핸들러를 붙이고 나중에 뗄 수 있게 기억한다.
-        if not isvalid(btn) then return end
-        local ent = btn.Entity
-        local h = ent:ConnectEvent(ButtonClickEvent, fn)
-        table.insert(self.handlerEntities, ent)
-        table.insert(self.handlerIds, h)
-    end
+	property ButtonComponent equipRow1 = "919ea6ea-150d-41d0-90d9-6c2644d7243d"
 
-    @ExecSpace("ClientOnly")
-    method any GetEquipRow(integer index)
-        -- 프로퍼티를 배열처럼 쓰기 위한 창구. 3개뿐이라 분기로 충분하다.
-        if index == 1 then return self.equipRow0 end
-        if index == 2 then return self.equipRow1 end
-        if index == 3 then return self.equipRow2 end
-        return nil
-    end
+	property ButtonComponent equipRow2 = "e99a2da9-e57a-4a6e-8b83-0f471ef082e0"
 
-    @ExecSpace("ClientOnly")
-    method any GetItemRow(integer index)
-        if index == 1 then return self.itemRow0 end
-        if index == 2 then return self.itemRow1 end
-        if index == 3 then return self.itemRow2 end
-        if index == 4 then return self.itemRow3 end
-        if index == 5 then return self.itemRow4 end
-        if index == 6 then return self.itemRow5 end
-        if index == 7 then return self.itemRow6 end
-        if index == 8 then return self.itemRow7 end
-        if index == 9 then return self.itemRow8 end
-        if index == 10 then return self.itemRow9 end
-        if index == 11 then return self.itemRow10 end
-        if index == 12 then return self.itemRow11 end
-        if index == 13 then return self.itemRow12 end
-        if index == 14 then return self.itemRow13 end
-        if index == 15 then return self.itemRow14 end
-        if index == 16 then return self.itemRow15 end
-        if index == 17 then return self.itemRow16 end
-        if index == 18 then return self.itemRow17 end
-        if index == 19 then return self.itemRow18 end
-        if index == 20 then return self.itemRow19 end
-        if index == 21 then return self.itemRow20 end
-        if index == 22 then return self.itemRow21 end
-        if index == 23 then return self.itemRow22 end
-        if index == 24 then return self.itemRow23 end
-        if index == 25 then return self.itemRow24 end
-        if index == 26 then return self.itemRow25 end
-        if index == 27 then return self.itemRow26 end
-        if index == 28 then return self.itemRow27 end
-        if index == 29 then return self.itemRow28 end
-        if index == 30 then return self.itemRow29 end
-        if index == 31 then return self.itemRow30 end
-        if index == 32 then return self.itemRow31 end
-        if index == 33 then return self.itemRow32 end
-        if index == 34 then return self.itemRow33 end
-        if index == 35 then return self.itemRow34 end
-        if index == 36 then return self.itemRow35 end
-        if index == 37 then return self.itemRow36 end
-        if index == 38 then return self.itemRow37 end
-        if index == 39 then return self.itemRow38 end
-        if index == 40 then return self.itemRow39 end
-        if index == 41 then return self.itemRow40 end
-        if index == 42 then return self.itemRow41 end
-        if index == 43 then return self.itemRow42 end
-        if index == 44 then return self.itemRow43 end
-        if index == 45 then return self.itemRow44 end
-        if index == 46 then return self.itemRow45 end
-        if index == 47 then return self.itemRow46 end
-        if index == 48 then return self.itemRow47 end
-        return nil
-    end
+	property ButtonComponent itemRow0 = "eef446f2-c318-4897-b664-80f7f0a87cc1"
 
-    ---------------------------------------------------------------
-    -- 열고 닫기
-    ---------------------------------------------------------------
+	property ButtonComponent itemRow1 = "bb715c79-7f26-4460-812b-af0bb38800b2"
 
-    @ExecSpace("ClientOnly")
-    method void Open()
-        if _GameData.RogueRunActive then return end
-        if isvalid(self.panel) then self.panel.Enable = true end
-        self:Refresh()
-        log("[Inventory창] 열림")
-    end
+	property ButtonComponent itemRow2 = "3f22ba67-86b7-44d6-843a-50d4caf6f910"
 
-    @ExecSpace("ClientOnly")
-    method void Hide()
-        -- Enable로 끈다. Visible=false는 클릭이 살아 있다 (ui-hierarchy 5).
-        if isvalid(self.panel) then self.panel.Enable = false end
-    end
+	property ButtonComponent itemRow3 = "f574d1f9-7929-428b-ad06-7711820497b5"
 
-    ---------------------------------------------------------------
-    -- 조회
-    ---------------------------------------------------------------
+	property ButtonComponent itemRow4 = "446372d5-114f-4b1c-a68f-9af6fa147806"
 
-    @ExecSpace("ClientOnly")
-    method any GetInventory()
-        local me = _UserService.LocalPlayer
-        if me == nil then return nil end
-        return me:GetComponent("script.PlayerInventory")
-    end
+	property ButtonComponent itemRow5 = "1f625391-aa5f-4e2e-b127-8a105a15cfb4"
 
-    @ExecSpace("ClientOnly")
-    method string SlotLabel(string slot)
-        -- 화면에 보일 슬롯 이름. 모르는 슬롯은 이름 그대로 — 데이터가 늘어나도 깨지지 않는다.
-        if slot == "weapon" then return "무기" end
-        if slot == "armor" then return "방어구" end
-        if slot == "accessory" then return "장신구" end
-        return slot
-    end
+	property ButtonComponent itemRow6 = "c49b346b-6a7a-4927-985f-51c0700cdb7d"
 
-    @ExecSpace("ClientOnly")
-    method void SelectCategory(string category)
-        if category ~= "weapon" and category ~= "armor" and category ~= "accessory"
-            and category ~= "passive" and category ~= "consume" then return end
-        if self.currentCategory == category then return end
-        self.currentCategory = category
-        self.selectedItemId = ""
-        self:Refresh()
-    end
+	property ButtonComponent itemRow7 = "106d103e-a1d8-4a45-9f8b-90eb760cef55"
 
-    @ExecSpace("ClientOnly")
-    method boolean MatchesCategory(table item)
-        if item == nil then return false end
-        if self.currentCategory == "passive" then return item.item_type == "passive" end
-        if self.currentCategory == "consume" then return item.item_type == "consume" end
-        return item.item_type == "equip" and item.slot == self.currentCategory
-    end
+	property ButtonComponent itemRow8 = "b1b2f0c7-0bb2-4e84-ae5a-9941bec1061a"
 
-    @ExecSpace("ClientOnly")
-    method integer CategoryCount(PlayerInventory inv, string category)
-        local count = 0
-        local before = self.currentCategory
-        self.currentCategory = category
-        local ids = _GameData:GetAllItemIds()
-        for i = 1, #ids do
-            local item = _GameData:GetItem(ids[i])
-            if item ~= nil and inv:GetCount(ids[i]) > 0 and self:MatchesCategory(item) then
-                count = count + 1
-            end
-        end
-        self.currentCategory = before
-        return count
-    end
+	property ButtonComponent itemRow9 = "18b9ce0e-8ba9-4561-9fd3-3b6af7ba878c"
 
-    @ExecSpace("ClientOnly")
-    method void PaintCategory(ButtonComponent button, string label, string category, PlayerInventory inv)
-        if not isvalid(button) then return end
-        local text = button.Entity.TextGUIRendererComponent
-        if isvalid(text) then
-            text.Text = label .. " " .. tostring(self:CategoryCount(inv, category))
-        end
-        local sprite = button.Entity.SpriteGUIRendererComponent
-        if isvalid(sprite) then
-            if self.currentCategory == category then
-                sprite.Color = Color(0.55, 0.76, 0.95, 1)
-            else
-                sprite.Color = Color(0.85, 0.83, 0.80, 1)
-            end
-        end
-    end
+	property ButtonComponent itemRow10 = "0002480b-0655-4047-b848-21ea2ecca786"
 
-    @ExecSpace("ClientOnly")
-    method void RenderCategories(PlayerInventory inv)
-        self:PaintCategory(self.filterWeapon, "무기", "weapon", inv)
-        self:PaintCategory(self.filterArmor, "방어구", "armor", inv)
-        self:PaintCategory(self.filterAccessory, "장신구", "accessory", inv)
-        self:PaintCategory(self.filterPassive, "패시브", "passive", inv)
-        self:PaintCategory(self.filterConsume, "소비", "consume", inv)
-    end
+	property ButtonComponent itemRow11 = "d6e619b0-467c-4c8c-8c68-5f17bf8e1c4b"
 
-    @ExecSpace("ClientOnly")
-    method string StatSummary(table item, integer count)
-        -- "ATK+5" / "올스탯+3" 꼴. 0인 스탯은 적지 않는다.
-        --
-        -- count는 보유 개수다. 중복 장비는 개당 수치가 그대로 더해지므로(T15-1)
-        -- 여기도 **합산값**을 보여준다 — 개당 수치를 띄우면 스탯 창의 숫자와
-        -- 어긋나서 "장비가 안 먹는다"로 읽힌다.
-        --
-        -- 회복량(heal_hp)은 곱하지 않는다. 한 번에 하나씩 마시므로 개당이 맞다.
-        -- ⚠ **표의 숫자를 그대로 쓰면 안 된다** (T30). `ItemTable`의 스탯 컬럼은 이제
-        --   **스탯 포인트 상당**이고 실제로 얹히는 값은 계수를 곱한 것이다
-        --   (무쇠 검 5 → 물리 공격력 +25). 표의 5를 그대로 띄우면 가방은 "+25"라고
-        --   하는데 스탯 창은 +125로 늘어 "장비가 이상하다"로 읽힌다.
-        --   그래서 **스탯 창과 같은 창구**(`GetItemStackedStatBonus`)에서 값을 받는다.
-        if count < 1 then count = 1 end
-        if item.item_type == "passive" then
-            return "보유 효과 " .. item.passive_stat .. " +"
-                .. tostring(item.passive_value * count)
-        end
-        -- 올스탯만 포인트로 적는다. 수치가 넷 다 달라(물공 +15 / 방어 +30 …) 한 줄에
-        -- 다 쓰면 줄을 넘고, 이 아이템의 값어치는 "모든 스탯 몇 P"가 가장 잘 나른다.
-        if item.stat_all > 0 then return "올스탯+" .. tostring(item.stat_all * count) .. "P" end
-        local out = ""
-        if item.stat_atk > 0 then out = out .. " 물리공격력+" .. tostring(math.floor(_GameData:GetItemStackedStatBonus(item.id, "ATK", count) + 0.5)) end
-        if item.stat_int > 0 then out = out .. " 마법공격력+" .. tostring(math.floor(_GameData:GetItemStackedStatBonus(item.id, "INT", count) + 0.5)) end
-        if item.stat_def > 0 then out = out .. " 방어력+" .. tostring(math.floor(_GameData:GetItemStackedStatBonus(item.id, "DEF", count) + 0.5)) end
-        if item.stat_luk > 0 then out = out .. " LUK+" .. tostring(math.floor(_GameData:GetItemStackedStatBonus(item.id, "LUK", count) + 0.5)) end
-        if item.heal_hp > 0 then out = out .. " HP회복 " .. tostring(item.heal_hp) end
-        if out == "" then return "" end
-        return string.sub(out, 2)
-    end
+	property ButtonComponent itemRow12 = "7ed9b876-e586-47c9-81f3-1c97086ca51a"
 
-    @ExecSpace("ClientOnly")
-    method string CountLabel(table item, integer count)
-        -- "x3/5" 꼴. 장비만 상한을 같이 보여준다 — 5가 목표 숫자라서
-        -- 몇 개가 남았는지가 바로 읽혀야 한다. 포션은 상한이 99라 "/99"가
-        -- 잡음이 될 뿐이라 개수만 적는다.
-        if item.item_type == "equip" or item.item_type == "passive" then
-            return "x" .. tostring(count) .. "/" .. tostring(_GameData:GetItemStackCap(item.id))
-        end
-        return "x" .. tostring(count)
-    end
+	property ButtonComponent itemRow13 = "a14b555c-2171-4117-897e-96f838d4667b"
 
-    ---------------------------------------------------------------
-    -- 표시
-    ---------------------------------------------------------------
+	property ButtonComponent itemRow14 = "d836d011-4b65-41ae-9332-6c0dd1aa23ca"
 
-    @ExecSpace("ClientOnly")
-    method void SetRow(any btn, string label, string iconRuid)
-        -- 줄 하나를 채운다. iconRuid가 빈 문자열이면 아이콘을 숨긴다 —
-        -- 빈 RUID를 넣으면 아이콘이 "안 보이는 것"이 아니라 깨진 자리로 남는다.
-        if btn == nil or not isvalid(btn) then return end
-        local rowEntity = btn.Entity
-        rowEntity.Enable = true
+	property ButtonComponent itemRow15 = "91b4a172-2e73-452c-87c6-498a9c67f402"
 
-        local text = rowEntity.TextGUIRendererComponent
-        local nameEntity = rowEntity:GetChildByName("Name", false)
-        if isvalid(nameEntity) then
-            if isvalid(text) then text.Text = "" end
-            nameEntity.TextGUIRendererComponent.Text = label
-        elseif isvalid(text) then
-            text.Text = label
-        end
+	property ButtonComponent itemRow16 = "b10bbe8d-a3f8-41d7-97c2-0d0e7a7d0c23"
 
-        local icon = rowEntity:GetChildByName("Icon", false)
-        if icon ~= nil and isvalid(icon) then
-            if iconRuid == "" then
-                icon.Enable = false
-            else
-                icon.Enable = true
-                icon.SpriteGUIRendererComponent.ImageRUID = DataRef(iconRuid)
-                icon.SpriteGUIRendererComponent.Color = Color(1, 1, 1, 1)
-            end
-        end
-    end
+	property ButtonComponent itemRow17 = "71003d99-4d90-49a6-ac87-97964a89dc89"
 
-    @ExecSpace("ClientOnly")
-    method void HideRow(any btn)
-        if btn == nil or not isvalid(btn) then return end
-        btn.Entity.Enable = false
-    end
+	property ButtonComponent itemRow18 = "2a18ef88-ceba-4793-bf36-65b3ecebf862"
 
-    @ExecSpace("ClientOnly")
-    method void SetItemCell(any btn, table item, integer count, boolean selected, integer rowIndex)
-        if btn == nil or not isvalid(btn) then return end
-        local entity = btn.Entity
-        entity.Enable = true
-        local text = entity.TextGUIRendererComponent
-        if isvalid(text) then text.Text = "" end
+	property ButtonComponent itemRow19 = "8b18caa7-2698-47fc-b90e-1a45acbce68f"
 
-        local iconEntity = entity:GetChildByName("Icon", false)
-        if isvalid(iconEntity) then
-            iconEntity.Enable = item.icon_ruid ~= ""
-            if item.icon_ruid ~= "" then
-                local icon = iconEntity.SpriteGUIRendererComponent
-                if self.rowIconRuids[rowIndex] ~= item.icon_ruid then
-                    icon.ImageRUID = DataRef(item.icon_ruid)
-                    self.rowIconRuids[rowIndex] = item.icon_ruid
-                end
-                -- 보유 아이템은 상태 표현 때문에 흐리게 만들지 않는다. 선택 여부는 슬롯 테두리로만 가른다.
-                icon.Color = Color(1, 1, 1, 1)
-                iconEntity.UITransformComponent.anchoredPosition = Vector2(0, -1)
-                iconEntity.UITransformComponent.RectSize = Vector2(44, 44)
-            end
-        end
+	property ButtonComponent itemRow20 = "71840906-6e48-43c2-a39a-a71565aad9d4"
 
-        local countEntity = entity:GetChildByName("Count", false)
-        if isvalid(countEntity) then
-            countEntity.TextGUIRendererComponent.Text = tostring(count)
-        end
+	property ButtonComponent itemRow21 = "a0548e56-8e75-4f98-82c6-ed720940ce80"
 
-        local sprite = entity.SpriteGUIRendererComponent
-        if isvalid(sprite) then
-            if selected then
-                sprite.Color = Color(0.55, 0.76, 0.95, 1)
-            elseif item.item_type == "passive" then
-                sprite.Color = Color(0.90, 0.84, 0.97, 1)
-            elseif item.item_type == "equip" then
-                sprite.Color = Color(0.94, 0.90, 0.76, 1)
-            else
-                sprite.Color = Color(0.90, 0.92, 0.95, 1)
-            end
-        end
-    end
+	property ButtonComponent itemRow22 = "28c3de11-ffc1-4039-9836-cd19091e51b8"
 
-    @ExecSpace("ClientOnly")
-    method void RenderItemDetail(PlayerInventory inv)
-        if not isvalid(self.detailTitle) or not isvalid(self.detailBody) then return end
-        if self.selectedItemId == "" then
-            self.detailTitle.Text = "아이템을 선택해 주세요"
-            self.detailBody.Text = "아이템을 한 번 눌러 확인 · 같은 아이템을 다시 눌러 장착 또는 사용"
-            return
-        end
-        local item = _GameData:GetItem(self.selectedItemId)
-        if item == nil then
-            self.selectedItemId = ""
-            self.detailTitle.Text = "아이템을 선택해 주세요"
-            self.detailBody.Text = "아이템을 한 번 눌러 확인 · 같은 아이템을 다시 눌러 장착 또는 사용"
-            return
-        end
-        local count = inv:GetCount(item.id)
-        self.detailTitle.Text = item.name .. "   x" .. tostring(count)
-        local action = "한 번 더 누르면 사용"
-        if item.item_type == "equip" then
-            if inv:GetEquipped(item.slot) == item.id then
-                action = self:SlotLabel(item.slot) .. "에 장착 중"
-            else
-                action = "한 번 더 누르면 " .. self:SlotLabel(item.slot) .. "에 장착"
-            end
-        elseif item.item_type == "passive" then
-            action = "인벤토리 보유 중 자동 적용"
-        end
-        self.detailBody.Text = self:StatSummary(item, count) .. "   ·   " .. action
-    end
+	property ButtonComponent itemRow23 = "cd9b6ccf-809f-4e66-a558-42b41f1ffdb4"
 
-    @ExecSpace("ClientOnly")
-    method void Refresh()
-        -- 창이 닫혀 있으면 그릴 필요가 없다.
-        if not isvalid(self.panel) then return end
-        if not self.panel.Enable then return end
+	property ButtonComponent itemRow24 = "209f3f65-160c-483d-b480-7bf80da30ca2"
 
-        ---@type PlayerInventory
-        local inv = self:GetInventory()
-        if inv == nil then return end
-        self:RenderCategories(inv)
+	property ButtonComponent itemRow25 = "bb67f078-702e-42b1-88ba-b71cd3ced34a"
 
-        -- 착용 중 3줄. 슬롯 이름과 순서는 PlayerInventory가 정본이다.
-        local slots = inv:GetEquipSlotNames()
-        for i = 1, self.equipRowCount do
-            local btn = self:GetEquipRow(i)
-            local slot = slots[i]
-            if slot == nil then
-                self:HideRow(btn)
-            else
-                local itemId = inv:GetEquipped(slot)
-                if itemId == "" then
-                    self:SetRow(btn, self:SlotLabel(slot) .. "\n비어 있음", "")
-                else
-                    local item = _GameData:GetItem(itemId)
-                    if item == nil then
-                        self:SetRow(btn, self:SlotLabel(slot) .. "\n" .. itemId, "")
-                    else
-                        -- 착용 줄에도 개수를 적는다. 장착은 한 슬롯이지만 수치는
-                        -- 보유 개수만큼 붙으므로(T15-1) 개수가 안 보이면
-                        -- "왜 +5가 아니라 +15지"의 답이 화면에 없다.
-                        local held = inv:GetCount(itemId)
-                        self:SetRow(btn, self:SlotLabel(slot) .. "\n" .. item.name
-                            .. " x" .. tostring(held) .. "\n눌러서 해제", item.icon_ruid)
-                    end
-                end
-            end
-        end
+	property ButtonComponent itemRow26 = "e2eb832d-5a18-4eb5-8214-2a1ee0c8fe76"
 
-        -- 가진 것. 0개는 건너뛰고, 남는 줄은 숨긴다.
-        self.rowItemIds = {}
-        local ids = _GameData:GetAllItemIds()
-        local row = 0
-        for i = 1, #ids do
-            local id = ids[i]
-            local count = inv:GetCount(id)
-            local item = _GameData:GetItem(id)
-            if count > 0 and item ~= nil and self:MatchesCategory(item) and row < self.itemRowCount then
-                row = row + 1
-                self.rowItemIds[row] = id
-                self:SetItemCell(self:GetItemRow(row), item, count, id == self.selectedItemId, row)
-            end
-        end
-        for i = row + 1, self.itemRowCount do
-            self:HideRow(self:GetItemRow(i))
-        end
+	property ButtonComponent itemRow27 = "b23a3cff-4879-4ef3-8297-87867f4b5fbd"
 
-        if row == 0 then
-            self.selectedItemId = ""
-        elseif self.selectedItemId ~= "" and inv:GetCount(self.selectedItemId) <= 0 then
-            self.selectedItemId = ""
-        end
-        self:RenderItemDetail(inv)
+	property ButtonComponent itemRow28 = "44465311-b826-4e9f-92b4-96138ea186e3"
 
-        if isvalid(self.hintText) then
-            if row == 0 then
-                self.hintText.Text = "가방이 비어 있다. 몬스터를 잡으면 바닥에 떨어진다 — 밟으면 줍는다."
-            else
-                -- 한 줄로 둔다. 두 줄이면 마지막 아이템 줄과 겹친다 (ui_lint L023).
-                self.hintText.Text = "아이템은 한 번 눌러 확인 · 같은 아이템을 다시 눌러 장착/사용 · 착용 칸은 눌러서 해제"
-            end
-        end
-    end
+	property ButtonComponent itemRow29 = "38edbc40-015e-4612-be45-59eafbafa7bf"
 
-    ---------------------------------------------------------------
-    -- 클릭
-    ---------------------------------------------------------------
+	property ButtonComponent itemRow30 = "34313428-fd8b-4ec1-a677-fe56293032e0"
 
-    @ExecSpace("ClientOnly")
-    method void OnEquipRowClick(integer index)
-        -- 착용 중인 줄을 누르면 해제한다.
-        ---@type PlayerInventory
-        local inv = self:GetInventory()
-        if inv == nil then return end
+	property ButtonComponent itemRow31 = "af7f197f-a4a6-46d2-8698-90343f1f4a9c"
 
-        local slots = inv:GetEquipSlotNames()
-        local slot = slots[index]
-        if slot == nil then return end
-        if inv:GetEquipped(slot) == "" then return end
+	property ButtonComponent itemRow32 = "807b5c5d-b128-4510-b950-023db6df31c9"
 
-        log("[Inventory창] 해제 요청 " .. slot)
-        inv:RequestSetEquip(slot, "")
-        self:Refresh()
-    end
+	property ButtonComponent itemRow33 = "f1246396-1a96-4002-baa4-76a35b5cf4f6"
 
-    @ExecSpace("ClientOnly")
-    method void OnItemRowClick(integer index)
-        -- 가진 것 줄을 누르면 장착한다. 소비 아이템은 여기서 쓰지 않는다 —
-        -- 퀵슬롯(T13-5b)과 사용(T13-7)이 붙을 자리다.
-        local itemId = self.rowItemIds[index]
-        if itemId == nil then return end
+	property ButtonComponent itemRow34 = "19763b04-bb29-4404-850c-b9e112844d39"
 
-        local item = _GameData:GetItem(itemId)
-        if item == nil then return end
+	property ButtonComponent itemRow35 = "1052d676-8657-4499-862e-56cb951145d1"
 
-        -- 모든 능동 동작은 두 단계다. 첫 클릭은 설명과 선택 상태를 보여주고,
-        -- 같은 아이템을 다시 눌렀을 때만 장착 또는 사용 요청을 보낸다.
-        local wasSelected = self.selectedItemId == itemId
-        self.selectedItemId = itemId
+	property ButtonComponent itemRow36 = "265695c9-111f-45d8-84ed-7cbe6ca0d473"
 
-        ---@type PlayerInventory
-        local inv = self:GetInventory()
-        if inv == nil then return end
+	property ButtonComponent itemRow37 = "c9ebcc65-6ab4-437f-afcc-e119ab5580f7"
 
-        -- 소비 아이템은 여기서 바로 쓴다 (T13-7). 퀵슬롯(T13-5b)이 붙으면
-        -- 손이 빠른 길이 하나 더 생기는 것이고, 창에서 쓰는 길은 그대로 남는다.
-        if item.item_type == "consume" then
-            if wasSelected == false then
-                self:Refresh()
-                return
-            end
-            log("[Inventory창] 사용 요청 " .. itemId)
-            inv:RequestUseItem(itemId)
-            self:Refresh()
-            return
-        end
+	property ButtonComponent itemRow38 = "db1f4bd2-d956-41e5-9e82-5cdeea9d532a"
 
-        -- 패시브 아이템은 선택해서 설명만 본다. 재클릭해도 장착/사용 요청을 보내지 않는다.
-        if item.item_type == "passive" then
-            log("[Inventory창] 패시브 확인 " .. itemId .. " — 보유 중 자동 적용")
-            self:Refresh()
-            return
-        end
+	property ButtonComponent itemRow39 = "ba95ec55-8890-4019-b3c9-7134f4411d11"
 
-        if wasSelected == false then
-            self:Refresh()
-            return
-        end
+	property ButtonComponent itemRow40 = "53b4996f-8c03-4d09-af31-317851334552"
 
-        log("[Inventory창] 장착 요청 " .. item.slot .. " = " .. itemId)
-        inv:RequestSetEquip(item.slot, itemId)
-        self:Refresh()
-    end
+	property ButtonComponent itemRow41 = "ef863c95-d44b-42c1-bfee-d1a9bddd3353"
+
+	property ButtonComponent itemRow42 = "54243a55-a276-434e-9396-0c00f178438b"
+
+	property ButtonComponent itemRow43 = "92d1c430-3937-4add-b1c5-9bf38f2cab53"
+
+	property ButtonComponent itemRow44 = "e229bff1-d977-4f91-a81a-652906ae03a9"
+
+	property ButtonComponent itemRow45 = "2ac5144b-acea-47f1-8c89-80c537a8e21d"
+
+	property ButtonComponent itemRow46 = "56134336-6cd3-48cb-a645-9e79d32ca347"
+
+	property ButtonComponent itemRow47 = "15c84349-7fef-4d17-97a1-61ab1a1c9001"
+
+	property table handlerEntities = {}
+
+	property table handlerIds = {}
+
+	property any refreshTimer = nil
+
+	property number refreshInterval = 0.3
+
+	property table rowItemIds = {}
+
+	property table rowIconRuids = {}
+
+	property string selectedItemId = ""
+
+	property string currentCategory = "weapon"
+
+	property integer equipRowCount = 3
+
+	property integer itemRowCount = 48
+
+	property boolean newModeHidden = false
+
+	@ExecSpace("ClientOnly")
+	method void OnUpdate(number delta)
+		        if self.newModeHidden or _GameData:GetBalance("roguelite_run_mode_enabled") < 0.5 then return end
+		        self:Hide()
+		        if isvalid(self.panel) then
+		            self.panel.Enable = false
+		            self.panel:SetVisible(false)
+		        end
+		        if isvalid(self.openBtn) then
+		            self.openBtn.Entity.Enable = false
+		            self.openBtn.Entity:SetVisible(false)
+		        end
+		        self.newModeHidden = true
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnBeginPlay()
+		        self:Hide()
+		        log("[Inventory창] OnBeginPlay — 닫힌 채로 시작")
+		
+		        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
+		            -- 장비 성장은 신규 Run 시작 능력치에 합산하지 않는다. 패널과 열기
+		            -- 버튼을 Enable=false로 끄면 보이지 않는 입력 차단도 함께 사라진다.
+		            if isvalid(self.panel) then self.panel.Enable = false end
+		            if isvalid(self.openBtn) then self.openBtn.Entity.Enable = false end
+		            if isvalid(self.panel) then self.panel:SetVisible(false) end
+		            if isvalid(self.openBtn) then self.openBtn.Entity:SetVisible(false) end
+		            self.newModeHidden = true
+		            return
+		        end
+		
+		        self:Bind(self.openBtn, function() self:Open() end)
+		        self:Bind(self.closeBtn, function() self:Hide() end)
+		        self:Bind(self.filterWeapon, function() self:SelectCategory("weapon") end)
+		        self:Bind(self.filterArmor, function() self:SelectCategory("armor") end)
+		        self:Bind(self.filterAccessory, function() self:SelectCategory("accessory") end)
+		        self:Bind(self.filterPassive, function() self:SelectCategory("passive") end)
+		        self:Bind(self.filterConsume, function() self:SelectCategory("consume") end)
+		
+		        for i = 1, self.equipRowCount do
+		            local captured = i
+		            self:Bind(self:GetEquipRow(i), function() self:OnEquipRowClick(captured) end)
+		        end
+		        for i = 1, self.itemRowCount do
+		            local captured = i
+		            self:Bind(self:GetItemRow(i), function() self:OnItemRowClick(captured) end)
+		        end
+		
+		        self.refreshTimer = _TimerService:SetTimerRepeat(function()
+		            self:Refresh()
+		        end, self.refreshInterval)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnEndPlay()
+		        -- 붙인 것은 전부 뗀다. 남기면 스크립트를 다시 읽을 때 중복으로 붙는다.
+		        for i = 1, #self.handlerEntities do
+		            local ent = self.handlerEntities[i]
+		            if isvalid(ent) then
+		                ent:DisconnectEvent(ButtonClickEvent, self.handlerIds[i])
+		            end
+		        end
+		        self.handlerEntities = {}
+		        self.handlerIds = {}
+		
+		        if self.refreshTimer ~= nil then
+		            _TimerService:ClearTimer(self.refreshTimer)
+		            self.refreshTimer = nil
+		        end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void Bind(ButtonComponent btn, any fn)
+		        -- 버튼 하나에 클릭 핸들러를 붙이고 나중에 뗄 수 있게 기억한다.
+		        if not isvalid(btn) then return end
+		        local ent = btn.Entity
+		        local h = ent:ConnectEvent(ButtonClickEvent, fn)
+		        table.insert(self.handlerEntities, ent)
+		        table.insert(self.handlerIds, h)
+	end
+
+	@ExecSpace("ClientOnly")
+	method any GetEquipRow(integer index)
+		        -- 프로퍼티를 배열처럼 쓰기 위한 창구. 3개뿐이라 분기로 충분하다.
+		        if index == 1 then return self.equipRow0 end
+		        if index == 2 then return self.equipRow1 end
+		        if index == 3 then return self.equipRow2 end
+		        return nil
+	end
+
+	@ExecSpace("ClientOnly")
+	method any GetItemRow(integer index)
+		        if index == 1 then return self.itemRow0 end
+		        if index == 2 then return self.itemRow1 end
+		        if index == 3 then return self.itemRow2 end
+		        if index == 4 then return self.itemRow3 end
+		        if index == 5 then return self.itemRow4 end
+		        if index == 6 then return self.itemRow5 end
+		        if index == 7 then return self.itemRow6 end
+		        if index == 8 then return self.itemRow7 end
+		        if index == 9 then return self.itemRow8 end
+		        if index == 10 then return self.itemRow9 end
+		        if index == 11 then return self.itemRow10 end
+		        if index == 12 then return self.itemRow11 end
+		        if index == 13 then return self.itemRow12 end
+		        if index == 14 then return self.itemRow13 end
+		        if index == 15 then return self.itemRow14 end
+		        if index == 16 then return self.itemRow15 end
+		        if index == 17 then return self.itemRow16 end
+		        if index == 18 then return self.itemRow17 end
+		        if index == 19 then return self.itemRow18 end
+		        if index == 20 then return self.itemRow19 end
+		        if index == 21 then return self.itemRow20 end
+		        if index == 22 then return self.itemRow21 end
+		        if index == 23 then return self.itemRow22 end
+		        if index == 24 then return self.itemRow23 end
+		        if index == 25 then return self.itemRow24 end
+		        if index == 26 then return self.itemRow25 end
+		        if index == 27 then return self.itemRow26 end
+		        if index == 28 then return self.itemRow27 end
+		        if index == 29 then return self.itemRow28 end
+		        if index == 30 then return self.itemRow29 end
+		        if index == 31 then return self.itemRow30 end
+		        if index == 32 then return self.itemRow31 end
+		        if index == 33 then return self.itemRow32 end
+		        if index == 34 then return self.itemRow33 end
+		        if index == 35 then return self.itemRow34 end
+		        if index == 36 then return self.itemRow35 end
+		        if index == 37 then return self.itemRow36 end
+		        if index == 38 then return self.itemRow37 end
+		        if index == 39 then return self.itemRow38 end
+		        if index == 40 then return self.itemRow39 end
+		        if index == 41 then return self.itemRow40 end
+		        if index == 42 then return self.itemRow41 end
+		        if index == 43 then return self.itemRow42 end
+		        if index == 44 then return self.itemRow43 end
+		        if index == 45 then return self.itemRow44 end
+		        if index == 46 then return self.itemRow45 end
+		        if index == 47 then return self.itemRow46 end
+		        if index == 48 then return self.itemRow47 end
+		        return nil
+	end
+
+	@ExecSpace("ClientOnly")
+	method void Open()
+		        if _GameData.RogueRunActive then return end
+		        if isvalid(self.panel) then self.panel.Enable = true end
+		        self:Refresh()
+		        log("[Inventory창] 열림")
+	end
+
+	@ExecSpace("ClientOnly")
+	method void Hide()
+		        -- Enable로 끈다. Visible=false는 클릭이 살아 있다 (ui-hierarchy 5).
+		        if isvalid(self.panel) then self.panel.Enable = false end
+	end
+
+	@ExecSpace("ClientOnly")
+	method any GetInventory()
+		        local me = _UserService.LocalPlayer
+		        if me == nil then return nil end
+		        return me:GetComponent("script.PlayerInventory")
+	end
+
+	@ExecSpace("ClientOnly")
+	method string SlotLabel(string slot)
+		        -- 화면에 보일 슬롯 이름. 모르는 슬롯은 이름 그대로 — 데이터가 늘어나도 깨지지 않는다.
+		        if slot == "weapon" then return "무기" end
+		        if slot == "armor" then return "방어구" end
+		        if slot == "accessory" then return "장신구" end
+		        return slot
+	end
+
+	@ExecSpace("ClientOnly")
+	method void SelectCategory(string category)
+		        if category ~= "weapon" and category ~= "armor" and category ~= "accessory"
+		            and category ~= "passive" and category ~= "consume" then return end
+		        if self.currentCategory == category then return end
+		        self.currentCategory = category
+		        self.selectedItemId = ""
+		        self:Refresh()
+	end
+
+	@ExecSpace("ClientOnly")
+	method boolean MatchesCategory(table item)
+		        if item == nil then return false end
+		        if self.currentCategory == "passive" then return item.item_type == "passive" end
+		        if self.currentCategory == "consume" then return item.item_type == "consume" end
+		        return item.item_type == "equip" and item.slot == self.currentCategory
+	end
+
+	@ExecSpace("ClientOnly")
+	method integer CategoryCount(PlayerInventory inv, string category)
+		        local count = 0
+		        local before = self.currentCategory
+		        self.currentCategory = category
+		        local ids = _GameData:GetAllItemIds()
+		        for i = 1, #ids do
+		            local item = _GameData:GetItem(ids[i])
+		            if item ~= nil and inv:GetCount(ids[i]) > 0 and self:MatchesCategory(item) then
+		                count = count + 1
+		            end
+		        end
+		        self.currentCategory = before
+		        return count
+	end
+
+	@ExecSpace("ClientOnly")
+	method void PaintCategory(ButtonComponent button, string label, string category, PlayerInventory inv)
+		        if not isvalid(button) then return end
+		        local text = button.Entity.TextGUIRendererComponent
+		        if isvalid(text) then
+		            text.Text = label .. " " .. tostring(self:CategoryCount(inv, category))
+		        end
+		        local sprite = button.Entity.SpriteGUIRendererComponent
+		        if isvalid(sprite) then
+		            if self.currentCategory == category then
+		                sprite.Color = Color(0.55, 0.76, 0.95, 1)
+		            else
+		                sprite.Color = Color(0.85, 0.83, 0.80, 1)
+		            end
+		        end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void RenderCategories(PlayerInventory inv)
+		        self:PaintCategory(self.filterWeapon, "무기", "weapon", inv)
+		        self:PaintCategory(self.filterArmor, "방어구", "armor", inv)
+		        self:PaintCategory(self.filterAccessory, "장신구", "accessory", inv)
+		        self:PaintCategory(self.filterPassive, "패시브", "passive", inv)
+		        self:PaintCategory(self.filterConsume, "소비", "consume", inv)
+	end
+
+	@ExecSpace("ClientOnly")
+	method string StatSummary(table item, integer count)
+		        -- "ATK+5" / "올스탯+3" 꼴. 0인 스탯은 적지 않는다.
+		        --
+		        -- count는 보유 개수다. 중복 장비는 개당 수치가 그대로 더해지므로(T15-1)
+		        -- 여기도 **합산값**을 보여준다 — 개당 수치를 띄우면 스탯 창의 숫자와
+		        -- 어긋나서 "장비가 안 먹는다"로 읽힌다.
+		        --
+		        -- 회복량(heal_hp)은 곱하지 않는다. 한 번에 하나씩 마시므로 개당이 맞다.
+		        -- ⚠ **표의 숫자를 그대로 쓰면 안 된다** (T30). `ItemTable`의 스탯 컬럼은 이제
+		        --   **스탯 포인트 상당**이고 실제로 얹히는 값은 계수를 곱한 것이다
+		        --   (무쇠 검 5 → 물리 공격력 +25). 표의 5를 그대로 띄우면 가방은 "+25"라고
+		        --   하는데 스탯 창은 +125로 늘어 "장비가 이상하다"로 읽힌다.
+		        --   그래서 **스탯 창과 같은 창구**(`GetItemStackedStatBonus`)에서 값을 받는다.
+		        if count < 1 then count = 1 end
+		        if item.item_type == "passive" then
+		            return "보유 효과 " .. item.passive_stat .. " +"
+		                .. tostring(item.passive_value * count)
+		        end
+		        -- 올스탯만 포인트로 적는다. 수치가 넷 다 달라(물공 +15 / 방어 +30 …) 한 줄에
+		        -- 다 쓰면 줄을 넘고, 이 아이템의 값어치는 "모든 스탯 몇 P"가 가장 잘 나른다.
+		        if item.stat_all > 0 then return "올스탯+" .. tostring(item.stat_all * count) .. "P" end
+		        local out = ""
+		        if item.stat_atk > 0 then out = out .. " 물리공격력+" .. tostring(math.floor(_GameData:GetItemStackedStatBonus(item.id, "ATK", count) + 0.5)) end
+		        if item.stat_int > 0 then out = out .. " 마법공격력+" .. tostring(math.floor(_GameData:GetItemStackedStatBonus(item.id, "INT", count) + 0.5)) end
+		        if item.stat_def > 0 then out = out .. " 방어력+" .. tostring(math.floor(_GameData:GetItemStackedStatBonus(item.id, "DEF", count) + 0.5)) end
+		        if item.stat_luk > 0 then out = out .. " LUK+" .. tostring(math.floor(_GameData:GetItemStackedStatBonus(item.id, "LUK", count) + 0.5)) end
+		        if item.heal_hp > 0 then out = out .. " HP회복 " .. tostring(item.heal_hp) end
+		        if out == "" then return "" end
+		        return string.sub(out, 2)
+	end
+
+	@ExecSpace("ClientOnly")
+	method string CountLabel(table item, integer count)
+		        -- "x3/5" 꼴. 장비만 상한을 같이 보여준다 — 5가 목표 숫자라서
+		        -- 몇 개가 남았는지가 바로 읽혀야 한다. 포션은 상한이 99라 "/99"가
+		        -- 잡음이 될 뿐이라 개수만 적는다.
+		        if item.item_type == "equip" or item.item_type == "passive" then
+		            return "x" .. tostring(count) .. "/" .. tostring(_GameData:GetItemStackCap(item.id))
+		        end
+		        return "x" .. tostring(count)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void SetRow(any btn, string label, string iconRuid)
+		        -- 줄 하나를 채운다. iconRuid가 빈 문자열이면 아이콘을 숨긴다 —
+		        -- 빈 RUID를 넣으면 아이콘이 "안 보이는 것"이 아니라 깨진 자리로 남는다.
+		        if btn == nil or not isvalid(btn) then return end
+		        local rowEntity = btn.Entity
+		        rowEntity.Enable = true
+		
+		        local text = rowEntity.TextGUIRendererComponent
+		        local nameEntity = rowEntity:GetChildByName("Name", false)
+		        if isvalid(nameEntity) then
+		            if isvalid(text) then text.Text = "" end
+		            nameEntity.TextGUIRendererComponent.Text = label
+		        elseif isvalid(text) then
+		            text.Text = label
+		        end
+		
+		        local icon = rowEntity:GetChildByName("Icon", false)
+		        if icon ~= nil and isvalid(icon) then
+		            if iconRuid == "" then
+		                icon.Enable = false
+		            else
+		                icon.Enable = true
+		                icon.SpriteGUIRendererComponent.ImageRUID = DataRef(iconRuid)
+		                icon.SpriteGUIRendererComponent.Color = Color(1, 1, 1, 1)
+		            end
+		        end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void HideRow(any btn)
+		        if btn == nil or not isvalid(btn) then return end
+		        btn.Entity.Enable = false
+	end
+
+	@ExecSpace("ClientOnly")
+	method void SetItemCell(any btn, table item, integer count, boolean selected, integer rowIndex)
+		        if btn == nil or not isvalid(btn) then return end
+		        local entity = btn.Entity
+		        entity.Enable = true
+		        local text = entity.TextGUIRendererComponent
+		        if isvalid(text) then text.Text = "" end
+		
+		        local iconEntity = entity:GetChildByName("Icon", false)
+		        if isvalid(iconEntity) then
+		            iconEntity.Enable = item.icon_ruid ~= ""
+		            if item.icon_ruid ~= "" then
+		                local icon = iconEntity.SpriteGUIRendererComponent
+		                if self.rowIconRuids[rowIndex] ~= item.icon_ruid then
+		                    icon.ImageRUID = DataRef(item.icon_ruid)
+		                    self.rowIconRuids[rowIndex] = item.icon_ruid
+		                end
+		                -- 보유 아이템은 상태 표현 때문에 흐리게 만들지 않는다. 선택 여부는 슬롯 테두리로만 가른다.
+		                icon.Color = Color(1, 1, 1, 1)
+		                iconEntity.UITransformComponent.anchoredPosition = Vector2(0, -1)
+		                iconEntity.UITransformComponent.RectSize = Vector2(44, 44)
+		            end
+		        end
+		
+		        local countEntity = entity:GetChildByName("Count", false)
+		        if isvalid(countEntity) then
+		            countEntity.TextGUIRendererComponent.Text = tostring(count)
+		        end
+		
+		        local sprite = entity.SpriteGUIRendererComponent
+		        if isvalid(sprite) then
+		            if selected then
+		                sprite.Color = Color(0.55, 0.76, 0.95, 1)
+		            elseif item.item_type == "passive" then
+		                sprite.Color = Color(0.90, 0.84, 0.97, 1)
+		            elseif item.item_type == "equip" then
+		                sprite.Color = Color(0.94, 0.90, 0.76, 1)
+		            else
+		                sprite.Color = Color(0.90, 0.92, 0.95, 1)
+		            end
+		        end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void RenderItemDetail(PlayerInventory inv)
+		        if not isvalid(self.detailTitle) or not isvalid(self.detailBody) then return end
+		        if self.selectedItemId == "" then
+		            self.detailTitle.Text = "아이템을 선택해 주세요"
+		            self.detailBody.Text = "아이템을 한 번 눌러 확인 · 같은 아이템을 다시 눌러 장착 또는 사용"
+		            return
+		        end
+		        local item = _GameData:GetItem(self.selectedItemId)
+		        if item == nil then
+		            self.selectedItemId = ""
+		            self.detailTitle.Text = "아이템을 선택해 주세요"
+		            self.detailBody.Text = "아이템을 한 번 눌러 확인 · 같은 아이템을 다시 눌러 장착 또는 사용"
+		            return
+		        end
+		        local count = inv:GetCount(item.id)
+		        self.detailTitle.Text = item.name .. "   x" .. tostring(count)
+		        local action = "한 번 더 누르면 사용"
+		        if item.item_type == "equip" then
+		            if inv:GetEquipped(item.slot) == item.id then
+		                action = self:SlotLabel(item.slot) .. "에 장착 중"
+		            else
+		                action = "한 번 더 누르면 " .. self:SlotLabel(item.slot) .. "에 장착"
+		            end
+		        elseif item.item_type == "passive" then
+		            action = "인벤토리 보유 중 자동 적용"
+		        end
+		        self.detailBody.Text = self:StatSummary(item, count) .. "   ·   " .. action
+	end
+
+	@ExecSpace("ClientOnly")
+	method void Refresh()
+		        -- 창이 닫혀 있으면 그릴 필요가 없다.
+		        if not isvalid(self.panel) then return end
+		        if not self.panel.Enable then return end
+		
+		        ---@type PlayerInventory
+		        local inv = self:GetInventory()
+		        if inv == nil then return end
+		        self:RenderCategories(inv)
+		
+		        -- 착용 중 3줄. 슬롯 이름과 순서는 PlayerInventory가 정본이다.
+		        local slots = inv:GetEquipSlotNames()
+		        for i = 1, self.equipRowCount do
+		            local btn = self:GetEquipRow(i)
+		            local slot = slots[i]
+		            if slot == nil then
+		                self:HideRow(btn)
+		            else
+		                local itemId = inv:GetEquipped(slot)
+		                if itemId == "" then
+		                    self:SetRow(btn, self:SlotLabel(slot) .. "\n비어 있음", "")
+		                else
+		                    local item = _GameData:GetItem(itemId)
+		                    if item == nil then
+		                        self:SetRow(btn, self:SlotLabel(slot) .. "\n" .. itemId, "")
+		                    else
+		                        -- 착용 줄에도 개수를 적는다. 장착은 한 슬롯이지만 수치는
+		                        -- 보유 개수만큼 붙으므로(T15-1) 개수가 안 보이면
+		                        -- "왜 +5가 아니라 +15지"의 답이 화면에 없다.
+		                        local held = inv:GetCount(itemId)
+		                        self:SetRow(btn, self:SlotLabel(slot) .. "\n" .. item.name
+		                            .. " x" .. tostring(held) .. "\n눌러서 해제", item.icon_ruid)
+		                    end
+		                end
+		            end
+		        end
+		
+		        -- 가진 것. 0개는 건너뛰고, 남는 줄은 숨긴다.
+		        self.rowItemIds = {}
+		        local ids = _GameData:GetAllItemIds()
+		        local row = 0
+		        for i = 1, #ids do
+		            local id = ids[i]
+		            local count = inv:GetCount(id)
+		            local item = _GameData:GetItem(id)
+		            if count > 0 and item ~= nil and self:MatchesCategory(item) and row < self.itemRowCount then
+		                row = row + 1
+		                self.rowItemIds[row] = id
+		                self:SetItemCell(self:GetItemRow(row), item, count, id == self.selectedItemId, row)
+		            end
+		        end
+		        for i = row + 1, self.itemRowCount do
+		            self:HideRow(self:GetItemRow(i))
+		        end
+		
+		        if row == 0 then
+		            self.selectedItemId = ""
+		        elseif self.selectedItemId ~= "" and inv:GetCount(self.selectedItemId) <= 0 then
+		            self.selectedItemId = ""
+		        end
+		        self:RenderItemDetail(inv)
+		
+		        if isvalid(self.hintText) then
+		            if row == 0 then
+		                self.hintText.Text = "가방이 비어 있다. 몬스터를 잡으면 바닥에 떨어진다 — 밟으면 줍는다."
+		            else
+		                -- 한 줄로 둔다. 두 줄이면 마지막 아이템 줄과 겹친다 (ui_lint L023).
+		                self.hintText.Text = "아이템은 한 번 눌러 확인 · 같은 아이템을 다시 눌러 장착/사용 · 착용 칸은 눌러서 해제"
+		            end
+		        end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnEquipRowClick(integer index)
+		        -- 착용 중인 줄을 누르면 해제한다.
+		        ---@type PlayerInventory
+		        local inv = self:GetInventory()
+		        if inv == nil then return end
+		
+		        local slots = inv:GetEquipSlotNames()
+		        local slot = slots[index]
+		        if slot == nil then return end
+		        if inv:GetEquipped(slot) == "" then return end
+		
+		        log("[Inventory창] 해제 요청 " .. slot)
+		        inv:RequestSetEquip(slot, "")
+		        self:Refresh()
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnItemRowClick(integer index)
+		        -- 가진 것 줄을 누르면 장착한다. 소비 아이템은 여기서 쓰지 않는다 —
+		        -- 퀵슬롯(T13-5b)과 사용(T13-7)이 붙을 자리다.
+		        local itemId = self.rowItemIds[index]
+		        if itemId == nil then return end
+		
+		        local item = _GameData:GetItem(itemId)
+		        if item == nil then return end
+		
+		        -- 모든 능동 동작은 두 단계다. 첫 클릭은 설명과 선택 상태를 보여주고,
+		        -- 같은 아이템을 다시 눌렀을 때만 장착 또는 사용 요청을 보낸다.
+		        local wasSelected = self.selectedItemId == itemId
+		        self.selectedItemId = itemId
+		
+		        ---@type PlayerInventory
+		        local inv = self:GetInventory()
+		        if inv == nil then return end
+		
+		        -- 소비 아이템은 여기서 바로 쓴다 (T13-7). 퀵슬롯(T13-5b)이 붙으면
+		        -- 손이 빠른 길이 하나 더 생기는 것이고, 창에서 쓰는 길은 그대로 남는다.
+		        if item.item_type == "consume" then
+		            if wasSelected == false then
+		                self:Refresh()
+		                return
+		            end
+		            log("[Inventory창] 사용 요청 " .. itemId)
+		            inv:RequestUseItem(itemId)
+		            self:Refresh()
+		            return
+		        end
+		
+		        -- 패시브 아이템은 선택해서 설명만 본다. 재클릭해도 장착/사용 요청을 보내지 않는다.
+		        if item.item_type == "passive" then
+		            log("[Inventory창] 패시브 확인 " .. itemId .. " — 보유 중 자동 적용")
+		            self:Refresh()
+		            return
+		        end
+		
+		        if wasSelected == false then
+		            self:Refresh()
+		            return
+		        end
+		
+		        log("[Inventory창] 장착 요청 " .. item.slot .. " = " .. itemId)
+		        inv:RequestSetEquip(item.slot, itemId)
+		        self:Refresh()
+	end
 
 end

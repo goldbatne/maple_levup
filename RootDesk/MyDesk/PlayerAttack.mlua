@@ -1,62 +1,78 @@
--- @서버 (데미지 계산·스킬 판정·쿨다운 전부 서버. 클라는 입력과 연출만 — 개발 규칙 2)
---
--- 플레이어가 때리는 쪽. 자동 공격(T3)과 액티브 스킬(T5·T14)이 여기서 갈린다.
--- 어느 스탯을 계수로 쓸지 고르는 곳도 여기다(`CalcDamage`) — 산술은 `CombatFormula`.
---
--- ⚠ `CalcDamage` 계열 훅에는 **@ExecSpace를 붙이면 안 된다.** 부모 AttackComponent가
---   ExecSpace=All이라 자식이 다르면 [LEA-3014] SignatureMismatch가 난다.
-
 @Component
 script PlayerAttack extends AttackComponent
 
 	@HideFromInspector
 	property any Shape = nil
+
 	@HideFromInspector
 	property integer autoAttackTimer = 0
-	@HideFromInspector property number autoAttackInterval = 1
-	@HideFromInspector property number nextAutoAttackAt = 0
 
-	-- 이번 한 방이 때릴 수 있는 대상 수 (T17-3).
-	-- 엔진에 "최대 타격 수"가 없어서(msw-combat-system 1-2: "not native. Manage in script")
-	-- 후보를 훑는 IsAttackTarget 훅에서 직접 센다.
-	--   hitLimited=false  제한 없음 (기본 공격 · area 스킬)
-	--   hitLimited=true   hitBudget 만큼만 맞고 나머지는 걸러낸다
-	@HideFromInspector property boolean hitLimited = false
-	@HideFromInspector property integer hitBudget = 0
-	-- Phase 1 기본 공격의 이번 한 대상. AttackComponent가 후보를 훑을 때 이 엔티티만 통과시킨다.
-	@HideFromInspector property any basicTarget = nil
-	@HideFromInspector property table basicTargets = {}
+	@HideFromInspector
+	property number autoAttackInterval = 1
 
-	-- 이번 한 방에 얹을 돌진 보너스 (T21-2). 0이면 없다.
-	-- hitLimited/hitBudget과 같은 방식 — 한 방 앞에서 걸고 바로 지운다.
-	@HideFromInspector property number dashBonus = 0
-	-- 데이터 중심 공간 판정의 한 번짜리 실행 문맥. AttackComponent의 후보 훅과
-	-- CalcDamage가 같은 시전의 방향·형태·틱 배율을 읽고, 판정 직후 반드시 초기화한다.
-	@HideFromInspector property string behaviorContext = ""
-	@HideFromInspector property Vector3 behaviorOrigin = Vector3(0, 0, 0)
-	@HideFromInspector property Vector2 behaviorDirection = Vector2(1, 0)
-	@HideFromInspector property number behaviorConeDegrees = 0
-	@HideFromInspector property number behaviorDamageScale = 1
-	@HideFromInspector property boolean projectileTerrainCheck = false
-	@HideFromInspector property Vector3 projectileTerrainOrigin = Vector3(0, 0, 0)
-	@HideFromInspector property number OutgoingWeakenRatio = 0
-	@HideFromInspector property number OutgoingWeakenUntil = 0
-	@HideFromInspector property number OutgoingBoostRatio = 0
-	@HideFromInspector property number OutgoingBoostUntil = 0
-	@HideFromInspector property number NextAttackBoostRatio = 0
-	@HideFromInspector property number NextAttackBoostUntil = 0
-	@HideFromInspector property number EnemyStunUntil = 0
+	@HideFromInspector
+	property number nextAutoAttackAt = 0
 
-	-- skillId -> 다시 쓸 수 있게 되는 시각(월드 경과초). 비어 있으면 즉시 사용 가능.
-	--
-	-- @TargetUserSync인 이유: 판정은 서버가 하지만 HUD도 남은 시간을 그려야 한다.
-	-- 서버만 들고 있으면 클라가 매번 물어봐야 하고, 클라만 들고 있으면 위조된다.
-	-- 이 값은 **서버 시계**의 시각이고 서버 판정에만 쓴다.
-	@TargetUserSync property SyncTable<string, number> SkillReadyAt
+	@HideFromInspector
+	property boolean hitLimited = false
 
-	-- 같은 쿨다운을 **클라 시계**로 다시 적은 것. 스킬 바 표시만 이걸 본다.
-	-- 왜 갈랐는지는 GetCooldownRemain 주석에 있다. 저장하지 않는다 —
-	-- 몇 초짜리라 재접속하면 어차피 끝나 있다.
+	@HideFromInspector
+	property integer hitBudget = 0
+
+	@HideFromInspector
+	property any basicTarget = nil
+
+	@HideFromInspector
+	property table basicTargets = {}
+
+	@HideFromInspector
+	property number dashBonus = 0
+
+	@HideFromInspector
+	property string behaviorContext = ""
+
+	@HideFromInspector
+	property Vector3 behaviorOrigin = Vector3(0, 0, 0)
+
+	@HideFromInspector
+	property Vector2 behaviorDirection = Vector2(1, 0)
+
+	@HideFromInspector
+	property number behaviorConeDegrees = 0
+
+	@HideFromInspector
+	property number behaviorDamageScale = 1
+
+	@HideFromInspector
+	property boolean projectileTerrainCheck = false
+
+	@HideFromInspector
+	property Vector3 projectileTerrainOrigin = Vector3(0, 0, 0)
+
+	@HideFromInspector
+	property number OutgoingWeakenRatio = 0
+
+	@HideFromInspector
+	property number OutgoingWeakenUntil = 0
+
+	@HideFromInspector
+	property number OutgoingBoostRatio = 0
+
+	@HideFromInspector
+	property number OutgoingBoostUntil = 0
+
+	@HideFromInspector
+	property number NextAttackBoostRatio = 0
+
+	@HideFromInspector
+	property number NextAttackBoostUntil = 0
+
+	@HideFromInspector
+	property number EnemyStunUntil = 0
+
+	@TargetUserSync
+	property SyncTable<string, number> SkillReadyAt
+
 	property table clientReadyAt = {}
 
 	@ExecSpace("ServerOnly")
@@ -65,7 +81,7 @@ script PlayerAttack extends AttackComponent
 		-- LookDirectionX 방향 박스는 좌우만 커버해서 위/아래 몬스터를 못 때린다.
 		-- 반경은 시트가 아니라 GameBalance의 구현 상수에서 읽는다 (하드코딩 금지 — 개발 규칙 3).
 		self.Shape = CircleShape(Vector2.zero, _GameData:GetBalance("player_attack_range"))
-
+		
 		-- 기본 공격은 자동이다 (작업지시서 T3: "기본 공격은 자동(근접 범위 판정)").
 		-- 버튼 탭은 T5의 액티브 스킬 몫이라 여기서 입력을 받지 않는다.
 		self:RestartAutoAttack()
@@ -85,7 +101,7 @@ script PlayerAttack extends AttackComponent
 			_TimerService:ClearTimer(self.autoAttackTimer)
 			self.autoAttackTimer = 0
 		end
-
+		
 		local interval = _GameData:GetBalance("player_attack_interval")
 		---@type PlayerStats
 		local stats = self.Entity:GetComponent("script.PlayerStats")
@@ -93,13 +109,13 @@ script PlayerAttack extends AttackComponent
 		-- 0 이하면 타이머가 매 프레임 돌아 서버가 멈춘다. 하한은 GetAttackInterval이
 		-- 이미 걸지만, 스탯이 없어 기본값으로 떨어진 경로도 막아 둔다.
 		if interval < 0.05 then interval = 0.05 end
-
+		
 		self.autoAttackInterval = interval
 		self.nextAutoAttackAt = 0
 		local scanInterval = _GameData:GetBalance("player_attack_target_scan_interval")
 		if scanInterval < 0.05 then scanInterval = 0.05 end
 		if scanInterval > interval then scanInterval = interval end
-
+		
 		self.autoAttackTimer = _TimerService:SetTimerRepeat(function()
 			local now = _UtilLogic.ElapsedSeconds
 			if now + 0.0001 < self.nextAutoAttackAt then return end
@@ -107,7 +123,7 @@ script PlayerAttack extends AttackComponent
 				self.nextAutoAttackAt = now + self.autoAttackInterval
 			end
 		end, scanInterval)
-
+		
 		-- 값만 보면 타이머가 실제로 다시 걸렸는지 알 수 없다 (컴포넌트 조회가 nil이어도
 		-- 에러 없이 옛 주기로 계속 돈다). 다시 건 자리를 남긴다.
 		log("[PlayerAttack] 자동 공격 주기 " .. tostring(interval)
@@ -130,11 +146,11 @@ script PlayerAttack extends AttackComponent
 		-- 기능 플래그가 켜진 Phase 1에서는 범위 안 가장 가까운 살아 있는 한 마리만 친다.
 		local transform = self.Entity.TransformComponent
 		if not isvalid(transform) then return false end
-
+		
 		local worldPosition = transform.WorldPosition
 		-- 발밑이 원점이라 반 칸 올려야 몸통 높이에서 판정된다.
 		self.Shape.Position = Vector2(worldPosition.x, worldPosition.y + 0.5)
-
+		
 		if _GameData:GetBalance("phase1_random_combat_enabled") >= 0.5 then
 			local radius = _GameData:GetBalance("player_attack_range")
 			if radius <= 0 then radius = 1.2 end
@@ -159,7 +175,7 @@ script PlayerAttack extends AttackComponent
 			self.basicTargets = {}
 			return true
 		end
-
+		
 		-- 플래그를 끄면 기존의 범위 내 전체 타격을 그대로 사용한다.
 		self.hitLimited = false
 		self:AttackFast(self.Shape, nil, CollisionGroups.Monster)
@@ -191,7 +207,7 @@ script PlayerAttack extends AttackComponent
 		---@type RoomSpawner
 		local spawner = map:GetComponent("script.RoomSpawner")
 		if spawner == nil then return nil end
-
+		
 		local best = nil
 		local bestDistSq = radius * radius + 0.0001
 		local bestName = ""
@@ -225,7 +241,7 @@ script PlayerAttack extends AttackComponent
 		local used = {[tostring(primary.Name)] = true}
 		local pc = self.Entity.PlayerComponent
 		if _GameData.RogueRunActive == false or not isvalid(pc) then return result end
-
+		
 		local map = self.Entity.CurrentMap
 		local spawner = map ~= nil and map:GetComponent("script.RoomSpawner") or nil
 		if spawner == nil then return result end
@@ -246,7 +262,7 @@ script PlayerAttack extends AttackComponent
 			if math.abs(a.distSq - b.distSq) <= 0.0001 then return a.name < b.name end
 			return a.distSq < b.distSq
 		end)
-
+		
 		-- 추가 대상은 플레이어 주변의 다른 근접 적을 때린다.
 		local extra = _GameData:GetRunUpgradeStack(pc.UserId, "extra_target")
 		for i = 1, #candidates do
@@ -258,7 +274,7 @@ script PlayerAttack extends AttackComponent
 				extra -= 1
 			end
 		end
-
+		
 		-- 관통은 주 대상 뒤 직선 회랑에 있는 적만 추가한다. 주변 추가 타격과 다른
 		-- 포지셔닝을 요구하며, 화면 전체 범위 공격으로 번지지 않는다.
 		local pierce = _GameData:GetRunUpgradeStack(pc.UserId, "pierce")
@@ -308,7 +324,7 @@ script PlayerAttack extends AttackComponent
 			log_warning("[PlayerAttack] PlayerHit이 없어 방어 스킬을 걸 수 없다")
 			return false
 		end
-
+		
 		local effectMultiplier = 1
 		---@type PlayerSkillSlots
 		local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
@@ -319,7 +335,7 @@ script PlayerAttack extends AttackComponent
 		local collection = self.Entity:GetComponent("script.PlayerCollection")
 		if collection ~= nil then effectMultiplier *= collection:GetAbilityMultiplier(skill.id) end
 		local adjustedValue = skill.effect_value * effectMultiplier
-
+		
 		if skill.effect_type == "shield" then
 			hit:ApplyShield(adjustedValue, skill.duration)
 			log("[PlayerAttack] 방어 스킬 [" .. skill.name .. "] 실드 "
@@ -327,7 +343,7 @@ script PlayerAttack extends AttackComponent
 				.. tostring(skill.duration) .. "초")
 			return true
 		end
-
+		
 		if skill.effect_type == "heal" then
 			-- 회복 스킬은 아직 데이터에 없다 (모험가 NPC 몫 — T16-3). 미리 열어 두면
 			-- 그때 CSV 한 줄로 붙는다. 만피면 0을 돌려받아 쿨다운도 안 걸린다
@@ -340,7 +356,7 @@ script PlayerAttack extends AttackComponent
 			log("[PlayerAttack] 방어 스킬 [" .. skill.name .. "] 회복 " .. tostring(healed))
 			return true
 		end
-
+		
 		log_warning("[PlayerAttack] 모르는 방어 효과라 아무것도 하지 않았다: ["
 			.. skill.name .. "] " .. tostring(skill.effect_type))
 		return false
@@ -418,7 +434,7 @@ script PlayerAttack extends AttackComponent
 		end
 		if self.hitLimited == false then return true end
 		if self.hitBudget <= 0 then return false end
-
+		
 		self.hitBudget = self.hitBudget - 1
 		return true
 	end
@@ -447,7 +463,7 @@ script PlayerAttack extends AttackComponent
 		---@type PlayerSkillSlots
 		local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
 		if slots == nil then return false end
-
+		
 		local active = slots:GetActiveSkills()
 		local skillId = active[activeIndex]
 		if skillId == nil then
@@ -455,13 +471,13 @@ script PlayerAttack extends AttackComponent
 				.. " (보유 액티브 " .. tostring(#active) .. "개)")
 			return false
 		end
-
+		
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then return false end
-
-        -- Mega Area 랜덤 재고 모드에서는 슬롯 토큰이 재사용 제한이다. SkillTable
-        -- 쿨다운은 몬스터 특수 스킬과 레거시 전투에만 남긴다.
-        if slots:IsRogueliteRunMode() == false and slots:IsPhase1CombatEnabled() == false then
+		
+		        -- Mega Area 랜덤 재고 모드에서는 슬롯 토큰이 재사용 제한이다. SkillTable
+		        -- 쿨다운은 몬스터 특수 스킬과 레거시 전투에만 남긴다.
+		        if slots:IsRogueliteRunMode() == false and slots:IsPhase1CombatEnabled() == false then
 			local remain = self:GetCooldownRemain(skillId)
 			if remain > 0 then
 				log("[PlayerAttack] 쿨다운 중 [" .. skill.name .. "] "
@@ -469,7 +485,7 @@ script PlayerAttack extends AttackComponent
 				return false
 			end
 		end
-
+		
 		-- 방어 스킬은 때리지 않는다 (T17-3b). 여기서 갈라 보내지 않으면
 		-- 계수 0이 기준 계수(1.2)로 대체돼 **실드가 때리는 스킬로 나간다.**
 		if skill.skill_kind == "defense" then
@@ -478,9 +494,9 @@ script PlayerAttack extends AttackComponent
 			-- 이펙트만 터지면 "썼는데 안 먹었다"가 화면에서 안 읽힌다.
 			-- 방어 스킬은 자기 몸에 걸리는 연출이라 방향을 안 뒤집는다.
 			_SkillEffect:PlayCast(skillId, self.Entity, false)
-            if slots:IsRogueliteRunMode() then slots:ConsumeRandomSlot(activeIndex, skillId)
-            else self:StartCooldown(skillId, self:GetEffectiveCooldown(skill)) end
-            return true
+		            if slots:IsRogueliteRunMode() then slots:ConsumeRandomSlot(activeIndex, skillId)
+		            else self:StartCooldown(skillId, self:GetEffectiveCooldown(skill)) end
+		            return true
 		end
 		if skill.skill_kind == "buff" then
 			if self:UseBuffSkill(skill) == false then return false end
@@ -489,7 +505,7 @@ script PlayerAttack extends AttackComponent
 			else self:StartCooldown(skillId, self:GetEffectiveCooldown(skill)) end
 			return true
 		end
-
+		
 		-- 판정 모양은 스킬마다 다르다 (T17-3). range가 0이면 기본 근접 반경을 쓴다.
 		--
 		-- 판정이 **플레이어 중심 원형**이라는 것이 여기서 중요하다 — 넓히면 사방이 같이
@@ -497,26 +513,26 @@ script PlayerAttack extends AttackComponent
 		local transform = self.Entity.TransformComponent
 		if not isvalid(transform) then return false end
 		local worldPosition = transform.WorldPosition
-
+		
 		local radius = _GameData:GetBalance("player_attack_range")
 		if skill.range > 0 then radius = skill.range end
-
+		
 		-- 던지는 스킬은 **닿을 때** 아프다 (T19-4). 보스 쪽과 같은 규칙이라
 		-- 같은 스킬을 누가 쓰든 화면에서 같은 일이 일어난다.
-        if skill.projectile_ruid ~= "" then
-            local used = self:ThrowSkill(skillId, skill, worldPosition, radius, aimX, aimY)
-            if used and slots:IsRogueliteRunMode() then slots:ConsumeRandomSlot(activeIndex, skillId) end
-            return used
+		        if skill.projectile_ruid ~= "" then
+		            local used = self:ThrowSkill(skillId, skill, worldPosition, radius, aimX, aimY)
+		            if used and slots:IsRogueliteRunMode() then slots:ConsumeRandomSlot(activeIndex, skillId) end
+		            return used
 		end
-
+		
 		-- 돌진하는 스킬은 **도착해서** 아프다 (T21-2). 던지는 스킬과 같은 꼴이다 —
 		-- 연출이 끝나는 자리에서 판정한다.
-        if skill.dash_distance > 0 then
-            local used = self:DashSkill(skillId, skill, radius, aimX, aimY)
-            if used and slots:IsRogueliteRunMode() then slots:ConsumeRandomSlot(activeIndex, skillId) end
-            return used
+		        if skill.dash_distance > 0 then
+		            local used = self:DashSkill(skillId, skill, radius, aimX, aimY)
+		            if used and slots:IsRogueliteRunMode() then slots:ConsumeRandomSlot(activeIndex, skillId) end
+		            return used
 		end
-
+		
 		local used = self:UseSpatialSkill(skillId, skill, worldPosition, radius, aimX, aimY)
 		if used == false then return false end
 		if slots:IsRogueliteRunMode() then slots:ConsumeRandomSlot(activeIndex, skillId)
@@ -533,8 +549,7 @@ script PlayerAttack extends AttackComponent
 	end
 
 	@ExecSpace("ServerOnly")
-	method boolean UseSpatialSkill(string skillId, table skill, Vector3 fromPos,
-		number radius, number aimX, number aimY)
+	method boolean UseSpatialSkill(string skillId, table skill, Vector3 fromPos, number radius, number aimX, number aimY)
 		local behavior = skill.behavior
 		if behavior == "" then behavior = "CENTER_BURST" end
 		local dir = self:ResolveSkillDirection(aimX, aimY)
@@ -544,7 +559,7 @@ script PlayerAttack extends AttackComponent
 			if target ~= nil then point = Vector3(target.x, target.y, fromPos.z)
 			else point = Vector3(fromPos.x + dir.x * math.min(radius, 5), fromPos.y + dir.y * math.min(radius, 5), fromPos.z) end
 		end
-
+		
 		local map = self.Entity.CurrentMap
 		local delay = math.max(0, skill.behavior_delay)
 		local ticks = math.max(1, math.floor(skill.behavior_ticks))
@@ -568,8 +583,7 @@ script PlayerAttack extends AttackComponent
 	end
 
 	@ExecSpace("ServerOnly")
-	method void ResolveSpatialHit(string skillId, string behavior, Vector3 origin,
-		Vector3 point, Vector2 dir, number damageScale)
+	method void ResolveSpatialHit(string skillId, string behavior, Vector3 origin, Vector3 point, Vector2 dir, number damageScale)
 		if not isvalid(self.Entity) then return end
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then return end
@@ -585,7 +599,7 @@ script PlayerAttack extends AttackComponent
 		else
 			shape = CircleShape(Vector2(origin.x, origin.y + 0.5), radius)
 		end
-
+		
 		self.behaviorContext = behavior
 		self.behaviorOrigin = origin
 		self.behaviorDirection = dir
@@ -664,7 +678,7 @@ script PlayerAttack extends AttackComponent
 		-- 고르므로 엉뚱한 쪽의 몬스터는 잡히지 않는다. 사라진 것은 "거리까지 맞춰야 하는"
 		-- 부분뿐이고, 그건 재미가 아니라 사고였다.
 		if radius <= 0 then radius = _GameData:GetBalance("player_attack_range") end
-
+		
 		-- 방향: 클라가 재서 보낸 8방향 (T22-1). 0이면 바라보는 쪽으로 물러난다.
 		local dx, dy = aimX, aimY
 		local len = math.sqrt(dx * dx + dy * dy)
@@ -675,7 +689,7 @@ script PlayerAttack extends AttackComponent
 			dx, dy = 1, 0
 			if isvalid(ctrl) and ctrl.LookDirectionX < 0 then dx = -1 end
 		end
-
+		
 		-- 겨눈 부채꼴 안에서 가장 가까운 몬스터를 고른다. 없으면 최대 사거리로 날아가
 		-- 빗나간다 — 빈 쪽으로 던지면 헛치는 것이 맞다.
 		local target = self:PickThrowTarget(fromPos, dx, dy, radius)
@@ -685,7 +699,7 @@ script PlayerAttack extends AttackComponent
 		else
 			toPos = Vector3(fromPos.x + dx * radius, fromPos.y + dy * radius, fromPos.z)
 		end
-
+		
 		local behavior = skill.behavior
 		if behavior == "" then behavior = "PROJECTILE" end
 		local targets = {toPos}
@@ -711,7 +725,7 @@ script PlayerAttack extends AttackComponent
 				anyNewVfx == false) then anyNewVfx = true end
 		end
 		if anyNewVfx == false then _SkillEffect:PlayCast(skillId, self.Entity, dx < 0) end
-
+		
 		-- 투사체 그림과 같은 시간 뒤에 역할별 판정을 낸다.
 		local flight = _GameData:GetBalance("projectile_seconds")
 		local castMap = self.Entity.CurrentMap
@@ -734,7 +748,7 @@ script PlayerAttack extends AttackComponent
 				for i = 1, #targets do self:ResolveThrowHit(skillId, targets[i], maxTargets, hitRadius) end
 			end
 		end, flight)
-
+		
 		-- 레거시 쿨다운은 **던지는 순간** 건다 (설계 이력 2026-08-23).
 		-- 닿을지는 0.35초 뒤에 정해지므로 착탄 시각에 걸면 두 가지가 깨진다:
 		--   1) 빗나가면 공짜로 다시 던지게 되어 "비켜서기"가 무의미해진다
@@ -745,7 +759,7 @@ script PlayerAttack extends AttackComponent
 		if _GameData.RogueRunActive == false then
 			self:StartCooldown(skillId, self:GetEffectiveCooldown(skill))
 		end
-
+		
 		log("[PlayerAttack] [" .. skill.name .. "] 던짐 "
 			.. string.format("%.2f,%.2f", dx, dy)
 			.. (target ~= nil and " → 조준 " or " → 허공 ")
@@ -755,8 +769,7 @@ script PlayerAttack extends AttackComponent
 	end
 
 	@ExecSpace("ServerOnly")
-	method void ResolveProjectileLine(string skillId, Vector3 fromPos, Vector3 toPos,
-		integer maxTargets, number width)
+	method void ResolveProjectileLine(string skillId, Vector3 fromPos, Vector3 toPos, integer maxTargets, number width)
 		if not isvalid(self.Entity) then return end
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then return end
@@ -792,11 +805,11 @@ script PlayerAttack extends AttackComponent
 		---@type RoomSpawner
 		local spawner = map:GetComponent("script.RoomSpawner")
 		if spawner == nil then return nil end
-
+		
 		local halfAngle = _GameData:GetBalance("projectile_aim_degrees")
 		if halfAngle <= 0 then halfAngle = 22.5 end
 		local minDot = math.cos(math.rad(halfAngle))
-
+		
 		local bestPos = nil
 		local bestDist = radius + 1
 		for i = 1, #spawner.spawned do
@@ -843,10 +856,10 @@ script PlayerAttack extends AttackComponent
 			if isvalid(ctrl) and ctrl.LookDirectionX < 0 then look = -1 end
 			dir = Vector2(look, 0)
 		end
-
+		
 		local seconds = _GameData:GetBalance("skill_dash_seconds")
 		if seconds <= 0 then seconds = 0.2 end
-
+		
 		-- InputSpeed는 월드 유닛/초가 아니다. 맵 종류마다 환산이 달라
 		-- (platform.md 10: RectTile은 1.2로 나눈다) 그 몫을 상수로 뺐다.
 		-- 환산이 조금 틀려도 **판정은 틀리지 않는다** — 도착한 자리에서 재기 때문에
@@ -863,7 +876,7 @@ script PlayerAttack extends AttackComponent
 			from.z)
 		toPos = _GameData:ClampDashTravel(self.Entity.CurrentMap, from, toPos)
 		local castMap = self.Entity.CurrentMap
-
+		
 		-- 움직이는 것은 클라다 (실측: 서버 MoveToDirection은 0.00). 그 사람에게만 보낸다.
 		_PlayerDash:Begin(dir.x, dir.y, seconds, speed, self.Entity.PlayerComponent.UserId)
 		-- 이동 스킬의 프레임은 도착 예정점에 미리 놓지 않고, 출발 순간부터 캐릭터 몸을
@@ -872,7 +885,7 @@ script PlayerAttack extends AttackComponent
 			seconds, dir.x < 0) == false then
 			_SkillEffect:PlayCast(skillId, self.Entity, dir.x < 0)
 		end
-
+		
 		-- ⚠ **서버가 보는 플레이어 좌표를 믿으면 안 된다.** 움직이는 것은 클라라
 		--   서버 쪽 좌표가 크게 늦는다 (실측: 실제 도착 -3.42 / -2.90인데 판정 시각에
 		--   서버는 두 번 다 -1.4였다). 기다려도 안 따라온다 — 0.15초를 더 줘도 같았다.
@@ -884,14 +897,14 @@ script PlayerAttack extends AttackComponent
 			self:ResolveDashHit(skillId, toPos, radius, maxTargets)
 			_SkillEffect:PlayDashImpactIfNeeded(skillId, self.Entity, toPos, dir.x < 0)
 		end, seconds)
-
+		
 		-- 레거시 쿨다운은 **떠나는 순간** 건다. 도착해서 걸면 벽에 막혀 못 간 경우에
 		-- 공짜로 다시 쓸 수 있다 (던지는 스킬을 던진 순간에 거는 것과 같은 이유).
 		---@type PlayerSkillSlots
 		if _GameData.RogueRunActive == false then
 			self:StartCooldown(skillId, self:GetEffectiveCooldown(skill))
 		end
-
+		
 		log("[PlayerAttack] [" .. skill.name .. "] 돌진 방향 "
 			.. string.format("%.2f,%.2f", dir.x, dir.y)
 			.. "  거리 " .. string.format("%.1f", skill.dash_distance)
@@ -905,23 +918,23 @@ script PlayerAttack extends AttackComponent
 		-- 좌표를 인자로 받는 이유는 위 DashSkill 주석 참고 — 서버가 보는 플레이어
 		-- 위치는 이 시점에 아직 출발점 근처다.
 		if not isvalid(self.Entity) then return end
-
+		
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then return end
-
+		
 		self.hitLimited = (maxTargets > 0)
 		self.hitBudget = math.floor(maxTargets)
 		-- 부딪힌 만큼 더 아프다. CalcDamage가 이 값을 읽어 계수를 올린다 —
 		-- hitLimited/hitBudget과 같은 방식이다 (한 방에만 걸고 바로 지운다).
 		self.dashBonus = _GameData:GetBalance("skill_dash_damage_bonus")
-
+		
 		-- 몇 명 맞았는지가 로그에 남아야 "돌진했는데 허공이었다"가 보인다.
 		local hits = self:Attack(
 			CircleShape(Vector2(pos.x, pos.y + 0.5), radius), skillId, CollisionGroups.Monster)
-
+		
 		self.hitLimited = false
 		self.dashBonus = 0
-
+		
 		local n = 0
 		if hits ~= nil then n = #hits end
 		log("[돌진] " .. skill.name .. "  도착 " .. string.format("%.1f,%.1f", pos.x, pos.y)
@@ -932,13 +945,13 @@ script PlayerAttack extends AttackComponent
 	method void ResolveThrowHit(string skillId, Vector3 pos, number maxTargets, number hitRadius)
 		-- 바위가 떨어지는 순간의 판정. 던진 자리가 아니라 **떨어진 자리**를 본다.
 		if not isvalid(self.Entity) then return end
-
+		
 		local skill = _GameData:GetSkill(skillId)
 		if skill == nil then return end
-
+		
 		self.hitLimited = (maxTargets > 0)
 		self.hitBudget = math.floor(maxTargets)
-
+		
 		local r = hitRadius
 		if r <= 0 then r = _GameData:GetBalance("projectile_hit_radius") end
 		self.projectileTerrainOrigin = pos
@@ -947,11 +960,11 @@ script PlayerAttack extends AttackComponent
 		-- 보인다. 던지는 스킬은 자주 나가지 않아 판정 테이블 비용이 문제가 안 된다.
 		local hits = self:Attack(
 			CircleShape(Vector2(pos.x, pos.y + 0.5), r), skillId, CollisionGroups.Monster)
-
+		
 		self.projectileTerrainCheck = false
 		self.hitLimited = false
 		self:ApplySecondaryEffects(skill, hits, pos)
-
+		
 		local n = 0
 		if hits ~= nil then n = #hits end
 		log("[착탄] " .. skill.name .. "  " .. string.format("%.1f,%.1f", pos.x, pos.y)
@@ -968,9 +981,6 @@ script PlayerAttack extends AttackComponent
 			.. " seconds=" .. tostring(seconds))
 	end
 
-	-- 실행공간을 일부러 비워둔다. 서버는 사용 판정에, 클라는 HUD 표시에 쓴다.
-	-- 읽는 값이 @TargetUserSync + GameData라 양쪽에서 같은 결과가 나온다.
-	-- (T5-4 GetActiveSkills, T5-5 GetOwnedCount와 같은 판단)
 	method number GetCooldownRemain(string skillId)
 		-- 남은 재사용 대기시간(초). 지금 쓸 수 있으면 0.
 		--
@@ -986,7 +996,7 @@ script PlayerAttack extends AttackComponent
 			readyAt = self.SkillReadyAt[skillId]
 		end
 		if readyAt == nil then return 0 end
-
+		
 		local remain = readyAt - _UtilLogic.ElapsedSeconds
 		if remain <= 0 then return 0 end
 		return remain
@@ -1042,7 +1052,7 @@ script PlayerAttack extends AttackComponent
 		-- 높은 쪽을 쓰면 "스탯을 어디에 찍었나"가 곧 계열을 정한다.
 		---@type PlayerStats
 		local stats = attacker:GetComponent("script.PlayerStats")
-
+		
 		local statName = "ATK"
 		if attackInfo ~= nil and attackInfo ~= "" then
 			local skill = _GameData:GetSkill(attackInfo)
@@ -1052,7 +1062,7 @@ script PlayerAttack extends AttackComponent
 		elseif stats ~= nil and stats:GetTotalInt() > stats:GetTotalAtk() then
 			statName = "INT"
 		end
-
+		
 		local power = _GameData:GetBalance("player_base_atk")
 		if _GameData.RogueRunActive then
 			-- 신규 Run은 레벨·장비·수집 단계와 무관한 공통 기본 공격력을 쓴다.
@@ -1087,14 +1097,14 @@ script PlayerAttack extends AttackComponent
 				power = stats:GetTotalAtk()
 			end
 		end
-
+		
 		local def = 0
 		---@type RoomMonster
 		local monster = defender:GetComponent("script.RoomMonster")
 		if monster ~= nil then
 			def = monster.Def
 		end
-
+		
 		-- 중복 보유가 계수를 올린다 (T15-2). 몇 장 가졌는지는 플레이어의 것이라
 		-- CombatFormula가 알 수 없어, 여기서 개수를 읽어 계수를 만들고 넘긴다.
 		--
@@ -1117,7 +1127,7 @@ script PlayerAttack extends AttackComponent
 				---@type PlayerCollection
 				local collection = attacker:GetComponent("script.PlayerCollection")
 				if collection ~= nil then
-            local owned = collection:GetAbilityStackCount(attackInfo)
+		            local owned = collection:GetAbilityStackCount(attackInfo)
 					if owned > 1 then
 						stack = owned
 						coefficient = _CombatFormula:StackedCoefficient(coefficient, owned)
@@ -1125,7 +1135,7 @@ script PlayerAttack extends AttackComponent
 				end
 			end
 		end
-
+		
 		-- 돌진해서 부딪힌 한 방은 더 아프다 (T21-2). 계수에 얹는 이유는 중복 강화와 같다 —
 		-- 데미지 산술은 CombatFormula 한 곳에만 두고, 여기서는 **계수만** 만든다.
 		if self.dashBonus > 0 then
@@ -1148,7 +1158,7 @@ script PlayerAttack extends AttackComponent
 		if self.OutgoingWeakenRatio > 0 and _UtilLogic.ElapsedSeconds < self.OutgoingWeakenUntil then
 			coefficient = coefficient * math.max(0.25, 1 - self.OutgoingWeakenRatio)
 		end
-
+		
 		-- Phase 2 특성은 선호 타입의 기존 성능에만 데이터 배율을 한 번 얹는다.
 		-- 비선호·레거시 모드·포획 경로가 없는 옛 스킬은 항상 1배다.
 		if rogueliteMode == false and attackInfo ~= nil and attackInfo ~= "" then
@@ -1158,9 +1168,9 @@ script PlayerAttack extends AttackComponent
 				coefficient = coefficient * slots:GetTraitEffectMultiplierForSkill(attackInfo)
 			end
 		end
-
+		
 		local damage = _CombatFormula:CalcDamage(power, def, coefficient)
-
+		
 		-- 몬스터 실드 감쇄 (T19-1). 보스가 자기 방어 스킬을 쓰면 여기서 깎인다.
 		--
 		-- **여기서** 깎는 이유는 MonsterAttack.CalcDamage와 같다 — 이 반환값이 곧
@@ -1177,7 +1187,7 @@ script PlayerAttack extends AttackComponent
 					.. tostring(before) .. " → " .. tostring(damage) .. "]"
 			end
 		end
-
+		
 		log("[PlayerAttack] " .. statName .. "=" .. tostring(power) .. " vs DEF=" .. tostring(def)
 			.. "  스킬=" .. tostring(attackInfo == nil and "기본공격" or attackInfo)
 			.. "  계수=" .. string.format("%.3f", coefficient)

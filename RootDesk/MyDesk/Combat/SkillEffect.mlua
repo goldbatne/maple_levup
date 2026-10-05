@@ -1,573 +1,545 @@
--- @서버 + @클라이언트 (무엇이 터졌는지는 서버가 정하고, 그리는 것은 클라가 한다)
---
--- 스킬을 쓸 때 원작 이펙트와 소리를 재생하는 유일한 창구 (T19-2, 대표 지시 2026-08-23:
--- "이펙트도 좀 원작의 이펙트랑 같이 uuid 찾아서 넣어주고").
---
--- ## 왜 한 곳에 모으는가
---
--- 스킬을 쓰는 곳이 둘이다 — 플레이어(PlayerAttack.UseSkill)와 보스(MonsterAttack.CastSkill).
--- 각자 이펙트를 띄우게 두면 높이·볼륨·실행공간 규칙이 두 벌 생기고, 한쪽만 고치는 날이 온다.
--- CombatFormula가 데미지 산술의 유일한 창구인 것과 같은 이유다.
---
--- ## 왜 @Logic인가
---
--- 시전자는 플레이어일 수도 몬스터일 수도 있어서 특정 엔티티에 붙일 수 없다.
--- 상태도 없다 — 받은 것을 그대로 그린다.
---
--- ## RUID는 어디서 왔나
---
--- 원작 스킬 리소스 팩에서 그대로 꺼냈다. 팩 하나가 `icon` / `effect` / `hit/N` /
--- `_audio/Use` / `_audio/Hit`를 다 들고 있어서, **이미 SkillTable에 있던 아이콘 RUID로
--- `findPacksContaining`을 돌리면** 그 스킬의 원본 팩이 바로 나온다. 아이콘과 이펙트가
--- 서로 다른 스킬에서 온 채로 섞일 수 없다.
-
 @Logic
 script SkillEffect extends Logic
 
-    property string MemoryMonkFollowupSfxRuid = "879af07877bb4b42b5da9a7a4c51f5ae"
+	property string MemoryMonkFollowupSfxRuid = "879af07877bb4b42b5da9a7a4c51f5ae"
 
-    @ExecSpace("ServerOnly")
-    method void PlayCast(string skillId, Entity caster, boolean flipX)
-        -- 시전 연출을 **그 방에 있는 사람들에게만** 보낸다.
-        --
-        -- Multicast(전체 클라)를 안 쓰는 이유: 다른 맵에 있는 사람에게도 RPC가 가고,
-        -- 그 클라에는 caster 엔티티가 없어 조용히 nil이 된다. 낭비이기도 하지만
-        -- "왜 가끔 안 뜨지"의 원인이 한 겹 더 생긴다.
-        -- MonsterAttack.PlayAttackSfx가 맞은 사람에게만 소리를 보내는 것과 같은 방식이다.
-        if skillId == "" then return end
-        if not isvalid(caster) then return end
+	@ExecSpace("ServerOnly")
+	method void PlayCast(string skillId, Entity caster, boolean flipX)
+		        -- 시전 연출을 **그 방에 있는 사람들에게만** 보낸다.
+		        --
+		        -- Multicast(전체 클라)를 안 쓰는 이유: 다른 맵에 있는 사람에게도 RPC가 가고,
+		        -- 그 클라에는 caster 엔티티가 없어 조용히 nil이 된다. 낭비이기도 하지만
+		        -- "왜 가끔 안 뜨지"의 원인이 한 겹 더 생긴다.
+		        -- MonsterAttack.PlayAttackSfx가 맞은 사람에게만 소리를 보내는 것과 같은 방식이다.
+		        if skillId == "" then return end
+		        if not isvalid(caster) then return end
+		
+		        local skill = _GameData:GetSkill(skillId)
+		        if skill == nil then return end
+		        local layers = skill.effect_layers or {}
+		        -- 단일/다층 이펙트와 소리가 전부 비어 있으면 보낼 것이 없다.
+		        if skill.effect_ruid == "" and #layers == 0 and skill.sfx_ruid == "" then return end
+		
+		        local map = caster.CurrentMap
+		        if map == nil then return end
+		
+		        -- 다층 이펙트는 sprite/animationclip 구분 없이 서버가 엔티티를 스폰한다.
+		        -- SpriteRendererComponent.SpriteRUID는 animationclip 직접 재생을 지원한다.
+		        -- _EffectService 경로에서 일부 클립이 조용히 표시되지 않던 문제를 피하고,
+		        -- 모든 클라이언트가 같은 위치·지연·이동을 보도록 한 경로로 통일한다.
+		        if #layers > 0 then
+		            for i = 1, #layers do
+		                local layer = layers[i]
+		                if layer.resource_type == "sprite" or layer.resource_type == "animationclip"
+		                    or layer.resource_type == "sprite_sequence" then
+		                    if layer.delay > 0 then
+		                        local scheduledLayer = layer
+		                        local scheduledOrder = i
+		                        _TimerService:SetTimerOnce(function()
+		                            self:SpawnLayer(skill, scheduledLayer, caster, flipX, map, scheduledOrder)
+		                        end, layer.delay)
+		                    else
+		                        self:SpawnLayer(skill, layer, caster, flipX, map, i)
+		                    end
+		                else
+		                    log_warning("[SkillEffect] 모르는 레이어 자원 형식: " .. tostring(layer.resource_type))
+		                end
+		            end
+		        elseif skill.effect_style ~= "" then
+		            self:SpawnOwnEffect(skill, caster, flipX, map)
+		        end
+		
+		        local users = _UserService:GetUsersByMapName(map.Name)
+		        if users == nil then return end
+		        for i = 1, #users do
+		            local pc = users[i].PlayerComponent
+		            if isvalid(pc) then
+		                self:ShowCast(skillId, caster, flipX, pc.UserId)
+		            end
+		        end
+	end
 
-        local skill = _GameData:GetSkill(skillId)
-        if skill == nil then return end
-        local layers = skill.effect_layers or {}
-        -- 단일/다층 이펙트와 소리가 전부 비어 있으면 보낼 것이 없다.
-        if skill.effect_ruid == "" and #layers == 0 and skill.sfx_ruid == "" then return end
+	@ExecSpace("ServerOnly")
+	method void PlayMemoryMonkFollowup(Entity caster)
+		        -- 기도 강화가 실제 타격에 소비될 때만 두 번째 사운드를 들려준다.
+		        if not isvalid(caster) or self.MemoryMonkFollowupSfxRuid == "" then return end
+		        local map = caster.CurrentMap
+		        if map == nil then return end
+		        local users = _UserService:GetUsersByMapName(map.Name)
+		        if users == nil then return end
+		        for i = 1, #users do
+		            local pc = users[i].PlayerComponent
+		            if isvalid(pc) then
+		                _SoundService:PlaySound(self.MemoryMonkFollowupSfxRuid,
+		                    _GameData:GetBalance("skill_sfx_volume"), pc.UserId)
+		            end
+		        end
+		        log("[SkillSFX] memory_monk_followup map=" .. map.Name
+		            .. " listeners=" .. tostring(#users))
+	end
 
-        local map = caster.CurrentMap
-        if map == nil then return end
+	@ExecSpace("ServerOnly")
+	method void PlayAttackAt(string skillId, Entity caster, Vector3 targetPos, boolean flipX)
+		        -- 공격 연출은 시전자 뒤가 아니라 실제 판정 지점에서 재생한다. 새 반입 자산은
+		        -- 프레임 자체에 준비→절정→해체가 들어 있으므로 위치만 판정과 맞춘다.
+		        if skillId == "" or not isvalid(caster) then return end
+		        local skill = _GameData:GetSkill(skillId)
+		        if skill == nil then return end
+		        local layers = skill.effect_layers or {}
+		        if #layers == 0 then
+		            -- 아직 다층 자산으로 이관하지 않은 기존 스킬은 기존 호환 경로를 보존한다.
+		            self:PlayCast(skillId, caster, flipX)
+		            return
+		        end
+		
+		        local map = caster.CurrentMap
+		        if map == nil then return end
+		        -- RectTile actors are positioned at their feet. Match the +0.5 body-centre
+		        -- used by the attack shapes without changing their actual hit geometry.
+		        local h = _GameData:GetBalance("skill_effect_height") + 0.5
+		        local anchor = Vector3(targetPos.x, targetPos.y + h, targetPos.z)
+		
+		        for i = 1, #layers do
+		            local layer = layers[i]
+		            if layer.resource_type == "sprite" or layer.resource_type == "animationclip"
+		                or layer.resource_type == "sprite_sequence" then
+		                if layer.delay > 0 then
+		                    local scheduledLayer = layer
+		                    local scheduledOrder = i
+		                    _TimerService:SetTimerOnce(function()
+		                        self:SpawnLayerAt(skill, scheduledLayer, caster, flipX, map,
+		                            scheduledOrder, anchor, false, "타격 지점")
+		                    end, layer.delay)
+		                else
+		                    self:SpawnLayerAt(skill, layer, caster, flipX, map,
+		                        i, anchor, false, "타격 지점")
+		                end
+		            end
+		        end
+		
+		        local users = _UserService:GetUsersByMapName(map.Name)
+		        if users == nil then return end
+		        for i = 1, #users do
+		            local pc = users[i].PlayerComponent
+		            if isvalid(pc) then self:ShowCast(skillId, caster, flipX, pc.UserId) end
+		        end
+	end
 
-        -- 다층 이펙트는 sprite/animationclip 구분 없이 서버가 엔티티를 스폰한다.
-        -- SpriteRendererComponent.SpriteRUID는 animationclip 직접 재생을 지원한다.
-        -- _EffectService 경로에서 일부 클립이 조용히 표시되지 않던 문제를 피하고,
-        -- 모든 클라이언트가 같은 위치·지연·이동을 보도록 한 경로로 통일한다.
-        if #layers > 0 then
-            for i = 1, #layers do
-                local layer = layers[i]
-                if layer.resource_type == "sprite" or layer.resource_type == "animationclip"
-                    or layer.resource_type == "sprite_sequence" then
-                    if layer.delay > 0 then
-                        local scheduledLayer = layer
-                        local scheduledOrder = i
-                        _TimerService:SetTimerOnce(function()
-                            self:SpawnLayer(skill, scheduledLayer, caster, flipX, map, scheduledOrder)
-                        end, layer.delay)
-                    else
-                        self:SpawnLayer(skill, layer, caster, flipX, map, i)
-                    end
-                else
-                    log_warning("[SkillEffect] 모르는 레이어 자원 형식: " .. tostring(layer.resource_type))
-                end
-            end
-        elseif skill.effect_style ~= "" then
-            self:SpawnOwnEffect(skill, caster, flipX, map)
-        end
+	@ExecSpace("ServerOnly")
+	method void PlayAreaAt(string skillId, Entity caster, Vector3 targetPos, boolean flipX, number activeSeconds)
+		        -- A zone has one location. Do not draw a second false zone at the caster
+		        -- or stack a full-size animation on each damage tick.
+		        if skillId == "" or not isvalid(caster) or caster.CurrentMap == nil then return end
+		        local skill = _GameData:GetSkill(skillId)
+		        if skill == nil then return end
+		        local layers = skill.effect_layers or {}
+		        if #layers == 0 then self:PlayAttackAt(skillId, caster, targetPos, flipX) return end
+		        local map = caster.CurrentMap
+		        local h = _GameData:GetBalance("skill_effect_height") + 0.5
+		        local anchor = Vector3(targetPos.x, targetPos.y + h, targetPos.z)
+		        for i = 1, #layers do
+		            local source = layers[i]
+		            if source.ruid ~= "" then
+		                local layer = {
+		                    ruid = source.ruid, frame_ruids = source.frame_ruids,
+		                    resource_type = source.resource_type, style = source.style,
+		                    delay = source.delay, duration = math.max(source.duration, activeSeconds),
+		                    scale = source.scale, offset_x = source.offset_x,
+		                    offset_y = source.offset_y, drift_x = source.drift_x,
+		                    drift_y = source.drift_y,
+		                }
+		                if layer.delay > 0 then
+		                    local scheduledLayer = layer
+		                    local scheduledOrder = i
+		                    _TimerService:SetTimerOnce(function()
+		                        if isvalid(caster) and caster.CurrentMap == map then
+		                            self:SpawnLayerAt(skill, scheduledLayer, caster, flipX, map,
+		                                scheduledOrder, anchor, false, "지속 영역")
+		                        end
+		                    end, layer.delay)
+		                else
+		                    self:SpawnLayerAt(skill, layer, caster, flipX, map,
+		                        i, anchor, false, "지속 영역")
+		                end
+		            end
+		        end
+		        local users = _UserService:GetUsersByMapName(map.Name)
+		        if users == nil then return end
+		        for i = 1, #users do
+		            local pc = users[i].PlayerComponent
+		            if isvalid(pc) then self:ShowCast(skillId, caster, flipX, pc.UserId) end
+		        end
+	end
 
-        local users = _UserService:GetUsersByMapName(map.Name)
-        if users == nil then return end
-        for i = 1, #users do
-            local pc = users[i].PlayerComponent
-            if isvalid(pc) then
-                self:ShowCast(skillId, caster, flipX, pc.UserId)
-            end
-        end
-    end
+	@ExecSpace("ServerOnly")
+	method void PlayWeakenStatus(string skillId, Entity target, number seconds)
+		        -- The cast splash alone can resemble an attack or self-buff. Reuse one approved
+		        -- frame as a small, purple-tinted mark on the *affected* actor for the debuff.
+		        if skillId ~= "s_mon_fairy" and skillId ~= "s_mon_octopus" then return end
+		        if not isvalid(target) or target.CurrentMap == nil or seconds <= 0 then return end
+		        local skill = _GameData:GetSkill(skillId)
+		        local source = skill ~= nil and skill.effect_layers[1] or nil
+		        if source == nil or source.ruid == "" then return end
+		        local frames = source.frame_ruids or {}
+		        local ruid = (#frames >= 4) and frames[4] or source.ruid
+		        local p = target.TransformComponent.WorldPosition
+		        local at = Vector3(p.x, p.y + 1.15, p.z)
+		        local entity = _SpawnService:SpawnByModelId("skillcasteffect", "WeakenStatus", at, target.CurrentMap)
+		        if not isvalid(entity) then return end
+		        local sprite = entity.SpriteRendererComponent
+		        if isvalid(sprite) then
+		            sprite.SpriteRUID = ruid
+		            sprite.SortingLayer = "MapLayer0"
+		            sprite.OrderInLayer = 920
+		            sprite.Color = Color(0.73, 0.55, 0.95, 1)
+		        end
+		        ---@type SkillCastEffect
+		        local fx = entity:GetComponent("script.SkillCastEffect")
+		        if fx == nil then entity:Destroy() return end
+		        fx.BaseScale = 0.32
+		        fx.BaseAlpha = 0.75
+		        fx.FollowTarget = target
+		        fx.FollowOffset = Vector3(0, 1.15, 0)
+		        fx.DebugName = skill.name .. " 약화 표식"
+		        fx:Play("guard", seconds, Vector3(0, 0, 0))
+		        entity:SetVisible(true)
+	end
 
-    @ExecSpace("ServerOnly")
-    method void PlayMemoryMonkFollowup(Entity caster)
-        -- 기도 강화가 실제 타격에 소비될 때만 두 번째 사운드를 들려준다.
-        if not isvalid(caster) or self.MemoryMonkFollowupSfxRuid == "" then return end
-        local map = caster.CurrentMap
-        if map == nil then return end
-        local users = _UserService:GetUsersByMapName(map.Name)
-        if users == nil then return end
-        for i = 1, #users do
-            local pc = users[i].PlayerComponent
-            if isvalid(pc) then
-                _SoundService:PlaySound(self.MemoryMonkFollowupSfxRuid,
-                    _GameData:GetBalance("skill_sfx_volume"), pc.UserId)
-            end
-        end
-        log("[SkillSFX] memory_monk_followup map=" .. map.Name
-            .. " listeners=" .. tostring(#users))
-    end
+	@ExecSpace("ServerOnly")
+	method void SpawnLayer(table skill, table layer, Entity caster, boolean flipX, Entity map, integer order)
+		        if layer == nil or layer.ruid == "" then return end
+		        if not isvalid(caster) or not isvalid(map) then return end
+		
+		        local pos = caster.TransformComponent.WorldPosition
+		        local h = _GameData:GetBalance("skill_effect_height") + 0.5
+		        local anchor = Vector3(pos.x, pos.y + h, pos.z)
+		        local overlay = skill.skill_kind == "defense" or skill.skill_kind == "buff"
+		            or skill.dash_distance > 0
+		        local placement = "시전자"
+		        if skill.skill_kind == "defense" or skill.skill_kind == "buff" then
+		            placement = "몸 오버레이"
+		        elseif skill.dash_distance > 0 then
+		            placement = "이동 동기화"
+		        end
+		        self:SpawnLayerAt(skill, layer, caster, flipX, map, order,
+		            anchor, overlay, placement)
+	end
 
-    @ExecSpace("ServerOnly")
-    method void PlayAttackAt(string skillId, Entity caster, Vector3 targetPos, boolean flipX)
-        -- 공격 연출은 시전자 뒤가 아니라 실제 판정 지점에서 재생한다. 새 반입 자산은
-        -- 프레임 자체에 준비→절정→해체가 들어 있으므로 위치만 판정과 맞춘다.
-        if skillId == "" or not isvalid(caster) then return end
-        local skill = _GameData:GetSkill(skillId)
-        if skill == nil then return end
-        local layers = skill.effect_layers or {}
-        if #layers == 0 then
-            -- 아직 다층 자산으로 이관하지 않은 기존 스킬은 기존 호환 경로를 보존한다.
-            self:PlayCast(skillId, caster, flipX)
-            return
-        end
+	@ExecSpace("ServerOnly")
+	method void SpawnLayerAt(table skill, table layer, Entity caster, boolean flipX, Entity map, integer order, Vector3 anchor, boolean followCaster, string placement)
+		        if layer == nil or layer.ruid == "" then return end
+		        if not isvalid(caster) or not isvalid(map) then return end
+		
+		        local dir = flipX and -1 or 1
+		        local visualX = layer.offset_x
+		        local visualY = layer.offset_y
+		        local visualScale = layer.scale
+		        local visualAlpha = 1
+		        -- Meaning-only placement: keep the approved frames and every gameplay field intact.
+		        if skill.id == "s_mon_fairy" or skill.id == "s_mon_octopus" then
+		            -- The weakened victim is in front, not the caster's own buff position.
+		            visualX = visualX + 0.8
+		            visualScale = visualScale * 0.72
+		        elseif skill.id == "s_mon_king_clang" then
+		            -- Put the claws on the forward knockback cone, not around the caster as a shell.
+		            visualX = visualX + 1.25
+		            visualScale = visualScale * 0.82
+		        elseif skill.id == "s_mon_drumming_bunny" then
+		            -- A compact body-level pulse reads as self-strengthening, not a ground blast.
+		            visualY = visualY + 0.45
+		            visualScale = visualScale * 0.62
+		        elseif skill.id == "s_mon_cygnus" or skill.id == "s_mon_mutant_stumpy" then
+		            -- Preserve the zone silhouette while keeping players and monsters visible.
+		            visualAlpha = 0.72
+		        end
+		        local at = Vector3(
+		            anchor.x + visualX * dir,
+		            anchor.y + visualY,
+		            anchor.z)
+		        local drift = Vector3(layer.drift_x * dir, layer.drift_y, 0)
+		
+		        local entity = _SpawnService:SpawnByModelId("skillcasteffect", "SkillCastEffect", at, map)
+		        if not isvalid(entity) then
+		            log_warning("[SkillEffect] 다층 이펙트 스폰 실패: " .. skill.name)
+		            return
+		        end
+		
+		        local sprite = entity.SpriteRendererComponent
+		        if isvalid(sprite) then
+		            sprite.SpriteRUID = layer.ruid
+		            sprite.FlipX = flipX
+		            sprite.SortingLayer = "MapLayer0"
+		            sprite.OrderInLayer = followCaster and 900 or (540 + order)
+		        end
+		
+		        ---@type SkillCastEffect
+		        local fx = entity:GetComponent("script.SkillCastEffect")
+		        if fx == nil then
+		            log_warning("[SkillEffect] 다층 이펙트에 SkillCastEffect가 없다")
+		            entity:Destroy()
+		            return
+		        end
+		        fx.BaseScale = visualScale
+		        fx.BaseAlpha = visualAlpha
+		        fx.FrameRUIDs = layer.frame_ruids or {}
+		        if followCaster then
+		            local casterPos = caster.TransformComponent.WorldPosition
+		            fx.FollowTarget = caster
+		            fx.FollowOffset = Vector3(at.x - casterPos.x, at.y - casterPos.y, at.z - casterPos.z)
+		        end
+		        if #fx.FrameRUIDs > 0 then
+		            fx.FrameSeconds = layer.duration / #fx.FrameRUIDs
+		        end
+		        fx.DebugName = skill.name .. " #" .. tostring(order)
+		        fx:Play(layer.style, layer.duration, drift)
+		        -- 모델의 공용 기본 그림(초록 포자)은 스폰 시 숨긴다. 스킬 고유 RUID와
+		        -- 첫 프레임을 모두 지정한 뒤 공개해 복제 첫 프레임의 색 번짐을 막는다.
+		        entity:SetVisible(true)
+		
+		        log("[다층 이펙트] " .. skill.name .. " #" .. tostring(order)
+		            .. " " .. layer.style .. " delay=" .. string.format("%.2f", layer.delay)
+		            .. "  " .. placement .. " " .. string.format("%.1f,%.1f", at.x, at.y))
+	end
 
-        local map = caster.CurrentMap
-        if map == nil then return end
-        -- RectTile actors are positioned at their feet. Match the +0.5 body-centre
-        -- used by the attack shapes without changing their actual hit geometry.
-        local h = _GameData:GetBalance("skill_effect_height") + 0.5
-        local anchor = Vector3(targetPos.x, targetPos.y + h, targetPos.z)
+	@ExecSpace("ServerOnly")
+	method boolean PlayDashTravelIfNeeded(string skillId, Entity caster, Vector3 fromPos, Vector3 toPos, number seconds, boolean flipX)
+		        -- 정식기사 C의 기존 8장을 앞 4장(이동)과 뒤 4장(도착)으로 나눠 쓴다.
+		        -- Player 이동은 클라이언트 권한이어서 서버 시전자 좌표를 따라가면
+		        -- 연출이 뒤처진다. 이미 충돌 경계로 제한한 판정 경로를 시각적으로 따른다.
+		        if skillId ~= "s_mon_official_knight_c" then return false end
+		        if not isvalid(caster) or caster.CurrentMap == nil then return false end
+		        local skill = _GameData:GetSkill(skillId)
+		        local source = skill ~= nil and skill.effect_layers[1] or nil
+		        if source == nil or #source.frame_ruids < 8 then return false end
+		        local span = math.max(seconds, 0.05)
+		        local frames = {}
+		        for i = 1, 4 do frames[i] = source.frame_ruids[i] end
+		        local dir = flipX and -1 or 1
+		        local layer = {
+		            ruid = frames[1], frame_ruids = frames, resource_type = "sprite_sequence",
+		            style = "sequence", delay = 0, duration = span, scale = source.scale,
+		            offset_x = source.offset_x, offset_y = source.offset_y,
+		            drift_x = (toPos.x - fromPos.x) / span * dir,
+		            drift_y = (toPos.y - fromPos.y) / span,
+		        }
+		        local h = _GameData:GetBalance("skill_effect_height") + 0.5
+		        self:SpawnLayerAt(skill, layer, caster, flipX, caster.CurrentMap, 1,
+		            Vector3(fromPos.x, fromPos.y + h, fromPos.z), false, "돌진 경로")
+		        -- 이 분기는 PlayCast를 건너뛴다. 이동 연출 시작 시 기존 시전음만 전달한다.
+		        -- ShowCast는 이 스킬의 다층 VFX를 다시 그리지 않으므로 연출이 중복되지 않는다.
+		        local users = _UserService:GetUsersByMapName(caster.CurrentMap.Name)
+		        if users ~= nil then
+		            for i = 1, #users do
+		                local pc = users[i].PlayerComponent
+		                if isvalid(pc) then self:ShowCast(skillId, caster, flipX, pc.UserId) end
+		            end
+		        end
+		        log("[SkillSFX] dash_begin " .. skillId .. " listeners=" .. tostring(users ~= nil and #users or 0))
+		        return true
+	end
 
-        for i = 1, #layers do
-            local layer = layers[i]
-            if layer.resource_type == "sprite" or layer.resource_type == "animationclip"
-                or layer.resource_type == "sprite_sequence" then
-                if layer.delay > 0 then
-                    local scheduledLayer = layer
-                    local scheduledOrder = i
-                    _TimerService:SetTimerOnce(function()
-                        self:SpawnLayerAt(skill, scheduledLayer, caster, flipX, map,
-                            scheduledOrder, anchor, false, "타격 지점")
-                    end, layer.delay)
-                else
-                    self:SpawnLayerAt(skill, layer, caster, flipX, map,
-                        i, anchor, false, "타격 지점")
-                end
-            end
-        end
+	@ExecSpace("ServerOnly")
+	method void PlayDashImpactIfNeeded(string skillId, Entity caster, Vector3 targetPos, boolean flipX)
+		        if skillId ~= "s_mon_official_knight_c" then return end
+		        if not isvalid(caster) or caster.CurrentMap == nil then return end
+		        local skill = _GameData:GetSkill(skillId)
+		        local source = skill ~= nil and skill.effect_layers[1] or nil
+		        if source == nil or #source.frame_ruids < 8 then return end
+		        local frames = {}
+		        for i = 5, 8 do frames[#frames + 1] = source.frame_ruids[i] end
+		        local layer = {
+		            ruid = frames[1], frame_ruids = frames, resource_type = "sprite_sequence",
+		            style = "sequence", delay = 0, duration = 0.2, scale = source.scale,
+		            offset_x = source.offset_x, offset_y = source.offset_y,
+		            drift_x = 0, drift_y = 0,
+		        }
+		        local h = _GameData:GetBalance("skill_effect_height") + 0.5
+		        self:SpawnLayerAt(skill, layer, caster, flipX, caster.CurrentMap, 2,
+		            Vector3(targetPos.x, targetPos.y + h, targetPos.z), false, "도착 타격")
+	end
 
-        local users = _UserService:GetUsersByMapName(map.Name)
-        if users == nil then return end
-        for i = 1, #users do
-            local pc = users[i].PlayerComponent
-            if isvalid(pc) then self:ShowCast(skillId, caster, flipX, pc.UserId) end
-        end
-    end
+	@ExecSpace("ServerOnly")
+	method void SpawnOwnEffect(table skill, Entity caster, boolean flipX, Entity map)
+		        -- 아직 다층 레시피로 옮기지 않은 스킬의 호환 경로.
+		        if skill.effect_ruid == "" then return end
+		        local layer = {
+		            ruid = skill.effect_ruid,
+		            resource_type = "sprite",
+		            style = skill.effect_style,
+		            delay = 0,
+		            duration = _GameData:GetBalance("skill_effect_seconds"),
+		            scale = 1,
+		            offset_x = 0,
+		            offset_y = 0,
+		            drift_x = 0,
+		            drift_y = 0,
+		        }
+		        if skill.effect_style == "pierce" then
+		            layer.offset_x = 0.45
+		            layer.drift_x = 2.2
+		        elseif skill.effect_style == "cloud" then
+		            layer.drift_y = 0.5
+		        end
+		        self:SpawnLayer(skill, layer, caster, flipX, map, 1)
+	end
 
-    @ExecSpace("ServerOnly")
-    method void PlayAreaAt(string skillId, Entity caster, Vector3 targetPos,
-        boolean flipX, number activeSeconds)
-        -- A zone has one location. Do not draw a second false zone at the caster
-        -- or stack a full-size animation on each damage tick.
-        if skillId == "" or not isvalid(caster) or caster.CurrentMap == nil then return end
-        local skill = _GameData:GetSkill(skillId)
-        if skill == nil then return end
-        local layers = skill.effect_layers or {}
-        if #layers == 0 then self:PlayAttackAt(skillId, caster, targetPos, flipX) return end
-        local map = caster.CurrentMap
-        local h = _GameData:GetBalance("skill_effect_height") + 0.5
-        local anchor = Vector3(targetPos.x, targetPos.y + h, targetPos.z)
-        for i = 1, #layers do
-            local source = layers[i]
-            if source.ruid ~= "" then
-                local layer = {
-                    ruid = source.ruid, frame_ruids = source.frame_ruids,
-                    resource_type = source.resource_type, style = source.style,
-                    delay = source.delay, duration = math.max(source.duration, activeSeconds),
-                    scale = source.scale, offset_x = source.offset_x,
-                    offset_y = source.offset_y, drift_x = source.drift_x,
-                    drift_y = source.drift_y,
-                }
-                if layer.delay > 0 then
-                    local scheduledLayer = layer
-                    local scheduledOrder = i
-                    _TimerService:SetTimerOnce(function()
-                        if isvalid(caster) and caster.CurrentMap == map then
-                            self:SpawnLayerAt(skill, scheduledLayer, caster, flipX, map,
-                                scheduledOrder, anchor, false, "지속 영역")
-                        end
-                    end, layer.delay)
-                else
-                    self:SpawnLayerAt(skill, layer, caster, flipX, map,
-                        i, anchor, false, "지속 영역")
-                end
-            end
-        end
-        local users = _UserService:GetUsersByMapName(map.Name)
-        if users == nil then return end
-        for i = 1, #users do
-            local pc = users[i].PlayerComponent
-            if isvalid(pc) then self:ShowCast(skillId, caster, flipX, pc.UserId) end
-        end
-    end
+	@ExecSpace("ServerOnly")
+	method boolean PlayProjectile(string skillId, Entity caster, Vector3 targetPos, boolean emitSound)
+		        -- 날아가는 그림 (T19-3). `projectile_ruid`가 비어 있으면 아무것도 안 한다.
+		        --
+		        -- **그림만 담당한다.** 데미지는 던진 쪽이 같은 비행 시간짜리 타이머로 건다
+		        -- (T19-4 — MonsterAttack.ResolveThrowHit / PlayerAttack.ResolveThrowHit).
+		        --
+		        -- 이펙트(PlayCast)와 달리 **서버에서 엔티티를 스폰한다.** 스폰된 엔티티는
+		        -- 저절로 복제되므로 클라마다 RPC를 보낼 필요가 없고, 날아가는 동안의 위치도
+		        -- 엔진이 맞춰 준다. 매 프레임 좌표를 RPC로 보내면 그게 낭비다.
+		        if skillId == "" then return false end
+		        if not isvalid(caster) then return false end
+		
+		        local skill = _GameData:GetSkill(skillId)
+		        if skill == nil or skill.projectile_ruid == "" then return false end
+		
+		        local map = caster.CurrentMap
+		        if map == nil then return false end
+		
+		        local from = caster.TransformComponent.WorldPosition
+		        local h = _GameData:GetBalance("skill_effect_height") + 0.5
+		        from = Vector3(from.x, from.y + h, from.z)
+		        local to = Vector3(targetPos.x, targetPos.y + h, from.z)
+		
+		        -- 새 AREA 자산에 sprite_sequence가 있으면 그것이 이 스킬의 실제 투사체다.
+		        -- 이전 범용 돌/초록 구체 RUID는 판정 종류를 표시하던 레거시 값으로만 남기고
+		        -- 화면에는 섞지 않는다.
+		        local layers = skill.effect_layers or {}
+		        local sequence = {}
+		        local hasSequence = false
+		        for i = 1, #layers do
+		            if layers[i].resource_type == "sprite_sequence" then
+		                sequence = layers[i]
+		                hasSequence = true
+		                break
+		            end
+		        end
+		        if hasSequence then
+		            local flight = _GameData:GetBalance("projectile_seconds")
+		            if flight <= 0 then flight = 0.35 end
+		            local entity = _SpawnService:SpawnByModelId("skillcasteffect", "SkillProjectileVFX", from, map)
+		            if not isvalid(entity) then
+		                log_warning("[SkillEffect] 신규 투사체 VFX 스폰 실패: " .. skillId)
+		                return true
+		            end
+		
+		            local sprite = entity.SpriteRendererComponent
+		            local frames = sequence.frame_ruids or {}
+		            if isvalid(sprite) then
+		                sprite.SpriteRUID = (#frames > 0) and frames[1] or sequence.ruid
+		                sprite.FlipX = to.x < from.x
+		                sprite.SortingLayer = "MapLayer0"
+		                sprite.OrderInLayer = 620
+		            end
+		
+		            ---@type SkillCastEffect
+		            local fx = entity:GetComponent("script.SkillCastEffect")
+		            if fx == nil then
+		                entity:Destroy()
+		                return true
+		            end
+		            fx.BaseScale = sequence.scale
+		            fx.FrameRUIDs = frames
+		            if #frames > 0 then fx.FrameSeconds = flight / #frames end
+		            fx.DebugName = skill.name .. " 투사체"
+		            fx:Play("sequence", flight, Vector3(
+		                (to.x - from.x) / flight,
+		                (to.y - from.y) / flight,
+		                0))
+		            entity:SetVisible(true)
+		            if emitSound then
+		                local users = _UserService:GetUsersByMapName(map.Name)
+		                if users ~= nil then
+		                    for i = 1, #users do
+		                        local pc = users[i].PlayerComponent
+		                        if isvalid(pc) then
+		                            self:ShowCast(skillId, caster, to.x < from.x, pc.UserId)
+		                        end
+		                    end
+		                end
+		                log("[SkillSFX] projectile_launch " .. skillId)
+		            end
+		            log("[투사체 VFX] " .. skill.name .. " 신규 프레임 " .. tostring(#frames)
+		                .. "장  " .. string.format("%.1f,%.1f", from.x, from.y) .. " → "
+		                .. string.format("%.1f,%.1f", to.x, to.y))
+		            return true
+		        end
+		
+		        -- ⚠ parent에 nil을 넘기면 런타임 에러다 (개발 규칙 · platform.md 8).
+		        local entity = _SpawnService:SpawnByModelId("skillprojectile", "SkillProjectile", from, map)
+		        if not isvalid(entity) then
+		            log_warning("[SkillEffect] 투사체 스폰 실패: " .. skillId)
+		            return false
+		        end
+		
+		        -- 그림은 스킬마다 다르다. 모델의 기본 SpriteRUID를 여기서 갈아끼운다 —
+		        -- 스킬 종류만큼 .model을 만들지 않기 위해서다.
+		        local sprite = entity.SpriteRendererComponent
+		        if isvalid(sprite) then sprite.SpriteRUID = skill.projectile_ruid end
+		
+		        ---@type SkillProjectile
+		        local proj = entity:GetComponent("script.SkillProjectile")
+		        if proj == nil then
+		            log_warning("[SkillEffect] 투사체에 SkillProjectile이 없다")
+		            entity:Destroy()
+		            return false
+		        end
+		        proj:Launch(from, to,
+		            _GameData:GetBalance("projectile_seconds"),
+		            _GameData:GetBalance("projectile_spin_seconds"))
+		        entity:SetVisible(true)
+		
+		        -- 날아가는 그림은 0.35초라 스크린샷으로 잡기 어렵다. 로그로 증거를 남긴다
+		        -- (verify-checklist 2b: 짧은 연출은 만든 자리와 사라지는 자리에 로그를 짝지어 둔다).
+		        log("[투사체] " .. skill.name .. "  "
+		            .. string.format("%.1f,%.1f", from.x, from.y) .. " → "
+		            .. string.format("%.1f,%.1f", to.x, to.y))
+		        return false
+	end
 
-    @ExecSpace("ServerOnly")
-    method void PlayWeakenStatus(string skillId, Entity target, number seconds)
-        -- The cast splash alone can resemble an attack or self-buff. Reuse one approved
-        -- frame as a small, purple-tinted mark on the *affected* actor for the debuff.
-        if skillId ~= "s_mon_fairy" and skillId ~= "s_mon_octopus" then return end
-        if not isvalid(target) or target.CurrentMap == nil or seconds <= 0 then return end
-        local skill = _GameData:GetSkill(skillId)
-        local source = skill ~= nil and skill.effect_layers[1] or nil
-        if source == nil or source.ruid == "" then return end
-        local frames = source.frame_ruids or {}
-        local ruid = (#frames >= 4) and frames[4] or source.ruid
-        local p = target.TransformComponent.WorldPosition
-        local at = Vector3(p.x, p.y + 1.15, p.z)
-        local entity = _SpawnService:SpawnByModelId("skillcasteffect", "WeakenStatus", at, target.CurrentMap)
-        if not isvalid(entity) then return end
-        local sprite = entity.SpriteRendererComponent
-        if isvalid(sprite) then
-            sprite.SpriteRUID = ruid
-            sprite.SortingLayer = "MapLayer0"
-            sprite.OrderInLayer = 920
-            sprite.Color = Color(0.73, 0.55, 0.95, 1)
-        end
-        ---@type SkillCastEffect
-        local fx = entity:GetComponent("script.SkillCastEffect")
-        if fx == nil then entity:Destroy() return end
-        fx.BaseScale = 0.32
-        fx.BaseAlpha = 0.75
-        fx.FollowTarget = target
-        fx.FollowOffset = Vector3(0, 1.15, 0)
-        fx.DebugName = skill.name .. " 약화 표식"
-        fx:Play("guard", seconds, Vector3(0, 0, 0))
-        entity:SetVisible(true)
-    end
-
-    @ExecSpace("ServerOnly")
-    method void SpawnLayer(table skill, table layer, Entity caster, boolean flipX, Entity map, integer order)
-        if layer == nil or layer.ruid == "" then return end
-        if not isvalid(caster) or not isvalid(map) then return end
-
-        local pos = caster.TransformComponent.WorldPosition
-        local h = _GameData:GetBalance("skill_effect_height") + 0.5
-        local anchor = Vector3(pos.x, pos.y + h, pos.z)
-        local overlay = skill.skill_kind == "defense" or skill.skill_kind == "buff"
-            or skill.dash_distance > 0
-        local placement = "시전자"
-        if skill.skill_kind == "defense" or skill.skill_kind == "buff" then
-            placement = "몸 오버레이"
-        elseif skill.dash_distance > 0 then
-            placement = "이동 동기화"
-        end
-        self:SpawnLayerAt(skill, layer, caster, flipX, map, order,
-            anchor, overlay, placement)
-    end
-
-    @ExecSpace("ServerOnly")
-    method void SpawnLayerAt(table skill, table layer, Entity caster, boolean flipX, Entity map,
-        integer order, Vector3 anchor, boolean followCaster, string placement)
-        if layer == nil or layer.ruid == "" then return end
-        if not isvalid(caster) or not isvalid(map) then return end
-
-        local dir = flipX and -1 or 1
-        local visualX = layer.offset_x
-        local visualY = layer.offset_y
-        local visualScale = layer.scale
-        local visualAlpha = 1
-        -- Meaning-only placement: keep the approved frames and every gameplay field intact.
-        if skill.id == "s_mon_fairy" or skill.id == "s_mon_octopus" then
-            -- The weakened victim is in front, not the caster's own buff position.
-            visualX = visualX + 0.8
-            visualScale = visualScale * 0.72
-        elseif skill.id == "s_mon_king_clang" then
-            -- Put the claws on the forward knockback cone, not around the caster as a shell.
-            visualX = visualX + 1.25
-            visualScale = visualScale * 0.82
-        elseif skill.id == "s_mon_drumming_bunny" then
-            -- A compact body-level pulse reads as self-strengthening, not a ground blast.
-            visualY = visualY + 0.45
-            visualScale = visualScale * 0.62
-        elseif skill.id == "s_mon_cygnus" or skill.id == "s_mon_mutant_stumpy" then
-            -- Preserve the zone silhouette while keeping players and monsters visible.
-            visualAlpha = 0.72
-        end
-        local at = Vector3(
-            anchor.x + visualX * dir,
-            anchor.y + visualY,
-            anchor.z)
-        local drift = Vector3(layer.drift_x * dir, layer.drift_y, 0)
-
-        local entity = _SpawnService:SpawnByModelId("skillcasteffect", "SkillCastEffect", at, map)
-        if not isvalid(entity) then
-            log_warning("[SkillEffect] 다층 이펙트 스폰 실패: " .. skill.name)
-            return
-        end
-
-        local sprite = entity.SpriteRendererComponent
-        if isvalid(sprite) then
-            sprite.SpriteRUID = layer.ruid
-            sprite.FlipX = flipX
-            sprite.SortingLayer = "MapLayer0"
-            sprite.OrderInLayer = followCaster and 900 or (540 + order)
-        end
-
-        ---@type SkillCastEffect
-        local fx = entity:GetComponent("script.SkillCastEffect")
-        if fx == nil then
-            log_warning("[SkillEffect] 다층 이펙트에 SkillCastEffect가 없다")
-            entity:Destroy()
-            return
-        end
-        fx.BaseScale = visualScale
-        fx.BaseAlpha = visualAlpha
-        fx.FrameRUIDs = layer.frame_ruids or {}
-        if followCaster then
-            local casterPos = caster.TransformComponent.WorldPosition
-            fx.FollowTarget = caster
-            fx.FollowOffset = Vector3(at.x - casterPos.x, at.y - casterPos.y, at.z - casterPos.z)
-        end
-        if #fx.FrameRUIDs > 0 then
-            fx.FrameSeconds = layer.duration / #fx.FrameRUIDs
-        end
-        fx.DebugName = skill.name .. " #" .. tostring(order)
-        fx:Play(layer.style, layer.duration, drift)
-        -- 모델의 공용 기본 그림(초록 포자)은 스폰 시 숨긴다. 스킬 고유 RUID와
-        -- 첫 프레임을 모두 지정한 뒤 공개해 복제 첫 프레임의 색 번짐을 막는다.
-        entity:SetVisible(true)
-
-        log("[다층 이펙트] " .. skill.name .. " #" .. tostring(order)
-            .. " " .. layer.style .. " delay=" .. string.format("%.2f", layer.delay)
-            .. "  " .. placement .. " " .. string.format("%.1f,%.1f", at.x, at.y))
-    end
-
-    @ExecSpace("ServerOnly")
-    method boolean PlayDashTravelIfNeeded(string skillId, Entity caster, Vector3 fromPos,
-        Vector3 toPos, number seconds, boolean flipX)
-        -- 정식기사 C의 기존 8장을 앞 4장(이동)과 뒤 4장(도착)으로 나눠 쓴다.
-        -- Player 이동은 클라이언트 권한이어서 서버 시전자 좌표를 따라가면
-        -- 연출이 뒤처진다. 이미 충돌 경계로 제한한 판정 경로를 시각적으로 따른다.
-        if skillId ~= "s_mon_official_knight_c" then return false end
-        if not isvalid(caster) or caster.CurrentMap == nil then return false end
-        local skill = _GameData:GetSkill(skillId)
-        local source = skill ~= nil and skill.effect_layers[1] or nil
-        if source == nil or #source.frame_ruids < 8 then return false end
-        local span = math.max(seconds, 0.05)
-        local frames = {}
-        for i = 1, 4 do frames[i] = source.frame_ruids[i] end
-        local dir = flipX and -1 or 1
-        local layer = {
-            ruid = frames[1], frame_ruids = frames, resource_type = "sprite_sequence",
-            style = "sequence", delay = 0, duration = span, scale = source.scale,
-            offset_x = source.offset_x, offset_y = source.offset_y,
-            drift_x = (toPos.x - fromPos.x) / span * dir,
-            drift_y = (toPos.y - fromPos.y) / span,
-        }
-        local h = _GameData:GetBalance("skill_effect_height") + 0.5
-        self:SpawnLayerAt(skill, layer, caster, flipX, caster.CurrentMap, 1,
-            Vector3(fromPos.x, fromPos.y + h, fromPos.z), false, "돌진 경로")
-        -- 이 분기는 PlayCast를 건너뛴다. 이동 연출 시작 시 기존 시전음만 전달한다.
-        -- ShowCast는 이 스킬의 다층 VFX를 다시 그리지 않으므로 연출이 중복되지 않는다.
-        local users = _UserService:GetUsersByMapName(caster.CurrentMap.Name)
-        if users ~= nil then
-            for i = 1, #users do
-                local pc = users[i].PlayerComponent
-                if isvalid(pc) then self:ShowCast(skillId, caster, flipX, pc.UserId) end
-            end
-        end
-        log("[SkillSFX] dash_begin " .. skillId .. " listeners=" .. tostring(users ~= nil and #users or 0))
-        return true
-    end
-
-    @ExecSpace("ServerOnly")
-    method void PlayDashImpactIfNeeded(string skillId, Entity caster, Vector3 targetPos,
-        boolean flipX)
-        if skillId ~= "s_mon_official_knight_c" then return end
-        if not isvalid(caster) or caster.CurrentMap == nil then return end
-        local skill = _GameData:GetSkill(skillId)
-        local source = skill ~= nil and skill.effect_layers[1] or nil
-        if source == nil or #source.frame_ruids < 8 then return end
-        local frames = {}
-        for i = 5, 8 do frames[#frames + 1] = source.frame_ruids[i] end
-        local layer = {
-            ruid = frames[1], frame_ruids = frames, resource_type = "sprite_sequence",
-            style = "sequence", delay = 0, duration = 0.2, scale = source.scale,
-            offset_x = source.offset_x, offset_y = source.offset_y,
-            drift_x = 0, drift_y = 0,
-        }
-        local h = _GameData:GetBalance("skill_effect_height") + 0.5
-        self:SpawnLayerAt(skill, layer, caster, flipX, caster.CurrentMap, 2,
-            Vector3(targetPos.x, targetPos.y + h, targetPos.z), false, "도착 타격")
-    end
-
-    @ExecSpace("ServerOnly")
-    method void SpawnOwnEffect(table skill, Entity caster, boolean flipX, Entity map)
-        -- 아직 다층 레시피로 옮기지 않은 스킬의 호환 경로.
-        if skill.effect_ruid == "" then return end
-        local layer = {
-            ruid = skill.effect_ruid,
-            resource_type = "sprite",
-            style = skill.effect_style,
-            delay = 0,
-            duration = _GameData:GetBalance("skill_effect_seconds"),
-            scale = 1,
-            offset_x = 0,
-            offset_y = 0,
-            drift_x = 0,
-            drift_y = 0,
-        }
-        if skill.effect_style == "pierce" then
-            layer.offset_x = 0.45
-            layer.drift_x = 2.2
-        elseif skill.effect_style == "cloud" then
-            layer.drift_y = 0.5
-        end
-        self:SpawnLayer(skill, layer, caster, flipX, map, 1)
-    end
-
-    @ExecSpace("ServerOnly")
-    method boolean PlayProjectile(string skillId, Entity caster, Vector3 targetPos,
-        boolean emitSound)
-        -- 날아가는 그림 (T19-3). `projectile_ruid`가 비어 있으면 아무것도 안 한다.
-        --
-        -- **그림만 담당한다.** 데미지는 던진 쪽이 같은 비행 시간짜리 타이머로 건다
-        -- (T19-4 — MonsterAttack.ResolveThrowHit / PlayerAttack.ResolveThrowHit).
-        --
-        -- 이펙트(PlayCast)와 달리 **서버에서 엔티티를 스폰한다.** 스폰된 엔티티는
-        -- 저절로 복제되므로 클라마다 RPC를 보낼 필요가 없고, 날아가는 동안의 위치도
-        -- 엔진이 맞춰 준다. 매 프레임 좌표를 RPC로 보내면 그게 낭비다.
-        if skillId == "" then return false end
-        if not isvalid(caster) then return false end
-
-        local skill = _GameData:GetSkill(skillId)
-        if skill == nil or skill.projectile_ruid == "" then return false end
-
-        local map = caster.CurrentMap
-        if map == nil then return false end
-
-        local from = caster.TransformComponent.WorldPosition
-        local h = _GameData:GetBalance("skill_effect_height") + 0.5
-        from = Vector3(from.x, from.y + h, from.z)
-        local to = Vector3(targetPos.x, targetPos.y + h, from.z)
-
-        -- 새 AREA 자산에 sprite_sequence가 있으면 그것이 이 스킬의 실제 투사체다.
-        -- 이전 범용 돌/초록 구체 RUID는 판정 종류를 표시하던 레거시 값으로만 남기고
-        -- 화면에는 섞지 않는다.
-        local layers = skill.effect_layers or {}
-        local sequence = {}
-        local hasSequence = false
-        for i = 1, #layers do
-            if layers[i].resource_type == "sprite_sequence" then
-                sequence = layers[i]
-                hasSequence = true
-                break
-            end
-        end
-        if hasSequence then
-            local flight = _GameData:GetBalance("projectile_seconds")
-            if flight <= 0 then flight = 0.35 end
-            local entity = _SpawnService:SpawnByModelId("skillcasteffect", "SkillProjectileVFX", from, map)
-            if not isvalid(entity) then
-                log_warning("[SkillEffect] 신규 투사체 VFX 스폰 실패: " .. skillId)
-                return true
-            end
-
-            local sprite = entity.SpriteRendererComponent
-            local frames = sequence.frame_ruids or {}
-            if isvalid(sprite) then
-                sprite.SpriteRUID = (#frames > 0) and frames[1] or sequence.ruid
-                sprite.FlipX = to.x < from.x
-                sprite.SortingLayer = "MapLayer0"
-                sprite.OrderInLayer = 620
-            end
-
-            ---@type SkillCastEffect
-            local fx = entity:GetComponent("script.SkillCastEffect")
-            if fx == nil then
-                entity:Destroy()
-                return true
-            end
-            fx.BaseScale = sequence.scale
-            fx.FrameRUIDs = frames
-            if #frames > 0 then fx.FrameSeconds = flight / #frames end
-            fx.DebugName = skill.name .. " 투사체"
-            fx:Play("sequence", flight, Vector3(
-                (to.x - from.x) / flight,
-                (to.y - from.y) / flight,
-                0))
-            entity:SetVisible(true)
-            if emitSound then
-                local users = _UserService:GetUsersByMapName(map.Name)
-                if users ~= nil then
-                    for i = 1, #users do
-                        local pc = users[i].PlayerComponent
-                        if isvalid(pc) then
-                            self:ShowCast(skillId, caster, to.x < from.x, pc.UserId)
-                        end
-                    end
-                end
-                log("[SkillSFX] projectile_launch " .. skillId)
-            end
-            log("[투사체 VFX] " .. skill.name .. " 신규 프레임 " .. tostring(#frames)
-                .. "장  " .. string.format("%.1f,%.1f", from.x, from.y) .. " → "
-                .. string.format("%.1f,%.1f", to.x, to.y))
-            return true
-        end
-
-        -- ⚠ parent에 nil을 넘기면 런타임 에러다 (개발 규칙 · platform.md 8).
-        local entity = _SpawnService:SpawnByModelId("skillprojectile", "SkillProjectile", from, map)
-        if not isvalid(entity) then
-            log_warning("[SkillEffect] 투사체 스폰 실패: " .. skillId)
-            return false
-        end
-
-        -- 그림은 스킬마다 다르다. 모델의 기본 SpriteRUID를 여기서 갈아끼운다 —
-        -- 스킬 종류만큼 .model을 만들지 않기 위해서다.
-        local sprite = entity.SpriteRendererComponent
-        if isvalid(sprite) then sprite.SpriteRUID = skill.projectile_ruid end
-
-        ---@type SkillProjectile
-        local proj = entity:GetComponent("script.SkillProjectile")
-        if proj == nil then
-            log_warning("[SkillEffect] 투사체에 SkillProjectile이 없다")
-            entity:Destroy()
-            return false
-        end
-        proj:Launch(from, to,
-            _GameData:GetBalance("projectile_seconds"),
-            _GameData:GetBalance("projectile_spin_seconds"))
-        entity:SetVisible(true)
-
-        -- 날아가는 그림은 0.35초라 스크린샷으로 잡기 어렵다. 로그로 증거를 남긴다
-        -- (verify-checklist 2b: 짧은 연출은 만든 자리와 사라지는 자리에 로그를 짝지어 둔다).
-        log("[투사체] " .. skill.name .. "  "
-            .. string.format("%.1f,%.1f", from.x, from.y) .. " → "
-            .. string.format("%.1f,%.1f", to.x, to.y))
-        return false
-    end
-
-    @ExecSpace("Client")
-    method void ShowCast(string skillId, Entity caster, boolean flipX)
-        -- 실제 재생. 판정과 무관한 연출 전용 경로다 — 여기서 아무것도 못 그려도
-        -- 데미지는 이미 서버에서 들어갔다.
-        if not isvalid(caster) then return end
-
-        local skill = _GameData:GetSkill(skillId)
-        if skill == nil then return end
-
-        local layers = skill.effect_layers or {}
-        -- 다층 레이어는 PlayCast에서 서버 동기화 엔티티로 이미 재생한다.
-        -- 이 클라이언트 경로는 이관 전 단일 원작 클립의 호환용으로만 남긴다.
-        if #layers == 0 and skill.effect_ruid ~= "" and skill.effect_style == "" then
-            -- 시전자에게 **붙여서** 재생한다(PlayEffect가 아니라 PlayEffectAttached).
-            -- 고정 좌표로 띄우면 시전 중에 움직이는 보스와 이펙트가 따로 논다.
-            --
-            -- 높이를 올리는 이유: 엔티티 원점이 발밑이라 (0,0,0)에 붙이면 이펙트가
-            -- 바닥에 깔린다. PlayerAttack이 판정 원을 +0.5 올리는 것과 같은 보정이다.
-            --
-            -- FlipX: 원작 스킬 이펙트는 **오른쪽을 향해** 그려져 있다(실측 — 옵션 없이
-            -- 띄웠더니 왼쪽에 있는 플레이어를 두고 오른쪽으로 뻗었다). 붙인 부모의
-            -- 스케일을 따라가지 않으므로 여기서 직접 뒤집는다. 방향은 서버가 정해서
-            -- 넘긴다 — 시전자가 아바타냐 스프라이트냐에 따라 "지금 어디를 보고 있나"를
-            -- 읽는 방법이 다른데, 대상 좌표는 어느 쪽이든 같은 방법으로 알 수 있다.
-            local options = nil
-            if flipX then options = { FlipX = true } end
-
-            local h = _GameData:GetBalance("skill_effect_height") + 0.5
-            _EffectService:PlayEffectAttached(skill.effect_ruid, caster,
-                Vector3(0, h, 0), 0, Vector3(1, 1, 1), false, options)
-        end
-
-        if skill.sfx_ruid ~= "" then
-            -- 이미 클라 안이라 대상 UserId를 붙이지 않는다. PlayCast가 사람마다
-            -- 한 번씩 부르므로 각자 자기 클라에서 한 번 듣는다.
-            _SoundService:PlaySound(skill.sfx_ruid, _GameData:GetBalance("skill_sfx_volume"))
-        end
-    end
+	@ExecSpace("Client")
+	method void ShowCast(string skillId, Entity caster, boolean flipX)
+		        -- 실제 재생. 판정과 무관한 연출 전용 경로다 — 여기서 아무것도 못 그려도
+		        -- 데미지는 이미 서버에서 들어갔다.
+		        if not isvalid(caster) then return end
+		
+		        local skill = _GameData:GetSkill(skillId)
+		        if skill == nil then return end
+		
+		        local layers = skill.effect_layers or {}
+		        -- 다층 레이어는 PlayCast에서 서버 동기화 엔티티로 이미 재생한다.
+		        -- 이 클라이언트 경로는 이관 전 단일 원작 클립의 호환용으로만 남긴다.
+		        if #layers == 0 and skill.effect_ruid ~= "" and skill.effect_style == "" then
+		            -- 시전자에게 **붙여서** 재생한다(PlayEffect가 아니라 PlayEffectAttached).
+		            -- 고정 좌표로 띄우면 시전 중에 움직이는 보스와 이펙트가 따로 논다.
+		            --
+		            -- 높이를 올리는 이유: 엔티티 원점이 발밑이라 (0,0,0)에 붙이면 이펙트가
+		            -- 바닥에 깔린다. PlayerAttack이 판정 원을 +0.5 올리는 것과 같은 보정이다.
+		            --
+		            -- FlipX: 원작 스킬 이펙트는 **오른쪽을 향해** 그려져 있다(실측 — 옵션 없이
+		            -- 띄웠더니 왼쪽에 있는 플레이어를 두고 오른쪽으로 뻗었다). 붙인 부모의
+		            -- 스케일을 따라가지 않으므로 여기서 직접 뒤집는다. 방향은 서버가 정해서
+		            -- 넘긴다 — 시전자가 아바타냐 스프라이트냐에 따라 "지금 어디를 보고 있나"를
+		            -- 읽는 방법이 다른데, 대상 좌표는 어느 쪽이든 같은 방법으로 알 수 있다.
+		            local options = nil
+		            if flipX then options = { FlipX = true } end
+		
+		            local h = _GameData:GetBalance("skill_effect_height") + 0.5
+		            _EffectService:PlayEffectAttached(skill.effect_ruid, caster,
+		                Vector3(0, h, 0), 0, Vector3(1, 1, 1), false, options)
+		        end
+		
+		        if skill.sfx_ruid ~= "" then
+		            -- 이미 클라 안이라 대상 UserId를 붙이지 않는다. PlayCast가 사람마다
+		            -- 한 번씩 부르므로 각자 자기 클라에서 한 번 듣는다.
+		            _SoundService:PlaySound(skill.sfx_ruid, _GameData:GetBalance("skill_sfx_volume"))
+		        end
+	end
 
 end

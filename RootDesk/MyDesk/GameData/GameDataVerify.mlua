@@ -1,0 +1,714 @@
+@Logic
+script GameDataVerify extends Logic
+
+	@ExecSpace("ServerOnly")
+	method void OnBeginPlay()
+		        -- Logic 간 OnBeginPlay 순서는 보장되지 않으므로 한 박자 늦춰 실행한다.
+		        _TimerService:SetTimerOnce(function()
+		            self:RunAll()
+		        end, 1.0)
+	end
+
+	@ExecSpace("ServerOnly")
+	method void RunAll()
+		        -- 검증 전체를 순서대로 돌린다.
+		        if not _GameData.IsLoaded then
+		            log_error("[검증] GameData가 로드되지 않았다. 데이터셋 등록을 확인할 것.")
+		            return
+		        end
+		
+		        log("========== T0 데이터 검증 시작 ==========")
+		        self:VerifyBalance()
+		        self:VerifyLevelGrowth()
+		        self:VerifySkills()
+		        self:VerifyTraits()
+		        self:VerifyMonsters()
+		        self:VerifyTamingCollection()
+		        self:VerifyRooms()
+		        self:VerifyLandmarks()
+		        self:VerifyAreas()
+		        self:VerifyItems()
+		        self:VerifySaveSchema()
+		        log("========== T0 데이터 검증 끝 ==========")
+	end
+
+	@ExecSpace("ServerOnly")
+	method void VerifyTraits()
+		        local activeIds = _GameData:GetCapturableActiveSkillIds()
+		        local tagCounts = {}
+		        local passiveCount = 0
+		        for _, skillId in ipairs(_GameData:GetMonsterSkillIds()) do
+		            local candidate = _GameData:GetSkill(skillId)
+		            if candidate ~= nil and candidate.skill_kind == "passive" then passiveCount += 1 end
+		        end
+		        for i = 1, #activeIds do
+		            local skill = _GameData:GetSkill(activeIds[i])
+		            if skill ~= nil and skill.skill_kind ~= "passive" then
+		                local tags = _GameData:GetSkillTags(activeIds[i])
+		                if #tags <= 0 then log_error("[Phase2] 액티브 태그 없음: " .. activeIds[i]) end
+		                for j = 1, #tags do tagCounts[tags[j]] = (tagCounts[tags[j]] or 0) + 1 end
+		            end
+		        end
+		        local traits = _GameData:GetOrderedTraitIds()
+		        log("[Phase3.5] 실제 포획 액티브=" .. tostring(#activeIds)
+		            .. " / 테이밍 가능·랜덤 풀 제외 패시브=" .. tostring(passiveCount)
+		            .. " / 레거시 특성 행=" .. tostring(#traits)
+		            .. " / Single=" .. tostring(tagCounts["Single"] or 0)
+		            .. " Area=" .. tostring(tagCounts["Area"] or 0)
+		            .. " Projectile=" .. tostring(tagCounts["Projectile"] or 0)
+		            .. " Rush=" .. tostring(tagCounts["Rush"] or 0)
+		            .. " Defense=" .. tostring(tagCounts["Defense"] or 0))
+		        for i = 1, #traits do
+		            local trait = _GameData:GetTrait(traits[i])
+		            if trait.weight_multiplier < 1 or trait.effect_multiplier < 1 then
+		                log_error("[Phase2] 특성 배율은 비선호 스킬을 약화하면 안 된다: " .. trait.id)
+		            end
+		        end
+		        log("[Phase3.5] 신규 랜덤 전투 Weight=1.0 / Trait 효과=1.0 고정; TraitTable은 레거시 보존")
+	end
+
+	@ExecSpace("ServerOnly")
+	method void VerifyBalance()
+		        -- 밸런스시트 '가정' 탭 핵심값이 그대로 들어왔는지 본다.
+		        log("[밸런스] 데미지 계수=" .. tostring(_GameData:GetBalance("skill_coefficient_base"))
+		            .. " / Lv1 필요EXP=" .. tostring(_GameData:GetBalance("exp_base"))
+		            .. " / EXP공비=" .. tostring(_GameData:GetBalance("exp_ratio"))
+		            .. " / 레벨캡=" .. tostring(_GameData:GetBalance("initial_level_cap")))
+		        log("[밸런스] 포획 기본=" .. tostring(_GameData:GetBalance("capture_base_rate"))
+		            .. " / LUK보정=" .. tostring(_GameData:GetBalance("capture_luk_bonus"))
+		            .. " / 천장=" .. tostring(_GameData:GetBalance("capture_pity_kills"))
+		            .. " / 슬롯 시작=" .. tostring(_GameData:GetBalance("monster_slot_start"))
+		            .. " / 슬롯 상한=" .. tostring(_GameData:GetBalance("monster_slot_max")))
+		        local firstRate = _GameData:GetBalance("first_capture_rate")
+		        local duplicateRate = _GameData:GetBalance("duplicate_capture_rate")
+		        local collectionMultiplier = _GameData:GetBalance("collection_capture_multiplier")
+		        local maxRate = _GameData:GetBalance("capture_rate_max")
+		        if firstRate <= 0 or duplicateRate <= 0 or collectionMultiplier <= 0 or maxRate <= 0 then
+		            log_error("[Phase3.6] 순수 확률 포획 데이터가 0 이하")
+		        end
+		        log("[Phase3.6 포획] 첫=" .. tostring(firstRate)
+		            .. " / 중복=" .. tostring(duplicateRate)
+		            .. " / 컬렉션배율=" .. tostring(collectionMultiplier)
+		            .. " / 상한=" .. tostring(maxRate)
+		            .. " / 신규모드 천장=미사용 / 만작=" .. tostring(_GameData:GetBalance("skill_stack_max")))
+		        log("[Phase1 전투] 플래그=" .. tostring(_GameData:GetBalance("phase1_random_combat_enabled"))
+		            .. " / 실시간 슬롯=" .. tostring(_GameData:GetBalance("skill_slot_max"))
+		            .. " / 보유 1종부터 공급=" .. tostring(_GameData:GetBalance("random_skill_supply_interval"))
+		            .. "초 / 몬스터 공격거리 비율=" .. tostring(_GameData:GetBalance("monster_attack_range_ratio")))
+	end
+
+	@ExecSpace("ServerOnly")
+	method void VerifyLevelGrowth()
+		        local milestones = { 1, 10, 30, 50, 100, 150, 200 }
+		        local previousMaxHp = -1
+		        local previousAttack = -1
+		        local previousDefense = -1
+		        local missing = 0
+		        for level = 1, 200 do
+		            local row = _GameData:GetLevelGrowth(level)
+		            if row == nil then
+		                missing += 1
+		                log_error("[Phase3] LevelGrowthTable 누락 Lv" .. tostring(level))
+		            else
+		                local maxHp = _GameData:ToNumber(tostring(row["base_max_hp"]), 0)
+		                local attack = _GameData:ToNumber(tostring(row["base_attack"]), 0)
+		                local defense = _GameData:ToNumber(tostring(row["base_defense"]), 0)
+		                if maxHp <= 0 or attack <= 0 or defense < 0 then
+		                    log_error("[Phase3] 자동 성장값 오류 Lv" .. tostring(level))
+		                end
+		                if previousMaxHp >= 0 then
+		                    if maxHp < previousMaxHp
+		                        or attack < previousAttack
+		                        or defense < previousDefense then
+		                        log_error("[Phase3] 자동 성장표 역행 Lv" .. tostring(level))
+		                    end
+		                end
+		                previousMaxHp = maxHp
+		                previousAttack = attack
+		                previousDefense = defense
+		            end
+		        end
+		        for i = 1, #milestones do
+		            local level = milestones[i]
+		            local row = _GameData:GetLevelGrowth(level)
+		            if row ~= nil then
+		                log("[Phase3 성장] Lv" .. tostring(level)
+		                    .. " HP=" .. tostring(row["base_max_hp"])
+		                    .. " ATK/MATK=" .. tostring(row["base_attack"])
+		                    .. " DEF=" .. tostring(row["base_defense"]))
+		            end
+		        end
+		        log("[Phase3 성장] 200레벨 표 검증 / 누락 " .. tostring(missing))
+	end
+
+	@ExecSpace("ServerOnly")
+	method void VerifySkills()
+		        -- 스킬 개수와 열쇠 스킬 표시를 확인한다.
+		        local total = 0
+		        local monsterCount = 0
+		        local bossCount = 0
+		        local keyCount = 0
+		        for id, skill in pairs(_GameData.skills) do
+		            total += 1
+		            if skill.source == "monster" then monsterCount += 1 end
+		            if skill.source == "boss" then bossCount += 1 end
+		            if skill.is_key_skill then
+		                keyCount += 1
+		                log("  [열쇠스킬] " .. id .. " " .. skill.name .. " (" .. skill.effect_type .. ")")
+		            end
+		        end
+		        log("[스킬] 총 " .. tostring(total) .. "개 (포획 " .. tostring(monsterCount) .. " / 보스전용 " .. tostring(bossCount)
+		            .. " / 열쇠 " .. tostring(keyCount) .. ")")
+		
+		        -- 히어로 전투 전용 스킬은 원작 아이콘 RUID를 들고 있어야 한다. 대표 지시가
+		        -- "UUID와 효과도 원작과 같아야 해"라, 비어 있으면 그 약속이 깨진 것이다.
+		        -- 아이콘은 이제 **전 스킬**이 갖고 있어야 한다 (T20-1). 장착 창이 글자 목록에서
+		        -- 아이콘 격자로 바뀌면(T20-2) 비어 있는 스킬은 **빈 칸**으로 보인다 —
+		        -- 에러도 안 나고 그냥 허전한, 알아채기 어려운 실패다.
+		        --
+		        -- 몬스터 스킬 5종은 원작 대응이 없어 **원작 스킬 아이콘을 안 쓴다** (T20-4).
+		        -- **그 스킬이 실제로 쓰는 부위**를 입는다 (T20-5) — 껍질 / 파란 껍질 /
+		        -- 포자 / 뿔 / 바위. 전에는 비슷한 원작 스킬 아이콘을 빌렸는데, 격자로 바꾸자
+		        -- 아이콘이 칸의 주인공이 되면서 몬스터 스킬이 사람의 기술처럼 보였다 (대표 지적).
+		        local noIcon = ""
+		        for id, skill in pairs(_GameData.skills) do
+		            if skill.icon_ruid == "" then
+		                noIcon = noIcon .. (noIcon == "" and "" or ", ") .. id
+		            end
+		        end
+		        if noIcon ~= "" then
+		            log_warning("  [스킬아이콘] 아이콘 없음: " .. noIcon .. " — 장착 창에서 빈 칸이 된다")
+		        else
+		            log("[스킬아이콘] " .. tostring(total) .. "종 전부 아이콘이 있다")
+		        end
+		
+		        -- 아이콘 비율 (T20-4). 아이콘만 갈고 `icon_ratio`를 안 고치면 그림이 늘어난다 —
+		        -- 에러가 아니라 **찌그러진 채 그려지는** 실패라 여기서 잡는다.
+		        local noRatio = ""
+		        for id, skill in pairs(_GameData.skills) do
+		            if skill.icon_ruid ~= "" and skill.icon_ratio <= 0 then
+		                noRatio = noRatio .. (noRatio == "" and "" or ", ") .. id
+		            end
+		        end
+		        if noRatio ~= "" then
+		            log_warning("  [스킬아이콘] 비율 없음: " .. noRatio .. " — 장착 창에서 늘어나 보인다")
+		        end
+		
+		        -- 시전 이펙트 (T19-2). 액티브인데 없으면 스킬을 써도 화면에 아무 일도
+		        -- 안 일어난다. 반대로 패시브에 액티브 이펙트·사운드가 남으면 실제로는
+		        -- 재생되지 않으면서 표만 액티브처럼 보인다(T52에서 7종 정리).
+		        local withEffect = 0
+		        local activeTotal = 0
+		        local noEffect = ""
+		        for id, skill in pairs(_GameData.skills) do
+		            if skill.skill_kind == "passive" then
+		                if skill.effect_ruid ~= "" or skill.effect_style ~= ""
+		                    or skill.sfx_ruid ~= "" or skill.projectile_ruid ~= ""
+		                    or #(skill.effect_layers or {}) > 0
+		                    or skill.effect_value ~= 0 or skill.duration ~= 0
+		                    or skill.range ~= 0 or skill.dash_distance ~= 0 then
+		                    log_error("  [패시브] " .. id .. " 에 액티브 연출·효과 데이터가 남아 있다")
+		                end
+		            elseif skill.effect_ruid ~= "" or #(skill.effect_layers or {}) > 0 then
+		                activeTotal += 1
+		                withEffect = withEffect + 1
+		            elseif skill.projectile_ruid ~= "" then
+		                activeTotal += 1
+		                -- 던지는 스킬은 시전 이펙트가 없어도 된다 — 날아가는 물건이 곧 연출이다
+		                -- (T19-4: 바위 던지기의 보라색 시전 이펙트를 일부러 뺐다).
+		                withEffect = withEffect + 1
+		            else
+		                activeTotal += 1
+		                noEffect = noEffect .. (noEffect == "" and "" or ", ") .. id
+		            end
+		        end
+		        log("[스킬이펙트] 액티브 " .. tostring(withEffect) .. "/" .. tostring(activeTotal)
+		            .. "종에 시전 이펙트가 있다 (패시브는 연출 없음)")
+		        if noEffect ~= "" then
+		            log_warning("  [스킬이펙트] 이펙트 없음: " .. noEffect)
+		        end
+		
+		        -- 다층 레시피는 RUID 목록 길이가 곧 레이어 수다. 잘못된 형식은 런타임에서
+		        -- 한 겹만 조용히 빠지므로 여기서 형식과 필수 수치를 먼저 막는다.
+		        for id, skill in pairs(_GameData.skills) do
+		            local layers = skill.effect_layers or {}
+		            if #layers > 0 then
+		                for i = 1, #layers do
+		                    local layer = layers[i]
+		                    if layer.ruid == "" then
+		                        log_error("  [다층이펙트] " .. id .. " #" .. tostring(i) .. " RUID가 비었다")
+		                    end
+		                    if layer.resource_type ~= "sprite" and layer.resource_type ~= "animationclip"
+		                        and layer.resource_type ~= "sprite_sequence" then
+		                        log_error("  [다층이펙트] " .. id .. " #" .. tostring(i)
+		                            .. " 자원 형식이 이상하다: " .. tostring(layer.resource_type))
+		                    end
+		                    if layer.duration <= 0 or layer.scale <= 0 or layer.delay < 0 then
+		                        log_error("  [다층이펙트] " .. id .. " #" .. tostring(i)
+		                            .. " 시간/크기 값이 이상하다")
+		                    end
+		                end
+		                log("  [다층이펙트] " .. skill.name .. " " .. tostring(#layers) .. "겹")
+		            end
+		        end
+		
+		        -- 중복 강화 계수 (T15-2). 몬스터 스킬만 쌓이므로 그것만 적는다.
+		        -- 상한이나 보너스가 0으로 되돌아가도 에러가 나지 않아 로그로만 보인다.
+		        local stackMax = math.floor(_GameData:GetBalance("skill_stack_max"))
+		        local stackBonus = _GameData:GetBalance("skill_stack_bonus")
+		        log("[스킬] 중복 상한 " .. tostring(stackMax) .. "장 / 1장당 비례 +"
+		            .. tostring(stackBonus * 100) .. "% → 만작 "
+		            .. string.format("%.2f", 1 + stackBonus * (stackMax - 1)) .. "배")
+		        local monsterSkills = _GameData:GetMonsterSkillIds()
+		        for i = 1, #monsterSkills do
+		            local skill = _GameData:GetSkill(monsterSkills[i])
+		            -- **source가 monster인 것만** 쌓인다 (T15-2). 적 전용 스킬은
+		            -- slot_type=enemy라 이 목록에 들어오지 않는다. 런타임 판정
+		            -- (PlayerAttack.CalcDamage / TryCapture)은 이미 source로 갈라 두었다.
+		            if skill ~= nil and skill.source == "monster" then
+		                log("  [중복강화] " .. skill.name .. " (" .. skill.scaling_stat .. ")  계수 "
+		                    .. string.format("%.2f", skill.coefficient) .. " → 만작 "
+		                    .. string.format("%.2f", _CombatFormula:StackedCoefficient(skill.coefficient, stackMax)))
+		            end
+		        end
+		
+		        -- 스킬 메타 (T17-2). 분류가 비어 있으면 스킬 바·설명 UI가 조용히 잘못 그린다.
+		        local attackCount = 0
+		        local defenseCount = 0
+		        local buffCount = 0
+		        local passiveCount = 0
+		        for id, skill in pairs(_GameData.skills) do
+		            if skill.skill_kind == "attack" then attackCount += 1
+		            elseif skill.skill_kind == "defense" then defenseCount += 1
+		            elseif skill.skill_kind == "buff" then buffCount += 1
+		            elseif skill.skill_kind == "passive" then
+		                -- 포획 패시브 (설계 변경 2026-08-29). **슬롯을 안 먹고 보유만 해도 켜진다.**
+		                passiveCount += 1
+		                if skill.passive_stat ~= "STR" and skill.passive_stat ~= "DEX"
+		                    and skill.passive_stat ~= "INT" and skill.passive_stat ~= "LUK"
+		                    and skill.passive_stat ~= "DEF" then
+		                    -- 비어 있으면 **아무 스탯도 안 주는 패시브**가 된다 — 끼울 수도 없고
+		                    -- 주지도 않아 그냥 죽은 줄이다. 에러도 안 나므로 여기서 잡는다.
+		                    log_error("  [패시브] " .. id .. " 의 passive_stat이 비었거나 모르는 값: '"
+		                        .. tostring(skill.passive_stat) .. "' (STR/DEX/INT/LUK/DEF 중 하나여야 한다)")
+		                end
+		            else
+		                log_error("  [스킬메타] " .. id .. " 의 skill_kind가 비었거나 모르는 값: '"
+		                    .. tostring(skill.skill_kind) .. "'")
+		            end
+		            if skill.description == "" then
+		                log_warning("  [스킬메타] " .. id .. " 에 설명이 없다 — 설명 UI가 빈 칸으로 뜬다")
+		            end
+		            -- 차수는 0 이상이어야 한다. **0차 = 시작부터 사용 가능**이 정상값이다
+		            -- (2026-08-21: 시작이 0차, 전직이 1~5차). 음수만 잘못된 값이다.
+		            if skill.tier < 0 then
+		                log_error("  [스킬차수] " .. id .. " 의 tier가 음수다: " .. tostring(skill.tier))
+		            end
+		        end
+		        local tierCount = {}
+		        for _, skill in pairs(_GameData.skills) do
+		            local t = tostring(math.floor(skill.tier))
+		            tierCount[t] = (tierCount[t] or 0) + 1
+		        end
+		        local tierText = ""
+		        for t, n in pairs(tierCount) do tierText = tierText .. t .. "차 " .. tostring(n) .. "종  " end
+		        local ladder = ""
+		        for i = 1, 5 do
+		            local lv = _GameData:GetBalance("tier_level_" .. tostring(i))
+		            if lv > 0 then ladder = ladder .. tostring(i) .. "차 Lv" .. tostring(math.floor(lv)) .. "  " end
+		        end
+		        log("[스킬차수] " .. tierText .. " (시작 0차 / 전직 " .. ladder .. ")")
+		        log("[스킬메타] 공격 " .. tostring(attackCount) .. " / 방어 " .. tostring(defenseCount)
+		            .. " / 강화 " .. tostring(buffCount) .. " / 패시브 " .. tostring(passiveCount)
+		            .. "  (액티브는 같은 슬롯을 쓰고 패시브는 슬롯을 쓰지 않는다)")
+		        for id, skill in pairs(_GameData.skills) do
+		            log("  [스킬메타] " .. skill.name .. " [" .. skill.skill_kind .. "/" .. skill.effect_type
+		                .. "] 대상=" .. skill.target_mode
+		                .. (skill.effect_value > 0 and ("  효과값 " .. tostring(skill.effect_value)) or "")
+		                .. (skill.duration > 0 and ("  " .. tostring(skill.duration) .. "초") or "")
+		                .. "  \"" .. skill.description .. "\"")
+		        end
+	end
+
+	@ExecSpace("ServerOnly")
+	method void VerifyMonsters()
+		        -- 테이블 값 vs 밸런스시트 공식. 어긋나면 시트와 코드가 갈라진 것이므로 즉시 드러내야 한다.
+		        -- HP/DEF는 선형(base + per_level x step), EXP만 기하급수로 남는다 (T28, 2026-08-27).
+		        -- 몬스터 EXP도 필요 EXP 곡선(exp_ratio 1.105)에 맞춰 기하급수로 유지한다.
+		        local hpBase = _GameData:GetBalance("monster_hp_base")
+		        local hpPerLevel = _GameData:GetBalance("monster_hp_per_level")
+		        local defBase = _GameData:GetBalance("monster_def_base")
+		        local defPerLevel = _GameData:GetBalance("monster_def_per_level")
+		        local expBase = _GameData:GetBalance("monster_exp_base")
+		        local expRatio = _GameData:GetBalance("monster_exp_ratio")
+		
+		        for id, monster in pairs(_GameData.monsters) do
+		            local step = monster.level - 1
+		            local hpExpected = math.floor(hpBase + hpPerLevel * step + 0.5)
+		            local defExpected = math.floor((defBase + defPerLevel * step) * 10 + 0.5) / 10
+		            local expExpected = math.floor(expBase * expRatio ^ step + 0.5)
+		
+		            local mark = "일치"
+		            if monster.hp ~= hpExpected or monster.def ~= defExpected or monster.exp ~= expExpected then
+		                mark = "불일치!"
+		                log_warning("  [몬스터] " .. id .. " 시트 공식과 어긋남 → 기대 HP=" .. tostring(hpExpected)
+		                    .. " DEF=" .. tostring(defExpected) .. " EXP=" .. tostring(expExpected))
+		            end
+		            log("  [몬스터] " .. id .. " " .. monster.name .. " Lv" .. tostring(monster.level)
+		                .. " HP=" .. tostring(monster.hp) .. " DEF=" .. tostring(monster.def)
+		                .. " EXP=" .. tostring(monster.exp) .. " 드랍=" .. monster.drop_skill_id
+		                .. " [공식 " .. mark .. "]")
+		
+		            -- 적 전용 전투 스킬(T56)이 표에 실존하고 플레이어용이 아닌지 본다.
+		            for i = 1, #monster.combat_skill_ids do
+		                local sid = monster.combat_skill_ids[i]
+		                local skill = _GameData:GetSkill(sid)
+		                if skill == nil then
+		                    log_error("  [전투스킬] " .. id .. " 가 없는 스킬을 사용한다: " .. sid)
+		                elseif skill.source ~= "boss" or skill.slot_type ~= "enemy" then
+		                    log_error("  [전투스킬] " .. sid .. " 는 boss/enemy 전용이어야 한다")
+		                else
+		                    log("  [전투스킬] " .. monster.name .. " → [" .. skill.name .. "]")
+		                end
+		            end
+		        end
+	end
+
+	@ExecSpace("ServerOnly")
+	method void VerifyTamingCollection()
+		        -- M2A의 컬렉션 원장은 MonsterTable의 명시적 monster_id ↔ drop_skill_id 관계다.
+		        -- 이름 규칙이나 과거 스킬명으로 추론하지 않아야 구세이브의 s_mon_snail이
+		        -- 현재 달팽이로 잘못 변환되지 않는다.
+		        local ids = _GameData:GetTameableMonsterIds()
+		        local activeCount = 0
+		        local passiveCount = 0
+		        local missingVisual = 0
+		        local brokenReverse = 0
+		
+		        for i = 1, #ids do
+		            local monsterId = ids[i]
+		            local monster = _GameData:GetMonster(monsterId)
+		            local skill = monster ~= nil and _GameData:GetSkill(monster.drop_skill_id) or nil
+		            if monster == nil or skill == nil then
+		                log_error("[M2A] 컬렉션 매핑 손상: " .. tostring(monsterId))
+		            else
+		                if _GameData:GetMonsterIdByDropSkillId(monster.drop_skill_id) ~= monsterId then
+		                    brokenReverse += 1
+		                    log_error("[M2A] drop_skill 역매핑 불일치: " .. monsterId
+		                        .. " → " .. monster.drop_skill_id)
+		                end
+		                if monster.collection_icon_ruid == "" or monster.companion_visual_ruid == "" then
+		                    missingVisual += 1
+		                    log_error("[M2A] 컬렉션/동행 시각 리소스 누락: " .. monsterId)
+		                end
+		                if skill.skill_kind == "passive" then passiveCount += 1
+		                else activeCount += 1 end
+		            end
+		        end
+		
+		        if #ids ~= 101 then
+		            log_error("[M2A] 테이밍 대상은 101종이어야 한다. actual=" .. tostring(#ids))
+		        end
+		        if activeCount ~= 66 or passiveCount ~= 35 then
+		            log_error("[M2A] 액티브/패시브 구성 불일치 active=" .. tostring(activeCount)
+		                .. " passive=" .. tostring(passiveCount))
+		        end
+		        if _GameData:GetMonsterIdByDropSkillId("s_mon_snail") ~= "" then
+		            log_error("[M2A] 레거시 s_mon_snail은 자동 마이그레이션 대상이면 안 된다")
+		        end
+		        if _GameData:IsTameableMonster("m_adv_hero")
+		            or _GameData:IsTameableMonster("m_adv_bowmaster") then
+		            log_error("[M2A] 히어로/보우마스터가 테이밍 대상으로 포함됐다")
+		        end
+		
+		        log("[M2A 컬렉션] 총=" .. tostring(#ids)
+		            .. " active=" .. tostring(activeCount)
+		            .. " passive=" .. tostring(passiveCount)
+		            .. " visual_missing=" .. tostring(missingVisual)
+		            .. " reverse_broken=" .. tostring(brokenReverse)
+		            .. " legacy_snail=excluded hero/bowmaster=excluded")
+	end
+
+	@ExecSpace("ServerOnly")
+	method void VerifyRooms()
+		        -- 방 목록 + 연결 무결성(가리키는 방이 실존하는가, 역방향이 되돌아오는가).
+		        local opposite = { north = "south", south = "north", east = "west", west = "east" }
+		        local roomCount = 0
+		        local linkCount = 0
+		        local brokenCount = 0
+		
+		        for id, room in pairs(_GameData.rooms) do
+		            roomCount += 1
+		            local gateText = "게이트 없음"
+		            if room.gate_type ~= "none" and room.gate_type ~= "" then
+		                gateText = "게이트 " .. room.gate_type .. " " .. room.gate_key .. " " .. tostring(room.gate_value)
+		            end
+		            log("  [방] " .. id .. " " .. room.name .. " (" .. room.room_type .. ") 맵="
+		                .. room.map_name .. " " .. gateText)
+		            if room.map_name == "" then
+		                log_error("    " .. id .. " 에 map_name이 비어 있다 — 포탈 연결 불가")
+		            end
+		
+		            for dir, back in pairs(opposite) do
+		                local target = room.connections[dir]
+		                if target ~= "" then
+		                    linkCount += 1
+		                    local targetRoom = _GameData:GetRoom(target)
+		                    if targetRoom == nil then
+		                        brokenCount += 1
+		                        log_error("    " .. dir .. " -> " .. target .. " : 그런 방이 없다")
+		                    elseif targetRoom.room_type == "town" then
+		                        -- ⚠ **마을은 방향으로 들어가는 곳이 아니다** (설계 확인 2026-08-29).
+		                        --
+		                        -- 어느 지역이든 **마을 동쪽 문 하나**로 들어간다 — 그 문에는
+		                        -- `RoomPortal`이 아니라 `TownGate`가 붙어 있어 지역 선택 창을 띄운다
+		                        -- (2026-08-10 설계 · T12-3 · T26-1). 나올 때만 진입 방에서 걸어 나온다.
+		                        --
+		                        -- 그래서 `r_town`의 conn 네 칸은 **이동에 하나도 안 쓰인다.**
+		                        -- 그런데 여기서 역방향을 요구하는 바람에, 지역이 늘 때마다 마을 방향을
+		                        -- 하나씩 태워야 했고 **네 개에서 막혔다** — 지역 20칸(2026-08-28) 설계가
+		                        -- area_05에서 멈추는 원인이 이 검사 하나였다.
+		                        --
+		                        -- 대표 정정: *"그냥 마을에서 우측으로 가자는거였잖아."*
+		                        log("    " .. dir .. " -> " .. target .. " (마을 — 역방향 면제)")
+		                    elseif string.sub(id, 1, 6) == "r_job_" then
+		                        -- 전직 보스방은 전용 진입 로직으로 들어오고, 연결 칸은 원래 방으로
+		                        -- 돌아가는 출구에만 쓴다. 따라서 일반 탐험 방처럼 역방향 연결을
+		                        -- 강제하면 정상인 단방향 귀환을 깨진 연결로 오인한다.
+		                        log("    " .. dir .. " -> " .. target .. " (전직 보스방 귀환 — 역방향 면제)")
+		                    elseif targetRoom.connections[back] ~= id then
+		                        brokenCount += 1
+		                        log_error("    " .. dir .. " -> " .. target .. " : 역방향(" .. back .. ")이 되돌아오지 않는다")
+		                    else
+		                        log("    " .. dir .. " -> " .. target .. " (양방향 OK)")
+		                    end
+		                end
+		            end
+		        end
+		
+		        log("[방] 총 " .. tostring(roomCount) .. "개 / 연결 " .. tostring(linkCount)
+		            .. "개 / 깨진 연결 " .. tostring(brokenCount) .. "개")
+	end
+
+	@ExecSpace("ServerOnly")
+	method void VerifyAreas()
+		        -- 지역 테이블 (T12). 마을 게이트가 여기를 읽어 목록을 만든다.
+		        --
+		        -- 특히 세 가지가 조용히 어긋날 수 있어서 전부 대조한다:
+		        --   ① 진입 방이 실재하는가 (오타 하나면 게이트가 빈 곳으로 보낸다)
+		        --   ② 랜드마크가 주는 area 보상이 AreaTable에 있는가 (없으면 해금해도 갈 데가 없다)
+		        --   ③ 방의 area_id가 AreaTable에 있는가
+		        local ids = _GameData:GetOrderedAreaIds()
+		        log("[지역] 총 " .. tostring(#ids) .. "개")
+		
+		        for i = 1, #ids do
+		            local area = _GameData:GetArea(ids[i])
+		            local entryText = area.entry_room_id
+		            if entryText == "" then
+		                entryText = "(진입 방 미정 — 마을 게이트 목록에서 건너뛴다)"
+		            else
+		                local entry = _GameData:GetRoom(area.entry_room_id)
+		                if entry == nil then
+		                    log_error("  [지역] " .. area.id .. " 의 진입 방이 없다: " .. area.entry_room_id)
+		                    entryText = area.entry_room_id .. " (없는 방!)"
+		                else
+		                    entryText = area.entry_room_id .. " " .. entry.name
+		                end
+		            end
+		            log("  [지역] " .. area.id .. " " .. area.name
+		                .. "  진입=" .. entryText
+		                .. "  기본해금=" .. tostring(area.default_unlocked)
+		                .. "  순서=" .. tostring(area.sort_order))
+		        end
+		
+		        -- ② 랜드마크의 area 보상이 실재하는 지역인가
+		        local cap = _GameData:GetBalance("initial_level_cap")
+		        local rewards = _GameData:GetLandmarksAtLevel(cap)
+		        for i = 1, #rewards do
+		            if rewards[i].reward_type == "area" then
+		                if _GameData:GetArea(rewards[i].reward_value) == nil then
+		                    log_error("  [지역] 랜드마크가 없는 지역을 준다: " .. rewards[i].reward_value)
+		                else
+		                    log("  [지역] 랜드마크 Lv" .. tostring(cap) .. " → "
+		                        .. rewards[i].reward_value .. " 해금 (AreaTable에 있음)")
+		                end
+		            end
+		        end
+		
+		        -- ③ 방의 area_id 대조
+		        local roomIds = _GameData:GetAllRoomIds()
+		        for i = 1, #roomIds do
+		            local room = _GameData:GetRoom(roomIds[i])
+		            if room.area_id ~= "" and _GameData:GetArea(room.area_id) == nil then
+		                log_error("  [지역] 방 " .. room.id .. " 이 없는 지역을 가리킨다: " .. room.area_id)
+		            end
+		        end
+	end
+
+	@ExecSpace("ServerOnly")
+	method void VerifyItems()
+		        -- 아이템 테이블 (T13-2/T55). 조용히 어긋날 수 있는 네 가지를 대조한다:
+		        --   ① item_type이 equip/consume/passive 중 하나인가
+		        --   ② 장비에만 slot이 있고, 패시브의 스탯/정액값이 올바른가
+		        --   ③ drop_from이 실재하는 몬스터인가 (오타면 영원히 안 떨어진다)
+		        --   ④ 아이콘 RUID가 비어 있지 않은가 (비면 인벤토리에 빈 칸으로 보인다)
+		        local ids = _GameData:GetAllItemIds()
+		        log("[아이템] 총 " .. tostring(#ids) .. "개")
+		        local equipCount = 0
+		        local consumeCount = 0
+		        local passiveCount = 0
+		
+		        for i = 1, #ids do
+		            local item = _GameData:GetItem(ids[i])
+		
+		            if item.item_type ~= "equip" and item.item_type ~= "consume" and item.item_type ~= "passive" then
+		                log_error("  [아이템] " .. item.id .. " 의 item_type이 이상하다: '"
+		                    .. item.item_type .. "' (equip/consume/passive 중 하나여야 한다)")
+		            end
+		
+		            if item.item_type == "equip" then
+		                equipCount += 1
+		                if item.slot == "" then
+		                    log_error("  [아이템] " .. item.id .. " 는 장비인데 slot이 비어 있다")
+		                end
+		                if item.avatar_category ~= "cap"
+		                    and item.avatar_category ~= "coat"
+		                    and item.avatar_category ~= "glove"
+		                    and item.avatar_category ~= "longcoat"
+		                    and item.avatar_category ~= "pants"
+		                    and item.avatar_category ~= "shoes"
+		                    and item.avatar_category ~= "cape"
+		                    and item.avatar_category ~= "shield"
+		                    and item.avatar_category ~= "onehandedweapon"
+		                    and item.avatar_category ~= "twohandedweapon"
+		                    and item.avatar_category ~= "eyeaccessory"
+		                    and item.avatar_category ~= "earaccessory" then
+		                    log_error("  [아이템] " .. item.id .. " 의 아바타 분류가 이상하다: '"
+		                        .. item.avatar_category .. "'")
+		                end
+		            elseif item.item_type == "consume" then
+		                consumeCount += 1
+		                if item.slot ~= "" then
+		                    log_warning("  [아이템] " .. item.id .. " 는 소비인데 slot이 채워져 있다: " .. item.slot)
+		                end
+		                if item.avatar_category ~= "" then
+		                    log_error("  [아이템] " .. item.id .. " 는 소비인데 아바타 분류가 채워져 있다")
+		                end
+		            elseif item.item_type == "passive" then
+		                passiveCount += 1
+		                if item.slot ~= "" then
+		                    log_error("  [아이템] " .. item.id .. " 는 패시브인데 slot이 채워져 있다: " .. item.slot)
+		                end
+		                if item.passive_stat == "" or item.passive_value <= 0 then
+		                    log_error("  [아이템] " .. item.id .. " 의 패시브 스탯/정액값이 비어 있다")
+		                end
+		                if item.avatar_category ~= "" then
+		                    log_error("  [아이템] " .. item.id .. " 는 패시브인데 아바타 분류가 채워져 있다")
+		                end
+		            end
+		
+		            -- drop_from은 세 꼴이다 (T23-5): 한 마리 / 파이프로 여럿 / `*`(전체).
+		            -- `*`는 종을 안 가리므로 검사할 몬스터가 없다.
+		            if item.drop_from ~= "" and item.drop_from ~= "*" then
+		                for one in string.gmatch(item.drop_from, "([^|]+)") do
+		                    if _GameData:GetMonster(one) == nil then
+		                        log_error("  [아이템] " .. item.id .. " 가 없는 몬스터에서 떨어진다: " .. one)
+		                    end
+		                end
+		            end
+		
+		            if item.icon_ruid == "" then
+		                log_warning("  [아이템] " .. item.id .. " 에 아이콘 RUID가 없다 — 인벤토리에서 빈 칸으로 보인다")
+		            end
+		
+		            local statText = ""
+		            if item.item_type == "equip" then
+		                statText = "ATK+" .. tostring(_GameData:GetItemStatBonus(item.id, "ATK"))
+		                    .. " INT+" .. tostring(_GameData:GetItemStatBonus(item.id, "INT"))
+		                    .. " DEF+" .. tostring(_GameData:GetItemStatBonus(item.id, "DEF"))
+		                    .. " LUK+" .. tostring(_GameData:GetItemStatBonus(item.id, "LUK"))
+		                if item.stat_all > 0 then
+		                    statText = statText .. " (올스탯 +" .. tostring(item.stat_all) .. ")"
+		                end
+		                -- 중복 상한과 만작 수치를 같이 남긴다 (T15-1). 상한이 1로 되돌아가면
+		                -- 중복 합산이 통째로 죽는데, 죽어도 에러가 나지 않아 로그로만 보인다.
+		                local cap = _GameData:GetItemStackCap(item.id)
+		                statText = statText .. "  [최대 " .. tostring(cap) .. "개 중첩 → 만작 "
+		                    .. "ATK+" .. tostring(_GameData:GetItemStackedStatBonus(item.id, "ATK", cap))
+		                    .. " INT+" .. tostring(_GameData:GetItemStackedStatBonus(item.id, "INT", cap))
+		                    .. " DEF+" .. tostring(_GameData:GetItemStackedStatBonus(item.id, "DEF", cap))
+		                    .. " LUK+" .. tostring(_GameData:GetItemStackedStatBonus(item.id, "LUK", cap)) .. "]"
+		            elseif item.item_type == "consume" then
+		                statText = "HP회복 " .. tostring(item.heal_hp) .. " / 최대 " .. tostring(item.stack_max) .. "개"
+		            elseif item.item_type == "passive" then
+		                statText = "보유 효과 " .. item.passive_stat .. " +"
+		                    .. tostring(item.passive_value) .. "/개 / 최대 " .. tostring(item.stack_max) .. "개"
+		            end
+		
+		            local dropText = "드랍 없음"
+		            if item.drop_from ~= "" then
+		                dropText = item.drop_from .. " " .. tostring(item.drop_rate * 100) .. "%"
+		            end
+		
+		            log("  [아이템] " .. item.id .. " " .. item.name
+		                .. " (" .. item.item_type .. (item.slot ~= "" and "/" .. item.slot or "") .. ")  "
+		                .. statText .. "  " .. dropText)
+		        end
+		
+		        log("[아이템분류] 장비 " .. tostring(equipCount)
+		            .. " / 소비 " .. tostring(consumeCount) .. " / 패시브 " .. tostring(passiveCount))
+		
+		        -- 몬스터 → 드랍 역인덱스가 실제로 만들어졌는지. 드랍 판정(T13-6)이 이걸 읽는다.
+		        local monsterIds = _GameData:GetAllMonsterIds()
+		        for i = 1, #monsterIds do
+		            local drops = _GameData:GetItemDropsOf(monsterIds[i])
+		            if #drops > 0 then
+		                local names = ""
+		                for k = 1, #drops do
+		                    if names ~= "" then names = names .. ", " end
+		                    names = names .. drops[k]
+		                end
+		                log("  [드랍표] " .. monsterIds[i] .. " → " .. names)
+		            end
+		        end
+	end
+
+	@ExecSpace("ServerOnly")
+	method void VerifyLandmarks()
+		        -- 슬라이스 사다리(Lv30 3축)가 들어왔는지 본다.
+		        local cap = _GameData:GetBalance("initial_level_cap")
+		        local rewards = _GameData:GetLandmarksAtLevel(cap)
+		        log("[랜드마크] Lv" .. tostring(cap) .. " 보상 " .. tostring(#rewards) .. "건")
+		        for i = 1, #rewards do
+		            log("  [랜드마크] " .. rewards[i].reward_type .. " = " .. rewards[i].reward_value)
+		        end
+	end
+
+	@ExecSpace("ServerOnly")
+	method void VerifySaveSchema()
+		        -- 세이브 구조체가 실제로 생성/직렬화되는지, 영구/회차가 다른 키로 갈라지는지 확인한다.
+		        local run = SaveRunData()
+		        run:Init()
+		
+		        local perm = SavePermanentData()
+		        perm:Init(_GameData:GetBalance("monster_slot_start"))
+		
+		        local payload = {}
+		        run:Serialize(payload)
+		        perm:Serialize(payload)
+		
+		        local keys = ""
+		        for key, value in pairs(payload) do
+		            if keys ~= "" then keys = keys .. ", " end
+		            keys = keys .. key
+		        end
+		        log("[세이브] 분리된 최상위 키 = [" .. keys .. "]")
+		        log("[세이브] 회차: level=" .. tostring(run.level))
+		        log("[세이브] 영구: 슬롯=" .. tostring(perm.monster_slot_count)
+		            .. " 환생=" .. tostring(perm.rebirth_count)
+		            .. " 최고레벨=" .. tostring(perm.highest_level))
+		        if run.schema_version ~= 2 then log_error("[Phase3] Run schema != 2") end
+		        if perm.schema_version ~= 5 then log_error("[M2A] Perm schema != 5") end
+	end
+
+end

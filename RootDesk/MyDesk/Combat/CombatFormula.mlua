@@ -1,107 +1,86 @@
--- @서버 (전투 수치 계산의 유일한 창구. 클라이언트는 절대 이 값을 만들지 않는다)
---
--- 작업지시서 T3 ⚠️함정: "데미지 계산을 클라에서 하면 이후 전부 재작업".
--- 그래서 공식을 여기 한 곳에 모으고, 호출은 서버 스크립트만 한다.
--- 클라이언트는 서버가 만든 결과(HitEvent)를 받아 숫자를 띄우기만 한다.
---
--- 수치는 전부 GameBalance / SkillTable에서 읽는다 (하드코딩 금지 — 개발 규칙 3).
--- 이 모듈은 상태를 갖지 않는다. 순수 계산만 한다.
-
 @Logic
 script CombatFormula extends Logic
 
-    ---------------------------------------------------------------
-    -- 데미지
-    ---------------------------------------------------------------
+	method integer CalcDamage(number atk, number def, number coefficient)
+		        -- 기획서 4.5 / 밸런스시트: 데미지 = 계수 × ATK² / (ATK + DEF)
+		        --
+		        -- ATK²/(ATK+DEF) 꼴이라 DEF가 0이면 그냥 ATK가 된다.
+		        -- 즉 방어력은 "데미지를 빼는" 게 아니라 "성장을 늦추는" 축이다.
+		        if atk <= 0 then return 1 end
+		
+		        local denom = atk + def
+		        if denom <= 0 then return 1 end
+		
+		        local raw = coefficient * (atk * atk) / denom
+		
+		        -- 표시는 정수다(DamageSkin이 정수 목록을 받는다). 반올림하되 최소 1은 보장한다 —
+		        -- 0이 뜨면 "안 맞았다"로 보여서 고레벨 몬스터 앞에서 버그처럼 읽힌다.
+		        local rounded = math.floor(raw + 0.5)
+		        if rounded < 1 then return 1 end
+		        return rounded
+	end
 
-    method integer CalcDamage(number atk, number def, number coefficient)
-        -- 기획서 4.5 / 밸런스시트: 데미지 = 계수 × ATK² / (ATK + DEF)
-        --
-        -- ATK²/(ATK+DEF) 꼴이라 DEF가 0이면 그냥 ATK가 된다.
-        -- 즉 방어력은 "데미지를 빼는" 게 아니라 "성장을 늦추는" 축이다.
-        if atk <= 0 then return 1 end
+	method number GetSkillCoefficient(string skillId)
+		        -- 스킬 계수. 스킬을 지정하지 않으면(기본 공격) 시트의 기준 계수를 쓴다.
+		        if skillId ~= nil and skillId ~= "" then
+		            local skill = _GameData:GetSkill(skillId)
+		            if skill ~= nil and skill.coefficient > 0 then
+		                return skill.coefficient
+		            end
+		            log_warning("[CombatFormula] 스킬 계수를 찾지 못해 기준 계수로 대체: " .. tostring(skillId))
+		        end
+		        return _GameData:GetBalance("skill_coefficient_base")
+	end
 
-        local denom = atk + def
-        if denom <= 0 then return 1 end
+	method integer CalcSkillDamage(number atk, number def, string skillId)
+		        -- 실제 호출부가 쓰는 진입점. 계수 조회와 계산을 한 번에 한다.
+		        --
+		        -- ⚠ 중복 강화(T15-2)는 여기서 못 얹는다 — 몇 장 가졌는지는 **플레이어의 것**이라
+		        --   상태 없는 이 모듈이 알 수 없다. 스킬 데미지는 PlayerAttack.CalcDamage가
+		        --   StackedCoefficient로 계수를 만든 뒤 CalcDamage를 직접 부른다.
+		        --   이 함수는 몬스터 공격(MonsterAttack)처럼 중복이 없는 쪽이 쓴다.
+		        return self:CalcDamage(atk, def, self:GetSkillCoefficient(skillId))
+	end
 
-        local raw = coefficient * (atk * atk) / denom
+	method number StackedCoefficient(number baseCoefficient, integer stack)
+		        -- 중복 보유가 계수를 올린다 (T15-2, 대표 지시 2026-08-14).
+		        --
+		        --   계수 = 기본 × (1 + skill_stack_bonus × (보유수 - 1))
+		        --   5장 만작 + 보너스 0.2 → ×1.8
+		        --
+		        -- **비례**인 이유: 정액(+0.1 고정)으로 두면 계수 1.0인 점액 튀기기가 +40%,
+		        -- 1.35인 바위 던지기가 +30%로 **약한 스킬이 비율로 더 오른다** — 희귀도 서열이
+		        -- 뒤집힌다. 드랍률에 LUK을 비례로 얹은 것(T13-6)과 같은 판단이다.
+		        --
+		        -- 장비는 규칙이 다르다(개당 수치 × 보유 개수 = 배수). 스탯이 정수 5라
+		        -- 비례 20%면 5 → 6 → 7이 되어 체감이 없기 때문이다. 섞지 말 것.
+		        if stack < 1 then stack = 1 end
+		
+		        -- 상한을 여기서 자른다. 세이브에 상한을 넘는 값이 남아 있어도(상한을 나중에
+		        -- 낮추는 경우) 조용히 초과 배율이 나가지 않게 한다.
+		        local cap = math.floor(_GameData:GetBalance("skill_stack_max"))
+		        if cap < 1 then cap = 1 end
+		        if stack > cap then stack = cap end
+		
+		        local bonus = _GameData:GetBalance("skill_stack_bonus")
+		        return baseCoefficient * (1 + bonus * (stack - 1))
+	end
 
-        -- 표시는 정수다(DamageSkin이 정수 목록을 받는다). 반올림하되 최소 1은 보장한다 —
-        -- 0이 뜨면 "안 맞았다"로 보여서 고레벨 몬스터 앞에서 버그처럼 읽힌다.
-        local rounded = math.floor(raw + 0.5)
-        if rounded < 1 then return 1 end
-        return rounded
-    end
+	method number MonsterStatAtLevel(string baseKey, string ratioKey, number level)
+		        -- 시트 공식: base × ratio^(level-1).
+		        -- MonsterTable에 없는 레벨의 몬스터를 즉석에서 만들 때 쓴다.
+		        -- 테이블에 있는 몬스터는 GetMonster를 쓸 것 — 확정값이 우선이다.
+		        if level < 1 then level = 1 end
+		        -- math.pow가 아니라 ^ 를 쓴다 — GameDataVerify에서 동작을 확인한 쪽이다.
+		        return _GameData:GetBalance(baseKey) * (_GameData:GetBalance(ratioKey) ^ (level - 1))
+	end
 
-    method number GetSkillCoefficient(string skillId)
-        -- 스킬 계수. 스킬을 지정하지 않으면(기본 공격) 시트의 기준 계수를 쓴다.
-        if skillId ~= nil and skillId ~= "" then
-            local skill = _GameData:GetSkill(skillId)
-            if skill ~= nil and skill.coefficient > 0 then
-                return skill.coefficient
-            end
-            log_warning("[CombatFormula] 스킬 계수를 찾지 못해 기준 계수로 대체: " .. tostring(skillId))
-        end
-        return _GameData:GetBalance("skill_coefficient_base")
-    end
-
-    method integer CalcSkillDamage(number atk, number def, string skillId)
-        -- 실제 호출부가 쓰는 진입점. 계수 조회와 계산을 한 번에 한다.
-        --
-        -- ⚠ 중복 강화(T15-2)는 여기서 못 얹는다 — 몇 장 가졌는지는 **플레이어의 것**이라
-        --   상태 없는 이 모듈이 알 수 없다. 스킬 데미지는 PlayerAttack.CalcDamage가
-        --   StackedCoefficient로 계수를 만든 뒤 CalcDamage를 직접 부른다.
-        --   이 함수는 몬스터 공격(MonsterAttack)처럼 중복이 없는 쪽이 쓴다.
-        return self:CalcDamage(atk, def, self:GetSkillCoefficient(skillId))
-    end
-
-    method number StackedCoefficient(number baseCoefficient, integer stack)
-        -- 중복 보유가 계수를 올린다 (T15-2, 대표 지시 2026-08-14).
-        --
-        --   계수 = 기본 × (1 + skill_stack_bonus × (보유수 - 1))
-        --   5장 만작 + 보너스 0.2 → ×1.8
-        --
-        -- **비례**인 이유: 정액(+0.1 고정)으로 두면 계수 1.0인 점액 튀기기가 +40%,
-        -- 1.35인 바위 던지기가 +30%로 **약한 스킬이 비율로 더 오른다** — 희귀도 서열이
-        -- 뒤집힌다. 드랍률에 LUK을 비례로 얹은 것(T13-6)과 같은 판단이다.
-        --
-        -- 장비는 규칙이 다르다(개당 수치 × 보유 개수 = 배수). 스탯이 정수 5라
-        -- 비례 20%면 5 → 6 → 7이 되어 체감이 없기 때문이다. 섞지 말 것.
-        if stack < 1 then stack = 1 end
-
-        -- 상한을 여기서 자른다. 세이브에 상한을 넘는 값이 남아 있어도(상한을 나중에
-        -- 낮추는 경우) 조용히 초과 배율이 나가지 않게 한다.
-        local cap = math.floor(_GameData:GetBalance("skill_stack_max"))
-        if cap < 1 then cap = 1 end
-        if stack > cap then stack = cap end
-
-        local bonus = _GameData:GetBalance("skill_stack_bonus")
-        return baseCoefficient * (1 + bonus * (stack - 1))
-    end
-
-    ---------------------------------------------------------------
-    -- 몬스터 수치
-    ---------------------------------------------------------------
-
-    method number MonsterStatAtLevel(string baseKey, string ratioKey, number level)
-        -- 시트 공식: base × ratio^(level-1).
-        -- MonsterTable에 없는 레벨의 몬스터를 즉석에서 만들 때 쓴다.
-        -- 테이블에 있는 몬스터는 GetMonster를 쓸 것 — 확정값이 우선이다.
-        if level < 1 then level = 1 end
-        -- math.pow가 아니라 ^ 를 쓴다 — GameDataVerify에서 동작을 확인한 쪽이다.
-        return _GameData:GetBalance(baseKey) * (_GameData:GetBalance(ratioKey) ^ (level - 1))
-    end
-
-    ---------------------------------------------------------------
-    -- 검증·튜닝 보조
-    ---------------------------------------------------------------
-
-    method integer HitsToKill(number atk, number def, number hp, string skillId)
-        -- 몇 대에 죽는가. T3 완료 조건("Lv1 몬스터를 기준 빌드로 3~4타")과
-        -- 이후 밸런스 튜닝에서 시트 예측과 대조하는 데 쓴다.
-        local damage = self:CalcSkillDamage(atk, def, skillId)
-        if damage <= 0 then return 0 end
-        return math.ceil(hp / damage)
-    end
+	method integer HitsToKill(number atk, number def, number hp, string skillId)
+		        -- 몇 대에 죽는가. T3 완료 조건("Lv1 몬스터를 기준 빌드로 3~4타")과
+		        -- 이후 밸런스 튜닝에서 시트 예측과 대조하는 데 쓴다.
+		        local damage = self:CalcSkillDamage(atk, def, skillId)
+		        if damage <= 0 then return 0 end
+		        return math.ceil(hp / damage)
+	end
 
 end
