@@ -640,7 +640,8 @@ script MonsterAttack extends AttackComponent
 		toPos = targets[math.ceil(#targets * 0.5)]
 		local anyNewVfx = false
 		for i = 1, #targets do
-			if _SkillEffect:PlayProjectile(skill.id, self.Entity, targets[i]) then anyNewVfx = true end
+			if _SkillEffect:PlayProjectile(skill.id, self.Entity, targets[i],
+				anyNewVfx == false) then anyNewVfx = true end
 		end
 		if anyNewVfx == false then _SkillEffect:PlayCast(skill.id, self.Entity, toPos.x < fromPos.x) end
 
@@ -735,7 +736,7 @@ script MonsterAttack extends AttackComponent
 			local from = self.Entity.TransformComponent.WorldPosition
 			_SkillEffect:PlayCast(skillId, self.Entity, targetPos.x < from.x)
 		end
-		_SkillEffect:PlayProjectile(skillId, self.Entity, targetPos)
+		_SkillEffect:PlayProjectile(skillId, self.Entity, targetPos, true)
 
 		local flight = _GameData:GetBalance("projectile_seconds")
 		local maxTargets = skill.max_targets
