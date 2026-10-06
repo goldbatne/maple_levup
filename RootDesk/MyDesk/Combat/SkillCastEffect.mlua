@@ -139,8 +139,16 @@ script SkillCastEffect extends Component
 		        end
 	end
 
-	@ExecSpace("ServerOnly")
 	method void OnUpdate(number delta)
+		        if self:IsClient() then
+		            local sprite = self.Entity.SpriteRendererComponent
+		            if isvalid(sprite) then
+		                -- 서버의 Visible과 RUID 복제 순서에 의존하지 않는다.
+		                -- 공용 모델의 초록 placeholder는 어떤 스킬에서도 표시하지 않는다.
+		                sprite.Enable = sprite.SpriteRUID ~= "" and sprite.SpriteRUID ~= "7985d900fb03443899423346524299a7"
+		            end
+		            return
+		        end
 		        -- 아직 Play를 안 받았으면 가만히 있는다 (스폰 프레임에 한 번 걸린다).
 		        if self.Playing == false or self.LifeTotal <= 0 then return end
 		

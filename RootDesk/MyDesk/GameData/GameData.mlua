@@ -264,6 +264,10 @@ script GameData extends Logic
 
 	method void OnBeginPlay()
 		        -- 월드 세션 시작 시 데이터셋을 한 번만 읽어 캐시한다.
+		        -- 공개 플레이에는 서버 진단 로그를 전송하지 않는다. Maker 검증 로그는 유지한다.
+		        if self:IsServer() then
+		            _LogService:SetShouldShowServerLog(Environment:IsMakerPlay())
+		        end
 		        self:LoadAll()
 		        self:InitializeRogueliteInstance()
 	end
@@ -447,6 +451,11 @@ script GameData extends Logic
 		        -- 정상 경로의 GameBalance.csv가 정본이며, 아래 값은 해당 행이 누락됐을 때만
 		        -- 적용되는 동일 값의 안전 fallback이다.
 		        local rogueliteDefaults = {
+		            skill_rush_required_count = 3,
+		            skill_rush_window_seconds = 6,
+		            skill_rush_multiplier_one_tag = 3,
+		            skill_rush_multiplier_two_tags = 4,
+		            skill_rush_multiplier_three_tags = 5,
 		            roguelite_run_mode_enabled = 1,
 		            phase1_random_combat_enabled = 1,
 		            phase3_simplified_growth_enabled = 1,
@@ -593,6 +602,7 @@ script GameData extends Logic
 	end
 
 	method void LoadSkills()
+		self._T.skillRushTags = nil
 		        -- 몬스터/NPC 스킬 공통 테이블 (source로 구분).
 		        local dataSet = self:GetDataSet("SkillTable")
 		        if dataSet == nil then return end
@@ -762,6 +772,7 @@ script GameData extends Logic
 	end
 
 	method void LoadMonsters()
+		self._T.skillRushTags = nil
 		        -- 몬스터 레코드. hp/def/exp는 밸런스시트 공식으로 산출된 확정값이다.
 		        local dataSet = self:GetDataSet("MonsterTable")
 		        if dataSet == nil then return end
@@ -1121,6 +1132,48 @@ script GameData extends Logic
 		        local skill = self.skills[id]
 		        if skill == nil or skill.effect_layers == nil then return {} end
 		        return skill.effect_layers
+	end
+
+	method table GetSkillRushTags(string id)
+		-- Cache actual dispatch types and membership in existing mega-area pools.
+		if self._T.skillRushTags == nil then
+			local cache = {}
+			for skillId, skill in pairs(self.skills) do
+				local tags = {}
+				if skill.skill_kind ~= "passive" then
+					if skill.skill_kind == "defense" then tags.defense = true
+					elseif skill.skill_kind == "buff" then tags.buff = true
+					elseif skill.projectile_ruid ~= "" then tags.projectile = true
+					elseif skill.dash_distance > 0 then tags.dash = true
+					elseif skill.behavior == "LINE_STRIKE" then tags.line = true
+					elseif skill.behavior == "FRONT_CONE" then tags.cone = true
+					elseif skill.behavior == "DAMAGE_ZONE" then tags.zone = true end
+					if skill.target_mode == "area" then tags.area = true end
+					local effect = skill.secondary_effect
+					if effect == "SLOW" or effect == "STUN" or effect == "PULL" or effect == "KNOCKBACK" then tags.control = true end
+				end
+				cache[skillId] = tags
+			end
+			for _, megaId in ipairs(self:GetMegaAreaIds()) do
+				local pool = self:GetMegaMonsterPool(megaId)
+				for _, bossId in ipairs(self:GetMegaBossPool(megaId)) do pool[#pool + 1] = bossId end
+				for _, monsterId in ipairs(pool) do
+					local monster = self.monsters[monsterId]
+					if monster ~= nil and cache[monster.drop_skill_id] ~= nil then cache[monster.drop_skill_id][megaId] = true end
+				end
+			end
+			self._T.skillRushTags = cache
+		end
+		return self._T.skillRushTags[id] or {}
+	end
+
+	@ExecSpace("ServerOnly")
+	method void ResetParticipantSkillRush()
+		-- Inventory and supply cadence survive room transitions; combo does not.
+		for _, userId in ipairs(self.RogueParticipantIds) do
+			local player = _UserService:GetUserEntityByUserId(userId)
+			if isvalid(player) and player.PlayerSkillSlots ~= nil then player.PlayerSkillSlots:ResetSkillRush() end
+		end
 	end
 
 	method table GetSkillTags(string id)
@@ -3328,8 +3381,8 @@ script GameData extends Logic
 		                    else
 		                        local partyPlayer = _UserService:GetUserEntityByUserId(fields[1])
 		                        if isvalid(partyPlayer) and isvalid(partyPlayer.PlayerComponent) then
-		                            text = name .. "님 체력 " .. tostring(math.floor(partyPlayer.PlayerComponent.Hp))
-		                                .. "점. 최대 " .. tostring(math.floor(partyPlayer.PlayerComponent.MaxHp)) .. "점."
+		                            text = name .. "  HP " .. tostring(math.floor(partyPlayer.PlayerComponent.Hp))
+		                                .. " / " .. tostring(math.floor(partyPlayer.PlayerComponent.MaxHp))
 		                        else
 		                            text = name .. "님과의 연결을 확인하고 있습니다."
 		                        end
@@ -4844,6 +4897,7 @@ script GameData extends Logic
 		
 		        -- 같은 프레임에 여러 사용자가 포탈을 밟아도 전환은 서버에서 한 번만 확정한다.
 		        self.RogueTransitionLocked = true
+		        self:ResetParticipantSkillRush()
 		        _TimerService:SetTimerOnce(function()
 		            self.RogueTransitionLocked = false
 		        end, 1)
@@ -5218,6 +5272,8 @@ script GameData extends Logic
 
 	@ExecSpace("ServerOnly")
 	method void OnRunPlayerDied(Entity player)
+		-- Death invalidates this chain even when teammates continue.
+		if isvalid(player) and player.PlayerSkillSlots ~= nil then player.PlayerSkillSlots:ResetSkillRush() end
 		        if self.RogueRunActive == false or not isvalid(player) then return end
 		        local userId = player.PlayerComponent.UserId
 		        if self:IsRunParticipant(userId) == false then return end
@@ -5254,6 +5310,7 @@ script GameData extends Logic
 		        if self.RogueRunActive == false or self.RogueRunResult ~= "ACTIVE" then return false end
 		        self:StopRogueRunClock()
 		        self.RogueRunFailed = true
+		        self:ResetParticipantSkillRush()
 		        self.RogueRunResult = "FAILED"
 		        self:StopRogueliteFloorHazards()
 		        _SkillDropManager:ClearAll("RUN_FAILED")
@@ -5894,6 +5951,120 @@ script GameData extends Logic
 		        if self.RogueDisconnectedAt[event.UserId] == nil then return end
 		        self.RogueDisconnectedAt[event.UserId] = nil
 		        log("[RogueRun] 동일 참가자 재접속 " .. event.UserId .. " — Run 상태 유지")
+	end
+
+	@ExecSpace("ServerOnly")
+	method boolean ApplyPartyBuff(Entity caster, table skill, number ratio)
+		if not isvalid(caster) or skill == nil or ratio <= 0 or skill.duration <= 0 then return false end
+		local kind = skill.effect_type
+		if kind ~= "shield" and kind ~= "attack_boost" and kind ~= "next_attack_boost" then return false end
+		local pc = caster.PlayerComponent
+		local companion = caster.CompanionCombat
+		local ownerId = isvalid(pc) and pc.UserId or (companion ~= nil and companion.OwnerUserId or "")
+		if ownerId == "" then return false end
+		local map = caster.CurrentMap
+		if not isvalid(map) then return false end
+		local owners = {[ownerId] = true}
+		if self.RogueRunActive and self:IsRunParticipant(ownerId) then
+			for _, id in pairs(self.RogueParticipantIds) do
+				if self.RogueAliveParticipants[id] == true then owners[id] = true end
+			end
+		end
+		local targets = {}
+		for id, _ in pairs(owners) do
+			local player = _UserService:GetUserEntityByUserId(id)
+			if isvalid(player) and player.CurrentMap == map and isvalid(player.PlayerComponent)
+				and not player.PlayerComponent:IsDead() then targets[player.Id] = player end
+		end
+		local visit
+		visit = function(parent)
+			for _, child in pairs(parent.Children) do
+				local ally = child.CompanionCombat
+				if ally ~= nil and owners[ally.OwnerUserId] and not ally.IsDefeated and ally.Hp > 0 then
+					targets[child.Id] = child
+				end
+				visit(child)
+			end
+		end
+		visit(map)
+		if self._T.allyBuffs == nil then self._T.allyBuffs = {} end
+		local count = 0
+		for id, target in pairs(targets) do
+			local state = self._T.allyBuffs[id]
+			if state == nil or state.map ~= map then state = {entity = target, map = map, entries = {}} end
+			local key = caster.Id .. ":" .. skill.id
+			state.entries[key] = {kind = kind, ratio = ratio, expires = _UtilLogic.ElapsedSeconds + skill.duration, icon = skill.icon_ruid}
+			self._T.allyBuffs[id] = state
+			self:RefreshAllyBuffs(target)
+			count += 1
+		end
+		_TimerService:SetTimerOnce(function()
+			for id, target in pairs(targets) do
+				if isvalid(target) then self:RefreshAllyBuffs(target)
+				elseif self._T.allyBuffs ~= nil then self._T.allyBuffs[id] = nil end
+			end
+		end, skill.duration + 0.02)
+		log("[PartyBuff] " .. skill.id .. " allied_targets=" .. tostring(count))
+		return count > 0
+	end
+
+	@ExecSpace("ServerOnly")
+	method void RefreshAllyBuffs(Entity target)
+		if not isvalid(target) or self._T.allyBuffs == nil then return end
+		local state = self._T.allyBuffs[target.Id]
+		if state == nil then return end
+		local attack = target.PlayerAttack
+		local hit = target.PlayerHit
+		local ally = target.CompanionCombat
+		local pc = target.PlayerComponent
+		if target.CurrentMap ~= state.map or (isvalid(pc) and pc:IsDead()) or (ally ~= nil and ally.IsDefeated) then state.entries = {} end
+		local winners = {}
+		for key, entry in pairs(state.entries) do
+			if entry.expires <= _UtilLogic.ElapsedSeconds then state.entries[key] = nil
+			else
+				local old = winners[entry.kind]
+				if old == nil or entry.ratio > old.ratio or (entry.ratio == old.ratio and entry.expires > old.expires) then winners[entry.kind] = entry end
+			end
+		end
+		local shield, boost, nextBoost = winners.shield, winners.attack_boost, winners.next_attack_boost
+		if attack ~= nil then
+			attack.OutgoingBoostRatio = boost ~= nil and math.min(0.75, boost.ratio) or 0
+			attack.OutgoingBoostUntil = boost ~= nil and boost.expires or 0
+			attack.NextAttackBoostRatio = nextBoost ~= nil and math.min(0.75, nextBoost.ratio) or 0
+			attack.NextAttackBoostUntil = nextBoost ~= nil and nextBoost.expires or 0
+		end
+		if hit ~= nil then
+			hit.ShieldRatio = shield ~= nil and math.min(0.9, shield.ratio) or 0
+			hit.ShieldUntil = shield ~= nil and shield.expires or 0
+		end
+		if ally ~= nil then
+			ally.ShieldRatio = shield ~= nil and math.min(0.8, shield.ratio) or 0
+			ally.ShieldUntil = shield ~= nil and shield.expires or 0
+			ally.AttackBoostRatio = boost ~= nil and math.min(1, boost.ratio) or 0
+			ally.AttackBoostUntil = boost ~= nil and boost.expires or 0
+			ally.NextAttackBoostRatio = nextBoost ~= nil and math.min(0.75, nextBoost.ratio) or 0
+			ally.NextAttackBoostUntil = nextBoost ~= nil and nextBoost.expires or 0
+		end
+		local icons = {}
+		for _, kind in ipairs({"shield", "attack_boost", "next_attack_boost"}) do
+			local entry = winners[kind]
+			if entry ~= nil and entry.icon ~= nil and entry.icon ~= "" then table.insert(icons, entry.icon) end
+		end
+		local summary = table.concat(icons, ",")
+		if attack ~= nil then attack.ActiveBuffIcons = summary end
+		if ally ~= nil then ally.ActiveBuffIcons = summary end
+		if next(state.entries) == nil then self._T.allyBuffs[target.Id] = nil end
+	end
+
+	@ExecSpace("ServerOnly")
+	method void ConsumeAllyBuff(Entity target, string kind)
+		if not isvalid(target) or self._T.allyBuffs == nil then return end
+		local state = self._T.allyBuffs[target.Id]
+		if state == nil then return end
+		for key, entry in pairs(state.entries) do
+			if kind == "all" or entry.kind == kind then state.entries[key] = nil end
+		end
+		self:RefreshAllyBuffs(target)
 	end
 
 end

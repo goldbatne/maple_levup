@@ -60,6 +60,13 @@ script CompanionCombat extends AttackComponent
 
 	property number AttackBoostUntil = 0
 
+	property number NextAttackBoostRatio = 0
+
+	property number NextAttackBoostUntil = 0
+
+	@Sync
+	property string ActiveBuffIcons = ""
+
 	property number MemoryMonkFollowupSfxUntil = 0
 
 	property boolean Limited = false
@@ -282,15 +289,10 @@ script CompanionCombat extends AttackComponent
 		            _GameData:GetBalance("companion_growth_skill_per_stage")
 		            + self.EnhanceStage * _GameData:GetBalance("monster_enhance_skill_per_stage")
 		        if kind == "defense" or skill.behavior == "SHIELD" then
-		            self.ShieldRatio = math.min(0.8, math.max(0, skill.effect_value * effectGrowth))
-		            self.ShieldUntil = _UtilLogic.ElapsedSeconds + math.max(0.5, skill.duration)
+		            if not _GameData:ApplyPartyBuff(self.Entity, skill, skill.effect_value * effectGrowth) then return false end
 		            _SkillEffect:PlayCast(skill.id, self.Entity, dir.x < 0)
 		        elseif kind == "buff" or skill.behavior == "BUFF" then
-		            self.AttackBoostRatio = math.min(1, math.max(0, skill.effect_value * effectGrowth))
-		            self.AttackBoostUntil = _UtilLogic.ElapsedSeconds + math.max(0.5, skill.duration)
-		            if skill.id == "s_mon_memory_monk_trainee" then
-		                self.MemoryMonkFollowupSfxUntil = self.AttackBoostUntil
-		            end
+		            if not _GameData:ApplyPartyBuff(self.Entity, skill, skill.effect_value * effectGrowth) then return false end
 		            _SkillEffect:PlayCast(skill.id, self.Entity, dir.x < 0)
 		        elseif skill.projectile_ruid ~= "" then
 		            local endpoints = {to}
@@ -427,6 +429,11 @@ script CompanionCombat extends AttackComponent
 		        end
 		        if _UtilLogic.ElapsedSeconds < self.AttackBoostUntil then
 		            coefficient *= 1 + self.AttackBoostRatio
+		        end
+		        if self.NextAttackBoostRatio > 0 and _UtilLogic.ElapsedSeconds < self.NextAttackBoostUntil then
+		            coefficient *= 1 + self.NextAttackBoostRatio
+		            _SkillEffect:PlayMemoryMonkFollowup(self.Entity)
+		            _GameData:ConsumeAllyBuff(self.Entity, "next_attack_boost")
 		        end
 		        if self.MemoryMonkFollowupSfxUntil > 0 then
 		            if _UtilLogic.ElapsedSeconds < self.MemoryMonkFollowupSfxUntil then

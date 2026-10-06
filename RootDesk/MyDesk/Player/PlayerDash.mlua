@@ -42,6 +42,7 @@ script PlayerDash extends Logic
 		            self.savedSpeed = movement.InputSpeed
 		            if isvalid(controller) then self.savedControllerEnabled = controller.Enable end
 		        end
+		        self._T.dashMapId = isvalid(player.CurrentMap) and player.CurrentMap.Id or ""
 		
 		        self.dashDir = Vector2(dirX, dirY)
 		        self.dashLeft = seconds
@@ -68,6 +69,7 @@ script PlayerDash extends Logic
 		            if isvalid(controller) then self.controlSavedControllerEnabled = controller.Enable end
 		        end
 		        self.controlled = true
+		        self._T.controlMapId = isvalid(player.CurrentMap) and player.CurrentMap.Id or ""
 		        self.controlKind = kind
 		        self.controlLeft = seconds
 		        self.controlDir = Vector2(dirX, dirY)
@@ -89,6 +91,17 @@ script PlayerDash extends Logic
 
 	@ExecSpace("ClientOnly")
 	method void OnUpdate(number delta)
+		-- 맵 전환 중 참조가 비어도 복구 소유권을 유지하고 새 맵에서 즉시 해제한다.
+		local currentPlayer = _UserService.LocalPlayer
+		if not isvalid(currentPlayer) or not isvalid(currentPlayer.CurrentMap) then return end
+		if self.dashing and self._T.dashMapId ~= currentPlayer.CurrentMap.Id then
+			self:Finish()
+			return
+		end
+		if self.controlled and self._T.controlMapId ~= currentPlayer.CurrentMap.Id then
+			self:FinishControl()
+			return
+		end
 		if self.controlled then
 			self.controlLeft = self.controlLeft - delta
 			if self.controlLeft <= 0 then
@@ -123,32 +136,37 @@ script PlayerDash extends Logic
 
 	@ExecSpace("ClientOnly")
 	method void FinishControl()
-		        self.controlled = false
-		        self.controlLeft = 0
-		        self.controlKind = ""
+		        -- 유효한 이동/입력 컴포넌트를 복구한 뒤에만 제어 상태를 지운다.
+		        if not self.controlled then return end
 		        local player = _UserService.LocalPlayer
-		        if player == nil then return end
+		        if not isvalid(player) then return end
 		        local movement = player.MovementComponent
 		        if not isvalid(movement) then return end
+		        local controller = player.PlayerControllerComponent
+		        if not isvalid(controller) then return end
 		        ---@type PlayerStats
 		        local stats = player:GetComponent("script.PlayerStats")
 		        if stats ~= nil then movement.InputSpeed = stats:GetMoveSpeed()
 		        elseif self.controlSavedSpeed > 0 then movement.InputSpeed = self.controlSavedSpeed end
-		        local controller = player.PlayerControllerComponent
 		        if isvalid(controller) then controller.Enable = self.controlSavedControllerEnabled end
 		        movement:Stop()
+		        self.controlled = false
+		        self.controlLeft = 0
+		        self.controlKind = ""
+		        self._T.controlMapId = nil
 	end
 
 	@ExecSpace("ClientOnly")
 	method void Finish()
 		        -- 속도를 되돌리고 멈춘다. 안 멈추면 돌진 방향으로 계속 미끄러진다.
-		        self.dashing = false
-		        self.dashLeft = 0
+		        if not self.dashing then return end
 		
 		        local player = _UserService.LocalPlayer
-		        if player == nil then return end
+		        if not isvalid(player) then return end
 		        local movement = player.MovementComponent
 		        if not isvalid(movement) then return end
+		        local controller = player.PlayerControllerComponent
+		        if not isvalid(controller) then return end
 		
 		        -- 스냅샷이 아니라 **지금 맞는 속도**로 되돌린다 (T27-3).
 		        -- 이동 속도가 LUK에서 나오게 되면서 스냅샷이 낡을 수 있다 — 돌진 도중에
@@ -161,9 +179,11 @@ script PlayerDash extends Logic
 		        elseif self.savedSpeed > 0 then
 		            movement.InputSpeed = self.savedSpeed
 		        end
-		        local controller = player.PlayerControllerComponent
 		        if isvalid(controller) then controller.Enable = self.savedControllerEnabled end
 		        movement:Stop()
+		        self.dashing = false
+		        self.dashLeft = 0
+		        self._T.dashMapId = nil
 		        log("[PlayerDash] finish controller=" .. tostring(self.savedControllerEnabled))
 	end
 
@@ -172,6 +192,10 @@ script PlayerDash extends Logic
 		        -- 돌진 중에 세션이 끝나도 속도는 되돌려 둔다.
 		        if self.dashing then self:Finish() end
 		        if self.controlled then self:FinishControl() end
+		        self.dashing = false
+		        self.controlled = false
+		        self._T.dashMapId = nil
+		        self._T.controlMapId = nil
 	end
 
 end
