@@ -499,28 +499,29 @@ script PlayerSkillSlots extends Component
 		                .. " actual=" .. tostring(self.RandomSlots[slotIndex]))
 		            return false
 		        end
-		local pool = self:GetRunOwnedSkillIds()
-		local alternatives = {}
-		for _, id in ipairs(pool) do
-			if id ~= expectedSkillId then alternatives[#alternatives + 1] = id end
-		end
-		local candidates = #alternatives > 0 and alternatives or pool
-		local replacement = ""
-		if #candidates > 0 then
-			if self.TutorialModeActive then
-				replacement = candidates[_UtilLogic:RandomIntegerRange(1, #candidates)]
-			else
-				replacement = candidates[_GameData:RogueStreamNextInt(
-					"supply:" .. self.Entity.PlayerComponent.UserId, #candidates)]
+		if self.TutorialModeActive then
+			-- 연습장만 사용한 칸에 즉시 다른 스킬을 보여준다.
+			local pool = self:GetRunOwnedSkillIds()
+			local alternatives = {}
+			for _, id in ipairs(pool) do
+				if id ~= expectedSkillId then alternatives[#alternatives + 1] = id end
 			end
+			local candidates = #alternatives > 0 and alternatives or pool
+			local replacement = ""
+			if #candidates > 0 then
+				replacement = candidates[_UtilLogic:RandomIntegerRange(1, #candidates)]
+			end
+			self.RandomSlots[slotIndex] = replacement ~= "" and replacement or nil
+			self.TutorialUseCount += 1
+			log("[SkillSlots] 튜토리얼 슬롯 즉시 교체 " .. tostring(slotIndex) .. "번 ["
+				.. tostring(expectedSkillId) .. "] → [" .. replacement .. "]")
+		else
+			-- 본 모험은 소비 즉시 빈칸으로 남기고 기존 5초 공급 타이머에 맡긴다.
+			self.RandomSlots[slotIndex] = nil
+			if self.randomSupplyTimer == 0 then self:StartRandomSkillSupply() end
+			log("[SkillSlots] 모험 슬롯 소비 " .. tostring(slotIndex) .. "번 ["
+				.. tostring(expectedSkillId) .. "] — 5초 공급 대기")
 		end
-		self.RandomSlots[slotIndex] = replacement ~= "" and replacement or nil
-		if self.TutorialModeActive then self.TutorialUseCount += 1 end
-		if self.RandomSlots[slotIndex] == nil and self.randomSupplyTimer == 0 then
-			self:StartRandomSkillSupply()
-		end
-		log("[SkillSlots] 랜덤 슬롯 교체 " .. tostring(slotIndex) .. "번 ["
-		    .. tostring(expectedSkillId) .. "] → [" .. replacement .. "]")
 		return true
 	end
 
