@@ -550,13 +550,13 @@ script SkillBar extends Logic
 		            if btn ~= nil then btn.Entity.Enable = true end
 		        end
 		        self:RefreshOffer(slots)
-		
+
 		        -- 저장된 키 배치가 도착했는지 본다 (T14-2). 달라졌을 때만 다시 만든다.
 		        self:SyncKeyOrderFromSave()
-		
+
 		        local active = slots:GetActiveSkills()
 		local randomMode = slots:IsPhase1CombatEnabled()
-		
+
 		if randomMode then
 			-- 랜덤 모드는 빈 자리까지 포함해 다섯 위치를 고정한다. 슬롯을 당기면
 			-- 사용 직후 다른 스킬이 같은 키로 순간 이동해 오조작을 만든다.
@@ -579,16 +579,17 @@ script SkillBar extends Logic
 					end
 				end
 			end
+			self:RefreshSkillRush()
 			return
 		end
-		
+
 		        -- 몇 칸이 차 있는지 먼저 센다. 자리를 오른쪽 끝부터 채우려면
 		        -- **전체 개수를 알아야** 첫 칸의 자리가 정해진다.
 		        local filled = 0
 		        for i = 1, 5 do
 		            if active[i] ~= nil then filled = filled + 1 end
 		        end
-		
+
 		        local placed = 0
 		        for i = 1, 5 do
 		            local btn = self:GetButton(i)
@@ -599,7 +600,7 @@ script SkillBar extends Logic
 		                    btn.Entity:SetVisible(false)
 		                else
 		                    btn.Entity:SetVisible(true)
-		
+
 		                    -- 오른쪽 끝에서 왼쪽으로 채운다. 마지막 칸이 구석(slotRightX)에 온다.
 		                    placed = placed + 1
 		                    local rt = btn.Entity.UITransformComponent
@@ -610,11 +611,48 @@ script SkillBar extends Logic
 		                            rt.anchoredPosition = Vector2(x, rt.anchoredPosition.y)
 		                        end
 		                    end
-		
+
 		                    self:RenderSlot(btn.Entity, i, skillId)
 		                end
 		            end
 		        end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void RefreshSkillRush()
+		-- Presentation only: compatibility is an owner-synchronized server mask.
+		local slots = self:GetSlots()
+		local active = slots ~= nil and slots.RogueliteRunActive and not slots.TutorialModeActive
+		local count = active and slots.SkillRushCount or 0
+		local mask = active and slots.SkillRushEligibleMask or 0
+		for i = 1, 5 do
+			local button = self:GetButton(i)
+			if button ~= nil then
+				local border = button.Entity.SpriteGUIRendererComponent
+				if isvalid(border) then
+					local eligible = count > 0 and math.floor(mask / 2 ^ (i - 1)) % 2 == 1
+					if eligible then
+						local brightness = count >= 2 and (0.9 + 0.1 * math.sin(_UtilLogic.ElapsedSeconds * 6)) or 0.82
+						border.OutlineColor = Color(brightness, brightness * 0.76, brightness * 0.25, 1)
+						border.OutlineWidth = count >= 2 and 4 or 2
+					end
+				end
+			end
+		end
+		local hud = _EntityService:GetEntityByPath("/ui/SkillBar/RushHud")
+		if not isvalid(hud) then return end
+		local success = active and _UtilLogic.ElapsedSeconds < (self._T.rushSuccessUntil or 0)
+		hud.Enable = active and (count > 0 or success)
+		if success then hud.TextGUIRendererComponent.Text = "SKILL RUSH ×" .. tostring(self._T.rushSuccessMultiplier)
+		elseif count > 0 then hud.TextGUIRendererComponent.Text = "RUSH " .. tostring(count) .. " / 3" end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void ShowSkillRushSuccess(integer multiplier)
+		-- Short success label shares the small HUD, never intercepts input.
+		self._T.rushSuccessMultiplier = multiplier
+		self._T.rushSuccessUntil = _UtilLogic.ElapsedSeconds + 0.8
+		self:RefreshSkillRush()
 	end
 
 	@ExecSpace("ClientOnly")
@@ -662,6 +700,9 @@ script SkillBar extends Logic
 
 	@ExecSpace("ClientOnly")
 	method void CloseRunOverlays()
+		self._T.rushSuccessUntil = 0
+		local rushHud = _EntityService:GetEntityByPath("/ui/SkillBar/RushHud")
+		if isvalid(rushHud) then rushHud.Enable = false end
 		        -- Run 포기/종료 직후에는 이전 획득 후보와 토스트가 로비 위에 남으면 안 된다.
 		        if isvalid(self.offerPanel) then self.offerPanel.Enable = false end
 		        self.displayedOfferRevision = -1

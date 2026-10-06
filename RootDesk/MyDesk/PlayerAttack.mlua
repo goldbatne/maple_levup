@@ -67,6 +67,9 @@ script PlayerAttack extends AttackComponent
 	@HideFromInspector
 	property number NextAttackBoostUntil = 0
 
+	@Sync
+	property string ActiveBuffIcons = ""
+
 	@HideFromInspector
 	property number EnemyStunUntil = 0
 
@@ -133,6 +136,7 @@ script PlayerAttack extends AttackComponent
 
 	@ExecSpace("ServerOnly")
 	method void OnEndPlay()
+		_GameData:ConsumeAllyBuff(self.Entity, "all")
 		-- 타이머를 남기면 맵을 옮기거나 스크립트를 리로드할 때 유령 공격이 계속 돈다.
 		if self.autoAttackTimer ~= 0 then
 			_TimerService:ClearTimer(self.autoAttackTimer)
@@ -199,6 +203,53 @@ script PlayerAttack extends AttackComponent
 	method void ApplyEnemyStun(number seconds)
 		if seconds <= 0 then return end
 		self.EnemyStunUntil = math.max(self.EnemyStunUntil, _UtilLogic.ElapsedSeconds + seconds)
+	end
+
+	@ExecSpace("ServerOnly")
+	method boolean IsValidSkillRushTarget(Entity target)
+		-- Same-map live Run enemy, including elite/boss; dead-held sprites excluded.
+		if not isvalid(target) or target.CurrentMap ~= self.Entity.CurrentMap then return false end
+		local monster = target.RoomMonster
+		return monster ~= nil and not monster.IsDead and monster.Hp > 0
+	end
+
+	@ExecSpace("ServerOnly")
+	method void OnMapLeave(Entity map)
+		_GameData:ConsumeAllyBuff(self.Entity, "all")
+	end
+
+	@ExecSpace("ServerOnly")
+	method void ResolveSkillRush(integer multiplier)
+		-- One independent native hit; never borrow basic-attack upgrades or buff state.
+		local slots = self.Entity.PlayerSkillSlots
+		if slots == nil or not slots:CanTrackSkillRush() then return end
+		local radius = _GameData:GetBalance("player_attack_range")
+		if radius <= 0 then radius = 1.2 end
+		local target = self:PickNearestBasicTarget(self.Entity.TransformComponent.WorldPosition, radius)
+		if not self:IsValidSkillRushTarget(target) then
+			log("[SkillRush] finisher skipped: no valid nearby enemy")
+			return
+		end
+		self._T.rushTarget = target
+		self._T.rushMultiplier = multiplier
+		local p = target.TransformComponent.WorldPosition
+		self:AttackFast(CircleShape(Vector2(p.x, p.y + 0.5), 1.5), "skill_rush", CollisionGroups.Monster)
+		self._T.rushTarget = nil
+		self._T.rushMultiplier = nil
+	end
+
+	method integer CalcSkillRushDamage(Entity attacker, Entity defender)
+		-- Reuse effective attack, CombatFormula and the native shield/HitEvent path.
+		if defender ~= self._T.rushTarget or not self:IsValidSkillRushTarget(defender) then return 0 end
+		local stats = attacker.PlayerStats
+		local power = stats ~= nil and stats:GetTotalAtk() or _GameData:GetBalance("run_player_base_attack")
+		local monster = defender.RoomMonster
+		local multiplier = self._T.rushMultiplier or 0
+		local damage = _CombatFormula:CalcDamage(power, monster.Def, multiplier)
+		local reduction = monster:GetDamageReduction()
+		if reduction > 0 then damage = math.max(1, math.floor(damage * (1 - reduction) + 0.5)) end
+		log("[SkillRush] hit source=skill_rush target=" .. defender.Name .. " attack=" .. tostring(power) .. " multiplier=" .. tostring(multiplier) .. " damage=" .. tostring(damage))
+		return damage
 	end
 
 	@ExecSpace("ServerOnly")
@@ -339,7 +390,7 @@ script PlayerAttack extends AttackComponent
 		local adjustedValue = skill.effect_value * effectMultiplier
 		
 		if skill.effect_type == "shield" then
-			hit:ApplyShield(adjustedValue, skill.duration)
+			if not _GameData:ApplyPartyBuff(self.Entity, skill, adjustedValue) then return false end
 			log("[PlayerAttack] 방어 스킬 [" .. skill.name .. "] 실드 "
 				.. tostring(math.floor(adjustedValue * 100)) .. "% / "
 				.. tostring(skill.duration) .. "초")
@@ -373,28 +424,13 @@ script PlayerAttack extends AttackComponent
 			log_warning("[PlayerAttack] 사용할 수 없는 버프 효과: " .. tostring(skill.id))
 			return false
 		end
-		if skill.effect_type == "next_attack_boost" then
-			self.NextAttackBoostRatio = math.max(self.NextAttackBoostRatio,
-				math.min(0.75, skill.effect_value))
-			self.NextAttackBoostUntil = math.max(self.NextAttackBoostUntil,
-				_UtilLogic.ElapsedSeconds + skill.duration)
-			log("[SkillBuff] Player " .. skill.id .. " next_attack_boost="
-				.. tostring(self.NextAttackBoostRatio) .. " duration=" .. tostring(skill.duration))
-			return true
-		end
-		-- 같은 계열은 곱해서 쌓지 않고 더 강한 한 가지만 유지한다.
-		if _UtilLogic.ElapsedSeconds >= self.OutgoingBoostUntil then self.OutgoingBoostRatio = 0 end
-		self.OutgoingBoostRatio = math.max(self.OutgoingBoostRatio,
-			math.min(0.75, skill.effect_value))
-		self.OutgoingBoostUntil = math.max(self.OutgoingBoostUntil,
-			_UtilLogic.ElapsedSeconds + skill.duration)
-		log("[SkillBuff] Player " .. skill.id .. " attack_boost="
-			.. tostring(self.OutgoingBoostRatio) .. " duration=" .. tostring(skill.duration))
-		return true
+		return _GameData:ApplyPartyBuff(self.Entity, skill, skill.effect_value)
 	end
 
 	@ExecSpace("ServerOnly")
 	method void ResetRunSkillEffects()
+		_GameData:ConsumeAllyBuff(self.Entity, "all")
+		self.ActiveBuffIcons = ""
 		-- Run을 넘겨 일회성 기도가 남지 않는다.
 		self.OutgoingBoostRatio = 0
 		self.OutgoingBoostUntil = 0
@@ -411,6 +447,9 @@ script PlayerAttack extends AttackComponent
 		-- 왜 이 훅에서 세는가: 엔진에 최대 타격 수가 없다. 판정 후보를 하나씩 물어보는
 		-- 곳이 여기뿐이라, 예산을 깎아 가며 false를 돌려주는 것이 유일한 방법이다.
 		if __base:IsAttackTarget(defender, attackInfo) == false then return false end
+		if attackInfo == "skill_rush" then
+			return defender == self._T.rushTarget and self:IsValidSkillRushTarget(defender)
+		end
 		if self.basicTarget ~= nil then
 			for i = 1, #self.basicTargets do
 				if defender == self.basicTargets[i] then return true end
@@ -838,7 +877,7 @@ script PlayerAttack extends AttackComponent
 
 	@ExecSpace("ServerOnly")
 	method boolean DashSkill(string skillId, table skill, number radius, number aimX, number aimY)
-		-- 가고 있는 쪽으로 빠르게 돌진하고, **도착한 자리에서** 더 아프게 때린다 (T21-2).
+		-- 돌진 경로 전체를 한 번 판정하고 도착 시각에는 충돌 연출만 재생한다.
 		--
 		-- 방향은 **클라가 재서 보낸 8방향**이다 (T22-1, 대표 지시 "8방향으로 통일해줘").
 		--
@@ -894,9 +933,9 @@ script PlayerAttack extends AttackComponent
 		--   그래서 **도착 지점을 계산해서** 그 자리에서 잰다. 벽에 막히면 실제로는
 		--   덜 갔을 수 있지만, 막힌 방향에는 어차피 때릴 것이 없다.
 		local maxTargets = skill.max_targets
+		self:ResolveDashHit(skillId, toPos, radius, maxTargets, from)
 		_TimerService:SetTimerOnce(function()
 			if not isvalid(self.Entity) or self.Entity.CurrentMap ~= castMap then return end
-			self:ResolveDashHit(skillId, toPos, radius, maxTargets)
 			_SkillEffect:PlayDashImpactIfNeeded(skillId, self.Entity, toPos, dir.x < 0)
 		end, seconds)
 		
@@ -910,13 +949,13 @@ script PlayerAttack extends AttackComponent
 		log("[PlayerAttack] [" .. skill.name .. "] 돌진 방향 "
 			.. string.format("%.2f,%.2f", dir.x, dir.y)
 			.. "  거리 " .. string.format("%.1f", skill.dash_distance)
-			.. "  " .. string.format("%.2f", seconds) .. "초 뒤 판정")
+			.. "  경로 판정 / " .. string.format("%.2f", seconds) .. "초 뒤 도착 연출")
 		return true
 	end
 
 	@ExecSpace("ServerOnly")
-	method void ResolveDashHit(string skillId, Vector3 pos, number radius, number maxTargets)
-		-- 돌진이 끝나는 순간의 판정. 출발한 자리가 아니라 **도착할 자리**를 본다.
+	method void ResolveDashHit(string skillId, Vector3 pos, number radius, number maxTargets, Vector3 from)
+		-- 벽에서 잘린 출발~도착 경로를 하나의 네이티브 판정으로 처리한다.
 		-- 좌표를 인자로 받는 이유는 위 DashSkill 주석 참고 — 서버가 보는 플레이어
 		-- 위치는 이 시점에 아직 출발점 근처다.
 		if not isvalid(self.Entity) then return end
@@ -931,15 +970,29 @@ script PlayerAttack extends AttackComponent
 		self.dashBonus = _GameData:GetBalance("skill_dash_damage_bonus")
 		
 		-- 몇 명 맞았는지가 로그에 남아야 "돌진했는데 허공이었다"가 보인다.
-		local hits = self:Attack(
-			CircleShape(Vector2(pos.x, pos.y + 0.5), radius), skillId, CollisionGroups.Monster)
+		local dx, dy = pos.x - from.x, pos.y - from.y
+		local distance = math.sqrt(dx * dx + dy * dy)
+		local center = Vector2((from.x + pos.x) * 0.5, (from.y + pos.y) * 0.5 + 0.5)
+		local shape = CircleShape(center, radius)
+		if distance > 0.01 then
+			local ux, uy = dx / distance, dy / distance
+			local half = distance * 0.5 + radius
+			shape = PolygonShape(center, {
+				Vector2(center.x - ux * half - uy * radius, center.y - uy * half + ux * radius),
+				Vector2(center.x - ux * half + uy * radius, center.y - uy * half - ux * radius),
+				Vector2(center.x + ux * half + uy * radius, center.y + uy * half - ux * radius),
+				Vector2(center.x + ux * half - uy * radius, center.y + uy * half + ux * radius)
+			}, 0)
+		end
+		local hits = self:Attack(shape, skillId, CollisionGroups.Monster)
 		
 		self.hitLimited = false
 		self.dashBonus = 0
 		
 		local n = 0
 		if hits ~= nil then n = #hits end
-		log("[돌진] " .. skill.name .. "  도착 " .. string.format("%.1f,%.1f", pos.x, pos.y)
+		log("[돌진] " .. skill.name .. "  경로 " .. string.format("%.1f,%.1f", from.x, from.y)
+			.. " → " .. string.format("%.1f,%.1f", pos.x, pos.y)
 			.. "  반경 " .. string.format("%.2f", radius) .. " → " .. tostring(n) .. "명")
 	end
 
@@ -1036,6 +1089,7 @@ script PlayerAttack extends AttackComponent
 	end
 
 	method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)
+		if attackInfo == "skill_rush" then return self:CalcSkillRushDamage(attacker, defender) end
 		-- 데미지 공식은 CombatFormula 한 곳에만 둔다.
 		-- 작업지시서 T3 함정: 계산을 클라로 옮기면 이후 전부 재작업이다.
 		-- 이 훅은 서버 히트 파이프라인만 호출하므로 결과는 서버 권한이다.
@@ -1156,6 +1210,7 @@ script PlayerAttack extends AttackComponent
 			end
 			self.NextAttackBoostRatio = 0
 			self.NextAttackBoostUntil = 0
+			_GameData:ConsumeAllyBuff(self.Entity, "next_attack_boost")
 		end
 		if self.OutgoingWeakenRatio > 0 and _UtilLogic.ElapsedSeconds < self.OutgoingWeakenUntil then
 			coefficient = coefficient * math.max(0.25, 1 - self.OutgoingWeakenRatio)

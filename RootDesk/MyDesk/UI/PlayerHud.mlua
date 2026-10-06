@@ -89,6 +89,8 @@ script PlayerHud extends Logic
 		            info:SetVisible(runActive)
 		        end
 		        self:RefreshCompanionStatus(player, runActive)
+		        local attack = player.PlayerAttack
+		        self:RefreshBuffIcons("/ui/PlayerHud/Info/info_bottom/Hp", attack ~= nil and attack.ActiveBuffIcons or "")
 		        self:RefreshLobbyMenuVisuals(player)
 		
 		        -- PlayerStats가 아직 붙기 전에도 보스바는 맵 상태만으로 그릴 수 있다.
@@ -103,7 +105,7 @@ script PlayerHud extends Logic
 		            if hp < 0 then hp = 0 end
 		            self:SetFill(self.hpFill, self.hpFullWidth, hp / maxHp)
 		            if isvalid(self.hpText) then
-		                self.hpText.Text = tostring(math.floor(hp)) .. " / " .. tostring(math.floor(maxHp))
+		                self.hpText.Text = "HP " .. tostring(math.floor(hp)) .. " / " .. tostring(math.floor(maxHp))
 		            end
 		        end
 		
@@ -197,6 +199,7 @@ script PlayerHud extends Logic
 		            or nil
 		        local combat = isvalid(companion) and companion:GetComponent("script.CompanionCombat")
 		            or nil
+		        self:RefreshBuffIcons("/ui/PlayerHud/CompanionStatus", combat ~= nil and not combat.IsDefeated and combat.ActiveBuffIcons or "")
 		        if isvalid(portrait) then
 		            local hasPortrait = monster ~= nil and monster.collection_icon_ruid ~= ""
 		            portrait.Enable = hasPortrait
@@ -353,6 +356,19 @@ script PlayerHud extends Logic
 		        if ratio > 1 then ratio = 1 end
 		        local size = fill.RectSize
 		        fill.RectSize = Vector2(fullWidth * ratio, size.y)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void RefreshBuffIcons(string path, string summary)
+		local icons = {}
+		for ruid in string.gmatch(summary or "", "[^,]+") do table.insert(icons, ruid) end
+		for i = 1, 3 do
+			local icon = _EntityService:GetEntityByPath(path .. "/Buff" .. tostring(i))
+			if isvalid(icon) then
+				icon.Enable = icons[i] ~= nil
+				if icons[i] ~= nil then icon.SpriteGUIRendererComponent.ImageRUID = DataRef(icons[i]) end
+			end
+		end
 	end
 
 end
