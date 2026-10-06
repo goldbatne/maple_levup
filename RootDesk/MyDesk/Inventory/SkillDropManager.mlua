@@ -81,14 +81,18 @@ script SkillDropManager extends Logic
 		        end
 		
 		        local guaranteed = self.firstSkillDropResolved == false
-		        local chance = guaranteed and 1 or _GameData:GetBalance("run_ability_acquire_rate")
-		        if chance <= 0 then chance = 0.10 end
+		local chance = guaranteed and 1 or _GameData:GetBalance("run_ability_acquire_rate")
+		if chance <= 0 then chance = 0.10 end
+		if _GameData.RogueEliteKillInProgress then
+			chance = math.max(chance, _GameData:GetBalance("run_elite_skill_drop_chance"))
+		end
 		        local roll = _GameData:RogueStreamNextDouble("skill_drop:shared")
 		        local dropped = guaranteed or roll < chance
 		        log("[SkillDropRoll] scope=RUN_SHARED monster=" .. monsterId .. " skill=" .. skillId
 		            .. " missing=" .. tostring(#missing) .. " first=" .. tostring(guaranteed)
 		            .. " roll=" .. string.format("%.5f", roll) .. " chance=" .. string.format("%.2f", chance)
-		            .. " dropped=" .. tostring(dropped))
+			.. " dropped=" .. tostring(dropped)
+			.. " elite=" .. tostring(_GameData.RogueEliteKillInProgress))
 		        if dropped == false then return false end
 		
 		        local first = _GameData:RogueStreamNextInt("skill_drop:recipient", #missing)
@@ -466,8 +470,8 @@ script SkillDropManager extends Logic
 		        for i = 1, count do eligible[#eligible + 1] = player end
 		        local before = #self.activeDrops
 		        local firstBefore = self.firstSkillDropResolved
-		        local spawned = self:TrySpawnFromKill(monsterId,
-		            player.TransformComponent.WorldPosition + Vector3(1.2, 0, 0), player.CurrentMap, eligible)
+		local spawned = self:TrySpawnFromKill(monsterId,
+		    player.TransformComponent.WorldPosition + Vector3(1.2, 0, 0), player.CurrentMap, eligible)
 		        if previous ~= nil then slots.OwnedSkillPool[skillId] = previous
 		        elseif forceOwned then slots.OwnedSkillPool[skillId] = nil end
 		        log("[QA_SKILL_DROP_RULE] monster=" .. monsterId .. " forceOwned=" .. tostring(forceOwned)

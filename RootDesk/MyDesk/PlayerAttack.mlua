@@ -185,6 +185,8 @@ script PlayerAttack extends AttackComponent
 	@ExecSpace("ServerOnly")
 	method boolean CanActInCurrentRun()
 		if _UtilLogic.ElapsedSeconds < self.EnemyStunUntil then return false end
+		local map = self.Entity.CurrentMap
+		if isvalid(map) and map.Name == "maptutorial" then return true end
 		if _GameData:GetBalance("roguelite_run_mode_enabled") < 0.5 then return true end
 		local pc = self.Entity.PlayerComponent
 		if not isvalid(pc) or pc:IsDead() or pc.Hp <= 0 then return false end

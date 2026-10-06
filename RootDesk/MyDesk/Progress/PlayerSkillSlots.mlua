@@ -35,6 +35,14 @@ script PlayerSkillSlots extends Component
 
 	@TargetUserSync
 	property boolean RogueliteRunActive = false
+	@TargetUserSync
+	property boolean TutorialModeActive = false
+	@TargetUserSync
+	property integer TutorialUseCount = 0
+	@TargetUserSync
+	property number AudioBgmVolume = 1
+	@TargetUserSync
+	property number AudioSfxVolume = 1
 
 	@TargetUserSync
 	property string SelectedTrait = "balance"
@@ -95,6 +103,7 @@ script PlayerSkillSlots extends Component
 	end
 
 	method boolean IsPhase1CombatEnabled()
+		if self.TutorialModeActive then return true end
 		        -- 오래된 호출부를 위한 별칭. 신규 작업본에서는 roguelite_run_mode_enabled가
 		        -- 우선하며, 레거시 비교본에서만 예전 Phase 1 플래그를 읽는다.
 		        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then return true end
@@ -141,6 +150,7 @@ script PlayerSkillSlots extends Component
 	end
 
 	method table GetRunOwnedSkillIds()
+		if self.TutorialModeActive then return _GameData:GetCapturableActiveSkillIds() end
 		        local out = {}
 		        for _, id in ipairs(_GameData:GetCapturableActiveSkillIds()) do
 		            if self.OwnedSkillPool[id] ~= nil and self.OwnedSkillPool[id] > 0 then out[#out + 1] = id end
@@ -359,9 +369,18 @@ script PlayerSkillSlots extends Component
 		        -- 타이머 공급은 생성하지 않는다. 레거시 MonsterSlots는 건드리지 않는다.
 		        self:StopRandomSkillSupply()
 		        self:ClearRandomSlots()
-		        self.PendingAbilitySkillId = ""
-		        self.PendingAbilityMonsterId = ""
-		        self.RogueliteRunActive = false
+		self.PendingAbilitySkillId = ""
+		self.PendingAbilityMonsterId = ""
+		self.RogueliteRunActive = false
+		local map = self.Entity.CurrentMap
+		if isvalid(map) and map.Name == "maptutorial" then
+			-- 인스턴스 이동 때 OnMapEnter가 OnBeginPlay보다 먼저 올 수 있다.
+			-- 초기화가 연습 슬롯을 지우면 이 자리에서 다시 채운다.
+			self.TutorialModeActive = false
+			self:BeginTutorialPractice()
+			return
+		end
+		self.TutorialModeActive = false
 		        if self:IsRogueliteRunMode() then
 		            self.RandomModeActive = true
 		            log("[SkillSlots] Roguelite 고정 5슬롯 준비 — Run 시작 대기")
@@ -480,13 +499,96 @@ script PlayerSkillSlots extends Component
 		                .. " actual=" .. tostring(self.RandomSlots[slotIndex]))
 		            return false
 		        end
-		        self.RandomSlots[slotIndex] = nil
-		        -- 가득 찬 재고에는 타이머가 없다. 성공 소비 시점부터 정확히 5초를 다시 센다.
-		        -- 이미 빈칸을 충전 중이면 기존 공급 시각을 보존한다.
-		        if self.randomSupplyTimer == 0 then self:StartRandomSkillSupply() end
-		        log("[SkillSlots] 랜덤 슬롯 소비  " .. tostring(slotIndex) .. "번 ["
-		            .. tostring(expectedSkillId) .. "]")
-		        return true
+		local pool = self:GetRunOwnedSkillIds()
+		local alternatives = {}
+		for _, id in ipairs(pool) do
+			if id ~= expectedSkillId then alternatives[#alternatives + 1] = id end
+		end
+		local candidates = #alternatives > 0 and alternatives or pool
+		local replacement = ""
+		if #candidates > 0 then
+			if self.TutorialModeActive then
+				replacement = candidates[_UtilLogic:RandomIntegerRange(1, #candidates)]
+			else
+				replacement = candidates[_GameData:RogueStreamNextInt(
+					"supply:" .. self.Entity.PlayerComponent.UserId, #candidates)]
+			end
+		end
+		self.RandomSlots[slotIndex] = replacement ~= "" and replacement or nil
+		if self.TutorialModeActive then self.TutorialUseCount += 1 end
+		if self.RandomSlots[slotIndex] == nil and self.randomSupplyTimer == 0 then
+			self:StartRandomSkillSupply()
+		end
+		log("[SkillSlots] 랜덤 슬롯 교체 " .. tostring(slotIndex) .. "번 ["
+		    .. tostring(expectedSkillId) .. "] → [" .. replacement .. "]")
+		return true
+	end
+
+	@ExecSpace("ServerOnly")
+	method void BeginTutorialPractice()
+		if self.TutorialModeActive then return end
+		self:StopRandomSkillSupply()
+		self:ClearRandomSlots()
+		self.TutorialModeActive = true
+		self.TutorialUseCount = 0
+		self.RandomModeActive = true
+		local pool = self:GetRunOwnedSkillIds()
+		for i = 1, self:GetSkillSlotMax() do
+			if #pool > 0 then
+				self.RandomSlots[i] = pool[_UtilLogic:RandomIntegerRange(1, #pool)]
+			end
+		end
+		log("[Tutorial] 연습 스킬 5칸 공급 pool=" .. tostring(#pool))
+	end
+
+	@ExecSpace("ServerOnly")
+	method void EndTutorialPractice()
+		if not self.TutorialModeActive then return end
+		self:StopRandomSkillSupply()
+		self:ClearRandomSlots()
+		self.TutorialModeActive = false
+		self.TutorialUseCount = 0
+		self.RandomModeActive = self:IsRogueliteRunMode()
+		log("[Tutorial] 연습 스킬 정리")
+	end
+
+	@ExecSpace("ServerOnly")
+	method void OnMapEnter(Entity enterEntity)
+		local map = self.Entity.CurrentMap
+		if not isvalid(map) then return end
+		if map.Name == "maptutorial" then self:BeginTutorialPractice()
+		else self:EndTutorialPractice() end
+	end
+
+	@ExecSpace("ServerOnly")
+	method void LoadAudioSettings(table settings)
+		local bgm = settings ~= nil and settings.bgm_volume or nil
+		local sfx = settings ~= nil and settings.sfx_volume or nil
+		self.AudioBgmVolume = type(bgm) == "number" and math.max(0, math.min(1, bgm)) or 1
+		self.AudioSfxVolume = type(sfx) == "number" and math.max(0, math.min(1, sfx)) or 1
+		log("[Options] 볼륨 로드 bgm=" .. tostring(self.AudioBgmVolume)
+			.. " sfx=" .. tostring(self.AudioSfxVolume))
+	end
+
+	@ExecSpace("Server")
+	method void RequestChangeAudioVolume(string kind, integer direction)
+		if senderUserId ~= self.Entity.PlayerComponent.UserId then return end
+		if (kind ~= "bgm" and kind ~= "sfx") or (direction ~= -1 and direction ~= 1) then return end
+		local db = self.Entity:GetComponent("script.PlayerDBManager")
+		if db == nil or not db.IsLoadSuccess then return end
+		local candidate = db:PrepareRogueEconomyPayload()
+		if candidate == nil then return end
+		local key = kind == "bgm" and "bgm_volume" or "sfx_volume"
+		local current = kind == "bgm" and self.AudioBgmVolume or self.AudioSfxVolume
+		local nextVolume = math.max(0, math.min(1, math.floor(current * 4 + 0.5) / 4
+			+ direction * 0.25))
+		if nextVolume == current then return end
+		candidate.settings[key] = nextVolume
+		if not db:CommitRogueEconomyPayload(candidate, "오디오 옵션 변경") then return end
+		if kind == "bgm" then self.AudioBgmVolume = nextVolume
+		else self.AudioSfxVolume = nextVolume end
+		log("[Options] " .. kind .. "=" .. tostring(nextVolume)
+			.. " user=" .. senderUserId)
 	end
 
 	@ExecSpace("ServerOnly")

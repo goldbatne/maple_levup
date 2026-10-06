@@ -1,0 +1,294 @@
+@Logic
+script MailPanel extends Logic
+
+	property table BoundEntities = {}
+	property table BoundHandlers = {}
+	property boolean Bound = false
+	property boolean Opened = false
+	property boolean Composing = false
+	property boolean ShowRewardFields = false
+	property table Messages = {}
+	property integer Page = 1
+	property string SelectedId = ""
+	property number NextBindAt = 0
+
+	@ExecSpace("ClientOnly")
+	method Entity UI(string path)
+		return _EntityService:GetEntityByPath("/ui/Mail/" .. path)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnBeginPlay()
+		self:Bind()
+		log("[Mail] 우편함 UI 시작")
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnEndPlay()
+		for i = 1, #self.BoundEntities do
+			if isvalid(self.BoundEntities[i]) then
+				self.BoundEntities[i]:DisconnectEvent(ButtonClickEvent, self.BoundHandlers[i])
+			end
+		end
+		self.BoundEntities = {}
+		self.BoundHandlers = {}
+		self.Bound = false
+	end
+
+	@ExecSpace("ClientOnly")
+	method void Connect(string path, any callback)
+		local entity = self:UI(path)
+		if not isvalid(entity) then return end
+		self.BoundEntities[#self.BoundEntities + 1] = entity
+		self.BoundHandlers[#self.BoundHandlers + 1] = entity:ConnectEvent(ButtonClickEvent, callback)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void Bind()
+		if self.Bound then return end
+		if not isvalid(self:UI("OpenButton")) or not isvalid(self:UI("Window"))
+			or not isvalid(self:UI("Window/Detail")) then return end
+		_OptionsPanel:BuildHeaderIcon(self:UI("OpenButton"), "mail")
+		self:Connect("OpenButton", function() self:SetOpen(not self.Opened) end)
+		self:Connect("Window/Close", function() self:SetOpen(false) end)
+		self:Connect("Window/Refresh", function() _MailService:RequestInbox() end)
+		self:Connect("Window/Compose", function() self:SetCompose(true) end)
+		self:Connect("Window/ComposePanel/Cancel", function() self:SetCompose(false) end)
+		self:Connect("Window/ComposePanel/RewardToggle", function()
+			self.ShowRewardFields = not self.ShowRewardFields
+			self:SetCompose(true)
+		end)
+		self:Connect("Window/ComposePanel/Send", function() self:SendCurrent() end)
+		self:Connect("Window/Detail/Claim", function()
+			if self.SelectedId ~= "" then _MailService:RequestClaim(self.SelectedId) end
+		end)
+		self:Connect("Window/Detail/Delete", function()
+			if self.SelectedId ~= "" then _MailService:RequestDelete(self.SelectedId) end
+		end)
+		self:Connect("Window/List/Prev", function()
+			self.Page = math.max(1, self.Page - 1)
+			self:Render()
+		end)
+		self:Connect("Window/List/Next", function()
+			self.Page = math.min(math.max(1, math.ceil(#self.Messages / 5)), self.Page + 1)
+			self:Render()
+		end)
+		for i = 1, 5 do
+			local slot = i
+			self:Connect("Window/List/Row" .. tostring(i), function()
+				local message = self.Messages[(self.Page - 1) * 5 + slot]
+				if message == nil then return end
+				self.SelectedId = message.id
+				self:SetCompose(false)
+				self:Render()
+			end)
+		end
+		self.Bound = true
+		self:SetOpen(false)
+		log("[Mail] 우편함 버튼 연결 완료")
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnUpdate(number delta)
+		if self.Bound then
+			local player = _UserService.LocalPlayer
+			local map = isvalid(player) and player.CurrentMap or nil
+			local opener = self:UI("OpenButton")
+			if isvalid(opener) then opener.Enable = not (isvalid(map) and map.Name == "maptutorial") end
+			return
+		end
+		if self.Bound or _UtilLogic.ElapsedSeconds < self.NextBindAt then return end
+		self.NextBindAt = _UtilLogic.ElapsedSeconds + 0.5
+		self:Bind()
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnKeyDown(KeyDownEvent event)
+		if event.key == KeyboardKey.Escape and self.Opened then self:SetOpen(false) end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void SetOpen(boolean open)
+		self.Opened = open
+		local window = self:UI("Window")
+		if not isvalid(window) then return end
+		window.Enable = open
+		window:SetVisible(open)
+		if open then
+			_EquipPanel:SetOpen(false)
+			_MonsterShopUi:SetShopOpen(false)
+			_AreaSelectPanel:Hide()
+			_GameData:SetPartyWindowOpen(false)
+			local scale = math.min(1, (_UILogic.ScreenWidth - 36) / 1120,
+				(_UILogic.ScreenHeight - 36) / 760)
+			scale = math.max(0.3, scale)
+			window.UITransformComponent.UIScale = Vector3(scale, scale, 1)
+			local code = self:UI("Window/ProfileCode")
+			local player = _UserService.LocalPlayer
+			if isvalid(code) and isvalid(player) and player.PlayerComponent ~= nil then
+				code.TextGUIRendererComponent.Text = "내 프로필 코드\n"
+					.. tostring(player.PlayerComponent.ProfileCode)
+			end
+			self:SetCompose(false)
+			_MailService:RequestInbox()
+		end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void SetCompose(boolean composing)
+		self.Composing = composing
+		if not composing then self.ShowRewardFields = false end
+		local compose = self:UI("Window/ComposePanel")
+		local detail = self:UI("Window/Detail")
+		local player = _UserService.LocalPlayer
+		local isOperator = isvalid(player) and player.PlayerComponent ~= nil
+			and player.PlayerComponent.UserId == _MailService.OperatorUserId
+		local rewards = self:UI("Window/ComposePanel/AdminRewards")
+		local rewardToggle = self:UI("Window/ComposePanel/RewardToggle")
+		if isvalid(compose) then
+			compose.Enable = composing
+			compose:SetVisible(composing)
+		end
+		if isvalid(detail) then
+			detail.Enable = not composing
+			detail:SetVisible(not composing)
+		end
+		if isvalid(rewards) then
+			rewards.Enable = composing and isOperator and self.ShowRewardFields
+			rewards:SetVisible(composing and isOperator and self.ShowRewardFields)
+		end
+		if isvalid(rewardToggle) then
+			rewardToggle.Enable = composing and isOperator
+			rewardToggle.TextGUIRendererComponent.Text = self.ShowRewardFields
+				and "보상 접기" or "보상 첨부"
+		end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void SendCurrent()
+		local to = self:UI("Window/ComposePanel/To")
+		local subject = self:UI("Window/ComposePanel/Subject")
+		local body = self:UI("Window/ComposePanel/Body")
+		if not isvalid(to) or not isvalid(subject) or not isvalid(body) then return end
+		local player = _UserService.LocalPlayer
+		local isOperator = isvalid(player) and player.PlayerComponent ~= nil
+			and player.PlayerComponent.UserId == _MailService.OperatorUserId
+		local amounts = {0, 0, 0, 0}
+		if isOperator and self.ShowRewardFields then
+			for i = 1, 4 do
+				local input = self:UI("Window/ComposePanel/AdminRewards/Amount" .. tostring(i))
+				local raw = isvalid(input) and input.TextGUIRendererInputComponent.Text or ""
+				if raw ~= "" and tonumber(raw) == nil then
+					self:NotifyResult("보상 수량은 숫자로 입력해 주세요.", false)
+					return
+				end
+				amounts[i] = tonumber(raw) or 0
+			end
+		end
+		_MailService:RequestSend(to.TextGUIRendererInputComponent.Text,
+			subject.TextGUIRendererInputComponent.Text,
+			body.TextGUIRendererInputComponent.Text,
+			amounts[1], amounts[2], amounts[3], amounts[4])
+	end
+
+	@ExecSpace("ClientOnly")
+	method void ReceiveInbox(string raw)
+		local ok, data = pcall(function() return _HttpService:JSONDecode(raw) end)
+		if not ok or type(data) ~= "table" or type(data.messages) ~= "table" then return end
+		self.Messages = data.messages
+		self.Page = math.min(self.Page, math.max(1, math.ceil(#self.Messages / 5)))
+		local found = false
+		for _, message in ipairs(self.Messages) do
+			if message.id == self.SelectedId then found = true break end
+		end
+		if not found then self.SelectedId = "" end
+		self:Render()
+	end
+
+	@ExecSpace("ClientOnly")
+	method void NotifyResult(string message, boolean success)
+		local status = self:UI("Window/Status")
+		if isvalid(status) then status.TextGUIRendererComponent.Text = message end
+		if success and self.Composing then
+			for _, path in ipairs({"To", "Subject", "Body"}) do
+				local input = self:UI("Window/ComposePanel/" .. path)
+				if isvalid(input) then input.TextGUIRendererInputComponent.Text = "" end
+			end
+			for i = 1, 4 do
+				local input = self:UI("Window/ComposePanel/AdminRewards/Amount" .. tostring(i))
+				if isvalid(input) then input.TextGUIRendererInputComponent.Text = "" end
+			end
+			self:SetCompose(false)
+			_MailService:RequestInbox()
+		end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void Render()
+		if not self.Bound then return end
+		local empty = self:UI("Window/List/Empty")
+		if isvalid(empty) then
+			empty.Enable = #self.Messages == 0
+			empty:SetVisible(#self.Messages == 0)
+		end
+		local pages = math.max(1, math.ceil(#self.Messages / 5))
+		local page = self:UI("Window/List/Page")
+		if isvalid(page) then page.TextGUIRendererComponent.Text = tostring(self.Page) .. " / " .. tostring(pages) end
+		for i = 1, 5 do
+			local row = self:UI("Window/List/Row" .. tostring(i))
+			local message = self.Messages[(self.Page - 1) * 5 + i]
+			if isvalid(row) then
+				row.Enable = message ~= nil
+				row:SetVisible(message ~= nil)
+				if message ~= nil then
+					local tag = message.kind == "player" and "편지" or "운영"
+					local marker = message.claimed and " ✓" or ""
+					row.TextGUIRendererComponent.Text = "[" .. tag .. "] " .. message.subject
+						.. marker .. "\n" .. message.from
+				end
+			end
+		end
+		local selected = nil
+		for _, message in ipairs(self.Messages) do
+			if message.id == self.SelectedId then selected = message break end
+		end
+		local title = self:UI("Window/Detail/Subject")
+		local from = self:UI("Window/Detail/From")
+		local body = self:UI("Window/Detail/Body")
+		local reward = self:UI("Window/Detail/Reward")
+		local claim = self:UI("Window/Detail/Claim")
+		local delete = self:UI("Window/Detail/Delete")
+		if selected == nil then
+			if isvalid(title) then title.TextGUIRendererComponent.Text = "메일을 선택해 주세요" end
+			if isvalid(from) then from.TextGUIRendererComponent.Text = "" end
+			if isvalid(body) then body.TextGUIRendererComponent.Text = "" end
+			if isvalid(reward) then reward.TextGUIRendererComponent.Text = "" end
+			if isvalid(claim) then claim.Enable = false claim:SetVisible(false) end
+			if isvalid(delete) then delete.Enable = false delete:SetVisible(false) end
+			return
+		end
+		if isvalid(title) then title.TextGUIRendererComponent.Text = selected.subject end
+		if isvalid(from) then
+			from.TextGUIRendererComponent.Text = selected.from .. " · " .. (selected.from_profile or "")
+		end
+		if isvalid(body) then body.TextGUIRendererComponent.Text = selected.body end
+		local amount = (selected.core or 0) + (selected.score or 0)
+			+ (selected.core_ticket or 0) + (selected.score_ticket or 0)
+		if isvalid(reward) then
+			reward.TextGUIRendererComponent.Text = amount > 0 and
+				("코어 " .. tostring(selected.core or 0) .. " · 점수 " .. tostring(selected.score or 0)
+				.. " · 코어권 " .. tostring(selected.core_ticket or 0)
+				.. " · 점수권 " .. tostring(selected.score_ticket or 0)) or ""
+		end
+		if isvalid(claim) then
+			claim.Enable = amount > 0 and not selected.claimed
+			claim:SetVisible(amount > 0)
+			claim.TextGUIRendererComponent.Text = selected.claimed and "수령 완료" or "보상 받기"
+		end
+		if isvalid(delete) then
+			delete.Enable = selected.kind ~= "campaign"
+			delete:SetVisible(selected.kind ~= "campaign")
+		end
+	end
+
+end

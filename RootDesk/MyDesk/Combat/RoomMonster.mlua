@@ -3,6 +3,9 @@ script RoomMonster extends Component
 
 	property string MonsterId = ""
 
+	@Sync
+	property boolean IsElite = false
+
 	property boolean RespawnOn = false
 
 	property number RespawnDelay = 5
@@ -345,8 +348,8 @@ script RoomMonster extends Component
 		        local isBoss = self:IsBossRoom()
 		        if _GameData.RogueRunActive then
 		            -- 5개 Mega Area는 두 층씩 공유한다. 도전 층 기준으로 HP·공격·방어가
-		            -- 데이터의 run_floor_stat_step만큼 함께 상승한다. 보스 HP와 파티 HP
-		            -- 배율은 이 층 기준선 뒤에 적용해 서로 독립적으로 조정할 수 있게 한다.
+		            -- 데이터의 run_floor_stat_step만큼 함께 상승한다. 보스 HP 배율은
+		            -- 유지하지만 파티 인원에 따른 추가 능력치 배율은 적용하지 않는다.
 		            local floorScale = _GameData:GetRogueFloorStatMultiplier(_GameData.RogueFloor)
 		            local difficultyScale = math.max(1, _GameData:GetBalance("run_enemy_difficulty_multiplier"))
 		            self.MaxHp = math.max(1, math.floor(
@@ -384,6 +387,33 @@ script RoomMonster extends Component
 	end
 
 	@ExecSpace("ServerOnly")
+	method void PromoteToRunElite()
+		        if self.IsElite or self.IsDead or not _GameData.RogueRunActive then return end
+		        if self.MaxHp <= 0 then
+		            _TimerService:SetTimerOnce(function()
+		                if isvalid(self.Entity) then self:PromoteToRunElite() end
+		            end, 0.1)
+		            return
+		        end
+		        self.IsElite = true
+		        self.MaxHp = math.max(1, math.floor(self.MaxHp
+		            * math.max(1, _GameData:GetBalance("run_elite_hp_multiplier")) + 0.5))
+		        self.Hp = self.MaxHp
+		        self.Atk = math.max(1, math.floor(self.Atk
+		            * math.max(1, _GameData:GetBalance("run_elite_attack_multiplier")) + 0.5))
+		        self.DisplayName = "정예 " .. self.DisplayName
+		        local transform = self.Entity.TransformComponent
+		        if isvalid(transform) then
+		            local scale = transform.Scale
+		            transform.Scale = Vector3(scale.x * 1.16, scale.y * 1.16, scale.z)
+		        end
+		        local attack = self.Entity:GetComponent("script.MonsterAttack")
+		        if attack ~= nil then attack:StartBossSkills(self) end
+		        log("[RunElite] SPAWN monster=" .. self.MonsterId .. " map=" .. self:MapName()
+		            .. " hp=" .. tostring(self.MaxHp) .. " atk=" .. tostring(self.Atk))
+	end
+
+	@ExecSpace("ServerOnly")
 	method void GrantBossReward(Entity killer)
 		        -- 보스방에서 죽었으면 막타 주체의 몬스터 슬롯을 늘린다 (기획서 T6).
 		        --
@@ -408,15 +438,29 @@ script RoomMonster extends Component
 		        self.IsDead = true
 		        self.Hp = 0
 		        self:ResetSkillControls()
-		
+
 		        local stateComp = self.Entity.StateComponent
 		        if isvalid(stateComp) then stateComp:ChangeState("DEAD") end
-		
-		        if _GameData.RogueRunActive then
+
+		        local currentMap = self.Entity.CurrentMap
+		        if isvalid(currentMap) and currentMap.Name == "maptutorial" then
+		            -- 연습 처치는 보상·포획·드롭을 만들지 않는다.
+		            if isvalid(killer) and isvalid(killer.PlayerComponent) and _TutorialFlow ~= nil then
+		                _TutorialFlow:NotifyPracticeKill(killer.PlayerComponent.UserId)
+		            end
+		            log("[Tutorial] 연습 몬스터 처치 — 보상 없음")
+		        elseif _GameData.RogueRunActive then
 		            local map = self.Entity.CurrentMap
 		            if map ~= nil then
-		                _GameData:GrantRunKillRewards(self.MonsterId, map.Name,
-		                    self.Entity.TransformComponent.WorldPosition)
+		                if self.IsElite then
+		                    _GameData:GrantRunEliteKillRewards(self.MonsterId, map.Name,
+		                        self.Entity.TransformComponent.WorldPosition)
+		                    _GameData:OnRunEliteDefeated(map.Name,
+		                        self.Entity.TransformComponent.WorldPosition)
+		                else
+		                    _GameData:GrantRunOrdinaryKillRewards(self.MonsterId, map.Name,
+		                        self.Entity.TransformComponent.WorldPosition)
+		                end
 		            end
 		        -- EXP는 막타를 넣은 쪽에 준다. killer는 HitEvent.AttackerEntity라 nil일 수 있고
 		        -- (환경 피해 등) 이미 파괴된 엔티티일 수도 있어 isvalid로 먼저 거른다.

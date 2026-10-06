@@ -27,6 +27,10 @@ script RoomPortal extends Component
 
 	property any visualTimer = nil
 
+	property any bindingTimer = nil
+
+	property any gatherRetryTimer = nil
+
 	property number visualInterval = 0.5
 
 	method void OnBeginPlay()
@@ -50,8 +54,18 @@ script RoomPortal extends Component
 		                log_warning("[RoomPortal] direction이 비어 있다: " .. self.Entity.Name)
 		            end
 		            self:RefreshRunBinding()
-		            if self.runPortalActive then
-		                self.enterHandler = self.Entity:ConnectEvent(TriggerEnterEvent, self.OnTriggerEnter)
+		            -- Run 그래프가 맵 생성보다 늦게 준비돼도 진입 이벤트는 항상 살아 있어야 한다.
+		            self.enterHandler = self.Entity:ConnectEvent(TriggerEnterEvent, self.OnTriggerEnter)
+		            if _GameData.RogueRunActive and not self.runPortalActive then
+		                local retries = 0
+		                self.bindingTimer = _TimerService:SetTimerRepeat(function()
+		                    retries += 1
+		                    self:RefreshRunBinding()
+		                    if self.runPortalActive or retries >= 20 then
+		                        _TimerService:ClearTimer(self.bindingTimer)
+		                        self.bindingTimer = nil
+		                    end
+		                end, 0.5)
 		            end
 		        end
 		
@@ -81,12 +95,14 @@ script RoomPortal extends Component
 		            return
 		        end
 		        self.Entity:SetVisible(true)
-		        -- 작가가 건 잠금(locked, 모두에게 동일)에 맞는 스프라이트. 시작 시 한 번 쓴다.
-		        self:ApplySprite(self.locked)
+		        -- 정예 전투방은 모든 출구를 같은 잠금 그림으로 표시한다.
+		        local map = self.Entity.CurrentMap
+		        self:ApplySprite(self.locked or (map ~= nil and _GameData:IsRunEliteRoomLocked(map.Name)))
 	end
 
 	@ExecSpace("ServerOnly")
 	method void RefreshRunBinding()
+		        local wasActive = self.runPortalActive
 		        self.runPortalActive = true
 		        if _GameData.RogueRunActive == false then return end
 		        local map = self.Entity.CurrentMap
@@ -98,8 +114,10 @@ script RoomPortal extends Component
 		        end
 		        local targetRoomId = self:ToText(_GameData:GetRunRoomConnection(room.id, self.direction))
 		        self.runPortalActive = targetRoomId ~= ""
-		        log("[RunPortalBinding] room=" .. room.id .. " direction=" .. self.direction
-		            .. " active=" .. tostring(self.runPortalActive) .. " target=" .. targetRoomId)
+		        if wasActive ~= self.runPortalActive then
+		            log("[RunPortalBinding] room=" .. room.id .. " direction=" .. self.direction
+		                .. " active=" .. tostring(self.runPortalActive) .. " target=" .. targetRoomId)
+		        end
 	end
 
 	method void ApplySprite(boolean showLocked)
@@ -138,6 +156,10 @@ script RoomPortal extends Component
 		        -- 내가 있는 방의 문만 건드린다.
 		        local myMap = me.CurrentMap
 		        if myMap == nil or myMap.Name ~= map.Name then return end
+		        if _GameData:IsRunEliteRoomLocked(map.Name) then
+		            self:ApplySprite(true)
+		            return
+		        end
 		
 		        -- 작가가 건 잠금이 우선이다. 그 경우 게이트를 볼 것도 없이 잠긴 그림.
 		        if self.locked then
@@ -170,6 +192,14 @@ script RoomPortal extends Component
 		            _TimerService:ClearTimer(self.visualTimer)
 		            self.visualTimer = nil
 		        end
+		        if self.bindingTimer ~= nil then
+		            _TimerService:ClearTimer(self.bindingTimer)
+		            self.bindingTimer = nil
+		        end
+		        if self.gatherRetryTimer ~= nil then
+		            _TimerService:ClearTimer(self.gatherRetryTimer)
+		            self.gatherRetryTimer = nil
+		        end
 	end
 
 	@ExecSpace("ServerOnly")
@@ -178,11 +208,44 @@ script RoomPortal extends Component
 		        local other = event.TriggerBodyEntity
 		        if other == nil then return end
 		        if other.PlayerComponent == nil then return end
-		        self:TryPass(other)
+		        self:TryPass(other, false)
 	end
 
 	@ExecSpace("ServerOnly")
-	method void TryPass(Entity player)
+	method void StopGatherRetry()
+		        if self.gatherRetryTimer == nil then return end
+		        _TimerService:ClearTimer(self.gatherRetryTimer)
+		        self.gatherRetryTimer = nil
+	end
+
+	@ExecSpace("ServerOnly")
+	method void StartGatherRetry(string userId, string mapName)
+		        if self.gatherRetryTimer ~= nil then return end
+		        self.gatherRetryTimer = _TimerService:SetTimerRepeat(function()
+		            local player = _UserService:GetUserEntityByUserId(userId)
+		            local portalMap = isvalid(self.Entity) and self.Entity.CurrentMap or nil
+		            if not isvalid(player) or portalMap == nil or portalMap.Name ~= mapName
+		                or player.CurrentMap ~= portalMap or not _GameData.RogueRunActive then
+		                self:StopGatherRetry()
+		                return
+		            end
+		            local p = player.TransformComponent.WorldPosition
+		            local portal = self.Entity.TransformComponent.WorldPosition
+		            local radius = math.max(1, _GameData:GetBalance("run_transition_gather_radius"))
+		            local dx = p.x - portal.x
+		            local dy = p.y - portal.y
+		            if dx * dx + dy * dy > radius * radius then
+		                self:StopGatherRetry()
+		                return
+		            end
+		            self:TryPass(player, true)
+		            if _GameData.RogueTransitionLocked then self:StopGatherRetry() end
+		        end, 0.4)
+	end
+
+	@ExecSpace("ServerOnly")
+	method void TryPass(Entity player, boolean fromRetry)
+		        if _GameData.RogueRunActive then self:RefreshRunBinding() end
 		        if _GameData.RogueRunActive and self.runPortalActive == false then return end
 		        -- 현재 방 → 이 방향의 다음 방을 RoomTable에서 찾아 이동시킨다.
 		        local currentMap = self.Entity.CurrentMap
@@ -236,14 +299,24 @@ script RoomPortal extends Component
 		        if _GameData.RogueRunActive then
 		            -- 이미 확정된 전환의 중복 Trigger는 집결 실패가 아니다.
 		            if _GameData.RogueTransitionLocked then return end
+		            if _GameData:HasPendingRunUpgradeInMap(currentMap.Name) then
+		                if not fromRetry then
+		                    _GateNotice:ShowGateBlocked(targetRoomId,
+		                        "강화 상자에서 능력 하나를 선택한 뒤 이동할 수 있습니다", userId)
+		                end
+		                return
+		            end
 		            local portalPosition = self.Entity.TransformComponent.WorldPosition
 		            if _GameData:TryBeginRogueliteTransition(currentMap.Name, portalPosition) == false then
 		                if _GameData.RogueTransitionLocked then return end
 		                if not isvalid(player) or player.CurrentMap ~= currentMap then return end
+		                self:StartGatherRetry(userId, currentMap.Name)
 		                -- 맵 포탈 컴포넌트는 전환 중 클라이언트에서 없어질 수 있으므로
 		                -- 세션 수명의 Logic으로 안내 RPC를 보낸다.
-		                _GateNotice:ShowGateBlocked(targetRoomId,
-		                    "생존한 참가자가 포탈 근처에 모여야 이동할 수 있습니다", userId)
+		                if not fromRetry then
+		                    _GateNotice:ShowGateBlocked(targetRoomId,
+		                        "생존한 참가자가 포탈 근처에 모여야 이동할 수 있습니다", userId)
+		                end
 		                return
 		            end
 		
@@ -303,7 +376,16 @@ script RoomPortal extends Component
 	method boolean CanPass(Entity player, table targetRoom)
 		        -- Run 그래프 자체가 유효성 검사를 통과한 진행 규칙이다. 레벨·스탯·보스·전직
 		        -- 게이트는 신규 모드에 적용하지 않는다.
-		        if _GameData.RogueRunActive then return true end
+		        if _GameData.RogueRunActive then
+		            local map = self.Entity.CurrentMap
+		            if map ~= nil and _GameData:IsRunEliteRoomLocked(map.Name) then
+		                _GateNotice:ShowGateBlocked(targetRoom.id,
+		                    "정예 몬스터를 처치하면 이 방의 포털이 열립니다", player.PlayerComponent.UserId)
+		                log("[RunElite] PORTAL_BLOCK room=" .. map.Name .. " target=" .. targetRoom.id)
+		                return false
+		            end
+		            return true
+		        end
 		        -- locked는 작가가 걸어둔 잠금(모두에게 동일)이다. 게이트와 별개로 먼저 막는다.
 		        if self.locked then
 		            log("[RoomPortal] " .. self.Entity.Name .. " 은 잠겨 있다 (" .. targetRoom.id .. ")")

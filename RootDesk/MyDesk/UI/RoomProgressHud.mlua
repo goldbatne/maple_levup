@@ -13,7 +13,15 @@ script RoomProgressHud extends Logic
 
 	property Entity minimapPanel = "57496077-5d35-42d0-bf50-7be3a8cfc683"
 
-	property TextGUIRendererComponent minimapRoom = "126a0262-97d9-46ee-a8a6-5c586ccbd2e7"
+	property Entity mapHeader = "9f30252d-fe46-49cb-94d0-b264973d915d"
+
+	property Entity mapToggleButton = "6dd6b1e3-a1fa-41d8-b86d-a5b6d06e42f1"
+
+	property boolean minimapExpanded = false
+
+	property any mapToggleHandler = nil
+
+	property TextGUIRendererComponent minimapRoom = "e3741d0b-ee2a-4253-ba87-7db5d7fd1d4c"
 
 	property TextGUIRendererComponent minimapBossHint = "237e3981-7268-47f6-a826-4ff697d35419"
 
@@ -33,6 +41,12 @@ script RoomProgressHud extends Logic
 
 	@ExecSpace("ClientOnly")
 	method void OnBeginPlay()
+		        if isvalid(self.mapHeader) then self.mapHeader.Enable = false end
+		        if isvalid(self.minimapPanel) then self.minimapPanel.Enable = false end
+		        if isvalid(self.mapToggleButton) then
+		            self.mapToggleHandler = self.mapToggleButton:ConnectEvent(ButtonClickEvent,
+		                function() self:ToggleMinimap() end)
+		        end
 		        self.resultPanel = _EntityService:GetEntityByPath("/ui/RoomProgress/ResultPanel")
 		        if isvalid(self.resultPanel) then
 		            self.resultPanel.Enable = false
@@ -71,6 +85,10 @@ script RoomProgressHud extends Logic
 
 	@ExecSpace("ClientOnly")
 	method void OnEndPlay()
+		        if isvalid(self.mapToggleButton) and self.mapToggleHandler ~= nil then
+		            self.mapToggleButton:DisconnectEvent(ButtonClickEvent, self.mapToggleHandler)
+		            self.mapToggleHandler = nil
+		        end
 		        if self.refreshTimer ~= nil then
 		            _TimerService:ClearTimer(self.refreshTimer)
 		            self.refreshTimer = nil
@@ -220,23 +238,35 @@ script RoomProgressHud extends Logic
 	end
 
 	@ExecSpace("ClientOnly")
+	method void ToggleMinimap()
+		        self.minimapExpanded = not self.minimapExpanded
+		        self.lastMinimapSnapshot = ""
+		        log("[RunMinimap] expanded=" .. tostring(self.minimapExpanded))
+		        self:RefreshMinimap()
+	end
+
+	@ExecSpace("ClientOnly")
 	method void RefreshMinimapHeader(integer sourceIndex)
-		        if not isvalid(self.minimapPanel) then return end
+		        if not isvalid(self.mapHeader) then return end
 		        local floor = math.max(1, math.floor(_GameData.RogueFloor or 1))
-		        local zone = math.max(1, sourceIndex)
-		        local title = self.minimapPanel:GetChildByName("Title", false)
+		        local area = _GameData:GetArea(_GameData.RogueCurrentSubzone or "")
+		        local areaName = area ~= nil and area.name or "던전"
+		        local title = self.mapHeader:GetChildByName("Title", false)
 		        if isvalid(title) then
-		            title.TextGUIRendererComponent.Text = tostring(floor) .. "층의 "
-		                .. tostring(zone) .. "번째 구역입니다.\n남은 시간 "
+		            title.TextGUIRendererComponent.Text = tostring(floor) .. "층 - "
+		                .. areaName .. "\n남은 시간 "
 		                .. self:FormatRunClock(_GameData.RogueTimeRemainingSeconds or 0)
 		        end
 		        if isvalid(self.minimapRoom) then
-		            self.minimapRoom.Text = tostring(floor) .. "층 - "
-		                .. (_GameData.RogueHudRoomName or "")
+		            self.minimapRoom.Text = "현재 위치  " .. (_GameData.RogueHudRoomName or "")
+		        end
+		        if isvalid(self.mapToggleButton) then
+		            self.mapToggleButton.TextGUIRendererComponent.Text = self.minimapExpanded
+		                and "지도 접기  ▲" or "지도 펼치기  ▼"
 		        end
 		        if isvalid(self.minimapBossHint) then
-		            self.minimapBossHint.Text = ""
-		            self.minimapBossHint.Enable = false
+		            self.minimapBossHint.Text = "★ 특수 전투     ! 최종 보스"
+		            self.minimapBossHint.Enable = true
 		        end
 		        for source = 1, 4 do
 		            local badge = self.minimapPanel:GetChildByName("Zone" .. tostring(source), false)
@@ -246,7 +276,7 @@ script RoomProgressHud extends Logic
 
 	@ExecSpace("ClientOnly")
 	method void RefreshMinimap()
-		        if not isvalid(self.minimapPanel) then return end
+		        if not isvalid(self.minimapPanel) or not isvalid(self.mapHeader) then return end
 		        local me = _UserService.LocalPlayer
 		        local map = isvalid(me) and me.CurrentMap or nil
 		        local slots = isvalid(me) and me:GetComponent("script.PlayerSkillSlots") or nil
@@ -255,13 +285,17 @@ script RoomProgressHud extends Logic
 		            and isvalid(map) and map.Name ~= "maptown"
 		            and slots ~= nil and slots.RogueliteRunActive
 		        if not showing then
+		            self.mapHeader.Enable = false
 		            self.minimapPanel.Enable = false
+		            self.minimapExpanded = false
 		            self.lastMinimapSnapshot = ""
 		            self.currentMinimapSourceIndex = 0
 		            return
 		        end
-		        self.minimapPanel.Enable = true
+		        self.mapHeader.Enable = true
+		        self.minimapPanel.Enable = self.minimapExpanded
 		        self:RefreshMinimapHeader(self.currentMinimapSourceIndex)
+		        if not self.minimapExpanded then return end
 		        -- Run View 수신/방 전환 시에만 Node/Edge를 갱신한다.
 		        if snapshot == self.lastMinimapSnapshot then return end
 		        self.lastMinimapSnapshot = snapshot
@@ -285,9 +319,11 @@ script RoomProgressHud extends Logic
 		                minY = math.min(minY, node.y); maxY = math.max(maxY, node.y)
 		            end
 		        end
-		        local step = math.min(54, 350 / math.max(1, maxX - minX),
-		            160 / math.max(1, maxY - minY))
-		        local nodeSize = math.max(11, math.min(23, step * 0.7))
+		        -- 펼친 지도와 노드 배치를 모두 절반 크기로 유지한다.
+		        -- 패널은 작게 유지하되 지도 그래프는 남은 공간을 활용해 읽히게 한다.
+		        local step = math.min(97.5, 397.5 / math.max(1, maxX - minX),
+		            142.5 / math.max(1, maxY - minY))
+		        local nodeSize = math.max(27, math.min(37.5, step * 0.45))
 		        local cx, cy = (minX + maxX) / 2, (minY + maxY) / 2
 		        local sourceColors = {"#a4c88a", "#d2ad72", "#a5acd9", "#c499b9"}
 		        local currentSourceIndex = 0
@@ -315,25 +351,32 @@ script RoomProgressHud extends Logic
 		                entity.Enable = node ~= nil
 		                if node ~= nil then
 		                    entity.UITransformComponent.anchoredPosition =
-		                        Vector2((node.x - cx) * step, (node.y - cy) * step - 20)
+		                        Vector2((node.x - cx) * step, (node.y - cy) * step + 3.75)
 		                    entity.UITransformComponent.RectSize = Vector2(nodeSize, nodeSize)
-		                    entity.SpriteGUIRendererComponent.Color = node.state == "C"
+		                    entity.SpriteGUIRendererComponent.Color = node.marker == "E"
+		                        and Color.FromHexCode("#f4bc59")
+		                        or (node.state == "C"
 		                        and Color.FromHexCode("#55c8ed")
 		                        or (node.state == "V" and Color.FromHexCode(
 		                            sourceColors[node.sourceIndex] or "#c0cbd2")
-		                            or Color.FromHexCode("#647583"))
+		                            or Color.FromHexCode("#647583")))
 		                    local inset = entity:GetChildByName("Inset", false)
 		                    if isvalid(inset) then
-		                        inset.UITransformComponent.RectSize = Vector2(nodeSize - 5, nodeSize - 5)
-		                        inset.SpriteGUIRendererComponent.Color = node.state == "C"
+		                        inset.UITransformComponent.RectSize = Vector2(nodeSize - 7.5, nodeSize - 7.5)
+		                        inset.SpriteGUIRendererComponent.Color = node.marker == "E"
+		                            and Color.FromHexCode("#825222")
+		                            or (node.state == "C"
 		                            and Color.FromHexCode("#1379a4")
 		                            or (node.state == "V" and Color.FromHexCode("#8e9faa")
-		                                or Color.FromHexCode("#3a4b58"))
+		                                or Color.FromHexCode("#3a4b58")))
 		                    end
 		                    local marker = entity:GetChildByName("Marker", false)
 		                    if isvalid(marker) then
+		                        marker.UITransformComponent.RectSize = Vector2(nodeSize, nodeSize)
 		                        marker.TextGUIRendererComponent.Text = node.marker == "B" and "!"
-		                            or (node.marker == "S" and "·" or "")
+		                            or (node.marker == "E" and "★"
+		                            or (node.marker == "e" and "✓"
+		                            or (node.marker == "S" and "·" or "")))
 		                    end
 		                end
 		            end
@@ -351,13 +394,13 @@ script RoomProgressHud extends Logic
 		                    local edge = self.minimapPanel:GetChildByName(
 		                        string.format("Edge%02d", edgeIndex), false)
 		                    if isvalid(edge) then
-		                        local x1, y1 = (node.x - cx) * step, (node.y - cy) * step - 20
-		                        local x2, y2 = (target.x - cx) * step, (target.y - cy) * step - 20
+		                        local x1, y1 = (node.x - cx) * step, (node.y - cy) * step + 3.75
+		                        local x2, y2 = (target.x - cx) * step, (target.y - cy) * step + 3.75
 		                        local dx, dy = x2 - x1, y2 - y1
 		                        edge.UITransformComponent.anchoredPosition =
 		                            Vector2((x1 + x2) / 2, (y1 + y2) / 2)
 		                        edge.UITransformComponent.RectSize =
-		                            Vector2(math.sqrt(dx * dx + dy * dy), 4)
+		                            Vector2(math.sqrt(dx * dx + dy * dy), 4.5)
 		                        edge.UITransformComponent.UIRotation =
 		                            Vector3(0, 0, math.deg(math.atan(dy, dx)))
 		                        edge.Enable = true

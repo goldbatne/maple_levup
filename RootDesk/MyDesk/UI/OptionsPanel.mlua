@@ -1,0 +1,159 @@
+@Logic
+script OptionsPanel extends Logic
+
+	property table BoundEntities = {}
+	property table BoundHandlers = {}
+	property boolean Bound = false
+	property boolean Opened = false
+	property number NextRefreshAt = 0
+
+	@ExecSpace("ClientOnly")
+	method Entity UI(string path)
+		return _EntityService:GetEntityByPath("/ui/Options/" .. path)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnBeginPlay()
+		self:Bind()
+		log("[Options] UI 시작")
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnEndPlay()
+		for i = 1, #self.BoundEntities do
+			local entity = self.BoundEntities[i]
+			if isvalid(entity) then
+				entity:DisconnectEvent(ButtonClickEvent, self.BoundHandlers[i])
+			end
+		end
+		self.BoundEntities = {}
+		self.BoundHandlers = {}
+		self.Bound = false
+	end
+
+	@ExecSpace("ClientOnly")
+	method void Connect(string path, any callback)
+		local entity = self:UI(path)
+		if not isvalid(entity) then return end
+		self.BoundEntities[#self.BoundEntities + 1] = entity
+		self.BoundHandlers[#self.BoundHandlers + 1] = entity:ConnectEvent(ButtonClickEvent, callback)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void BuildHeaderIcon(Entity button, string kind)
+		if not isvalid(button) then return end
+		local icon = button:GetChildByName("HeaderIcon", false)
+		if isvalid(icon) then return end
+		icon = _SpawnService:SpawnByModelId("uisprite", "HeaderIcon", Vector3(0, 0, 0), button)
+		icon:RemoveComponent("MOD.Core.SpriteGUIRendererComponent")
+		local transform = icon.UITransformComponent
+		transform.AnchorsMin = Vector2(0.5, 0.5)
+		transform.AnchorsMax = Vector2(0.5, 0.5)
+		transform.Pivot = Vector2(0.5, 0.5)
+		transform.anchoredPosition = Vector2(0, 0)
+		transform.RectSize = Vector2(76, 76)
+		local pixels = icon:AddComponent("MOD.Core.PixelGUIRendererComponent")
+		pixels.RaycastTarget = false
+		pixels:ResetWithColor(64, 64, Color(0, 0, 0, 0))
+		-- Match the built-in header controls' compact white glyphs and soft edges.
+		for y = 1, 64 do
+			for x = 1, 64 do
+				local coverage = 0
+				for sy = 0, 1 do
+					for sx = 0, 1 do
+						local u = x - 32.75 + sx * 0.5
+						local v = y - 32.75 + sy * 0.5
+						local ax = math.abs(u)
+						local ay = math.abs(v)
+						local inside = false
+						if kind == "mail" then
+							local frame = ax <= 25 and ay <= 18 and (ax >= 21.5 or ay >= 14.5)
+							if ax > 23 and ay > 16 then frame = false end
+							local fold = ax <= 22 and math.abs(v - (-4 + ax * 0.77)) <= 2
+							inside = frame or fold
+						else
+							local radius = math.sqrt(u * u + v * v)
+							local ring = radius >= 22.5 and radius <= 26
+							local tooth = ax <= 2.7 or ay <= 2.7 or math.abs(ax - ay) <= 3.2
+							local gear = radius >= 5 and (radius <= 11 or (radius <= 15.5 and tooth))
+							inside = ring or gear
+						end
+						if inside then coverage = coverage + 0.25 end
+					end
+				end
+				if coverage > 0 then pixels:SetPixel(x, y, Color(1, 1, 1, coverage)) end
+			end
+		end
+		log("[HeaderIcon] ready " .. kind)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void Bind()
+		if self.Bound then return end
+		if not isvalid(self:UI("OpenButton")) or not isvalid(self:UI("Window/BgmValue"))
+			or not isvalid(self:UI("Window/SfxValue")) then return end
+		self:BuildHeaderIcon(self:UI("OpenButton"), "settings")
+		self:Connect("OpenButton", function() self:SetOpen(not self.Opened) end)
+		self:Connect("Window/Close", function() self:SetOpen(false) end)
+		self:Connect("Window/BgmDown", function() self:ChangeVolume("bgm", -1) end)
+		self:Connect("Window/BgmUp", function() self:ChangeVolume("bgm", 1) end)
+		self:Connect("Window/SfxDown", function() self:ChangeVolume("sfx", -1) end)
+		self:Connect("Window/SfxUp", function() self:ChangeVolume("sfx", 1) end)
+		self.Bound = true
+		self:SetOpen(false)
+		log("[Options] 옵션 버튼 연결 완료")
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnUpdate(number delta)
+		if _UtilLogic.ElapsedSeconds < self.NextRefreshAt then return end
+		self.NextRefreshAt = _UtilLogic.ElapsedSeconds + 0.5
+		self:Bind()
+		if not self.Bound then return end
+		local player = _UserService.LocalPlayer
+		local slots = isvalid(player) and player:GetComponent("script.PlayerSkillSlots") or nil
+		if slots == nil then return end
+		-- 새 맵의 SoundComponent가 BGM을 다시 시작해도 개인 볼륨을 유지한다.
+		_SoundService:SetBGMVolume(slots.AudioBgmVolume)
+		if self.Opened then self:Refresh(slots) end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnKeyDown(KeyDownEvent event)
+		if event.key == KeyboardKey.Escape and self.Opened then self:SetOpen(false) end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void SetOpen(boolean open)
+		self.Opened = open
+		local window = self:UI("Window")
+		if not isvalid(window) then return end
+		window.Enable = open
+		if open then
+			local player = _UserService.LocalPlayer
+			local slots = isvalid(player) and player:GetComponent("script.PlayerSkillSlots") or nil
+			if slots ~= nil then self:Refresh(slots) end
+		end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void ChangeVolume(string kind, integer direction)
+		local player = _UserService.LocalPlayer
+		local slots = isvalid(player) and player:GetComponent("script.PlayerSkillSlots") or nil
+		if slots == nil then return end
+		slots:RequestChangeAudioVolume(kind, direction)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void Refresh(any slots)
+		local bgm = self:UI("Window/BgmValue")
+		local sfx = self:UI("Window/SfxValue")
+		if isvalid(bgm) then
+			bgm.TextGUIRendererComponent.Text = tostring(math.floor(slots.AudioBgmVolume * 100 + 0.5)) .. "%"
+		end
+		if isvalid(sfx) then
+			sfx.TextGUIRendererComponent.Text = tostring(math.floor(slots.AudioSfxVolume * 100 + 0.5)) .. "%"
+		end
+	end
+
+end

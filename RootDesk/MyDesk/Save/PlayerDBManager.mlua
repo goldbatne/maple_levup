@@ -392,6 +392,8 @@ script PlayerDBManager extends Component
 		        if type(perm.roguelite_area_clears) == "table" then self.RogueAreaClears = perm.roguelite_area_clears else self.RogueAreaClears = {} end
 		        if type(perm.roguelite_optional_encounters) == "table" then self.RogueOptionalEncounters = perm.roguelite_optional_encounters else self.RogueOptionalEncounters = {} end
 		        if type(perm.roguelite_settings) == "table" then self.RogueSettings = perm.roguelite_settings else self.RogueSettings = {} end
+		        local audioSlots = self.Entity:GetComponent("script.PlayerSkillSlots")
+		        if audioSlots ~= nil then audioSlots:LoadAudioSettings(self.RogueSettings) end
 		        self:RefreshRogueFloorProgress()
 		
 		        ---@type PlayerSkillSlots
@@ -1010,7 +1012,7 @@ script PlayerDBManager extends Component
 		        if payload.monster_growth_currency ~= nil and (type(payload.monster_growth_currency) ~= "number"
 		            or payload.monster_growth_currency < 0 or payload.monster_growth_currency ~= math.floor(payload.monster_growth_currency)) then return false end
 		        payload.monster_growth_currency = payload.monster_growth_currency or 0
-		        for _, field in ipairs({"growth_core", "monster_selection_tickets"}) do
+		        for _, field in ipairs({"growth_core", "monster_selection_tickets", "monster_enhance_tickets"}) do
 		            local value = payload[field]
 		            if value ~= nil and (type(value) ~= "number" or value ~= math.floor(value)
 		                or value < 0 or value >= math.huge) then return false end
@@ -1035,7 +1037,17 @@ script PlayerDBManager extends Component
 		        end
 		        if payload.selected_companion ~= nil and type(payload.selected_companion) ~= "string" then return false end
 		        if payload.selected_companion == nil then payload.selected_companion = "" end
-		        if payload.settings.key_order ~= nil and type(payload.settings.key_order) ~= "string" then return false end
+		if payload.settings.key_order ~= nil and type(payload.settings.key_order) ~= "string" then return false end
+		for _, volumeKey in ipairs({"bgm_volume", "sfx_volume"}) do
+			local volume = payload.settings[volumeKey]
+			if volume ~= nil and (type(volume) ~= "number" or volume < 0 or volume > 1) then return false end
+		end
+		if payload.settings.mail_claims ~= nil then
+			if type(payload.settings.mail_claims) ~= "table" then return false end
+			for mailId, marker in pairs(payload.settings.mail_claims) do
+				if type(mailId) ~= "string" or marker ~= 1 then return false end
+			end
+		end
 		        if payload.settings.rank_gate_initialized ~= nil
 		            and type(payload.settings.rank_gate_initialized) ~= "boolean" then return false end
 		        local legacyFloor = payload.settings.legacy_unlocked_floor
@@ -1119,6 +1131,7 @@ script PlayerDBManager extends Component
 		        self:RefreshRogueFloorProgress()
 		        ---@type PlayerSkillSlots
 		        local slots = self.Entity:GetComponent("script.PlayerSkillSlots")
+		        if slots ~= nil then slots:LoadAudioSettings(payload.settings) end
 		        if slots ~= nil and type(payload.settings.key_order) == "string" then
 		            slots.KeyOrder = payload.settings.key_order
 		        end
@@ -1140,6 +1153,7 @@ script PlayerDBManager extends Component
 		        collection.MonsterGrowthCurrency = payload.monster_growth_currency
 		        collection.MonsterGrowthCore = payload.growth_core
 		        collection.MonsterSelectionTickets = payload.monster_selection_tickets
+		        collection.MonsterEnhancementTickets = payload.monster_enhance_tickets
 		        for _, monsterId in ipairs(_GameData:GetTameableMonsterIds()) do
 		            collection.MonsterLevels[monsterId] = nil
 		            collection.MonsterEnhances[monsterId] = nil
@@ -1236,6 +1250,7 @@ script PlayerDBManager extends Component
 		            payload.monster_growth_currency = collection.MonsterGrowthCurrency
 		            payload.growth_core = collection.MonsterGrowthCore
 		            payload.monster_selection_tickets = collection.MonsterSelectionTickets
+		            payload.monster_enhance_tickets = collection.MonsterEnhancementTickets
 		            for slot = 1, 3 do
 		                local id = collection:GetEquippedCompanion(slot)
 		                payload.equipped_companions[tostring(slot)] = id ~= "" and id or nil

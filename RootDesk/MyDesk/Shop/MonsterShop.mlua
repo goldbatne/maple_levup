@@ -15,26 +15,29 @@ script MonsterShop extends Logic
 	end
 
 	method table GetProduct(string productId)
+		        -- 기존 플랫폼 상품 ID만 재사용하고, 네 상품의 보상 정책은 여기에서 고정한다.
+		        local policies = {
+		            PRODUCT_A = {name = "성장 코어", price = 0, rewardType = "GROWTH_CORE", amount = 5, limit = 1, resetType = "DAILY"},
+		            PRODUCT_D = {name = "성장 점수", price = 0, rewardType = "GROWTH_ESSENCE", amount = 5, limit = 3, resetType = "WEEKLY"},
+		            PRODUCT_B = {name = "몬스터 코어 성장권", price = 100, rewardType = "MONSTER_GROWTH_TICKET", amount = 1, limit = 3, resetType = "WEEKLY"},
+		            PRODUCT_C = {name = "몬스터 점수 성장권", price = 200, rewardType = "MONSTER_SCORE_GROWTH_TICKET", amount = 1, limit = 5, resetType = "MONTHLY"},
+		        }
+		        local policy = policies[productId]
+		        if policy == nil then return nil end
 		        local data = _DataService:GetTable("MonsterProductCatalog")
-		        if data == nil then return nil end
-		        local row = data:FindRow("ProductId", productId)
-		        if row == nil then return nil end
+		        local row = data ~= nil and data:FindRow("ProductId", productId) or nil
 		        local result = {
-		            id = row:GetItem("ProductId"),
-		            name = row:GetItem("DisplayName"),
-		            productType = row:GetItem("ProductType"),
-		            price = math.max(0, math.floor(tonumber(row:GetItem("Price")) or 0)),
-		            platformId = row:GetItem("PlatformProductId") or "",
-		            rewardType = row:GetItem("RewardType"),
-		            rewardId = row:GetItem("RewardId"),
-		            amount = math.floor(tonumber(row:GetItem("RewardAmount")) or 0),
-		            limit = math.floor(tonumber(row:GetItem("PurchaseLimit")) or 0),
-		            resetType = row:GetItem("ResetType"),
-		            enabled = row:GetItem("Enabled") == "1",
+		            id = productId, name = policy.name, productType = "CONSUMABLE",
+		            price = policy.price,
+		            platformId = policy.price > 0 and row ~= nil and (row:GetItem("PlatformProductId") or "") or "",
+		            rewardType = policy.rewardType, rewardId = "",
+		            amount = policy.amount, limit = policy.limit, resetType = policy.resetType,
+		            enabled = row == nil and policy.price == 0 or row ~= nil and row:GetItem("Enabled") == "1",
 		        }
 		        if result.amount <= 0 or result.amount > 100000 or result.limit < 0 then return nil end
 		        if result.rewardType ~= "MONSTER_GROWTH_TICKET"
 		            and result.rewardType ~= "MONSTER_SELECTION_TICKET"
+		            and result.rewardType ~= "MONSTER_SCORE_GROWTH_TICKET"
 		            and result.rewardType ~= "GROWTH_ESSENCE"
 		            and result.rewardType ~= "GROWTH_CORE" then return nil end
 		        if result.resetType ~= "NONE" and result.resetType ~= "DAILY"
@@ -67,6 +70,11 @@ script MonsterShop extends Logic
 		        end
 		        for i = 1, month - 1 do ordinal += monthDays[i] end
 		        return ordinal + day
+	end
+
+	method table GetCatalogProductIds()
+		        -- 무료 재료를 먼저, 유료 성장권을 뒤에 표시한다.
+		        return {"PRODUCT_A", "PRODUCT_D", "PRODUCT_B", "PRODUCT_C"}
 	end
 
 	@ExecSpace("ServerOnly")
@@ -129,7 +137,7 @@ script MonsterShop extends Logic
 		        if product == nil or product.enabled == false then return false end
 		        -- 무료 성장권만 서버 발급 영수증으로 청구할 수 있다. 유료 상품은 플랫폼
 		        -- 콜백(또는 Maker 개발 테스트)을 거치지 않으면 지급하지 않는다.
-		        local freeClaim = product.id == "PRODUCT_A" and product.price == 0
+		        local freeClaim = product.price == 0 and product.platformId == ""
 		            and string.sub(purchaseId, 1, 5) == "FREE:"
 		        if platformVerified == false and Environment:IsMakerPlay() == false
 		            and freeClaim == false then return false end
@@ -163,10 +171,14 @@ script MonsterShop extends Logic
 		        local oldEssence = collection.MonsterGrowthCurrency
 		        local oldCore = collection.MonsterGrowthCore
 		        local oldTicket = collection.MonsterSelectionTickets
+		        local oldScoreTicket = collection.MonsterEnhancementTickets
 		        if product.rewardType == "MONSTER_GROWTH_TICKET"
 		            or product.rewardType == "MONSTER_SELECTION_TICKET" then
 		            if oldTicket > 2000000000 - product.amount then return false end
 		            candidate.monster_selection_tickets = oldTicket + product.amount
+		        elseif product.rewardType == "MONSTER_SCORE_GROWTH_TICKET" then
+		            if oldScoreTicket > 2000000000 - product.amount then return false end
+		            candidate.monster_enhance_tickets = oldScoreTicket + product.amount
 		        elseif product.rewardType == "GROWTH_ESSENCE" then
 		            if oldEssence > 2000000000 - product.amount then return false end
 		            candidate.monster_growth_currency = oldEssence + product.amount
@@ -193,6 +205,8 @@ script MonsterShop extends Logic
 		        if product.rewardType == "MONSTER_GROWTH_TICKET"
 		            or product.rewardType == "MONSTER_SELECTION_TICKET" then
 		            collection.MonsterSelectionTickets += product.amount
+		        elseif product.rewardType == "MONSTER_SCORE_GROWTH_TICKET" then
+		            collection.MonsterEnhancementTickets += product.amount
 		        elseif product.rewardType == "GROWTH_ESSENCE" then
 		            collection.MonsterGrowthCurrency += product.amount
 		        else
@@ -253,12 +267,13 @@ script MonsterShop extends Logic
 	end
 
 	@ExecSpace("Server")
-	method void RequestFreeGrowthTicket()
+	method void RequestFreeProduct(string productId)
+		        -- 무료 상품만 서버에서 발급한 영수증과 저장된 기간 한도로 지급한다.
 		        local player = _UserService:GetUserEntityByUserId(senderUserId)
 		        -- 다른 참가자의 Run 상태와 무관하게, 청구자 본인이 로비에 있을 때만 허용한다.
 		        if not isvalid(player) or player.CurrentMap == nil
 		            or player.CurrentMap.Name ~= "maptown" then return end
-		        local product = self:GetProduct("PRODUCT_A")
+		        local product = self:GetProduct(productId)
 		        if product == nil or not product.enabled or product.price ~= 0
 		            or product.platformId ~= "" then return end
 		        if self.DevCounters == nil then self.DevCounters = {} end
@@ -267,7 +282,7 @@ script MonsterShop extends Logic
 		        local purchaseId = "FREE:" .. senderUserId .. ":"
 		            .. tostring(_UtilLogic.ElapsedSeconds) .. ":" .. tostring(n)
 		        if self:ProcessReward(senderUserId, product.id, purchaseId, false) == false then
-		            self:NotifyPurchaseMessage("받을 수 없음", "오늘의 성장권 횟수 또는 저장 상태를 확인해 주세요.", senderUserId)
+		            self:NotifyPurchaseMessage("받을 수 없음", "이번 기간의 무료 횟수 또는 저장 상태를 확인해 주세요.", senderUserId)
 		        end
 	end
 
@@ -275,8 +290,8 @@ script MonsterShop extends Logic
 	method void RequestCatalogPurchase(string productId)
 		        local product = self:GetProduct(productId)
 		        if product == nil or product.enabled == false then return end
-		        if product.id == "PRODUCT_A" and product.price == 0 and product.platformId == "" then
-		            self:RequestFreeGrowthTicket()
+		        if product.price == 0 and product.platformId == "" then
+		            self:RequestFreeProduct(productId)
 		        elseif product.platformId ~= "" then
 		            self:RequestPaidPurchaseEligibility(productId)
 		        end
@@ -324,9 +339,10 @@ script MonsterShop extends Logic
 		        self.PaidPromptPending[userId] = now
 		        local platform = _WorldShopService:GetProductAndWait(product.platformId)
 		        if platform == nil or platform.Id ~= product.platformId
+		            or platform.Name ~= product.name
 		            or platform.Type ~= WorldShopProductType.Item
 		            or platform.Status ~= WorldShopProductStatus.Ing
-		            or platform.Price <= 0 then
+		            or platform.Price ~= product.price then
 		            self.PaidPromptPending[userId] = nil
 		            self:NotifyPurchaseMessage("상품 준비 중", "현재 판매 중인 상품이 아닙니다.", userId)
 		            return
@@ -342,9 +358,10 @@ script MonsterShop extends Logic
 		        if product == nil or product.platformId ~= platformId then return end
 		        local platform = _WorldShopService:GetProductAndWait(platformId)
 		        if platform == nil or platform.Id ~= platformId
+		            or platform.Name ~= product.name
 		            or platform.Status ~= WorldShopProductStatus.Ing
 		            or platform.Type ~= WorldShopProductType.Item
-		            or platform.Price <= 0
+		            or platform.Price ~= product.price
 		            or platform.Price ~= serverPrice then
 		            if _GateNotice ~= nil then
 		                _GateNotice:ShowNotice("상품 준비 중", "플랫폼 상품 정보를 다시 확인해 주세요.")
@@ -356,32 +373,60 @@ script MonsterShop extends Logic
 
 	@ExecSpace("Server")
 	method void RequestUseGrowthTicket(string monsterId)
-		        local player = _UserService:GetUserEntityByUserId(senderUserId)
+		        -- 기존 호출은 코어 성장권으로 유지한다.
+		        self:UseMonsterGrowthTicket(senderUserId, monsterId, "CORE")
+	end
+
+	@ExecSpace("Server")
+	method void RequestUseMonsterGrowthTicket(string monsterId, string kind)
+		        -- 성장권 종류를 클라이언트가 보내도 서버가 소유량·상한을 다시 검증한다.
+		        self:UseMonsterGrowthTicket(senderUserId, monsterId, kind)
+	end
+
+	@ExecSpace("ServerOnly")
+	method void UseMonsterGrowthTicket(string userId, string monsterId, string kind)
+		        -- 저장 성공 후에만 선택 몬스터의 성장 단계와 해당 성장권을 갱신한다.
+		        if kind ~= "CORE" and kind ~= "SCORE" then return end
+		        local player = _UserService:GetUserEntityByUserId(userId)
 		        if not isvalid(player) or player.CurrentMap == nil
 		            or player.CurrentMap.Name ~= "maptown" or _GameData.RogueRunActive then return end
 		        ---@type PlayerCollection
 		        local collection = player:GetComponent("script.PlayerCollection")
 		        ---@type PlayerDBManager
 		        local db = player:GetComponent("script.PlayerDBManager")
-		        if collection == nil or db == nil or db:IsRogueEconomyReady() == false
-		            or collection.MonsterSelectionTickets < 1 then return end
+		        if collection == nil or db == nil or db:IsRogueEconomyReady() == false then return end
+		        local tickets = kind == "CORE" and collection.MonsterSelectionTickets or collection.MonsterEnhancementTickets
+		        if tickets < 1 then return end
 		        local oldTamed = collection:GetTamedCount(monsterId)
 		        local oldLevel = collection:GetMonsterLevel(monsterId)
 		        local levelCap = math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
+		        local oldStage = kind == "CORE" and oldLevel or collection:GetMonsterEnhance(monsterId)
+		        local cap = kind == "CORE" and levelCap or math.max(0, math.floor(_GameData:GetBalance("monster_enhance_cap")))
 		        -- 클라이언트가 미보유 ID를 보내도 성장권으로 신규 해금할 수 없다.
 		        if _GameData:IsTameableMonster(monsterId) == false or oldTamed <= 0
-		            or oldLevel <= 0 or oldLevel >= levelCap then return end
+		            or oldLevel <= 0 or oldStage >= cap then return end
 		        local candidate = db:PrepareRogueEconomyPayload()
 		        if candidate == nil then return end
-		        candidate.monster_levels = candidate.monster_levels or {}
-		        candidate.monster_selection_tickets = collection.MonsterSelectionTickets - 1
-		        candidate.monster_levels[monsterId] = oldLevel + 1
-		        if db:CommitRogueEconomyPayload(candidate, "몬스터 성장권 사용") == false then return end
-		        collection.MonsterLevels[monsterId] = oldLevel + 1
-		        collection.MonsterSelectionTickets -= 1
+		        if kind == "CORE" then
+		            candidate.monster_levels = candidate.monster_levels or {}
+		            candidate.monster_selection_tickets = tickets - 1
+		            candidate.monster_levels[monsterId] = oldStage + 1
+		        else
+		            candidate.monster_enhances = candidate.monster_enhances or {}
+		            candidate.monster_enhance_tickets = tickets - 1
+		            candidate.monster_enhances[monsterId] = oldStage + 1
+		        end
+		        if db:CommitRogueEconomyPayload(candidate, "몬스터 성장권 사용 " .. kind) == false then return end
+		        if kind == "CORE" then
+		            collection.MonsterLevels[monsterId] = oldStage + 1
+		            collection.MonsterSelectionTickets -= 1
+		        else
+		            collection.MonsterEnhances[monsterId] = oldStage + 1
+		            collection.MonsterEnhancementTickets -= 1
+		        end
 		        collection:RefreshPlayerInheritedStats()
 		        log("[MonsterShop] 성장권 사용 monster=" .. monsterId
-		            .. " level=" .. tostring(collection:GetMonsterLevel(monsterId)))
+		            .. " kind=" .. kind .. " stage=" .. tostring(oldStage + 1))
 	end
 
 end
