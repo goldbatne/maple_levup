@@ -1,11 +1,11 @@
 @Component
 script PlayerDBManager extends Component
 
-	property string KeyPerm = "Perm"
+	property string KeyPerm = "Launch20261007_Perm"
 
-	property string KeyRun = "Run"
+	property string KeyRun = "Launch20261007_Run"
 
-	property string KeyRogue = "RoguelitePermanentV1"
+	property string KeyRogue = "Launch20261007_RoguelitePermanentV1"
 
 	property boolean RogueStorageMode = false
 
@@ -57,12 +57,20 @@ script PlayerDBManager extends Component
 	property any restoreTimer = nil
 
 	@ExecSpace("ServerOnly")
+	method void ConfigureLaunchStorage(boolean makerTest)
+		-- 고정 출시 키를 사용한다. 베타 키는 읽거나 삭제하지 않으며 매 접속마다 초기화하지 않는다.
+		-- MailService.ConfigureLaunchStorage와 동일한 출시 버전을 유지한다.
+		local prefix = makerTest and "MakerTest_Launch20261007_" or "Launch20261007_"
+		self.KeyPerm = prefix .. "Perm"
+		self.KeyRun = prefix .. "Run"
+		self.KeyRogue = prefix .. "RoguelitePermanentV1"
+	end
+
+	@ExecSpace("ServerOnly")
 	method void OnBeginPlay()
 		        -- 저장 모드를 세션 시작에 고정한다. Maker는 실계정 진행 키를 쓰지 않는다.
 		        self.RogueStorageMode = _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5
-		        if self.RogueStorageMode and Environment:IsMakerPlay() then
-		            self.KeyRogue = "MakerTest_RoguelitePermanentV1"
-		        end
+		        self:ConfigureLaunchStorage(Environment:IsMakerPlay())
 		        -- 외부 파일 병합 직후 Maker가 새 table 프로퍼티의 기본값을 nil로 보존한
 		        -- 세션에서도 별도 RoguelitePermanent 원장을 안전하게 초기화한다.
 		        if type(self.RogueAreaClears) ~= "table" then self.RogueAreaClears = {} end
@@ -1085,9 +1093,8 @@ script PlayerDBManager extends Component
 
 	@ExecSpace("ServerOnly")
 	method void LoadRogueliteRecords()
-		        -- 신규 모드에서는 RPG/M2 필드를 적용하거나 저장하지 않는다.
+		        -- 정식 출시 저장만 읽는다. 베타/Perm 자동 이관은 새 출발을 취소하므로 금지한다.
 		        local keys = {self.KeyRogue}
-		        if Environment:IsMakerPlay() == false then keys[#keys + 1] = self.KeyPerm end
 		        local loaded = {}
 		        if self:BatchGetAndWait(self.Entity.PlayerComponent.ProfileCode, keys, loaded) == false then return end
 		        local payload = {}
@@ -1099,19 +1106,10 @@ script PlayerDBManager extends Component
 		                log_error("[PlayerDB] 로그라이트 저장 형식 불일치 — 원본 보존")
 		                return
 		            end
-		        elseif loaded[self.KeyPerm] ~= nil and loaded[self.KeyPerm].Value ~= nil and loaded[self.KeyPerm].Value ~= "" then
-		            -- 이전 Perm 내부의 신규 모드 기록만 단방향 이관. Perm 자체는 쓰지 않는다.
-		            local legacy = self:DecodeRogueliteRecord(loaded[self.KeyPerm].Value, true)
-		            if legacy == nil then
-		                self.StorageWriteBlocked = true
-		                log_error("[PlayerDB] 레거시 로그라이트 기록 읽기 실패 — 원본 보존")
-		                return
-		            end
-		            if legacy.schema_version == 4 then
-		                payload = legacy
-		                self.permDirty = true
-		                self.permGen += 1
-		            end
+		        else
+		            self.permDirty = true
+		            self.permGen += 1
+		            log("[PlayerDB] 정식 출시 신규 진행 key=" .. self.KeyRogue .. " betaMigration=false")
 		        end
 		        if self:ValidateRogueliteRecord(payload) == false then
 		            self.StorageWriteBlocked = true
