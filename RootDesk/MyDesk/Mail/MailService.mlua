@@ -3,11 +3,70 @@ script MailService extends Logic
 
 	-- 개인 월드 소유자 ID. 보상 발송은 이 계정만 서버에서 허용한다.
 	property string OperatorUserId = "20372000905997288"
-	property string InboxTag = "MAIL_INBOX_V1"
-	property string CampaignStorage = "RogueMail"
-	property string CampaignTag = "MAIL_CAMPAIGN_V1"
+	property string InboxTag = "Launch20261007_MAIL_INBOX_V1"
+	property string CampaignStorage = "Launch20261007_RogueMail"
+	property string CampaignTag = "Launch20261007_MAIL_CAMPAIGN_V1"
 	property table LastSendAt = {}
+	property table RequestBusy = {}
+	property table NextRequestAt = {}
+	property table NextNoticeAt = {}
 	property integer NextSerial = 0
+
+	@ExecSpace("ServerOnly")
+	method void ConfigureLaunchStorage(boolean makerTest)
+		-- 베타 우편/전체 보상은 보존하되 새 진행에서는 노출하거나 재수령하지 않는다.
+		-- PlayerDBManager.ConfigureLaunchStorage와 동일한 출시 버전을 유지한다.
+		local prefix = makerTest and "MakerTest_Launch20261007_" or "Launch20261007_"
+		self.InboxTag = prefix .. "MAIL_INBOX_V1"
+		self.CampaignStorage = prefix .. "RogueMail"
+		self.CampaignTag = prefix .. "MAIL_CAMPAIGN_V1"
+	end
+
+	@ExecSpace("ServerOnly")
+	method void OnBeginPlay()
+		-- Maker 재실행도 실제 출시 우편과 분리하고 요청 제한의 세션 상태만 비운다.
+		self:ConfigureLaunchStorage(Environment:IsMakerPlay())
+		self.LastSendAt = {}
+		self.RequestBusy = {}
+		self.NextRequestAt = {}
+		self.NextNoticeAt = {}
+		log("[Mail] 출시 우편함 시작 tag=" .. self.InboxTag)
+	end
+
+	@ExecSpace("ServerOnly")
+	method boolean TryBeginMailRequest(string userId, string operation)
+		-- 네 종류의 요청이 하나의 사용자별 잠금/간격을 공유해 교차 호출도 제한한다.
+		local now = _UtilLogic.ServerElapsedSeconds
+		if self.RequestBusy[userId] == true or now < (self.NextRequestAt[userId] or 0) then
+			return false
+		end
+		self.RequestBusy[userId] = true
+		self.NextRequestAt[userId] = now + (operation == "INBOX" and 2 or 1)
+		return true
+	end
+
+	@ExecSpace("ServerOnly")
+	method void RunMailRequest(string userId, string operation, any action)
+		-- 모든 조기 반환/저장 실패/예외 경로에서 잠금을 해제한다. 대기 중에는 해제하지 않는다.
+		local player = _UserService:GetUserEntityByUserId(userId)
+		if not isvalid(player) or player.PlayerComponent == nil then return end
+		if not self:TryBeginMailRequest(userId, operation) then
+			local now = _UtilLogic.ServerElapsedSeconds
+			if now >= (self.NextNoticeAt[userId] or 0) then
+				self.NextNoticeAt[userId] = now + 2
+				self:NotifyResult("우편 요청을 처리 중이거나 너무 빠릅니다. 잠시 후 다시 시도해 주세요.", false, userId)
+			end
+			return
+		end
+		local ok, reason = pcall(action)
+		self.RequestBusy[userId] = nil
+		if not ok then
+			log_error("[Mail] 요청 처리 실패 operation=" .. operation .. " reason=" .. tostring(reason))
+			self:NotifyResult("우편 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.", false, userId)
+			return
+		end
+		log("[Mail] 요청 처리 완료 operation=" .. operation)
+	end
 
 	@ExecSpace("ServerOnly")
 	method string CleanText(string value, integer maxBytes, boolean multiline)
@@ -81,12 +140,22 @@ script MailService extends Logic
 
 	@ExecSpace("Server")
 	method void RequestInbox()
-		local player = _UserService:GetUserEntityByUserId(senderUserId)
+		-- RPC 발신자를 고정하고 저장소 접근 전에 공통 요청 제한을 적용한다.
+		local userId = senderUserId
+		self:RunMailRequest(userId, "INBOX", function()
+			self:ProcessInbox(userId)
+		end)
+	end
+
+	@ExecSpace("ServerOnly")
+	method void ProcessInbox(string userId)
+		-- 공통 잠금을 획득한 서버 요청만 기존 우편 처리를 실행한다.
+		local player = _UserService:GetUserEntityByUserId(userId)
 		if not isvalid(player) or player.PlayerComponent == nil then return end
 		local profileCode = player.PlayerComponent.ProfileCode
 		local all = self:GetAllMessages(profileCode)
 		if all == nil then
-			self:NotifyResult("우편함을 읽지 못했습니다. 잠시 후 다시 시도해 주세요.", false, senderUserId)
+			self:NotifyResult("우편함을 읽지 못했습니다. 잠시 후 다시 시도해 주세요.", false, userId)
 			return
 		end
 		local db = player:GetComponent("script.PlayerDBManager")
@@ -96,51 +165,64 @@ script MailService extends Logic
 		end
 		local encoded = #all == 0 and '{"messages":[]}'
 			or _HttpService:JSONEncode({messages = all})
-		self:ReceiveInbox(encoded, senderUserId)
+		self:ReceiveInbox(encoded, userId)
 	end
 
 	@ExecSpace("Server")
 	method void RequestSend(string recipientCode, string subject, string body,
 		integer core, integer score, integer coreTicket, integer scoreTicket)
-		local player = _UserService:GetUserEntityByUserId(senderUserId)
+		-- RPC 발신자를 고정하고 저장소 접근 전에 공통 요청 제한을 적용한다.
+		local userId = senderUserId
+		self:RunMailRequest(userId, "SEND", function()
+			self:ProcessSend(userId, recipientCode, subject, body, core, score, coreTicket, scoreTicket)
+		end)
+	end
+
+	@ExecSpace("ServerOnly")
+	method void ProcessSend(string userId, string recipientCode, string subject, string body,
+		integer core, integer score, integer coreTicket, integer scoreTicket)
+		-- 공통 잠금을 획득한 서버 요청만 기존 우편 처리를 실행한다.
+		local player = _UserService:GetUserEntityByUserId(userId)
 		if not isvalid(player) or player.PlayerComponent == nil then return end
-		local isOperator = senderUserId == self.OperatorUserId
+		local isOperator = userId == self.OperatorUserId
 		local now = _UtilLogic.ServerElapsedSeconds
-		if now - (self.LastSendAt[senderUserId] or -100) < (isOperator and 2 or 20) then
-			self:NotifyResult("잠시 후 다시 보내 주세요.", false, senderUserId)
+		if now - (self.LastSendAt[userId] or -100) < (isOperator and 2 or 20) then
+			self:NotifyResult("잠시 후 다시 보내 주세요.", false, userId)
 			return
 		end
 		recipientCode = self:CleanText(recipientCode, 40, false)
 		subject = self:CleanText(subject, 80, false)
 		body = self:CleanText(body, 800, true)
 		if recipientCode == "" or subject == "" or body == "" then
-			self:NotifyResult("받는 사람, 제목, 내용을 모두 입력해 주세요.", false, senderUserId)
+			self:NotifyResult("받는 사람, 제목, 내용을 모두 입력해 주세요.", false, userId)
 			return
 		end
 		for _, amount in ipairs({core, score, coreTicket, scoreTicket}) do
 			if type(amount) ~= "number" or amount ~= math.floor(amount)
 				or amount < 0 or amount > 100000 then
-				self:NotifyResult("보상 수량이 올바르지 않습니다.", false, senderUserId)
+				self:NotifyResult("보상 수량이 올바르지 않습니다.", false, userId)
 				return
 			end
 		end
 		if not isOperator and (core > 0 or score > 0 or coreTicket > 0 or scoreTicket > 0
 			or recipientCode == "ALL") then
-			self:NotifyResult("플레이어 메일은 글만 보낼 수 있습니다.", false, senderUserId)
+			self:NotifyResult("플레이어 메일은 글만 보낼 수 있습니다.", false, userId)
 			return
 		end
+		-- 조회/저장 대기 전에 발송 시도를 기록해 실패 반복도 제한한다.
+		self.LastSendAt[userId] = now
 		if recipientCode ~= "ALL" then
 			local recipient = _UserService:GetUserByProfileCode(recipientCode)
 			if recipient == nil or recipient.ProfileCode ~= recipientCode then
-				self:NotifyResult("받는 사람의 프로필 코드를 확인해 주세요.", false, senderUserId)
+				self:NotifyResult("받는 사람의 프로필 코드를 확인해 주세요.", false, userId)
 				return
 			end
 		end
 		self.NextSerial += 1
 		local utc = DateTime.UtcNow.Elapsed
-		local id = senderUserId .. "-" .. tostring(utc)
+		local id = userId .. "-" .. tostring(utc)
 			.. "-" .. tostring(self.NextSerial) .. "-" .. tostring(math.random(100000, 999999))
-		local user = _UserService.Users[senderUserId]
+		local user = _UserService.Users[userId]
 		local message = {
 			id = id,
 			kind = isOperator and "operator" or "player",
@@ -164,17 +246,26 @@ script MailService extends Logic
 				self.InboxTag, message, 50)
 		end
 		if not success then
-			self:NotifyResult("발송하지 못했습니다. 우편함이 가득 찼거나 저장 중입니다.", false, senderUserId)
+			self:NotifyResult("발송하지 못했습니다. 우편함이 가득 찼거나 저장 중입니다.", false, userId)
 			return
 		end
-		self.LastSendAt[senderUserId] = now
 		log("[Mail] 발송 id=" .. id .. " kind=" .. message.kind)
-		self:NotifyResult("메일을 보냈습니다.", true, senderUserId)
+		self:NotifyResult("메일을 보냈습니다.", true, userId)
 	end
 
 	@ExecSpace("Server")
 	method void RequestClaim(string mailId)
-		local player = _UserService:GetUserEntityByUserId(senderUserId)
+		-- RPC 발신자를 고정하고 저장소 접근 전에 공통 요청 제한을 적용한다.
+		local userId = senderUserId
+		self:RunMailRequest(userId, "CLAIM", function()
+			self:ProcessClaim(userId, mailId)
+		end)
+	end
+
+	@ExecSpace("ServerOnly")
+	method void ProcessClaim(string userId, string mailId)
+		-- 공통 잠금을 획득한 서버 요청만 기존 우편 처리를 실행한다.
+		local player = _UserService:GetUserEntityByUserId(userId)
 		if not isvalid(player) or player.PlayerComponent == nil then return end
 		local db = player:GetComponent("script.PlayerDBManager")
 		local collection = player:GetComponent("script.PlayerCollection")
@@ -199,7 +290,7 @@ script MailService extends Logic
 		if candidate == nil then return end
 		local claims = candidate.settings.mail_claims or {}
 		if claims[mailId] == 1 then
-			self:NotifyResult("이미 받은 보상입니다.", false, senderUserId)
+			self:NotifyResult("이미 받은 보상입니다.", false, userId)
 			return
 		end
 		if candidate.growth_core > 2000000000 - amounts[1]
@@ -219,9 +310,9 @@ script MailService extends Logic
 		collection.MonsterGrowthCurrency = candidate.monster_growth_currency
 		collection.MonsterSelectionTickets = candidate.monster_selection_tickets
 		collection.MonsterEnhancementTickets = candidate.monster_enhance_tickets
-		log("[Mail] 보상 수령 user=" .. senderUserId .. " id=" .. mailId)
-		self:NotifyResult("보상을 받았습니다.", true, senderUserId)
-		self:RequestInboxForPlayer(player, senderUserId)
+		log("[Mail] 보상 수령 user=" .. userId .. " id=" .. mailId)
+		self:NotifyResult("보상을 받았습니다.", true, userId)
+		self:RequestInboxForPlayer(player, userId)
 	end
 
 	@ExecSpace("ServerOnly")
@@ -237,7 +328,17 @@ script MailService extends Logic
 
 	@ExecSpace("Server")
 	method void RequestDelete(string mailId)
-		local player = _UserService:GetUserEntityByUserId(senderUserId)
+		-- RPC 발신자를 고정하고 저장소 접근 전에 공통 요청 제한을 적용한다.
+		local userId = senderUserId
+		self:RunMailRequest(userId, "DELETE", function()
+			self:ProcessDelete(userId, mailId)
+		end)
+	end
+
+	@ExecSpace("ServerOnly")
+	method void ProcessDelete(string userId, string mailId)
+		-- 공통 잠금을 획득한 서버 요청만 기존 우편 처리를 실행한다.
+		local player = _UserService:GetUserEntityByUserId(userId)
 		if not isvalid(player) or player.PlayerComponent == nil then return end
 		local storage = _DataStorageService:GetUserDataStorage(player.PlayerComponent.ProfileCode)
 		local personal = self:ReadMessages(storage, self.InboxTag)
@@ -254,16 +355,16 @@ script MailService extends Logic
 			and db.RogueSettings.mail_claims ~= nil
 			and db.RogueSettings.mail_claims[mailId] == 1
 		if reward > 0 and not claimed then
-			self:NotifyResult("보상을 받은 후 삭제할 수 있습니다.", false, senderUserId)
+			self:NotifyResult("보상을 받은 후 삭제할 수 있습니다.", false, userId)
 			return
 		end
 		local code = storage:DeleteAndWait("MailV1:" .. mailId)
 		if code ~= 0 then
-			self:NotifyResult("메일을 삭제하지 못했습니다. 다시 시도해 주세요.", false, senderUserId)
+			self:NotifyResult("메일을 삭제하지 못했습니다. 다시 시도해 주세요.", false, userId)
 			return
 		end
-		self:NotifyResult("메일을 삭제했습니다.", true, senderUserId)
-		self:RequestInboxForPlayer(player, senderUserId)
+		self:NotifyResult("메일을 삭제했습니다.", true, userId)
+		self:RequestInboxForPlayer(player, userId)
 	end
 
 	@ExecSpace("Client")
