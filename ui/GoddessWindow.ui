@@ -453,7 +453,7 @@
               "EndFrameIndex": 2147483647,
               "IgnoreMapLayerCheck": false,
               "ImageRUID": {
-                "DataId": "21691103c9b6f174d8f0a84a5904153f"
+                "DataId": "2860136c06ab075439721c027de365af"
               },
               "LocalPosition": {
                 "x": 0.0,
@@ -471,9 +471,9 @@
               "SortingLayer": "UI",
               "StartFrameIndex": 0,
               "Color": {
-                "r": 0.980392158,
-                "g": 0.972549,
-                "b": 0.9647059,
+                "r": 0.93,
+                "g": 0.95,
+                "b": 0.96,
                 "a": 1.0
               },
               "DropShadow": false,
@@ -644,14 +644,14 @@
             {
               "@type": "MOD.Core.SpriteGUIRendererComponent",
               "ImageRUID": {
-                "DataId": "e5a52f08de84b204eb9cc2df8e1e539a"
+                "DataId": "2860136c06ab075439721c027de365af"
               },
               "OverrideSorting": false,
               "Color": {
-                "r": 0.8627451,
-                "g": 0.905882359,
-                "b": 0.929411769,
-                "a": 1.0
+                "r": 0.93,
+                "g": 0.95,
+                "b": 0.96,
+                "a": 0.0
               },
               "Type": 1,
               "Enable": true
@@ -2111,7 +2111,7 @@
               "EndFrameIndex": 2147483647,
               "IgnoreMapLayerCheck": false,
               "ImageRUID": {
-                "DataId": "129f02486c2baef49a41b31ce16171f6"
+                "DataId": "2860136c06ab075439721c027de365af"
               },
               "LocalPosition": {
                 "x": 0.0,
@@ -2129,9 +2129,9 @@
               "SortingLayer": "UI",
               "StartFrameIndex": 0,
               "Color": {
-                "r": 0.972549,
-                "g": 0.980392158,
-                "b": 0.9843137,
+                "r": 0.48,
+                "g": 0.55,
+                "b": 0.59,
                 "a": 1.0
               },
               "DropShadow": false,
@@ -2153,14 +2153,14 @@
               "FrameColumn": 1,
               "FrameRate": 0,
               "FrameRow": 1,
-              "Outline": true,
+              "Outline": false,
               "OutlineColor": {
-                "r": 0.72,
-                "g": 0.79,
-                "b": 0.83,
+                "r": 0.5294118,
+                "g": 0.5803922,
+                "b": 0.619607866,
                 "a": 1.0
               },
-              "OutlineWidth": 1.0,
+              "OutlineWidth": 0.0,
               "RaycastTarget": true,
               "Type": 1,
               "Enable": true
@@ -2222,9 +2222,9 @@
               "ConstraintY": 100.0,
               "Font": "Default",
               "FontColor": {
-                "r": 0.1882353,
-                "g": 0.239215687,
-                "b": 0.2784314,
+                "r": 1.0,
+                "g": 1.0,
+                "b": 1.0,
                 "a": 1.0
               },
               "FontSize": 30.0,
@@ -2263,15 +2263,15 @@
         }
       },
       {
-        "id": "9a1dd8a6-c837-4dac-abc0-c083232009cb",
-        "path": "/ui/GoddessWindow/Root/Window/BtnClose/V5UpperEdge",
+        "id": "7e70ce0c-fcfd-45d9-8dbe-29fb8bbc87d9",
+        "path": "/ui/GoddessWindow/Root/Window/BtnClose/MasterUpperEdge",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
-          "name": "V5UpperEdge",
-          "path": "/ui/GoddessWindow/Root/Window/BtnClose/V5UpperEdge",
+          "name": "MasterUpperEdge",
+          "path": "/ui/GoddessWindow/Root/Window/BtnClose/MasterUpperEdge",
           "nameEditable": true,
-          "enable": true,
-          "visible": true,
+          "enable": false,
+          "visible": false,
           "localize": true,
           "displayOrder": 0,
           "pathConstraints": "//////",
@@ -2288,30 +2288,30 @@
             {
               "@type": "MOD.Core.UITransformComponent",
               "ActivePlatform": 255,
-              "AlignmentOption": 0,
+              "AlignmentOption": 9,
               "AnchorsMax": {
-                "x": 0.5,
-                "y": 0.5
+                "x": 1.0,
+                "y": 1.0
               },
               "AnchorsMin": {
-                "x": 0.5,
-                "y": 0.5
+                "x": 0.0,
+                "y": 1.0
               },
               "MobileOnly": false,
               "OffsetMax": {
-                "x": 128.0,
-                "y": 42.5
+                "x": -3.0,
+                "y": -1.5
               },
               "OffsetMin": {
-                "x": -128.0,
-                "y": 39.5
+                "x": 3.0,
+                "y": -4.5
               },
               "Pivot": {
                 "x": 0.5,
                 "y": 0.5
               },
               "RectSize": {
-                "x": 256.0,
+                "x": 314.0,
                 "y": 3.0
               },
               "UIMode": 1,
@@ -2323,7 +2323,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": 0.0,
-                "y": 41.0
+                "y": -3.0
               },
               "Rotation": {
                 "x": 0.0,
@@ -2332,7 +2332,7 @@
               },
               "Position": {
                 "x": 0.0,
-                "y": 89.0,
+                "y": 93.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -2373,9 +2373,9 @@
               "SortingLayer": "UI",
               "StartFrameIndex": 0,
               "Color": {
-                "r": 1.0,
-                "g": 1.0,
-                "b": 1.0,
+                "r": 0.5294118,
+                "g": 0.5803922,
+                "b": 0.619607866,
                 "a": 1.0
               },
               "DropShadow": false,
@@ -2414,15 +2414,15 @@
         }
       },
       {
-        "id": "d88463f0-0968-4fc3-8232-15367ebe8bf9",
-        "path": "/ui/GoddessWindow/Root/Window/BtnClose/V5LowerEdge",
+        "id": "5b9ddf6a-1bd3-48a5-9c71-4b2308586f6f",
+        "path": "/ui/GoddessWindow/Root/Window/BtnClose/MasterLowerEdge",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
-          "name": "V5LowerEdge",
-          "path": "/ui/GoddessWindow/Root/Window/BtnClose/V5LowerEdge",
+          "name": "MasterLowerEdge",
+          "path": "/ui/GoddessWindow/Root/Window/BtnClose/MasterLowerEdge",
           "nameEditable": true,
-          "enable": true,
-          "visible": true,
+          "enable": false,
+          "visible": false,
           "localize": true,
           "displayOrder": 1,
           "pathConstraints": "//////",
@@ -2439,30 +2439,30 @@
             {
               "@type": "MOD.Core.UITransformComponent",
               "ActivePlatform": 255,
-              "AlignmentOption": 0,
+              "AlignmentOption": 11,
               "AnchorsMax": {
-                "x": 0.5,
-                "y": 0.5
+                "x": 1.0,
+                "y": 0.0
               },
               "AnchorsMin": {
-                "x": 0.5,
-                "y": 0.5
+                "x": 0.0,
+                "y": 0.0
               },
               "MobileOnly": false,
               "OffsetMax": {
-                "x": 128.0,
-                "y": -39.5
+                "x": -3.0,
+                "y": 4.5
               },
               "OffsetMin": {
-                "x": -128.0,
-                "y": -42.5
+                "x": 3.0,
+                "y": 1.5
               },
               "Pivot": {
                 "x": 0.5,
                 "y": 0.5
               },
               "RectSize": {
-                "x": 256.0,
+                "x": 314.0,
                 "y": 3.0
               },
               "UIMode": 1,
@@ -2474,7 +2474,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": 0.0,
-                "y": -41.0
+                "y": 3.0
               },
               "Rotation": {
                 "x": 0.0,
@@ -2483,7 +2483,7 @@
               },
               "Position": {
                 "x": 0.0,
-                "y": 7.0,
+                "y": 3.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -2524,9 +2524,9 @@
               "SortingLayer": "UI",
               "StartFrameIndex": 0,
               "Color": {
-                "r": 0.61,
-                "g": 0.7,
-                "b": 0.75,
+                "r": 0.1882353,
+                "g": 0.239215687,
+                "b": 0.2784314,
                 "a": 1.0
               },
               "DropShadow": false,
