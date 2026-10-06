@@ -69,8 +69,6 @@ script GameData extends Logic
 
 	property table RogueCompanionStates = {}
 
-	property number RunChestCompanionLifeChance = 0.20
-
 	property table RogueDisconnectedAt = {}
 
 	property table RogueReadyAreaByUser = {}
@@ -238,6 +236,14 @@ script GameData extends Logic
 
 	property table RogueRunUpgradesByUser = {}
 
+	property table RoguePendingUpgradeChoicesByUser = {}
+
+	property string RogueEliteRoomId = ""
+
+	property boolean RogueEliteDefeated = false
+
+	property boolean RogueEliteKillInProgress = false
+
 	property integer RogueChestSerial = 0
 
 	property string RogueUpgradeSummary = ""
@@ -387,6 +393,7 @@ script GameData extends Logic
 		        self:LoadSkills()
 		        self:LoadMonsters()
 		        self:LoadRooms()
+		        self:RegisterTutorialRoom()
 		        self:LoadLandmarks()
 		        self:LoadAreas()
 		        self:LoadItems()
@@ -449,7 +456,7 @@ script GameData extends Logic
 		            run_player_base_attack = 35,
 		            run_player_base_defense = 10,
 		            run_party_max = 4,
-		            run_hp_scale_per_extra_player = 0.25,
+		            run_hp_scale_per_extra_player = 0,
 		            run_generator_version = 4,
 		            run_generator_retry_max = 8,
 		            run_main_path_min = 8,
@@ -488,6 +495,10 @@ script GameData extends Logic
 		            run_upgrade_move_speed_ratio = 0.10,
 		            run_upgrade_max_hp_ratio = 0.15,
 		            run_upgrade_damage_reduction_ratio = 0.10,
+		            run_elite_hp_multiplier = 2.2,
+		            run_elite_attack_multiplier = 1.25,
+		            run_elite_skill_cooldown_multiplier = 0.85,
+		            run_elite_skill_drop_chance = 0.75,
 		            run_monster_special_max_concurrent = 2,
 		            run_reconnect_grace_seconds = 90,
 		            run_participation_radius = 12,
@@ -495,7 +506,7 @@ script GameData extends Logic
 		            run_monster_hp_base = 240,
 		            run_monster_attack_base = 24,
 		            run_monster_defense_base = 6,
-		            run_enemy_difficulty_multiplier = 2,
+		            run_enemy_difficulty_multiplier = 1,
 		            run_rank_s_base_seconds = 900,
 		            run_rank_s_step_seconds = 0,
 		            run_rank_a_extra_seconds = 180,
@@ -871,6 +882,19 @@ script GameData extends Logic
 		                end
 		            end
 		        end
+	end
+
+	method void RegisterTutorialRoom()
+		        -- 전용 연습방은 Run 그래프/지역 데이터에 넣지 않는다.
+		        self.rooms.tutorial_practice = {
+		            id = "tutorial_practice", name = "연습장", room_type = "normal",
+		            connections = {north = "", south = "", east = "", west = ""},
+		            gate_type = "", gate_key = "", gate_value = 0,
+		            map_name = "maptutorial", monster_id = "m_snail", monster_count = 2,
+		            monster_level = 1, is_start = false, area_id = "",
+		            portal_x = 0, portal_y = 0,
+		        }
+		        self.roomsByMap.maptutorial = "tutorial_practice"
 	end
 
 	method void LoadAreas()
@@ -1861,14 +1885,14 @@ script GameData extends Logic
 		        local pierceCap = math.floor(self:GetBalance("run_upgrade_pierce_cap"))
 		        if pierceCap < 1 then pierceCap = 2 end
 		        return {
-		            {key = "attack_speed", label = "기본 공격 속도가 15퍼센트 빨라집니다.", cap = defaultCap},
-		            {key = "attack_damage", label = "기본 공격 피해가 15퍼센트 늘어납니다.", cap = defaultCap},
-		            {key = "attack_range", label = "기본 공격 사거리가 15퍼센트 늘어납니다.", cap = defaultCap},
-		            {key = "extra_target", label = "기본 공격으로 적 한 마리를 더 공격합니다.", cap = extraCap},
-		            {key = "pierce", label = "기본 공격이 적 한 마리를 더 관통합니다.", cap = pierceCap},
-		            {key = "move_speed", label = "이동 속도가 10퍼센트 빨라집니다.", cap = defaultCap},
-		            {key = "max_hp", label = "최대 체력이 15퍼센트 늘어납니다.", cap = defaultCap},
-		            {key = "damage_reduction", label = "받는 피해가 10퍼센트 줄어듭니다.", cap = defaultCap},
+		            {key = "attack_speed", name = "공격 속도", label = "기본 공격 속도가 15퍼센트 빨라집니다.", cap = defaultCap},
+		            {key = "attack_damage", name = "공격 피해", label = "기본 공격 피해가 15퍼센트 늘어납니다.", cap = defaultCap},
+		            {key = "attack_range", name = "공격 사거리", label = "기본 공격 사거리가 15퍼센트 늘어납니다.", cap = defaultCap},
+		            {key = "extra_target", name = "추가 대상", label = "기본 공격으로 적 한 마리를 더 공격합니다.", cap = extraCap},
+		            {key = "pierce", name = "관통", label = "기본 공격이 적 한 마리를 더 관통합니다.", cap = pierceCap},
+		            {key = "move_speed", name = "이동 속도", label = "이동 속도가 10퍼센트 빨라집니다.", cap = defaultCap},
+		            {key = "max_hp", name = "최대 체력", label = "최대 체력이 15퍼센트 늘어납니다.", cap = defaultCap},
+		            {key = "damage_reduction", name = "피해 감소", label = "받는 피해가 10퍼센트 줄어듭니다.", cap = defaultCap},
 		        }
 	end
 
@@ -1948,6 +1972,48 @@ script GameData extends Logic
 		        _GateNotice:ShowNotice(title, message)
 	end
 
+	@ExecSpace("Client")
+	method void ApplyRunUpgradeChoiceView(table view)
+		        local player = _UserService.LocalPlayer
+		        local window = _EntityService:GetEntityByPath("/ui/PlayerHud/RunChoiceWindow")
+		        if not isvalid(window) then return end
+		        local choices = view.choices or {}
+		        local show = (view.serial or 0) > 0 and #choices > 0
+		            and isvalid(player) and isvalid(player.CurrentMap)
+		            and player.CurrentMap.Name == view.mapId
+		        self._T.runChoiceSerial = show and view.serial or 0
+		        self._T.runChoiceMap = show and view.mapId or ""
+		        self._T.runChoiceKeys = {}
+		        self._T.runChoiceSubmitting = false
+		        for i = 1, 3 do
+		            local card = _EntityService:GetEntityByPath(
+		                "/ui/PlayerHud/RunChoiceWindow/Dialog/Choice" .. tostring(i))
+		            local choice = choices[i]
+		            if isvalid(card) then
+		                card.Enable = show and choice ~= nil
+		                card:SetVisible(show and choice ~= nil)
+		                if choice ~= nil and isvalid(card.TextGUIRendererComponent) then
+		                    card.TextGUIRendererComponent.Text = choice.name .. "  "
+		                        .. tostring(choice.current) .. " → " .. tostring(choice.next)
+		                        .. "\n" .. choice.label
+		                    self._T.runChoiceKeys[i] = choice.key
+		                end
+		            end
+		        end
+		        window.Enable = show
+		        window:SetVisible(show)
+	end
+
+	@ExecSpace("ClientOnly")
+	method void SelectRunUpgradeChoice(integer index)
+		        if self._T.runChoiceSubmitting then return end
+		        local serial = self._T.runChoiceSerial or 0
+		        local keys = self._T.runChoiceKeys or {}
+		        if serial <= 0 or keys[index] == nil then return end
+		        self._T.runChoiceSubmitting = true
+		        self:RequestSelectRunUpgrade(serial, keys[index])
+	end
+
 	@ExecSpace("ServerOnly")
 	method void ResetRunChestAndUpgradeState()
 		        for i = 1, #self.RogueChestRecords do
@@ -1959,6 +2025,7 @@ script GameData extends Logic
 		        self.RogueChestGeneratedMaps = {}
 		        self.RogueChestOpenedByUser = {}
 		        self.RogueRunUpgradesByUser = {}
+		        self.RoguePendingUpgradeChoicesByUser = {}
 		        self.RogueChestSerial = 0
 		        log("[RunChest] Run 상자/강화 상태 초기화")
 	end
@@ -1967,24 +2034,53 @@ script GameData extends Logic
 	method void ClearRunUpgradeState(string userId)
 		        self.RogueRunUpgradesByUser[userId] = nil
 		        self.RogueChestOpenedByUser[userId] = nil
+		        self.RoguePendingUpgradeChoicesByUser[userId] = nil
 		        local player = _UserService:GetUserEntityByUserId(userId)
 		        if isvalid(player) then
 		            local stats = player:GetComponent("script.PlayerStats")
 		            if stats ~= nil then stats:ApplyMaxHp(); stats:ApplySpeeds() end
 		        end
 		        self:ApplyRunUpgradeView("아직 획득한 Run 강화가 없습니다.", userId)
+		        self:ApplyRunUpgradeChoiceView({serial = 0, choices = {}}, userId)
 	end
 
 	@ExecSpace("ServerOnly")
-	method any RollRunUpgrade(string userId)
+	method table DrawRunUpgradeChoices(string userId)
 		        local state = self:EnsureRunUpgradeState(userId)
 		        local eligible = {}
 		        for _, def in ipairs(self:GetRunUpgradeDefinitions()) do
 		            if math.floor(state[def.key] or 0) < def.cap then eligible[#eligible + 1] = def end
 		        end
-		        if #eligible == 0 then return {key = "FULL", label = "모든 Run 강화가 최대 단계입니다.", stack = 0} end
-		        local index = self:RogueStreamNextInt("run_upgrade:" .. userId, #eligible)
-		        local picked = eligible[index]
+		        local choices = {}
+		        while #eligible > 0 and #choices < 3 do
+		            local index = self:RogueStreamNextInt("run_upgrade:" .. userId, #eligible)
+		            local picked = table.remove(eligible, index)
+		            choices[#choices + 1] = {key = picked.key, name = picked.name,
+		                label = picked.label, current = math.floor(state[picked.key] or 0),
+		                next = math.floor(state[picked.key] or 0) + 1}
+		        end
+		        return choices
+	end
+
+	@ExecSpace("ServerOnly")
+	method any DrawRandomRunUpgrade(string userId)
+		        local state = self:EnsureRunUpgradeState(userId)
+		        local eligible = {}
+		        for _, def in ipairs(self:GetRunUpgradeDefinitions()) do
+		            if math.floor(state[def.key] or 0) < def.cap then eligible[#eligible + 1] = def end
+		        end
+		        if #eligible == 0 then return nil end
+		        return eligible[self:RogueStreamNextInt("run_upgrade:" .. userId, #eligible)]
+	end
+
+	@ExecSpace("ServerOnly")
+	method any ApplyRunUpgrade(string userId, string key)
+		        local state = self:EnsureRunUpgradeState(userId)
+		        local picked = nil
+		        for _, def in ipairs(self:GetRunUpgradeDefinitions()) do
+		            if def.key == key then picked = def break end
+		        end
+		        if picked == nil or math.floor(state[key] or 0) >= picked.cap then return nil end
 		        state[picked.key] = math.floor(state[picked.key] or 0) + 1
 		
 		        local player = _UserService:GetUserEntityByUserId(userId)
@@ -2118,39 +2214,102 @@ script GameData extends Logic
 		            local healed = hit ~= nil and hit:Heal(amount) or 0
 		            local collection = player:GetComponent("script.PlayerCollection")
 		            local companionHealed = collection ~= nil and collection:HealCompanionFromChest(ratio) or 0
-		            local lifeRestored = collection ~= nil
-		                and collection:TryRestoreCompanionLifeFromChest(self.RunChestCompanionLifeChance)
-		                or false
 		            title = "회복 상자"
 		            local parts = {}
 		            if healed > 0 then parts[#parts + 1] = "캐릭터 HP " .. tostring(healed) .. " 회복" end
 		            if companionHealed > 0 then
 		                parts[#parts + 1] = "동행 HP " .. tostring(companionHealed) .. " 회복"
 		            end
-		            if lifeRestored then parts[#parts + 1] = "동행 목숨 1개 회복" end
 		            message = #parts > 0 and table.concat(parts, ". ") .. "."
 		                or "회복할 체력이 없습니다."
 		            log("[RunChestHeal] user=" .. userId .. " serial=" .. tostring(serial)
 		                .. " player=" .. tostring(healed)
 		                .. " companion=" .. tostring(companionHealed)
-		                .. " lifeRestored=" .. tostring(lifeRestored)
 		                .. " ratio=" .. tostring(ratio))
+		        elseif record.chestType == "ELITE_UPGRADE" then
+		            local pending = self.RoguePendingUpgradeChoicesByUser[userId]
+		            if pending ~= nil then
+		                if pending.serial == serial and pending.revision == self.RogueRunRevision
+		                    and pending.mapId == record.mapId then
+		                    self:ApplyRunUpgradeChoiceView({serial = serial, choices = pending.choices,
+		                        mapId = record.mapId}, userId)
+		                    return true
+		                end
+		                self:NotifyRunChestResult("강화 선택", "먼저 열린 강화 상자에서 하나를 선택하세요.", userId)
+		                return false
+		            end
+		            local choices = self:DrawRunUpgradeChoices(userId)
+		            if #choices > 0 then
+		                self.RoguePendingUpgradeChoicesByUser[userId] = {serial = serial,
+		                    revision = self.RogueRunRevision, mapId = record.mapId, choices = choices}
+		                self:ApplyRunUpgradeChoiceView({serial = serial, choices = choices,
+		                    mapId = record.mapId}, userId)
+		                log("[RunUpgradeChoice] OFFER user=" .. userId .. " serial=" .. tostring(serial)
+		                    .. " count=" .. tostring(#choices))
+		                return true
+		            end
+		            title = "강화 선택"
+		            message = "모든 Run 강화가 최대 단계입니다."
+		        elseif record.chestType == "UPGRADE" then
+		            local picked = self:DrawRandomRunUpgrade(userId)
+		            local reward = picked ~= nil and self:ApplyRunUpgrade(userId, picked.key) or nil
+		            title = "랜덤 강화"
+		            message = reward ~= nil and (reward.label .. " 현재 "
+		                .. tostring(reward.stack) .. "회 획득했습니다.")
+		                or "모든 Run 강화가 최대 단계입니다."
+		            log("[RunUpgradeRandom] user=" .. userId .. " serial=" .. tostring(serial)
+		                .. " key=" .. (reward ~= nil and reward.key or "MAX"))
 		        else
-		            local reward = self:RollRunUpgrade(userId)
-		            title = "Run 강화"
-		            if reward.key == "FULL" then message = "더 강화할 수 없습니다. " .. reward.label
-		            else message = reward.label .. " 현재 " .. tostring(reward.stack) .. "회 획득했습니다." end
+		            log_warning("[RunChest] 알 수 없는 상자 종류 serial=" .. tostring(serial)
+		                .. " type=" .. tostring(record.chestType))
+		            return false
 		        end
-		        opened[serial] = true
+		        self:FinalizeRunChestOpen(serial, userId)
 		        self:NotifyRunChestResult(title, message, userId)
-		
+		        return true
+	end
+
+	@ExecSpace("ServerOnly")
+	method void FinalizeRunChestOpen(integer serial, string userId)
+		        local opened = self.RogueChestOpenedByUser[userId]
+		        if opened == nil then opened = {}; self.RogueChestOpenedByUser[userId] = opened end
+		        opened[serial] = true
 		        if self:HaveAllCurrentParticipantsOpenedRunChest(serial) then
+		            local record = self:FindRunChestRecord(serial)
+		            if record == nil then return end
 		            if record.chest ~= nil then record.chest:PrepareRemove("ALL_PARTICIPANTS_OPENED") end
 		            if isvalid(record.entity) then record.entity:Destroy() end
 		            record.entity = nil
 		            record.chest = nil
 		        end
-		        return true
+	end
+
+	@ExecSpace("Server")
+	method void RequestSelectRunUpgrade(integer serial, string key)
+		        local userId = senderUserId
+		        local player = _UserService:GetUserEntityByUserId(userId)
+		        local pending = self.RoguePendingUpgradeChoicesByUser[userId]
+		        local record = self:FindRunChestRecord(serial)
+		        if self.RogueRunActive == false or self.RogueRunComplete or self.RogueRunFailed
+		            or not isvalid(player) or not isvalid(player.CurrentMap)
+		            or not self:IsRunParticipant(userId) or pending == nil or record == nil
+		            or record.chestType ~= "ELITE_UPGRADE"
+		            or pending.serial ~= serial or pending.revision ~= self.RogueRunRevision
+		            or pending.mapId ~= player.CurrentMap.Name or record.mapId ~= pending.mapId then return end
+		        local offered = false
+		        for _, choice in ipairs(pending.choices) do
+		            if choice.key == key then offered = true break end
+		        end
+		        if not offered then return end
+		        local reward = self:ApplyRunUpgrade(userId, key)
+		        if reward == nil then return end
+		        self.RoguePendingUpgradeChoicesByUser[userId] = nil
+		        self:FinalizeRunChestOpen(serial, userId)
+		        self:ApplyRunUpgradeChoiceView({serial = 0, choices = {}}, userId)
+		        self:NotifyRunChestResult("강화 선택", reward.label .. " 현재 "
+		            .. tostring(reward.stack) .. "회 획득했습니다.", userId)
+		        log("[RunUpgradeChoice] APPLY user=" .. userId .. " serial=" .. tostring(serial)
+		            .. " key=" .. key .. " stack=" .. tostring(reward.stack))
 	end
 
 	method table SplitRogueKey(string raw, string separator)
@@ -2653,7 +2812,8 @@ script GameData extends Logic
 		        self.RogueUiHandlerEntities = {}
 		        self.RogueUiHandlerIds = {}
 		        self:RogueBindPath("/ui/PlayerHud/RunMenuButton", function()
-		            self:SetRunMenuOpen(not self.RogueRunMenuOpen)
+		            self:SetRunMenuOpen(false)
+		            self:SetAbandonConfirmOpen(true)
 		        end)
 		        self:RogueBindPath("/ui/PlayerHud/RunMenuPanel/AbandonButton", function()
 		            self:SetRunMenuOpen(false)
@@ -2678,6 +2838,11 @@ script GameData extends Logic
 		        self:RogueBindPath("/ui/PlayerHud/RunUpgradeWindow/Dialog/CloseButton", function()
 		            self:SetRunUpgradeWindowOpen(false)
 		        end)
+		        for choiceIndex = 1, 3 do
+		            local index = choiceIndex
+		            self:RogueBindPath("/ui/PlayerHud/RunChoiceWindow/Dialog/Choice"
+		                .. tostring(index), function() self:SelectRunUpgradeChoice(index) end)
+		        end
 		        self:RogueBindPath("/ui/PlayerHud/PartyWindow/Dialog/CloseButton", function()
 		            self:SetPartyWindowOpen(false)
 		        end)
@@ -3966,6 +4131,7 @@ script GameData extends Logic
 		        -- 그래프 실패 상태로 참가자를 이동시키지 않는다. 로비의 상태는 검사 전후 동일하다.
 		        local saved = {area = self.RogueAreaId, seed = self.RogueSeed, rng = self.RogueRandomState,
 		            rngs = self.RogueRngStates, boss = self.RogueBossMonsterId,
+		            eliteRoom = self.RogueEliteRoomId, eliteDefeated = self.RogueEliteDefeated,
 		            attempt = self.RogueGenerationAttempt, graph = self.RogueGraph,
 		            visited = self.RogueVisitedRooms, roles = self.RogueRoomRoles,
 		            encounters = self.RogueEncounters, path = self.RogueMainPath, start = self.RogueStartRoomId,
@@ -3983,6 +4149,8 @@ script GameData extends Logic
 		        self.RogueRandomState = saved.rng
 		        self.RogueRngStates = saved.rngs
 		        self.RogueBossMonsterId = saved.boss
+		        self.RogueEliteRoomId = saved.eliteRoom
+		        self.RogueEliteDefeated = saved.eliteDefeated
 		        self.RogueGenerationAttempt = saved.attempt
 		        self.RogueGraph = saved.graph
 		        self.RogueVisitedRooms = saved.visited
@@ -4107,6 +4275,44 @@ script GameData extends Logic
 		            members = members, subzone = room.area_id}
 	end
 
+	@ExecSpace("ServerOnly")
+	method string ChooseRogueEliteRoom()
+		        -- 정예는 층 클리어 조건이 아닌 보너스 보스다. 매 층의 선택 가지방
+		        -- 하나를 뽑고, 그 방에 들어온 플레이어만 처치 전까지 이동을 막는다.
+		        local candidates = {}
+		        for _, roomId in ipairs(self:GetRoomsForMegaArea(self.RogueAreaId)) do
+		            local encounter = self.RogueEncounters[roomId]
+		            if self.RogueRoomRoles[roomId] == "optional_risk"
+		                and encounter ~= nil and encounter.members ~= nil and #encounter.members > 0 then
+		                candidates[#candidates + 1] = roomId
+		            end
+		        end
+		        if #candidates == 0 then return "" end
+		        local roomId = candidates[self:RogueStreamNextInt("elite_room", #candidates)]
+		        local encounter = self.RogueEncounters[roomId]
+		        for i = 1, #encounter.members do
+		            local memberMonsterId = encounter.members[i].monster_id
+		            local monster = self:GetMonster(memberMonsterId)
+		            local skill = monster ~= nil and self:GetSkill(monster.drop_skill_id) or nil
+		            if skill ~= nil and skill.source == "monster" and skill.slot_type == "monster"
+		                and skill.skill_kind ~= "passive" then return roomId end
+		        end
+		        -- 무작위 조우가 패시브 몬스터만 뽑았더라도 보너스 보스를 빼먹지 않는다.
+		        local eligible = {}
+		        for _, monsterId in ipairs(self:GetMegaMonsterPool(self.RogueAreaId)) do
+		            local monster = self:GetMonster(monsterId)
+		            local skill = monster ~= nil and self:GetSkill(monster.drop_skill_id) or nil
+		            if skill ~= nil and skill.source == "monster" and skill.slot_type == "monster"
+		                and skill.skill_kind ~= "passive" then eligible[#eligible + 1] = monsterId end
+		        end
+		        if #eligible == 0 then return "" end
+		        local monsterId = eligible[self:RogueStreamNextInt("elite_monster", #eligible)]
+		        encounter.members[1].monster_id = monsterId
+		        encounter.monster_id = monsterId
+		        log("[RunElite] 보너스 방 조우 보강 room=" .. roomId .. " monster=" .. monsterId)
+		        return roomId
+	end
+
 	method boolean GenerateRogueliteGraph()
 		        -- Maker fallback에서는 같은 Logic이 다음 Run에도 살아 있으므로 판 경계 상태를
 		        -- 생성 시작점에서 명시적으로 초기화한다. 운영 인스턴스에서도 같은 규칙이다.
@@ -4120,6 +4326,9 @@ script GameData extends Logic
 		        self.RogueRunFailed = false
 		        self.RogueObjectiveComplete = false
 		        self.RogueTransitionLocked = false
+		        self.RogueEliteRoomId = ""
+		        self.RogueEliteDefeated = false
+		        self.RogueEliteKillInProgress = false
 		        local sourceAreas = self:GetMegaAreaSources(self.RogueAreaId)
 		        local all = self:GetRoomsForMegaArea(self.RogueAreaId)
 		        if #sourceAreas ~= 4 or #all < 10 then return false end
@@ -4249,13 +4458,19 @@ script GameData extends Logic
 		                        end
 		                    end
 		                end
-		                if branchCount >= branchMin and self:ValidateRogueliteGraph() then
+		            if branchCount >= branchMin and self:ValidateRogueliteGraph() then
+		                local eliteRoomId = self:ChooseRogueEliteRoom()
+		                if eliteRoomId ~= "" then
+		                    self.RogueEliteRoomId = eliteRoomId
 		                    log("[MegaRun] GRAPH_PASS mega=" .. self.RogueAreaId
 		                        .. " seed=" .. tostring(self.RogueSeed) .. " mode=" .. self.RogueMode
 		                        .. " boss=" .. self.RogueBossMonsterId .. " main=" .. tostring(#self.RogueMainPath)
-		                        .. " branches=" .. tostring(branchCount))
+		                        .. " branches=" .. tostring(branchCount)
+		                        .. " elite=" .. self.RogueEliteRoomId)
 		                    return true
 		                end
+		                log_warning("[RunElite] 정예를 배치할 보너스 방 없음. 그래프 재생성")
+		            end
 		            end
 		        end
 		        log_error("[MegaRun] 그래프 생성 실패 mega=" .. self.RogueAreaId
@@ -4576,9 +4791,8 @@ script GameData extends Logic
 	end
 
 	method number GetRunHpScale()
-		        local perExtra = self:GetBalance("run_hp_scale_per_extra_player")
-		        if perExtra < 0 then perExtra = 0.25 end
-		        return 1 + perExtra * math.max(0, self.RogueStartParticipantCount - 1)
+		        -- 파티 인원은 적 능력치를 변경하지 않는다. 보상 계산은 기존 그대로다.
+		        return 1
 	end
 
 	method boolean IsRunParticipant(string userId)
@@ -4588,10 +4802,28 @@ script GameData extends Logic
 		        return false
 	end
 
+	method boolean HasPendingRunUpgradeInMap(string mapName)
+		        for i = 1, #self.RogueParticipantIds do
+		            local userId = self.RogueParticipantIds[i]
+		            local pending = self.RoguePendingUpgradeChoicesByUser[userId]
+		            if pending ~= nil and pending.mapId == mapName
+		                and pending.revision == self.RogueRunRevision then return true end
+		        end
+		        return false
+	end
+
+	method boolean IsRunEliteRoomLocked(string mapName)
+		        if not self.RogueRunActive or self.RogueRunComplete or self.RogueRunFailed
+		            or self.RogueEliteDefeated or self.RogueEliteRoomId == "" then return false end
+		        local room = self:GetRoomByMapName(mapName)
+		        return room ~= nil and room.id == self.RogueEliteRoomId
+	end
+
 	@ExecSpace("ServerOnly")
 	method boolean TryBeginRogueliteTransition(string mapName, Vector3 portalPosition)
 		        if self.RogueRunActive == false or self.RogueRunComplete or self.RogueRunFailed then return false end
 		        if self.RogueTransitionLocked then return false end
+		        if self:IsRunEliteRoomLocked(mapName) then return false end
 		
 		        local radius = self:GetBalance("run_transition_gather_radius")
 		        if radius <= 0 then radius = 4 end
@@ -4630,6 +4862,15 @@ script GameData extends Logic
 		            return
 		        end
 		        local userId = player.PlayerComponent.UserId
+		        local pending = self.RoguePendingUpgradeChoicesByUser[userId]
+		        if pending ~= nil and isvalid(player.CurrentMap)
+		            and pending.mapId ~= player.CurrentMap.Name then
+		            self.RoguePendingUpgradeChoicesByUser[userId] = nil
+		            self:FinalizeRunChestOpen(pending.serial, userId)
+		            self:ApplyRunUpgradeChoiceView({serial = 0, choices = {}}, userId)
+		            log("[RunUpgradeChoice] CANCEL_ON_MAP_CHANGE user=" .. userId
+		                .. " serial=" .. tostring(pending.serial))
+		        end
 		        if self:IsRunParticipant(userId) == false then
 		            -- 압축 RoomKey는 길이 제한 때문에 참가자 ID 대신 시작 인원만 담는다.
 		            -- RoomService가 실제로 이 인스턴스로 이동시킨 최초 N명만 서버 원장에 등록한다.
@@ -4775,6 +5016,40 @@ script GameData extends Logic
 		        -- 하나만 실행되는 경로가 생길 수 있으므로 mapName 정본에서 한 번만 진행한다.
 		        local room = self:GetRoomByMapName(mapName)
 		        if room ~= nil then self:OnRunMonsterDefeated(room.id, monsterId) end
+	end
+
+	@ExecSpace("ServerOnly")
+	method void GrantRunOrdinaryKillRewards(string monsterId, string mapName, Vector3 deathPosition)
+		        self:GrantRunKillRewards(monsterId, mapName, deathPosition)
+	end
+
+	@ExecSpace("ServerOnly")
+	method void GrantRunEliteKillRewards(string monsterId, string mapName, Vector3 deathPosition)
+		        self.RogueEliteKillInProgress = true
+		        self:GrantRunKillRewards(monsterId, mapName, deathPosition)
+		        self.RogueEliteKillInProgress = false
+	end
+
+	@ExecSpace("ServerOnly")
+	method void OnRunEliteDefeated(string mapName, Vector3 deathPosition)
+		        if not self.RogueRunActive or self.RogueRunComplete or self.RogueRunFailed
+		            or self.RogueEliteDefeated then return end
+		        local room = self:GetRoomByMapName(mapName)
+		        if room == nil or room.id ~= self.RogueEliteRoomId
+		            or self.RogueRoomRoles[room.id] == "final" then return end
+		        -- 보너스 정예 처치로 이 방의 포털만 연다. 층 클리어는 최종 보스 판정 그대로다.
+		        -- 보상 상자 생성 실패가 포털을 영구 잠그면 안 된다.
+		        self.RogueEliteDefeated = true
+		        self:BroadcastRogueliteView()
+		        log("[RunElite] BONUS_CLEAR room=" .. room.id .. " portals=unlocked")
+		        local mapEntity = _EntityService:GetEntityByPath("/maps/" .. mapName)
+		        if not isvalid(mapEntity) then
+		            log_error("[RunElite] 보상 상자를 생성할 맵 없음 " .. mapName)
+		            return
+		        end
+		        local record = self:RegisterRunChest(room.id, mapName, "ELITE_UPGRADE", deathPosition, mapEntity)
+		        if record == nil then return end
+		        log("[RunElite] DEFEATED room=" .. room.id .. " reward=upgrade_choice")
 	end
 
 	@ExecSpace("ServerOnly")
@@ -5275,7 +5550,8 @@ script GameData extends Logic
 		        local visited = self.RogueVisitedRooms[userId]
 		        visited[currentRoomId] = true
 		
-		        -- 서버가 아는 전체 그래프로 좌표를 안정적으로 정하지만, 전송은 발견된 방만 한다.
+		        -- 특수 전투를 처음부터 찾을 수 있도록 층의 방 배치를 보여 준다.
+		        -- 방문 여부는 별도 상태로 유지하여 현재/방문/미방문 색을 구분한다.
 		        local directions = {"north", "east", "south", "west"}
 		        local dx = {north = 0, east = 1, south = 0, west = -1}
 		        local dy = {north = 1, east = 0, south = -1, west = 0}
@@ -5308,11 +5584,14 @@ script GameData extends Logic
 		            end
 		        end
 		
+		        -- 탐색한 방과 인접 방만 노출한다. 미방문 경로와 보스 위치는 미리 공개하지 않는다.
 		        local known = {}
 		        for roomId, _ in pairs(visited) do
 		            if self.RogueGraph[roomId] ~= nil then
 		                known[roomId] = true
-		                for _, neighbor in pairs(self.RogueGraph[roomId]) do known[neighbor] = true end
+		                for _, neighbor in pairs(self.RogueGraph[roomId]) do
+		                    known[neighbor] = true
+		                end
 		            end
 		        end
 		        local ids = {}
@@ -5338,7 +5617,9 @@ script GameData extends Logic
 		                local state = roomId == currentRoomId and "C"
 		                    or (visited[roomId] and "V" or "D")
 		                local marker = roomId == self.RogueFinalRoomId and "B"
-		                    or (roomId == self.RogueStartRoomId and "S" or "-")
+		                    or (roomId == self.RogueEliteRoomId
+		                        and (self.RogueEliteDefeated and "e" or "E")
+		                        or (roomId == self.RogueStartRoomId and "S" or "-"))
 		                local room = self.rooms[roomId]
 		                local sourceIndex = room ~= nil and sourceIndexByArea[room.area_id] or 0
 		                rows[#rows + 1] = roomId .. "~" .. tostring(pos.x) .. "~"
@@ -5411,10 +5692,12 @@ script GameData extends Logic
 		            roomName = roomHud.room, roomExits = roomHud.exits,
 		            bossDirection = roomHud.bossDirection, finalRoom = roomHud.finalRoom,
 		            minimap = mapView,
-		            mode = self.RogueMode, subzone = self.RogueCurrentSubzone,
+		            mode = self.RogueMode,
+		            subzone = currentRoom ~= nil and currentRoom.area_id or "",
 		            boss = self.RogueBossMonsterId, objective = self.RogueObjectiveType,
 		            objectiveComplete = self.RogueObjectiveComplete, complete = self.RogueRunComplete,
 		            failed = self.RogueRunFailed, result = self.RogueRunResult,
+		            eliteRoomId = self.RogueEliteRoomId, eliteDefeated = self.RogueEliteDefeated,
 		            timeRemaining = self.RogueTimeRemainingSeconds,
 		            sSeconds = self.RogueSRankSeconds,
 		            clearElapsed = self.RogueClearElapsedSeconds,
@@ -5440,6 +5723,11 @@ script GameData extends Logic
 		        self._T.rogueViewMap = view.viewMap
 		        self._T.rogueViewAttempts = 0
 		        self.RogueRunActive = view.active
+		        if self._T.runChoiceSerial ~= nil and self._T.runChoiceSerial > 0
+		            and (not view.active or view.complete or view.failed
+		                or self._T.runChoiceMap ~= view.viewMap) then
+		            self:ApplyRunUpgradeChoiceView({serial = 0, choices = {}})
+		        end
 		        self.RogueAreaId = view.area
 		        self.RogueFloor = math.max(1, math.floor(view.floor or self:GetMegaFloorIndex(view.area)))
 		        self.RogueMode = view.mode
@@ -5450,6 +5738,8 @@ script GameData extends Logic
 		        self.RogueRunComplete = view.complete
 		        self.RogueRunFailed = view.failed
 		        self.RogueRunResult = view.result or "ACTIVE"
+		        self.RogueEliteRoomId = view.eliteRoomId or ""
+		        self.RogueEliteDefeated = view.eliteDefeated == true
 		        self.RogueTimeRemainingSeconds = view.timeRemaining or 0
 		        self.RogueSRankSeconds = view.sSeconds or 0
 		        self.RogueClearElapsedSeconds = view.clearElapsed or 0
@@ -5514,7 +5804,19 @@ script GameData extends Logic
 		        self._T.rogueViewRequestAt[senderUserId] = now
 		        log("[RogueViewSync] server snapshot map=" .. mapName .. " active=" .. tostring(self.RogueRunActive))
 		        self:SendRogueliteView(senderUserId)
-		        if self.RogueRunActive then self:SendRunUpgradeView(senderUserId) end
+		        if self.RogueRunActive then
+		            self:SendRunUpgradeView(senderUserId)
+		            local pending = self.RoguePendingUpgradeChoicesByUser[senderUserId]
+		            if pending ~= nil then
+		                if pending.revision == self.RogueRunRevision and pending.mapId == mapName then
+		                    self:ApplyRunUpgradeChoiceView({serial = pending.serial,
+		                        choices = pending.choices, mapId = mapName}, senderUserId)
+		                else
+		                    self.RoguePendingUpgradeChoicesByUser[senderUserId] = nil
+		                    self:ApplyRunUpgradeChoiceView({serial = 0, choices = {}}, senderUserId)
+		                end
+		            end
+		        end
 	end
 
 	method string DescribeRogueliteRun()

@@ -135,39 +135,36 @@ script PlayerHud extends Logic
 		        local names = {"MONSTER", "ADVENTURE", "PARTY", "SHOP"}
 		        local paths = {"/ui/EquipWindow/OpenBtn", "/ui/AreaSelect/LobbyDungeonButton",
 		            "/ui/PlayerHud/PartyMenuButton", "/ui/PlayerHud/ShopOpenButton"}
-		        -- 마을 메뉴: 윗줄은 보조 기능, 아랫줄은 파티와 모험 입장이다.
-		        local positions = {Vector2(-142, -146), Vector2(-18, -210),
-		            Vector2(-248, -210), Vector2(-18, -146)}
+		-- 몬스터·상점은 작은 파란 버튼, 파티·모험은 기존 화살표 버튼을 유지한다.
+		local positions = {Vector2(-142, -146), Vector2(-18, -210),
+		    Vector2(-248, -210), Vector2(-18, -146)}
 		        for i = 1, 4 do
 		            local button = _EntityService:GetEntityByPath(paths[i])
 		            if isvalid(button) and isvalid(button.SpriteGUIRendererComponent) then
-		                local primary = names[i] == "PARTY" or names[i] == "ADVENTURE"
-		                local transform = button.UITransformComponent
-		                if isvalid(transform) then
-		                    transform.anchoredPosition = positions[i]
-		                    if names[i] == "PARTY" or names[i] == "ADVENTURE" then
-		                        transform.RectSize = Vector2(220, 76)
-		                    else
-		                        transform.RectSize = Vector2(114, 50)
-		                    end
-		                end
-		                local sprite = button.SpriteGUIRendererComponent
-		                local label = button.TextGUIRendererComponent
-		                if primary then
-	                    sprite.Color = Color(1, 1, 1, 0)
-	                    sprite.OutlineWidth = 0
-	                    if isvalid(label) then label.FontColor = Color(1, 1, 1, 0) end
-	                    local art = button:GetChildByName("ButtonArt", false)
-		                    if isvalid(art) and isvalid(art.SpriteGUIRendererComponent) then
-		                        art.SpriteGUIRendererComponent.Color = Color(1, 1, 1, 1)
-		                    end
-		                end
-		                if not primary then
-		                    sprite.Color = Color(0.98, 0.99, 0.99, 1)
-		                    sprite.OutlineColor = Color(0.77, 0.82, 0.85, 1)
-		                    sprite.OutlineWidth = 1
-		                    if isvalid(label) then label.FontColor = Color(0.19, 0.24, 0.28, 1) end
-		                end
+				local transform = button.UITransformComponent
+				local primary = names[i] == "PARTY" or names[i] == "ADVENTURE"
+				if isvalid(transform) then
+					transform.anchoredPosition = positions[i]
+					transform.RectSize = primary and Vector2(220, 76) or Vector2(120, 50)
+				end
+				local sprite = button.SpriteGUIRendererComponent
+				local label = button.TextGUIRendererComponent
+				if primary then
+					sprite.Color = Color(1, 1, 1, 0)
+					sprite.OutlineWidth = 0
+					if isvalid(label) then label.FontColor = Color(1, 1, 1, 0) end
+				else
+					sprite.Color = Color(0.239215687, 0.549019635, 0.7607843, 1)
+					sprite.OutlineColor = Color(0.5294118, 0.5803922, 0.619607866, 1)
+					sprite.OutlineWidth = 1
+					if isvalid(label) then label.FontColor = Color(1, 1, 1, 1) end
+				end
+				local art = button:GetChildByName("ButtonArt", false)
+				if primary and isvalid(art) and isvalid(art.SpriteGUIRendererComponent) then
+					art.Enable = true
+					art:SetVisible(true)
+					art.SpriteGUIRendererComponent.Color = Color(1, 1, 1, 1)
+				end
 		            end
 		        end
 	end
@@ -210,14 +207,13 @@ script PlayerHud extends Logic
 		            end
 		        end
 		        if isvalid(label) and isvalid(label.TextGUIRendererComponent) then
-		            local lives = math.max(0, math.min(3, collection.CompanionLivesRemaining))
 		            if monster == nil then label.TextGUIRendererComponent.Text = "메인 없음"
 		            elseif combat == nil then
-		                label.TextGUIRendererComponent.Text = (lives > 0 and "소환 대기" or "전투불능")
-		                    .. "\n목숨 " .. tostring(lives) .. "/3"
+		                label.TextGUIRendererComponent.Text = map ~= nil
+		                    and collection.CompanionDefeatedMapName == map.Name
+		                    and "전투불능\n다음 방에서 복귀" or "소환 대기"
 		            else label.TextGUIRendererComponent.Text = "HP " .. tostring(math.floor(combat.Hp))
-		                .. "/" .. tostring(math.floor(combat.MaxHp))
-		                .. "\n목숨 " .. tostring(lives) .. "/3" end
+		                .. "/" .. tostring(math.floor(combat.MaxHp)) end
 		            label.Enable = true
 		            label:SetVisible(true)
 		        end

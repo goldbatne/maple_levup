@@ -1,0 +1,323 @@
+@Logic
+script TutorialFlow extends Logic
+
+	property Entity LobbyButton = nil
+	property Entity Guide = nil
+	property Entity NextButton = nil
+	property Entity ExitButton = nil
+	property Entity CollectionButton = nil
+	property Entity ShopButton = nil
+	property Entity PartyButton = nil
+	property table BoundEntities = {}
+	property table BoundHandlers = {}
+	property boolean ButtonsBound = false
+	property integer Step = 1
+	property string LastMapName = ""
+	property number StartX = 0
+	property number StartY = 0
+	property number NextRefreshAt = 0
+
+	@ExecSpace("ClientOnly")
+	method void OnBeginPlay()
+		self:BindButtons()
+		log("[Tutorial] 안내 UI 시작")
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnEndPlay()
+		for i = 1, #self.BoundEntities do
+			local entity = self.BoundEntities[i]
+			if isvalid(entity) then
+				entity:DisconnectEvent(ButtonClickEvent, self.BoundHandlers[i])
+			end
+		end
+		self.BoundEntities = {}
+		self.BoundHandlers = {}
+		self.ButtonsBound = false
+	end
+
+	@ExecSpace("ClientOnly")
+	method void BuildLobbyCircle()
+		-- 로비 버튼을 검정 원형 테두리와 위·아래 명암이 있는 입체 픽셀 UI로 만든다.
+		local circle = _EntityService:GetEntityByPath("/ui/Tutorial/LobbyButton/CircleFill")
+		if not isvalid(circle) or isvalid(circle.PixelGUIRendererComponent) then return end
+		circle:RemoveComponent("MOD.Core.SpriteGUIRendererComponent")
+		local pixels = circle:AddComponent("MOD.Core.PixelGUIRendererComponent")
+		pixels.RaycastTarget = false
+		pixels:ResetWithColor(96, 96, Color(0, 0, 0, 0))
+		for y = 1, 96 do
+			for x = 1, 96 do
+				local outer = 0
+				local inner = 0
+				local face = 0
+				for sy = 0, 1 do
+					for sx = 0, 1 do
+						local dx = x - 48.75 + sx * 0.5
+						local dy = y - 48.75 + sy * 0.5
+						local radius = math.sqrt(dx * dx + dy * dy)
+						if radius <= 46.5 then outer += 0.25 end
+						if radius <= 44.5 then inner += 0.25 end
+						if radius <= 41.5 then face += 0.25 end
+					end
+				end
+				if outer > 0 then
+					local rim = outer - inner
+					local bevel = inner - face
+					local shade = (y - 1) / 95
+					local top = shade >= 0.5
+					local bevelR = top and 0.58 or 0.10
+					local bevelG = top and 0.80 or 0.31
+					local bevelB = top and 0.89 or 0.43
+					local faceR = 0.20 + shade * 0.14
+					local faceG = 0.42 + shade * 0.18
+					local faceB = 0.58 + shade * 0.17
+					pixels:SetPixel(x, y, Color(
+						(0.02 * rim + bevelR * bevel + faceR * face) / outer,
+						(0.02 * rim + bevelG * bevel + faceG * face) / outer,
+						(0.02 * rim + bevelB * bevel + faceB * face) / outer,
+						outer))
+				end
+			end
+		end
+		log("[Tutorial] 원형 로비 버튼 준비")
+	end
+
+	@ExecSpace("ClientOnly")
+	method void BindButtons()
+		if self.ButtonsBound then return end
+		self.LobbyButton = _EntityService:GetEntityByPath("/ui/Tutorial/LobbyButton")
+		self.Guide = _EntityService:GetEntityByPath("/ui/Tutorial/Guide")
+		self.NextButton = _EntityService:GetEntityByPath("/ui/Tutorial/Guide/NextButton")
+		self.ExitButton = _EntityService:GetEntityByPath("/ui/Tutorial/Guide/ExitButton")
+		self.CollectionButton = _EntityService:GetEntityByPath("/ui/Tutorial/Guide/CollectionButton")
+		self.ShopButton = _EntityService:GetEntityByPath("/ui/Tutorial/Guide/ShopButton")
+		self.PartyButton = _EntityService:GetEntityByPath("/ui/Tutorial/Guide/PartyButton")
+		if not isvalid(self.LobbyButton) or not isvalid(self.Guide)
+			or not isvalid(self.NextButton) or not isvalid(self.ExitButton)
+			or not isvalid(self.CollectionButton) or not isvalid(self.ShopButton)
+			or not isvalid(self.PartyButton) then return end
+		self:BuildLobbyCircle()
+		local startHandler = self.LobbyButton:ConnectEvent(ButtonClickEvent, function()
+			self:RequestStart()
+		end)
+		local nextHandler = self.NextButton:ConnectEvent(ButtonClickEvent, function()
+			self:OnNextClicked()
+		end)
+		local exitHandler = self.ExitButton:ConnectEvent(ButtonClickEvent, function()
+			self:RequestExit()
+		end)
+		local collectionHandler = self.CollectionButton:ConnectEvent(ButtonClickEvent, function()
+			self:OpenTutorialFeature("COLLECTION")
+		end)
+		local shopHandler = self.ShopButton:ConnectEvent(ButtonClickEvent, function()
+			self:OpenTutorialFeature("SHOP")
+		end)
+		local partyHandler = self.PartyButton:ConnectEvent(ButtonClickEvent, function()
+			self:OpenTutorialFeature("PARTY")
+		end)
+		self.BoundEntities = {self.LobbyButton, self.NextButton, self.ExitButton,
+			self.CollectionButton, self.ShopButton, self.PartyButton}
+		self.BoundHandlers = {startHandler, nextHandler, exitHandler,
+			collectionHandler, shopHandler, partyHandler}
+		self.ButtonsBound = true
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnUpdate(number delta)
+		if _UtilLogic.ElapsedSeconds < self.NextRefreshAt then return end
+		self.NextRefreshAt = _UtilLogic.ElapsedSeconds + 0.2
+		self:BindButtons()
+		if not self.ButtonsBound then return end
+		local player = _UserService.LocalPlayer
+		local map = isvalid(player) and player.CurrentMap or nil
+		local mapName = isvalid(map) and map.Name or ""
+		local inTutorial = mapName == "maptutorial"
+		local inLobby = mapName == "maptown" and not _GameData.RogueRunActive
+		self.LobbyButton.Enable = inLobby
+		self.LobbyButton:SetVisible(inLobby)
+		self.Guide.Enable = inTutorial
+		self.Guide:SetVisible(inTutorial)
+		if mapName ~= self.LastMapName then
+			self.LastMapName = mapName
+			if inTutorial then
+				self.Step = 1
+				local pos = player.TransformComponent.WorldPosition
+				self.StartX = pos.x
+				self.StartY = pos.y
+				log("[Tutorial] 연습장 입장 — 이동 안내 시작")
+			end
+		end
+		if not inTutorial then return end
+		if self.Step == 1 then
+			local pos = player.TransformComponent.WorldPosition
+			local dx = pos.x - self.StartX
+			local dy = pos.y - self.StartY
+			if dx * dx + dy * dy >= 4 then
+				self.Step = 2
+				log("[Tutorial] 이동 완료 — 연습 몬스터 처치 단계")
+			end
+		end
+		self:RenderGuide()
+	end
+
+	@ExecSpace("ClientOnly")
+	method void RenderGuide()
+		-- 현재 연습 단계의 안내와 다음 단계 버튼을 갱신한다.
+		local title = _EntityService:GetEntityByPath("/ui/Tutorial/Guide/Title")
+		local body = _EntityService:GetEntityByPath("/ui/Tutorial/Guide/Body")
+		local count = _EntityService:GetEntityByPath("/ui/Tutorial/Guide/Step")
+		if not isvalid(title) or not isvalid(body) or not isvalid(count) then return end
+		local titles = {"이동", "자동 공격", "스킬 바", "몬스터", "상점과 파티", "모험 시작"}
+		local bodies = {
+			"방향키나 이동 입력으로 2칸 이상 움직여 보세요.\n전용 연습장에서 기본 조작을 익힙니다.",
+			"달팽이 가까이 가면 기본 공격이 자동으로 나갑니다.\n연습 몬스터 한 마리를 처치해 보세요. 보상은 없습니다.",
+			"실전에서는 빈칸에 일정 시간마다 랜덤 스킬이 들어옵니다.\n연습 스킬을 Z·X·C·V·B로 써 보세요. 사용한 칸은 다른 스킬로 즉시 바뀝니다.",
+			"로비의 몬스터 컬렉션 버튼을 눌러 수집 몬스터를 확인하세요.\n성장 코어(레벨업)와 성장 점수(강화)도 그 안에서 사용합니다.",
+			"로비의 상점에서 성장 재료를 받고, 파티 찾기로 동료를 구하세요.\n아래 버튼을 눌러 각 기능이 무엇인지 확인할 수 있습니다.",
+			"모험 시작에서 층을 고르고 방과 보스를 돌파하세요.\n첫 완료 시 달팽이 Lv.1 해금(보유 중이면 레벨 유지)."
+		}
+		title.TextGUIRendererComponent.Text = titles[self.Step]
+		body.TextGUIRendererComponent.Text = bodies[self.Step]
+		count.TextGUIRendererComponent.Text = tostring(self.Step) .. " / 6"
+		local player = _UserService.LocalPlayer
+		local slots = isvalid(player) and player:GetComponent("script.PlayerSkillSlots") or nil
+		local usedSkill = slots ~= nil and slots.TutorialUseCount > 0
+		local canNext = self.Step >= 4 or (self.Step == 3 and usedSkill)
+		self.NextButton.Enable = canNext
+		self.NextButton:SetVisible(canNext)
+		if canNext then
+			self.NextButton.TextGUIRendererComponent.Text = self.Step == 6 and "완료" or "다음"
+		end
+		self.CollectionButton.Enable = self.Step == 4
+		self.ShopButton.Enable = self.Step == 5
+		self.PartyButton.Enable = self.Step == 5
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OpenTutorialFeature(string feature)
+		if self.LastMapName ~= "maptutorial" then return end
+		if feature == "COLLECTION" and self.Step == 4 then
+			_EquipPanel:SetOpen(true)
+			log("[Tutorial] 컬렉션 열기=" .. tostring(_EquipPanel.isOpen))
+		elseif feature == "SHOP" and self.Step == 5 then
+			_MonsterShopUi:SetShopOpen(true)
+			log("[Tutorial] 상점 열기=" .. tostring(_MonsterShopUi.ShopOpen))
+		elseif feature == "PARTY" and self.Step == 5 then
+			_GameData:SetPartyWindowOpen(true)
+			log("[Tutorial] 파티 열기=" .. tostring(_GameData.RoguePartyWindowOpen))
+		end
+	end
+
+	@ExecSpace("ClientOnly")
+	method void OnNextClicked()
+		if self.LastMapName ~= "maptutorial" or self.Step < 3
+			or not self.NextButton.Enable then return end
+		if self.Step < 6 then
+			if self.Step == 4 then _EquipPanel:SetOpen(false) end
+			if self.Step == 5 then
+				_MonsterShopUi:SetShopOpen(false)
+				_GameData:SetPartyWindowOpen(false)
+			end
+			self.Step += 1
+			self:RenderGuide()
+		else
+			self:RequestComplete()
+		end
+	end
+
+	@ExecSpace("Client")
+	method void NotifyPracticeKill()
+		if self.LastMapName ~= "maptutorial" or self.Step ~= 2 then return end
+		self.Step = 3
+		self:RenderGuide()
+		log("[Tutorial] 자동 공격 연습 완료")
+	end
+
+	@ExecSpace("Server")
+	method void RequestStart()
+		local player = _UserService:GetUserEntityByUserId(senderUserId)
+		if not isvalid(player) or not isvalid(player.CurrentMap)
+			or player.CurrentMap.Name ~= "maptown" or _GameData.RogueRunActive then return end
+		if _RoomService:IsInstanceRoom() and not Environment:IsMakerPlay() then return end
+		local db = player:GetComponent("script.PlayerDBManager")
+		if db == nil or not db.IsLoadSuccess then return end
+		local key = "tutorial~" .. senderUserId .. "~"
+			.. tostring(math.floor(_UtilLogic.ServerElapsedSeconds * 1000))
+		local room = _RoomService:CreateInstanceRoom(key, {"maptutorial"}, 10)
+		if room == nil or not room:IsValid() then
+			if Environment:IsMakerPlay() then
+				_TeleportService:TeleportToMapPosition(player, Vector3(0, 0, 0), "maptutorial")
+				log("[Tutorial] MAKER_LOCAL_INSTANCE_FALLBACK")
+			end
+			return
+		end
+		local moved = _RoomService:MoveUsersToInstanceRoom(key, {senderUserId}, "maptutorial")
+		log("[Tutorial] 전용 인스턴스 입장 user=" .. senderUserId
+			.. " moved=" .. tostring(moved))
+	end
+
+	@ExecSpace("Server")
+	method void RequestComplete()
+		-- 튜토리얼 첫 완료 보상을 완료 표시와 같은 영구 원장에 한 번만 저장한다.
+		local player = _UserService:GetUserEntityByUserId(senderUserId)
+		if not isvalid(player) or not isvalid(player.CurrentMap)
+			or player.CurrentMap.Name ~= "maptutorial" then return end
+		local db = player:GetComponent("script.PlayerDBManager")
+		if db == nil or not db.IsLoadSuccess then return end
+		local collection = player:GetComponent("script.PlayerCollection")
+		if collection == nil or not _GameData:IsTameableMonster("m_snail") then return end
+		local alreadyClaimed = db.RogueSettings.tutorial_snail_claimed == true
+		local alreadyOwned = collection:GetTamedCount("m_snail") > 0
+			or collection:GetMonsterLevel("m_snail") > 0
+		if alreadyClaimed and db.RogueSettings.tutorial_complete == true then
+			log("[TutorialReward] replay user=" .. senderUserId .. " snail_granted=false")
+			self:ReturnToLobby(player, senderUserId)
+			return
+		end
+		local candidate = db:PrepareRogueEconomyPayload()
+		if candidate == nil then return end
+		candidate.settings.tutorial_complete = true
+		local grantSnail = not alreadyClaimed and not alreadyOwned
+		if not alreadyClaimed then
+			candidate.settings.tutorial_snail_claimed = true
+			if grantSnail then
+				candidate.tamed_monsters["m_snail"] = 1
+				candidate.monster_levels["m_snail"] = 1
+				candidate.discovered_monsters["m_snail"] = 1
+			end
+		end
+		if not db:CommitRogueEconomyPayload(candidate, "튜토리얼 완료") then return end
+		db.RogueSettings.tutorial_complete = true
+		if not alreadyClaimed then
+			db.RogueSettings.tutorial_snail_claimed = true
+			if grantSnail then
+				collection:SetTamedCount("m_snail", 1)
+				collection.MonsterLevels["m_snail"] = 1
+				collection.RogueDiscoveredMonsters["m_snail"] = 1
+				collection:RefreshPlayerInheritedStats()
+			end
+		end
+		log("[TutorialReward] complete user=" .. senderUserId
+			.. " snail_granted=" .. tostring(grantSnail)
+			.. " level=" .. tostring(collection:GetMonsterLevel("m_snail")))
+		self:ReturnToLobby(player, senderUserId)
+	end
+
+	@ExecSpace("Server")
+	method void RequestExit()
+		local player = _UserService:GetUserEntityByUserId(senderUserId)
+		if not isvalid(player) or not isvalid(player.CurrentMap)
+			or player.CurrentMap.Name ~= "maptutorial" then return end
+		self:ReturnToLobby(player, senderUserId)
+	end
+
+	@ExecSpace("ServerOnly")
+	method void ReturnToLobby(Entity player, string userId)
+		local moved = _RoomService:MoveUsersToStaticRoom({userId}, "maptown") or 0
+		if moved < 1 and Environment:IsMakerPlay() then
+			_TeleportService:TeleportToMapPosition(player, Vector3(0, 0, 0), "maptown")
+		end
+		log("[Tutorial] 로비 복귀 user=" .. userId .. " moved=" .. tostring(moved))
+	end
+
+end

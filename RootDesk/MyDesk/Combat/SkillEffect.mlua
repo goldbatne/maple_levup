@@ -70,8 +70,10 @@ script SkillEffect extends Logic
 		        for i = 1, #users do
 		            local pc = users[i].PlayerComponent
 		            if isvalid(pc) then
+		                local slots = users[i]:GetComponent("script.PlayerSkillSlots")
+		                local factor = slots ~= nil and slots.AudioSfxVolume or 1
 		                _SoundService:PlaySound(self.MemoryMonkFollowupSfxRuid,
-		                    _GameData:GetBalance("skill_sfx_volume"), pc.UserId)
+		                    _GameData:GetBalance("skill_sfx_volume") * factor, pc.UserId)
 		            end
 		        end
 		        log("[SkillSFX] memory_monk_followup map=" .. map.Name
@@ -538,7 +540,13 @@ script SkillEffect extends Logic
 		        if skill.sfx_ruid ~= "" then
 		            -- 이미 클라 안이라 대상 UserId를 붙이지 않는다. PlayCast가 사람마다
 		            -- 한 번씩 부르므로 각자 자기 클라에서 한 번 듣는다.
-		            _SoundService:PlaySound(skill.sfx_ruid, _GameData:GetBalance("skill_sfx_volume"))
+		            local player = _UserService.LocalPlayer
+		            local slots = isvalid(player) and player:GetComponent("script.PlayerSkillSlots") or nil
+		            local factor = slots ~= nil and slots.AudioSfxVolume or 1
+		            if factor > 0 then
+		                _SoundService:PlaySound(skill.sfx_ruid,
+		                    _GameData:GetBalance("skill_sfx_volume") * factor)
+		            end
 		        end
 	end
 

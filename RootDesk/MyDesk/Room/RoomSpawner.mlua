@@ -83,6 +83,9 @@ script RoomSpawner extends Component
 	property integer runSpawnPlanIndex = 0
 
 	@HideFromInspector
+	property boolean runEliteSpawned = false
+
+	@HideFromInspector
 	property integer runRespawnTimer = 0
 
 	@HideFromInspector
@@ -160,6 +163,15 @@ script RoomSpawner extends Component
 		                local tmp = self.runSpawnPlan[i]
 		                self.runSpawnPlan[i] = self.runSpawnPlan[j]
 		                self.runSpawnPlan[j] = tmp
+		            end
+		            if _GameData.RogueEliteRoomId == room.id and not _GameData.RogueEliteDefeated then
+		                for i = 1, #self.runSpawnPlan do
+		                    if self:IsRunEliteSkillCandidate(self.runSpawnPlan[i]) then
+		                        self.runSpawnPlan[1], self.runSpawnPlan[i] =
+		                            self.runSpawnPlan[i], self.runSpawnPlan[1]
+		                        break
+		                    end
+		                end
 		            end
 		        end
 		
@@ -274,6 +286,7 @@ script RoomSpawner extends Component
 		        self.spawned = {}
 		        self.runSpawnPlan = {}
 		        self.runSpawnPlanIndex = 0
+		        self.runEliteSpawned = false
 		        self.runEncounterSpawned = false
 		        self.BossActive = false
 		        self.BossHp = 0
@@ -660,6 +673,14 @@ script RoomSpawner extends Component
 		                     .. tostring(target - self.monsterCount)) or "") .. ")")
 	end
 
+	method boolean IsRunEliteSkillCandidate(string monsterId)
+		        local monster = _GameData:GetMonster(monsterId)
+		        if monster == nil then return false end
+		        local skill = _GameData:GetSkill(monster.drop_skill_id)
+		        return skill ~= nil and skill.source == "monster"
+		            and skill.slot_type == "monster" and skill.skill_kind ~= "passive"
+	end
+
 	@ExecSpace("ServerOnly")
 	method void SpawnOne()
 		        -- parent는 nil이면 안 된다. 맵 엔티티 자신을 넘긴다.
@@ -703,7 +724,15 @@ script RoomSpawner extends Component
 		            return
 		        end
 		        local roomMonster = e:GetComponent("script.RoomMonster")
-		        if roomMonster ~= nil then roomMonster.MonsterId = spawnMonsterId end
+		        if roomMonster ~= nil then
+		            roomMonster.MonsterId = spawnMonsterId
+		            if _GameData.RogueRunActive and self.roomId == _GameData.RogueEliteRoomId
+		                and not _GameData.RogueEliteDefeated and not self.runEliteSpawned
+		                and self:IsRunEliteSkillCandidate(spawnMonsterId) then
+		                self.runEliteSpawned = true
+		                roomMonster:PromoteToRunElite()
+		            end
+		        end
 		        table.insert(self.spawned, e)
 	end
 

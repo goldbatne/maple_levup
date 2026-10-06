@@ -23,6 +23,9 @@ script PlayerCollection extends Component
 	property integer MonsterSelectionTickets = 0
 
 	@TargetUserSync
+	property integer MonsterEnhancementTickets = 0
+
+	@TargetUserSync
 	property SyncTable<string, string> EquippedCompanions
 
 	@TargetUserSync
@@ -49,7 +52,7 @@ script PlayerCollection extends Component
 	@HideFromInspector
 	property Entity CompanionEntity = nil
 
-	@HideFromInspector
+	@TargetUserSync
 	property string CompanionDefeatedMapName = ""
 
 	@HideFromInspector
@@ -64,14 +67,8 @@ script PlayerCollection extends Component
 	@HideFromInspector
 	property table CompanionDefeatedMaps = {}
 
-	@TargetUserSync
-	property integer CompanionLivesRemaining = 3
-
 	@HideFromInspector
 	property number CompanionRunHp = -1
-
-	@HideFromInspector
-	property number CompanionRespawnAt = 0
 
 	@HideFromInspector
 	property boolean CompanionRunInitialized = false
@@ -95,6 +92,9 @@ script PlayerCollection extends Component
 		        -- 않는다 — 컴포넌트 OnBeginPlay 순서가 정해져 있지 않아, 로드된 값을
 		        -- 나중에 도는 초기화가 덮어쓸 수 있다.
 		        log("[PlayerCollection] 초기화  테이밍률=" .. string.format("%.4f", self:GetCaptureRate()))
+		        log("[MonsterGrowthPolicy] first_capture_only=true cost1=" .. tostring(self:GetMonsterGrowthStepCost(1))
+		            .. " cost5=" .. tostring(self:GetMonsterGrowthStepCost(5))
+		            .. " cost10=" .. tostring(self:GetMonsterGrowthStepCost(10)))
 	end
 
 	@ExecSpace("ServerOnly")
@@ -198,13 +198,27 @@ script PlayerCollection extends Component
 		        return math.min(cap, math.max(0, math.floor(n)))
 	end
 
+	method integer GetMonsterGrowthStepCost(integer growthStep)
+		        -- 두 재화의 1회 성장 비용을 누적 계산한다. 첫 성장은 5개,
+		        -- 이후 증가량은 단계 * 5개이며 매 5번째 증가량만 40개로 대체한다.
+		        -- 5, 15, 30, 50, 90, 120, 155, 195, 240, 280 ...
+		        -- 이전 CSV의 고정 코어 비용/선형 강화 비용 대신 확정된 공통 규칙을 쓴다.
+		        local step = math.max(1, growthStep)
+		        local cost = 0
+		        for i = 1, step do
+		            cost += i % 5 == 0 and 40 or i * 5
+		        end
+		        return cost
+	end
+
 	method integer GetMonsterEnhanceCost(string monsterId)
-		        return math.max(1, math.floor(_GameData:GetBalance("monster_enhance_cost_base")
-		            + self:GetMonsterEnhance(monsterId) * _GameData:GetBalance("monster_enhance_cost_step")))
+		        -- +0 -> +1을 첫 성장으로 센다. UI 표시와 서버 차감이 이 함수를 공유한다.
+		        return self:GetMonsterGrowthStepCost(self:GetMonsterEnhance(monsterId) + 1)
 	end
 
 	method integer GetMonsterCoreLevelCost(string monsterId)
-		        return math.max(1, math.floor(_GameData:GetBalance("monster_growth_core_level_cost")))
+		        -- 최초 수집 Lv.1 -> Lv.2를 첫 성장으로 센다. 수집은 비용에 포함하지 않는다.
+		        return self:GetMonsterGrowthStepCost(self:GetMonsterLevel(monsterId))
 	end
 
 	@ExecSpace("ServerOnly")
@@ -585,23 +599,23 @@ script PlayerCollection extends Component
 
 	@ExecSpace("ServerOnly")
 	method boolean TryTameFromRunKill(string monsterId)
+		        -- 모험 처치는 미보유 종의 최초 Lv.1 해금만 허용한다. 중복은 성장하지 않는다.
 		        if _GameData.RogueRunActive == false or _GameData:IsTameableMonster(monsterId) == false then return false end
 		        local pc = self.Entity.PlayerComponent
 		        if not isvalid(pc) or _GameData:IsRunParticipant(pc.UserId) == false then return false end
 		        local before = self:GetMonsterLevel(monsterId)
-		        local levelCap = math.max(1, math.floor(_GameData:GetBalance("monster_level_cap")))
-		        if before >= levelCap then return false end
+		        if before > 0 or self:GetTamedCount(monsterId) > 0 then return false end
 		        local rate = self:GetCaptureRateForMonster(monsterId)
 		        local roll = _UtilLogic:RandomDouble()
 		        log("[MonsterTame] monster=" .. monsterId .. " count=" .. tostring(before)
 		            .. " rate=" .. tostring(rate) .. " roll=" .. tostring(roll))
 		        if roll >= rate then return false end
-		        if self:SetTamedCount(monsterId, math.min(before + 1,
-		            math.max(1, math.floor(_GameData:GetBalance("skill_stack_max"))))) == false then return false end
-		        self.MonsterLevels[monsterId] = before + 1
+		        if self:SetTamedCount(monsterId, 1) == false then return false end
+		        self.MonsterLevels[monsterId] = 1
 		        self:MarkSave("Run 몬스터 테이밍")
 		        local monster = _GameData:GetMonster(monsterId)
-		        self:ShowTameToast(monster.name, before + 1, pc.UserId)
+		        self:ShowTameToast(monster.name, 1, pc.UserId)
+		        log("[MonsterTame] first_unlock=" .. monsterId .. " level=1 duplicate_growth=false")
 		        return true
 	end
 
@@ -843,21 +857,19 @@ script PlayerCollection extends Component
 
 	@ExecSpace("ServerOnly")
 	method void RestoreRunCompanionState(table saved)
-		        -- Run 안에서 방 이동이나 재접속이 일어나도 목숨과 HP를 유지한다.
+		        -- HP와 전투불능 방을 보존한다. 다음 방에 들어가면 다시 소환한다.
 		        if saved == nil then
-		            self.CompanionLivesRemaining = 3
 		            self.CompanionRunHp = -1
-		            self.CompanionRespawnAt = 0
+		            self.CompanionDefeatedMapName = ""
 		        else
-		            self.CompanionLivesRemaining = math.max(0, math.min(3, math.floor(saved.lives or 0)))
 		            self.CompanionRunHp = saved.hp or -1
-		            self.CompanionRespawnAt = saved.respawnAt or 0
+		            self.CompanionDefeatedMapName = saved.defeatedMap or ""
 		        end
 		        self.CompanionRunInitialized = true
 		        self:SaveRunCompanionState()
-		        log("[CompanionLife] restore user=" .. self.Entity.PlayerComponent.UserId
-		            .. " lives=" .. tostring(self.CompanionLivesRemaining)
-		            .. " hp=" .. tostring(self.CompanionRunHp))
+		        log("[Companion] restore user=" .. self.Entity.PlayerComponent.UserId
+		            .. " hp=" .. tostring(self.CompanionRunHp)
+		            .. " defeatedMap=" .. self.CompanionDefeatedMapName)
 	end
 
 	@ExecSpace("ServerOnly")
@@ -865,34 +877,29 @@ script PlayerCollection extends Component
 		        -- 재접속 시에도 같은 Run 인스턴스가 상태의 정본이 된다.
 		        if self.CompanionRunInitialized == false or not _GameData.RogueRunActive then return end
 		        local userId = self.Entity.PlayerComponent.UserId
-		        _GameData.RogueCompanionStates[userId] = {
-		            lives = self.CompanionLivesRemaining,
+		_GameData.RogueCompanionStates[userId] = {
 		            hp = self.CompanionRunHp,
-		            respawnAt = self.CompanionRespawnAt
-		        }
+		            defeatedMap = self.CompanionDefeatedMapName
+		}
 	end
 
 	@ExecSpace("ServerOnly")
 	method void RecordCompanionHp(number hp)
 		        -- 살아 있는 메인 동행의 남은 체력을 방 이동용 Run 상태에 기록한다.
-		        if not self.CompanionRunInitialized or self.CompanionLivesRemaining <= 0 then return end
+		        if not self.CompanionRunInitialized then return end
 		        self.CompanionRunHp = math.max(0, hp)
 		        self:SaveRunCompanionState()
 	end
 
 	@ExecSpace("ServerOnly")
 	method void NotifyCompanionDefeated(string mapName, integer slot)
-		        -- 치명타 한 번에 목숨 하나만 소모하며, 방 전환으로는 복구되지 않는다.
+		        -- 이 방에서는 재소환하지 않고, 다음 방에 들어갈 때 복귀시킨다.
 		        if slot ~= 1 or not self.CompanionRunInitialized then return end
-		        self.CompanionLivesRemaining = math.max(0, self.CompanionLivesRemaining - 1)
-		        self.CompanionRunHp = -1
-		        self.CompanionRespawnAt = self.CompanionLivesRemaining > 0
-		            and (_UtilLogic.ElapsedSeconds + 2) or 0
+		        self.CompanionRunHp = 0
+		        self.CompanionDefeatedMapName = mapName
 		        self.CompanionEntities[slot] = nil
 		        self:SaveRunCompanionState()
-		        log("[CompanionLife] defeated map=" .. mapName
-		            .. " lives=" .. tostring(self.CompanionLivesRemaining)
-		            .. " respawnAt=" .. tostring(self.CompanionRespawnAt))
+		        log("[Companion] defeated map=" .. mapName .. " next_room_revive=true")
 	end
 
 	@ExecSpace("ServerOnly")
@@ -905,33 +912,28 @@ script PlayerCollection extends Component
 	end
 
 	@ExecSpace("ServerOnly")
-	method boolean TryRestoreCompanionLifeFromChest(number chance)
-		        -- 빠진 목숨이 있을 때만 확률적으로 하나를 되찾는다.
-		        if not self.CompanionRunInitialized or self.CompanionLivesRemaining >= 3 then return false end
-		        if _UtilLogic:RandomDouble() >= chance then return false end
-		        self.CompanionLivesRemaining += 1
-		        if self.CompanionLivesRemaining == 1 then
-		            self.CompanionRunHp = -1
-		            self.CompanionRespawnAt = 0
-		        end
-		        self:SaveRunCompanionState()
-		        log("[CompanionLife] chest_restore lives=" .. tostring(self.CompanionLivesRemaining))
-		        return true
-	end
-
-	@ExecSpace("ServerOnly")
 	method void RefreshCompanion()
+		        local map = self.Entity.CurrentMap
+		        if map ~= nil and self.CompanionDefeatedMapName ~= ""
+		            and self.CompanionDefeatedMapName ~= map.Name then
+		            self.CompanionDefeatedMapName = ""
+		            self.CompanionRunHp = -1
+		            self:SaveRunCompanionState()
+		            log("[Companion] next_room_revive map=" .. map.Name)
+		        end
 		        self:DestroyCompanion()
-		        if not self.CompanionRunInitialized or self.CompanionLivesRemaining <= 0
-		            or _UtilLogic.ElapsedSeconds < self.CompanionRespawnAt then return end
+		        if not self.CompanionRunInitialized then return end
 		        if _GameData:GetBalance("roguelite_run_mode_enabled") >= 0.5 then
 		            local pc = self.Entity.PlayerComponent
 		            if _GameData.RogueRunActive == false or not isvalid(pc)
 		                or _GameData:IsRunParticipant(pc.UserId) == false then return end
 		        end
-		        local map = self.Entity.CurrentMap
 		        local playerTransform = self.Entity.TransformComponent
 		        if map == nil or map.Name == "maptown" or not isvalid(playerTransform) then return end
+		        if self.CompanionDefeatedMapName == map.Name then
+		            self.companionMapName = map.Name
+		            return
+		        end
 		        local p = playerTransform.WorldPosition
 		        local radius = math.max(0.5, _GameData:GetBalance("companion_formation_radius"))
 		        for slot = 1, 1 do
@@ -963,7 +965,6 @@ script PlayerCollection extends Component
 		                                combat.Hp = math.max(1, math.min(combat.MaxHp, self.CompanionRunHp))
 		                            end
 		                            self.CompanionRunHp = combat.Hp
-		                            self.CompanionRespawnAt = 0
 		                            self:SaveRunCompanionState()
 		                            self.CompanionEntities[slot] = entity
 		                            log("[Companion] MAIN slot=" .. tostring(slot) .. " monster=" .. monsterId
@@ -1006,10 +1007,9 @@ script PlayerCollection extends Component
 		        return
 		    end
 		    local equippedMain = self:GetEquippedCompanion(1)
-		    if self.CompanionRunInitialized and self.CompanionLivesRemaining > 0
-		        and equippedMain ~= "" and self:GetMonsterLevel(equippedMain) > 0
-		        and not isvalid(self.CompanionEntities[1])
-		        and _UtilLogic.ElapsedSeconds >= self.CompanionRespawnAt then
+	    if self.CompanionRunInitialized and self.CompanionDefeatedMapName ~= map.Name
+	        and equippedMain ~= "" and self:GetMonsterLevel(equippedMain) > 0
+	        and not isvalid(self.CompanionEntities[1]) then
 		        self:RefreshCompanion()
 		        return
 		    end

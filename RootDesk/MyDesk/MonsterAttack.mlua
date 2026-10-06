@@ -116,7 +116,12 @@ script MonsterAttack extends AttackComponent
 				.. tostring(self.Entity.Name))
 			return
 		end
-		
+		local map = self.Entity.CurrentMap
+		if isvalid(map) and map.Name == "maptutorial" then
+			log("[Tutorial] 연습 몬스터 공격 비활성화")
+			return
+		end
+
 		self.Shape = BoxShape(Vector2.zero, Vector2.one, 0)
 		
 		-- 보스 스킬은 스프라이트 갈래보다 **앞에서** 건다. 아래 아바타 분기가 return으로
@@ -261,7 +266,8 @@ script MonsterAttack extends AttackComponent
 		-- 방으로 갈리는 것과 같은 기준이다.
 		local monsterSkillMode = _GameData.RogueRunActive and _GameData.RogueMode == "MONSTER_SKILL"
 		if _GameData.RogueRunActive then
-			if monsterSkillMode == false and monster:IsBossRoom() == false then return end
+			if monsterSkillMode == false and monster:IsBossRoom() == false
+				and monster.IsElite == false then return end
 		elseif monster:IsBossRoom() == false then
 			return
 		end
@@ -271,6 +277,10 @@ script MonsterAttack extends AttackComponent
 		
 		local interval = _GameData:GetBalance("boss_skill_interval")
 		if monsterSkillMode then interval = math.max(0.25, self:ResolvedAttackInterval()) end
+		if monster.IsElite then
+			interval = math.max(0.25, interval
+				* math.max(0.1, _GameData:GetBalance("run_elite_skill_cooldown_multiplier")))
+		end
 		if interval <= 0 then return end
 		
 		-- ## 스킬은 별도 타이머가 아니라 **평타 타이머 위**에서 돈다
@@ -302,7 +312,8 @@ script MonsterAttack extends AttackComponent
 	method boolean TryUseSkill()
 		-- 이번 평타 틱을 스킬로 바꿔 쓸지. 실제로 나갔으면 true(= 평타를 건너뛴다).
 		if _GameData.RogueRunActive and _GameData.RogueMode ~= "MONSTER_SKILL"
-			and (self._T.monster == nil or self._T.monster:IsBossRoom() == false) then return false end
+			and (self._T.monster == nil or (self._T.monster:IsBossRoom() == false
+				and self._T.monster.IsElite == false)) then return false end
 		if self._T.bossSkills == nil then return false end
 		if _UtilLogic.ElapsedSeconds < self._T.nextSkillAt then return false end
 		
@@ -362,7 +373,11 @@ script MonsterAttack extends AttackComponent
 		--   정해지므로 여기서 알 수 없고, 빗나갔다고 공짜로 다시 던지게 두면
 		--   비켜서는 것이 아무 의미가 없어진다.
 		if skill.cooldown > 0 then
-			self._T.skillReadyAt[skillId] = _UtilLogic.ElapsedSeconds + skill.cooldown
+			local cooldown = skill.cooldown
+			if monster.IsElite then
+				cooldown *= math.max(0.1, _GameData:GetBalance("run_elite_skill_cooldown_multiplier"))
+			end
+			self._T.skillReadyAt[skillId] = _UtilLogic.ElapsedSeconds + cooldown
 		end
 		self._T.nextSkillAt = _UtilLogic.ElapsedSeconds + self._T.skillInterval
 		return true
@@ -1111,7 +1126,12 @@ script MonsterAttack extends AttackComponent
 		local pc = defender.PlayerComponent
 		if not isvalid(pc) then return end
 		
-		_SoundService:PlaySound(self.AttackSfxRuid, self.AttackSfxVolume, pc.UserId)
+		local slots = defender:GetComponent("script.PlayerSkillSlots")
+		local factor = slots ~= nil and slots.AudioSfxVolume or 1
+		if factor > 0 then
+			_SoundService:PlaySound(self.AttackSfxRuid,
+				self.AttackSfxVolume * factor, pc.UserId)
+		end
 	end
 
 	method integer CalcDamage(Entity attacker, Entity defender, string attackInfo)

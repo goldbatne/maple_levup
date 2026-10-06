@@ -89,8 +89,10 @@ script RunChest extends Component
 		            interaction.ShowActionInfo = true
 		            if self.ChestType == "HEAL" then
 		                interaction.ActionName = "회복 상자 열기"
+		            elseif self.ChestType == "ELITE_UPGRADE" then
+		                interaction.ActionName = "특수 강화 선택"
 		            else
-		                interaction.ActionName = "강화 상자 열기"
+		                interaction.ActionName = "랜덤 강화 상자 열기"
 		            end
 		        end
 		        log("[RunChest] AVAILABLE serial=" .. tostring(self.ChestSerial)
@@ -111,6 +113,8 @@ script RunChest extends Component
 		            -- 같은 공식 보물상자 자산을 재사용하되 회복=초록, 강화=금색으로 즉시 구분한다.
 		            if self.ChestType == "HEAL" then
 		                visual.SpriteRendererComponent.Color = Color(0.48, 1.00, 0.60, 1)
+		            elseif self.ChestType == "ELITE_UPGRADE" then
+		                visual.SpriteRendererComponent.Color = Color(0.92, 0.55, 1.00, 1)
 		            else
 		                visual.SpriteRendererComponent.Color = Color(1.00, 0.82, 0.32, 1)
 		            end

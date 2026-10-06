@@ -422,13 +422,13 @@ script WorldMapPanel extends Logic
 		        local sprite = cell.SpriteGUIRendererComponent
 		        if sprite ~= nil then
 		            if isHere then
-		                sprite.Color = Color(0.22, 0.44, 0.78, 1)
+		                sprite.Color = Color(0.80, 0.91, 0.97, 1)
 		            elseif gate.passed == false then
-		                sprite.Color = Color(0.20, 0.18, 0.16, 1)
+		                sprite.Color = Color(0.96, 0.91, 0.78, 1)
 		            elseif room.room_type == "boss" then
-		                sprite.Color = Color(0.38, 0.22, 0.24, 1)
+		                sprite.Color = Color(0.96, 0.84, 0.84, 1)
 		            else
-		                sprite.Color = Color(0.17, 0.20, 0.26, 1)
+		                sprite.Color = Color(0.95, 0.97, 0.98, 1)
 		            end
 		        end
 		
@@ -452,7 +452,7 @@ script WorldMapPanel extends Logic
 		            -- 잠금은 지난 이야기고, 그 자리에서 알고 싶은 것은 무엇이 사는지다.
 		            if gate.passed == false and isHere == false then
 		                subText.TextGUIRendererComponent.Text = "잠김"
-		                subText.TextGUIRendererComponent.FontColor = Color(0.89, 0.64, 0.23, 1)
+		                subText.TextGUIRendererComponent.FontColor = Color(0.48, 0.32, 0.10, 1)
 		            else
 		                local line = "-"
 		                if room.monster_id ~= nil and room.monster_id ~= "" then
@@ -465,7 +465,7 @@ script WorldMapPanel extends Logic
 		                    end
 		                end
 		                subText.TextGUIRendererComponent.Text = line
-		                subText.TextGUIRendererComponent.FontColor = Color(0.62, 0.66, 0.72, 1)
+		                subText.TextGUIRendererComponent.FontColor = Color(0.32, 0.39, 0.43, 1)
 		            end
 		        end
 	end
