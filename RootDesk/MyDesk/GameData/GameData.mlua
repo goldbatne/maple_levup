@@ -479,7 +479,8 @@ script GameData extends Logic
 		            run_monster_respawn_delay_min = 6,
 		            run_monster_respawn_delay_max = 10,
 		            run_monster_respawn_player_clearance = 5,
-		            run_ability_acquire_rate = 0.10,
+		            run_ability_acquire_rate = 0.50,
+		            run_monster_tame_rate = 0.05,
 		            skill_drop_interact_range = 1.25,
 		            skill_drop_lifetime = 60,
 		            skill_drop_countdown_start = 30,
@@ -576,6 +577,9 @@ script GameData extends Logic
 		                fallbackCount += 1
 		            end
 		        end
+		        -- 출시 밸런스 조정: 이전 imported GameBalance 값(10%)이 남아 있어도 적용한다.
+		        self.balance["run_ability_acquire_rate"] = 0.50
+		        self.balance["run_monster_tame_rate"] = 0.05
 		        if fallbackCount > 0 then
 		            log_warning("[GameData] GameBalance imported copy에 Run 설정 "
 		                .. tostring(fallbackCount) .. "개가 없어 CSV 동값 fallback을 적용했다")
@@ -3303,9 +3307,9 @@ script GameData extends Logic
 		                if i <= #channelRows then
 		                    local fields = self:SplitRogueKey(channelRows[i], "~")
 		                    if fields[6] == "1" then
-		                        rowText = (fields[1] or "채널") .. "에 " .. (fields[2] or "0")
-		                            .. "명이 있습니다. 최대 " .. (fields[3] or "100") .. "명까지 입장합니다."
-		                        if fields[4] == "1" then rowText = rowText .. " 현재 머무는 곳입니다." end
+		                        rowText = (fields[1] or "채널") .. " · " .. (fields[2] or "0")
+		                            .. " / " .. (fields[3] or "100") .. "명"
+		                        if fields[4] == "1" then rowText = rowText .. "\n현재 머무는 채널" end
 		                        if fields[5] == self.RogueSelectedChannelCode then rowText = "▶ " .. rowText end
 		                    else
 		                        rowText = (fields[1] or "채널") .. "은 아직 열리지 않았습니다."
@@ -5057,7 +5061,7 @@ script GameData extends Logic
 		                end
 		            end
 		        end
-		        -- 최초 보장/10% 자동 획득은 SkillDropManager의 Run 단위 원장에서 한 번만 판정한다.
+		        -- 최초 보장/50% 자동 획득은 SkillDropManager의 Run 단위 원장에서 한 번만 판정한다.
 		        -- 이 목록은 막타자가 아니라 해당 처치 위치 반경의 실제 참여자를 뜻한다.
 		        if isvalid(dropMap) and #eligiblePlayers > 0 then
 		            _SkillDropManager:TrySpawnFromKill(monsterId, deathPosition, dropMap, eligiblePlayers)

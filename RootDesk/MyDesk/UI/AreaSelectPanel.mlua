@@ -288,6 +288,7 @@ script AreaSelectPanel extends Logic
 
 	@ExecSpace("ClientOnly")
 	method void PaintAreaSlot(integer index)
+		-- 목록 버튼도 공통 표면을 사용하고 선택/잠금만 명도로 구분한다.
 		        local slot = self:GetSlot(index)
 		        if slot == nil then return end
 		        local challengeFloor = self:GetDisplayedChallengeFloor()
@@ -300,12 +301,12 @@ script AreaSelectPanel extends Logic
 		        end
 		        if isvalid(slot.SpriteGUIRendererComponent) then
 		            slot.SpriteGUIRendererComponent.Color = active
-		                and Color(0.86, 0.95, 0.98, 1)
-		                or (index <= challengeFloor and Color(0.93, 0.97, 0.93, 1)
-		                    or Color(0.90, 0.91, 0.92, 1))
+		                and Color(0.16, 0.43, 0.64, 1)
+		                or (index <= challengeFloor and Color(0.239215687, 0.549019635, 0.7607843, 1)
+		                    or Color(0.43, 0.50, 0.55, 1))
 		            slot.SpriteGUIRendererComponent.OutlineColor = active
 		                and Color(0.19, 0.61, 0.83, 1) or Color(0.77, 0.82, 0.85, 1)
-		            slot.SpriteGUIRendererComponent.OutlineWidth = 1
+		            slot.SpriteGUIRendererComponent.OutlineWidth = 0
 		        end
 	end
 
@@ -429,17 +430,17 @@ script AreaSelectPanel extends Logic
 		
 		        if isvalid(self.normalButton) and isvalid(self.normalButton.SpriteGUIRendererComponent) then
 		            self.normalButton.SpriteGUIRendererComponent.Color = self.selectedMode == "NORMAL"
-		                and Color(0.86, 0.95, 0.98, 1) or Color(0.98, 0.99, 0.99, 1)
+		                and Color(0.16, 0.43, 0.64, 1) or Color(0.239215687, 0.549019635, 0.7607843, 1)
 		            self.normalButton.SpriteGUIRendererComponent.OutlineColor = self.selectedMode == "NORMAL"
 		                and Color(0.19, 0.61, 0.83, 1) or Color(0.77, 0.82, 0.85, 1)
-		            self.normalButton.SpriteGUIRendererComponent.OutlineWidth = 1
+		            self.normalButton.SpriteGUIRendererComponent.OutlineWidth = 0
 		        end
 		        if isvalid(self.monsterSkillButton) and isvalid(self.monsterSkillButton.SpriteGUIRendererComponent) then
 		            self.monsterSkillButton.SpriteGUIRendererComponent.Color = self.selectedMode == "MONSTER_SKILL"
-		                and Color(0.86, 0.95, 0.98, 1) or Color(0.98, 0.99, 0.99, 1)
+		                and Color(0.16, 0.43, 0.64, 1) or Color(0.239215687, 0.549019635, 0.7607843, 1)
 		            self.monsterSkillButton.SpriteGUIRendererComponent.OutlineColor = self.selectedMode == "MONSTER_SKILL"
 		                and Color(0.19, 0.61, 0.83, 1) or Color(0.77, 0.82, 0.85, 1)
-		            self.monsterSkillButton.SpriteGUIRendererComponent.OutlineWidth = 1
+		            self.monsterSkillButton.SpriteGUIRendererComponent.OutlineWidth = 0
 		        end
 		
 		        local party = _GameData.RoguePartyViewId ~= ""

@@ -82,7 +82,7 @@ script SkillDropManager extends Logic
 		
 		        local guaranteed = self.firstSkillDropResolved == false
 		local chance = guaranteed and 1 or _GameData:GetBalance("run_ability_acquire_rate")
-		if chance <= 0 then chance = 0.10 end
+		if chance <= 0 then chance = 0.50 end
 		if _GameData.RogueEliteKillInProgress then
 			chance = math.max(chance, _GameData:GetBalance("run_elite_skill_drop_chance"))
 		end

@@ -299,6 +299,7 @@ script MonsterShop extends Logic
 
 	@ExecSpace("Server")
 	method void RequestPaidPurchaseEligibility(string productId)
+		-- 잠금은 상품 조회 중에만 유지한다. 플랫폼 취소는 구매 완료 콜백을 보내지 않는다.
 		        local userId = senderUserId
 		        local product = self:GetProduct(productId)
 		        local player = _UserService:GetUserEntityByUserId(userId)
@@ -333,7 +334,7 @@ script MonsterShop extends Logic
 		        local now = _UtilLogic.ElapsedSeconds
 		        local pending = self.PaidPromptPending[userId]
 		        if pending ~= nil and now - pending < 120 then
-		            self:NotifyPurchaseMessage("구매 진행 중", "진행 중인 구매창을 먼저 확인해 주세요.", userId)
+		            self:NotifyPurchaseMessage("상품 확인 중", "상품 정보를 확인하고 있습니다. 잠시 후 다시 눌러 주세요.", userId)
 		            return
 		        end
 		        self.PaidPromptPending[userId] = now
@@ -350,6 +351,8 @@ script MonsterShop extends Logic
 		        log("[MonsterShop] 플랫폼 구매 사전검증 통과 product=" .. product.id
 		            .. " price=" .. tostring(platform.Price))
 		        self:PromptEligiblePaidPurchase(productId, product.platformId, platform.Price, userId)
+		        -- PromptPurchase는 완료/취소를 기다리지 않는 API다. 지급은 별도의 검증된 콜백만 처리한다.
+		        self.PaidPromptPending[userId] = nil
 	end
 
 	@ExecSpace("Client")

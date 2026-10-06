@@ -126,6 +126,10 @@ script PlayerCollection extends Component
 
 	@ExecSpace("ServerOnly")
 	method number GetCaptureRateForMonster(string monsterId)
+		-- RUN에서는 일반/보스 모두 동일한 5%로, 기존 영구 성장 보정과 분리한다.
+		if _GameData.RogueRunActive then
+			return _GameData:GetBalance("run_monster_tame_rate")
+		end
 		        if _GameData:GetBalance("phase1_random_combat_enabled") < 0.5 then
 		            return self:GetCaptureRate()
 		        end

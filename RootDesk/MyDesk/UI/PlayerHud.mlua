@@ -119,6 +119,7 @@ script PlayerHud extends Logic
 
 	@ExecSpace("ClientOnly")
 	method void RefreshLobbyMenuVisuals(Entity player)
+		-- 모든 로비 사각 버튼은 몬스터·상점과 동일한 기본 표면을 사용한다.
 		        local map = player.CurrentMap
 		        local lobbyVisible = isvalid(map) and map.Name == "maptown"
 		            and not _GameData.RogueRunActive
@@ -137,7 +138,7 @@ script PlayerHud extends Logic
 		        local names = {"MONSTER", "ADVENTURE", "PARTY", "SHOP"}
 		        local paths = {"/ui/EquipWindow/OpenBtn", "/ui/AreaSelect/LobbyDungeonButton",
 		            "/ui/PlayerHud/PartyMenuButton", "/ui/PlayerHud/ShopOpenButton"}
-		-- 몬스터·상점은 작은 파란 버튼, 파티·모험은 기존 화살표 버튼을 유지한다.
+		-- 크기와 위치는 유지하고 화살표 이미지로 덮어쓰지 않는다.
 		local positions = {Vector2(-142, -146), Vector2(-18, -210),
 		    Vector2(-248, -210), Vector2(-18, -146)}
 		        for i = 1, 4 do
@@ -147,25 +148,20 @@ script PlayerHud extends Logic
 				local primary = names[i] == "PARTY" or names[i] == "ADVENTURE"
 				if isvalid(transform) then
 					transform.anchoredPosition = positions[i]
-					transform.RectSize = primary and Vector2(220, 76) or Vector2(120, 50)
+					transform.RectSize = primary and Vector2(220, 60) or Vector2(120, 50)
 				end
 				local sprite = button.SpriteGUIRendererComponent
 				local label = button.TextGUIRendererComponent
-				if primary then
-					sprite.Color = Color(1, 1, 1, 0)
-					sprite.OutlineWidth = 0
-					if isvalid(label) then label.FontColor = Color(1, 1, 1, 0) end
-				else
-					sprite.Color = Color(0.239215687, 0.549019635, 0.7607843, 1)
+					sprite.Color = names[i] == "ADVENTURE"
+						and Color(0.3764706, 0.572549045, 0.298039228, 1)
+						or Color(0.239215687, 0.549019635, 0.7607843, 1)
 					sprite.OutlineColor = Color(0.5294118, 0.5803922, 0.619607866, 1)
-					sprite.OutlineWidth = 1
+					sprite.OutlineWidth = 0
 					if isvalid(label) then label.FontColor = Color(1, 1, 1, 1) end
-				end
 				local art = button:GetChildByName("ButtonArt", false)
 				if primary and isvalid(art) and isvalid(art.SpriteGUIRendererComponent) then
-					art.Enable = true
-					art:SetVisible(true)
-					art.SpriteGUIRendererComponent.Color = Color(1, 1, 1, 1)
+					art.Enable = false
+					art:SetVisible(false)
 				end
 		            end
 		        end

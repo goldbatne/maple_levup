@@ -253,14 +253,14 @@
               "FrameColumn": 1,
               "FrameRate": 0,
               "FrameRow": 1,
-              "Outline": true,
+              "Outline": false,
               "OutlineColor": {
                 "r": 0.5294118,
                 "g": 0.5803922,
                 "b": 0.619607866,
                 "a": 1.0
               },
-              "OutlineWidth": 1.0,
+              "OutlineWidth": 0.0,
               "RaycastTarget": false,
               "Type": 1,
               "Enable": true
@@ -1161,7 +1161,7 @@
                 "b": 0.9607843,
                 "a": 1.0
               },
-              "DropShadow": true,
+              "DropShadow": false,
               "DropShadowAngle": 120.0,
               "DropShadowColor": {
                 "r": 0.07450981,
@@ -1180,14 +1180,14 @@
               "FrameColumn": 1,
               "FrameRate": 0,
               "FrameRow": 1,
-              "Outline": true,
+              "Outline": false,
               "OutlineColor": {
                 "r": 0.5686275,
                 "g": 0.623529434,
                 "b": 0.6627451,
                 "a": 1.0
               },
-              "OutlineWidth": 2.0,
+              "OutlineWidth": 0.0,
               "RaycastTarget": false,
               "Type": 1,
               "Enable": true
@@ -1719,14 +1719,14 @@
               "FrameColumn": 1,
               "FrameRate": 0,
               "FrameRow": 1,
-              "Outline": true,
+              "Outline": false,
               "OutlineColor": {
                 "r": 0.768627465,
                 "g": 0.819607854,
                 "b": 0.847058833,
                 "a": 1.0
               },
-              "OutlineWidth": 1.0,
+              "OutlineWidth": 0.0,
               "RaycastTarget": false,
               "Type": 1,
               "Enable": true
@@ -1846,9 +1846,9 @@
               "SortingLayer": "UI",
               "StartFrameIndex": 0,
               "Color": {
-                "r": 0.239215687,
-                "g": 0.549019635,
-                "b": 0.7607843,
+                "r": 0.48,
+                "g": 0.55,
+                "b": 0.59,
                 "a": 1.0
               },
               "DropShadow": false,
@@ -1870,14 +1870,14 @@
               "FrameColumn": 1,
               "FrameRate": 0,
               "FrameRow": 1,
-              "Outline": true,
+              "Outline": false,
               "OutlineColor": {
                 "r": 0.5294118,
                 "g": 0.5803922,
                 "b": 0.619607866,
                 "a": 1.0
               },
-              "OutlineWidth": 1.0,
+              "OutlineWidth": 0.0,
               "RaycastTarget": true,
               "Type": 1,
               "Enable": true
@@ -1980,15 +1980,15 @@
         }
       },
       {
-        "id": "5fe1c94b-910a-4682-b297-2f32c5a5992c",
+        "id": "32deaa14-761d-4be2-84d5-63bb3672aa3d",
         "path": "/ui/RoomProgress/ResultPanel/CloseButton/MasterUpperEdge",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
           "name": "MasterUpperEdge",
           "path": "/ui/RoomProgress/ResultPanel/CloseButton/MasterUpperEdge",
           "nameEditable": true,
-          "enable": true,
-          "visible": true,
+          "enable": false,
+          "visible": false,
           "localize": true,
           "displayOrder": 0,
           "pathConstraints": "/////",
@@ -2005,30 +2005,30 @@
             {
               "@type": "MOD.Core.UITransformComponent",
               "ActivePlatform": 255,
-              "AlignmentOption": 0,
+              "AlignmentOption": 9,
               "AnchorsMax": {
-                "x": 0.5,
-                "y": 0.5
+                "x": 1.0,
+                "y": 1.0
               },
               "AnchorsMin": {
-                "x": 0.5,
-                "y": 0.5
+                "x": 0.0,
+                "y": 1.0
               },
               "MobileOnly": false,
               "OffsetMax": {
-                "x": 100.0,
-                "y": 23.5
+                "x": -3.0,
+                "y": -1.5
               },
               "OffsetMin": {
-                "x": -100.0,
-                "y": 20.5
+                "x": 3.0,
+                "y": -4.5
               },
               "Pivot": {
                 "x": 0.5,
                 "y": 0.5
               },
               "RectSize": {
-                "x": 200.0,
+                "x": 244.0,
                 "y": 3.0
               },
               "UIMode": 1,
@@ -2040,7 +2040,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": 0.0,
-                "y": 22.0
+                "y": -3.0
               },
               "Rotation": {
                 "x": 0.0,
@@ -2049,7 +2049,7 @@
               },
               "Position": {
                 "x": 0.0,
-                "y": 51.0,
+                "y": 55.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -2090,9 +2090,9 @@
               "SortingLayer": "UI",
               "StartFrameIndex": 0,
               "Color": {
-                "r": 0.7019608,
-                "g": 0.8509804,
-                "b": 0.933333337,
+                "r": 0.5294118,
+                "g": 0.5803922,
+                "b": 0.619607866,
                 "a": 1.0
               },
               "DropShadow": false,
@@ -2131,15 +2131,15 @@
         }
       },
       {
-        "id": "8f0d0dcc-d1a9-4273-b4dc-b50bb9f6949b",
+        "id": "e7ffac39-310a-446c-96ce-47761e93ea9c",
         "path": "/ui/RoomProgress/ResultPanel/CloseButton/MasterLowerEdge",
         "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
         "jsonString": {
           "name": "MasterLowerEdge",
           "path": "/ui/RoomProgress/ResultPanel/CloseButton/MasterLowerEdge",
           "nameEditable": true,
-          "enable": true,
-          "visible": true,
+          "enable": false,
+          "visible": false,
           "localize": true,
           "displayOrder": 1,
           "pathConstraints": "/////",
@@ -2156,30 +2156,30 @@
             {
               "@type": "MOD.Core.UITransformComponent",
               "ActivePlatform": 255,
-              "AlignmentOption": 0,
+              "AlignmentOption": 11,
               "AnchorsMax": {
-                "x": 0.5,
-                "y": 0.5
+                "x": 1.0,
+                "y": 0.0
               },
               "AnchorsMin": {
-                "x": 0.5,
-                "y": 0.5
+                "x": 0.0,
+                "y": 0.0
               },
               "MobileOnly": false,
               "OffsetMax": {
-                "x": 100.0,
-                "y": -20.5
+                "x": -3.0,
+                "y": 4.5
               },
               "OffsetMin": {
-                "x": -100.0,
-                "y": -23.5
+                "x": 3.0,
+                "y": 1.5
               },
               "Pivot": {
                 "x": 0.5,
                 "y": 0.5
               },
               "RectSize": {
-                "x": 200.0,
+                "x": 244.0,
                 "y": 3.0
               },
               "UIMode": 1,
@@ -2191,7 +2191,7 @@
               "UIVersion": 2,
               "anchoredPosition": {
                 "x": 0.0,
-                "y": -22.0
+                "y": 3.0
               },
               "Rotation": {
                 "x": 0.0,
@@ -2200,7 +2200,7 @@
               },
               "Position": {
                 "x": 0.0,
-                "y": 7.0,
+                "y": 3.0,
                 "z": 0.0
               },
               "QuaternionRotation": {
@@ -2241,9 +2241,9 @@
               "SortingLayer": "UI",
               "StartFrameIndex": 0,
               "Color": {
-                "r": 0.152941182,
-                "g": 0.3764706,
-                "b": 0.5058824,
+                "r": 0.1882353,
+                "g": 0.239215687,
+                "b": 0.2784314,
                 "a": 1.0
               },
               "DropShadow": false,
@@ -2440,8 +2440,8 @@
           "name": "UpperEdge",
           "path": "/ui/RoomProgress/Minimap/UpperEdge",
           "nameEditable": true,
-          "enable": true,
-          "visible": true,
+          "enable": false,
+          "visible": false,
           "localize": true,
           "displayOrder": 0,
           "pathConstraints": "////",
@@ -2591,8 +2591,8 @@
           "name": "LowerEdge",
           "path": "/ui/RoomProgress/Minimap/LowerEdge",
           "nameEditable": true,
-          "enable": true,
-          "visible": true,
+          "enable": false,
+          "visible": false,
           "localize": true,
           "displayOrder": 1,
           "pathConstraints": "////",
@@ -18140,12 +18140,12 @@
               "FrameRow": 1,
               "Outline": false,
               "OutlineColor": {
-                "r": 0.0,
-                "g": 0.0,
-                "b": 0.0,
+                "r": 0.5294118,
+                "g": 0.5803922,
+                "b": 0.619607866,
                 "a": 1.0
               },
-              "OutlineWidth": 3.0,
+              "OutlineWidth": 0.0,
               "RaycastTarget": true,
               "Type": 1,
               "Enable": true
@@ -18241,6 +18241,308 @@
               "UseConstraintX": false,
               "UseConstraintY": false,
               "VerticalAlignment": 512,
+              "Enable": true
+            }
+          ],
+          "@version": 1
+        }
+      },
+      {
+        "id": "7a13ed29-9c03-41c8-ba3d-30414c66924b",
+        "path": "/ui/RoomProgress/MapHeader/ToggleButton/MasterUpperEdge",
+        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
+        "jsonString": {
+          "name": "MasterUpperEdge",
+          "path": "/ui/RoomProgress/MapHeader/ToggleButton/MasterUpperEdge",
+          "nameEditable": true,
+          "enable": false,
+          "visible": false,
+          "localize": true,
+          "displayOrder": 0,
+          "pathConstraints": "/////",
+          "revision": 0,
+          "origin": {
+            "type": "Model",
+            "entry_id": "UISprite",
+            "sub_entity_id": null,
+            "root_entity_id": null,
+            "replaced_model_id": null
+          },
+          "modelId": "uisprite",
+          "@components": [
+            {
+              "@type": "MOD.Core.UITransformComponent",
+              "ActivePlatform": 255,
+              "AlignmentOption": 9,
+              "AnchorsMax": {
+                "x": 1.0,
+                "y": 1.0
+              },
+              "AnchorsMin": {
+                "x": 0.0,
+                "y": 1.0
+              },
+              "MobileOnly": false,
+              "OffsetMax": {
+                "x": -3.0,
+                "y": -1.5
+              },
+              "OffsetMin": {
+                "x": 3.0,
+                "y": -4.5
+              },
+              "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "RectSize": {
+                "x": 330.0,
+                "y": 3.0
+              },
+              "UIMode": 1,
+              "UIScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              },
+              "UIVersion": 2,
+              "anchoredPosition": {
+                "x": 0.0,
+                "y": -3.0
+              },
+              "Rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "Position": {
+                "x": 0.0,
+                "y": 24.0,
+                "z": 0.0
+              },
+              "QuaternionRotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+              },
+              "Scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              },
+              "ZRotation": 0.0,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SpriteGUIRendererComponent",
+              "AnimClipPlayType": 0,
+              "EndFrameIndex": 2147483647,
+              "IgnoreMapLayerCheck": false,
+              "ImageRUID": {
+                "DataId": "2860136c06ab075439721c027de365af"
+              },
+              "LocalPosition": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "LocalScale": {
+                "x": 1.0,
+                "y": 1.0
+              },
+              "MaterialId": "",
+              "OrderInLayer": 0,
+              "OverrideSorting": false,
+              "PlayRate": 1.0,
+              "PreserveSprite": 0,
+              "SortingLayer": "UI",
+              "StartFrameIndex": 0,
+              "Color": {
+                "r": 0.5294118,
+                "g": 0.5803922,
+                "b": 0.619607866,
+                "a": 1.0
+              },
+              "DropShadow": false,
+              "DropShadowAngle": 120.0,
+              "DropShadowColor": {
+                "r": 0.0,
+                "g": 0.0,
+                "b": 0.0,
+                "a": 0.72
+              },
+              "DropShadowDistance": 3.0,
+              "FillAmount": 1.0,
+              "FillCenter": true,
+              "FillClockWise": true,
+              "FillMethod": 0,
+              "FillOrigin": 0,
+              "FlipX": false,
+              "FlipY": false,
+              "FrameColumn": 1,
+              "FrameRate": 0,
+              "FrameRow": 1,
+              "Outline": false,
+              "OutlineColor": {
+                "r": 0.0,
+                "g": 0.0,
+                "b": 0.0,
+                "a": 1.0
+              },
+              "OutlineWidth": 3.0,
+              "RaycastTarget": false,
+              "Type": 1,
+              "Enable": true
+            }
+          ],
+          "@version": 1
+        }
+      },
+      {
+        "id": "7140310e-a5dc-422d-b817-7ed69c7ec189",
+        "path": "/ui/RoomProgress/MapHeader/ToggleButton/MasterLowerEdge",
+        "componentNames": "MOD.Core.UITransformComponent,MOD.Core.SpriteGUIRendererComponent",
+        "jsonString": {
+          "name": "MasterLowerEdge",
+          "path": "/ui/RoomProgress/MapHeader/ToggleButton/MasterLowerEdge",
+          "nameEditable": true,
+          "enable": false,
+          "visible": false,
+          "localize": true,
+          "displayOrder": 1,
+          "pathConstraints": "/////",
+          "revision": 0,
+          "origin": {
+            "type": "Model",
+            "entry_id": "UISprite",
+            "sub_entity_id": null,
+            "root_entity_id": null,
+            "replaced_model_id": null
+          },
+          "modelId": "uisprite",
+          "@components": [
+            {
+              "@type": "MOD.Core.UITransformComponent",
+              "ActivePlatform": 255,
+              "AlignmentOption": 11,
+              "AnchorsMax": {
+                "x": 1.0,
+                "y": 0.0
+              },
+              "AnchorsMin": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "MobileOnly": false,
+              "OffsetMax": {
+                "x": -3.0,
+                "y": 4.5
+              },
+              "OffsetMin": {
+                "x": 3.0,
+                "y": 1.5
+              },
+              "Pivot": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "RectSize": {
+                "x": 330.0,
+                "y": 3.0
+              },
+              "UIMode": 1,
+              "UIScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              },
+              "UIVersion": 2,
+              "anchoredPosition": {
+                "x": 0.0,
+                "y": 3.0
+              },
+              "Rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "Position": {
+                "x": 0.0,
+                "y": -24.0,
+                "z": 0.0
+              },
+              "QuaternionRotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+              },
+              "Scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              },
+              "ZRotation": 0.0,
+              "Enable": true
+            },
+            {
+              "@type": "MOD.Core.SpriteGUIRendererComponent",
+              "AnimClipPlayType": 0,
+              "EndFrameIndex": 2147483647,
+              "IgnoreMapLayerCheck": false,
+              "ImageRUID": {
+                "DataId": "2860136c06ab075439721c027de365af"
+              },
+              "LocalPosition": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "LocalScale": {
+                "x": 1.0,
+                "y": 1.0
+              },
+              "MaterialId": "",
+              "OrderInLayer": 0,
+              "OverrideSorting": false,
+              "PlayRate": 1.0,
+              "PreserveSprite": 0,
+              "SortingLayer": "UI",
+              "StartFrameIndex": 0,
+              "Color": {
+                "r": 0.1882353,
+                "g": 0.239215687,
+                "b": 0.2784314,
+                "a": 1.0
+              },
+              "DropShadow": false,
+              "DropShadowAngle": 120.0,
+              "DropShadowColor": {
+                "r": 0.0,
+                "g": 0.0,
+                "b": 0.0,
+                "a": 0.72
+              },
+              "DropShadowDistance": 3.0,
+              "FillAmount": 1.0,
+              "FillCenter": true,
+              "FillClockWise": true,
+              "FillMethod": 0,
+              "FillOrigin": 0,
+              "FlipX": false,
+              "FlipY": false,
+              "FrameColumn": 1,
+              "FrameRate": 0,
+              "FrameRow": 1,
+              "Outline": false,
+              "OutlineColor": {
+                "r": 0.0,
+                "g": 0.0,
+                "b": 0.0,
+                "a": 1.0
+              },
+              "OutlineWidth": 3.0,
+              "RaycastTarget": false,
+              "Type": 1,
               "Enable": true
             }
           ],

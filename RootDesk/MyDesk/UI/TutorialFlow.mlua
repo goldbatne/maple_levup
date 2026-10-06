@@ -38,7 +38,7 @@ script TutorialFlow extends Logic
 
 	@ExecSpace("ClientOnly")
 	method void BuildLobbyCircle()
-		-- 로비 버튼을 검정 원형 테두리와 위·아래 명암이 있는 입체 픽셀 UI로 만든다.
+		-- 원형과 얇은 검정 테두리는 유지하고 단색 평면으로 표시한다.
 		local circle = _EntityService:GetEntityByPath("/ui/Tutorial/LobbyButton/CircleFill")
 		if not isvalid(circle) or isvalid(circle.PixelGUIRendererComponent) then return end
 		circle:RemoveComponent("MOD.Core.SpriteGUIRendererComponent")
@@ -49,7 +49,6 @@ script TutorialFlow extends Logic
 			for x = 1, 96 do
 				local outer = 0
 				local inner = 0
-				local face = 0
 				for sy = 0, 1 do
 					for sx = 0, 1 do
 						local dx = x - 48.75 + sx * 0.5
@@ -57,24 +56,14 @@ script TutorialFlow extends Logic
 						local radius = math.sqrt(dx * dx + dy * dy)
 						if radius <= 46.5 then outer += 0.25 end
 						if radius <= 44.5 then inner += 0.25 end
-						if radius <= 41.5 then face += 0.25 end
 					end
 				end
 				if outer > 0 then
 					local rim = outer - inner
-					local bevel = inner - face
-					local shade = (y - 1) / 95
-					local top = shade >= 0.5
-					local bevelR = top and 0.58 or 0.10
-					local bevelG = top and 0.80 or 0.31
-					local bevelB = top and 0.89 or 0.43
-					local faceR = 0.20 + shade * 0.14
-					local faceG = 0.42 + shade * 0.18
-					local faceB = 0.58 + shade * 0.17
 					pixels:SetPixel(x, y, Color(
-						(0.02 * rim + bevelR * bevel + faceR * face) / outer,
-						(0.02 * rim + bevelG * bevel + faceG * face) / outer,
-						(0.02 * rim + bevelB * bevel + faceB * face) / outer,
+						(0.02 * rim + 0.239215687 * inner) / outer,
+						(0.02 * rim + 0.549019635 * inner) / outer,
+						(0.02 * rim + 0.7607843 * inner) / outer,
 						outer))
 				end
 			end
